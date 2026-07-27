@@ -1,0 +1,263 @@
+@import "./tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    border-color: var(--clr-surface-border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    background-color: var(--clr-bg);
+    color: var(--clr-text);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--clr-primary);
+    color: var(--clr-text-inverse);
+  }
+
+  /* Theme-matched scrollbars — a white scrollbar over the dark theme is the
+     most common giveaway that a dark mode was bolted on. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--clr-surface-active) transparent;
+  }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: var(--clr-surface-active);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover { background: var(--clr-text-muted); background-clip: content-box; }
+
+  /* Visible keyboard focus everywhere; mouse/touch stay clean via :focus-visible. */
+  :focus-visible {
+    outline: 2px solid var(--clr-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* ── Arabic typography (§4.5) ─────────────────────────────────────────────
+   Arabic renders optically smaller at the same px and needs more leading.
+   Letter-spacing must never be applied — it breaks the cursive joins. */
+[lang="ar"] {
+  letter-spacing: normal !important;
+}
+[lang="ar"] .prose {
+  font-size: 1.06em;
+  line-height: 1.85;
+}
+[lang="ar"] .prose :is(h1, h2, h3, h4) {
+  line-height: 1.45;
+  font-weight: 700;
+}
+
+/* Latin fragments inside Arabic prose keep their own face and direction, and
+   are bidi-isolated so surrounding Arabic cannot scramble them (§4.3 Rule 2). */
+[lang="ar"] :is(code, kbd, samp, .latin) {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Code is ALWAYS ltr, even on an Arabic page. A mirrored YAML block is wrong. */
+pre,
+code,
+kbd,
+samp,
+.terminal {
+  direction: ltr;
+  text-align: start;
+}
+
+/* Directional icons mirror in RTL; everything else must not. */
+[dir="rtl"] .icon-directional {
+  transform: scaleX(-1);
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border bg-surface shadow-sm;
+    border-color: var(--clr-surface-border);
+    transition: border-color var(--dur-base) var(--ease-out),
+      box-shadow var(--dur-base) var(--ease-out),
+      transform var(--dur-base) var(--ease-out);
+  }
+  .card:hover {
+    border-color: color-mix(in srgb, var(--clr-primary) 40%, transparent);
+  }
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .card-lift:active {
+    transform: scale(0.985);
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium
+      transition-[transform,background-color,border-color,color,box-shadow] duration-150
+      active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    background-color: var(--clr-primary);
+    color: var(--clr-text-inverse);
+  }
+  .btn-primary:hover { background-color: var(--clr-primary-dark); }
+  .btn-outline {
+    @apply border bg-transparent;
+    color: var(--clr-text);
+    border-color: var(--clr-surface-border);
+  }
+  .btn-outline:hover { background-color: var(--clr-surface-hover); }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  /* Long content lists: skip painting off-screen cards. */
+  .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 180px;
+  }
+}
+
+/* ── Prose ───────────────────────────────────────────────────────────────── */
+.prose {
+  color: var(--clr-text-secondary);
+  max-width: 72ch;
+  line-height: 1.75;
+}
+.prose > * + * { margin-top: 1.3em; }
+.prose :is(h2, h3, h4) {
+  color: var(--clr-text);
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  font-weight: 600;
+  scroll-margin-top: 5rem;
+}
+.prose h2 { font-size: 1.6rem; margin-top: 3.2em; line-height: 1.25; }
+.prose h3 { font-size: 1.25rem; margin-top: 2em; line-height: 1.35; }
+.prose h4 { font-size: 1.05rem; margin-top: 1.6em; }
+.prose strong { color: var(--clr-text); font-weight: 600; }
+.prose a {
+  color: var(--clr-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.prose ul, .prose ol { padding-inline-start: 1.4em; }
+.prose ul { list-style: disc; }
+.prose ol { list-style: decimal; }
+.prose li + li { margin-top: 0.4em; }
+.prose blockquote {
+  border-inline-start: 3px solid var(--clr-primary);
+  padding-inline-start: 1em;
+  color: var(--clr-text-secondary);
+  background: var(--clr-bg-secondary);
+  padding-block: 0.75em;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+.prose :not(pre) > code {
+  background: var(--clr-surface-active);
+  color: var(--clr-text);
+  padding: 0.15em 0.4em;
+  border-radius: var(--radius-sm);
+  font-size: 0.875em;
+  font-family: var(--font-mono), monospace;
+  /* Technical prose is full of identifiers with no break opportunity —
+     `api.production.svc.cluster.local`, an image digest, a long flag. A single
+     one of them is wider than a 320px viewport and pushes the whole page into
+     horizontal scroll (§12.6). Inside a `pre` the block scrolls on its own, so
+     this applies only to inline code. */
+  overflow-wrap: anywhere;
+}
+.prose pre {
+  background: var(--clr-bg-secondary) !important;
+  border: 1px solid var(--clr-surface-border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.15rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.prose pre code { background: none; padding: 0; font-size: inherit; }
+
+/* rehype-pretty-code renders `code` as a grid so it can highlight lines. A
+   grid item's automatic min-width is its content, which forces the `pre` to
+   grow to the widest line instead of scrolling — so a wide ASCII diagram
+   pushed the whole page sideways on a phone. Pin the code to the container and
+   let it scroll inside its own box (§12.6). */
+.prose figure[data-rehype-pretty-code-figure] { max-width: 100%; margin-inline: 0; }
+.prose pre { max-width: 100%; }
+.prose pre > code {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Long unbroken tokens — URLs, image digests, base64 — must not push either. */
+.prose { overflow-wrap: anywhere; }
+.prose :is(pre, code, kbd, samp) { overflow-wrap: normal; }
+.prose hr { border-color: var(--clr-surface-border); margin-block: 2.5em; }
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  display: block;
+  overflow-x: auto;
+}
+.prose :is(th, td) {
+  border: 1px solid var(--clr-surface-border);
+  padding: 0.55em 0.8em;
+  text-align: start;
+}
+.prose th { background: var(--clr-bg-secondary); color: var(--clr-text); font-weight: 600; }
+.prose img { max-width: 100%; height: auto; border-radius: var(--radius-lg); }
+
+/* Heading anchors. Targeted structurally: rehype-autolink-headings did not
+   attach its configured class, and a selector that depends on plugin
+   behaviour is a selector that silently stops working. */
+.prose :is(h1, h2, h3, h4) > a[href^="#"] {
+  opacity: 0;
+  margin-inline-start: 0.4em;
+  color: var(--clr-text-muted);
+  text-decoration: none;
+  font-weight: 400;
+  transition: opacity var(--dur-micro) var(--ease-out);
+}
+.prose :is(h1, h2, h3, h4):hover > a[href^="#"],
+.prose :is(h1, h2, h3, h4) > a[href^="#"]:focus-visible { opacity: 1; }
+
+/* ── Motion ──────────────────────────────────────────────────────────────── */
+@keyframes pageFade { from { opacity: 0 } to { opacity: 1 } }
+.animate-page { animation: pageFade 0.2s var(--ease-out); }
+
+/* The one permitted logo animation (§2.4): the chevron draws itself upward,
+   once, on the landing page. */
+@keyframes markDraw {
+  from { stroke-dashoffset: 600; opacity: 0.2 }
+  to   { stroke-dashoffset: 0; opacity: 1 }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
