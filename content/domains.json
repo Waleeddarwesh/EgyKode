@@ -1,0 +1,260 @@
+{
+  "$comment": "Topic metadata. Groups exist so a beginner sees six areas, not twenty-nine tools — the tools appear once they pick an area.",
+  "groups": [
+    {
+      "id": "foundations",
+      "title": "Foundations",
+      "titleAr": "الأساسيات (Foundations)",
+      "blurb": "The things everything else assumes you already know.",
+      "blurbAr": "الأمور التي يفترض كل ما يليها أنك تعرفها.",
+      "domains": [
+        "linux",
+        "networking",
+        "git",
+        "build"
+      ]
+    },
+    {
+      "id": "containers",
+      "title": "Containers & Orchestration",
+      "titleAr": "الحاويات والتنسيق (Containers & Orchestration)",
+      "blurb": "Packaging an application, then running thousands of them.",
+      "blurbAr": "تحزيم تطبيق واحد، ثم تشغيل الآلاف منه.",
+      "domains": [
+        "docker",
+        "kubernetes",
+        "helm",
+        "kustomize"
+      ]
+    },
+    {
+      "id": "cloud",
+      "title": "Cloud & Infrastructure",
+      "titleAr": "السحابة والبنية التحتية (Cloud & Infrastructure)",
+      "blurb": "Renting machines, networks and databases — and describing them as code.",
+      "blurbAr": "استئجار الخوادم والشبكات وقواعد البيانات — ووصفها ككود.",
+      "domains": [
+        "aws",
+        "terraform",
+        "ansible"
+      ]
+    },
+    {
+      "id": "delivery",
+      "title": "Delivery",
+      "titleAr": "التسليم (Delivery)",
+      "blurb": "Getting a commit into production without touching the server.",
+      "blurbAr": "إيصال الـ commit إلى الإنتاج دون لمس الخادم.",
+      "domains": [
+        "jenkins",
+        "github-actions",
+        "nexus",
+        "gitops",
+        "argocd"
+      ]
+    },
+    {
+      "id": "operate",
+      "title": "Operate",
+      "titleAr": "التشغيل (Operations)",
+      "blurb": "Knowing what your system is doing, and what it costs.",
+      "blurbAr": "أن تعرف ما يفعله نظامك، وكم يكلّف.",
+      "domains": [
+        "observability",
+        "prometheus",
+        "grafana",
+        "logging",
+        "sre",
+        "cost"
+      ]
+    },
+    {
+      "id": "security",
+      "title": "Security & Platform",
+      "titleAr": "الأمان والمنصات (Security & Platform)",
+      "blurb": "Keeping it safe, and making it usable by other engineers.",
+      "blurbAr": "تأمينه، وجعله صالحاً للاستخدام من مهندسين آخرين.",
+      "domains": [
+        "security",
+        "platform-engineering",
+        "platform"
+      ]
+    }
+  ],
+  "domains": {
+    "linux": {
+      "title": "Linux",
+      "titleAr": "Linux",
+      "blurb": "The operating system every server runs. Files, processes, permissions, services.",
+      "blurbAr": "نظام التشغيل الذي يعمل عليه كل خادم. الملفات والعمليات والصلاحيات والخدمات."
+    },
+    "networking": {
+      "title": "Networking",
+      "titleAr": "الشبكات (Networking)",
+      "blurb": "How machines find and talk to each other. IP, DNS, ports, routing, TLS.",
+      "blurbAr": "كيف تتعارف الأجهزة وتتواصل. IP و DNS والمنافذ والتوجيه و TLS."
+    },
+    "git": {
+      "title": "Git & GitHub",
+      "titleAr": "Git و GitHub",
+      "blurb": "Version control, branching, and the workflow every other tool plugs into.",
+      "blurbAr": "إدارة الإصدارات والفروع، وسير العمل الذي ترتبط به كل أداة أخرى."
+    },
+    "build": {
+      "title": "Build Tools",
+      "titleAr": "أدوات البناء (Build Tools)",
+      "blurb": "Turning source code into an artifact you can ship.",
+      "blurbAr": "تحويل الكود المصدري إلى مخرَج قابل للنشر."
+    },
+    "docker": {
+      "title": "Docker",
+      "titleAr": "Docker",
+      "blurb": "Packaging an application with everything it needs to run, anywhere.",
+      "blurbAr": "تحزيم التطبيق مع كل ما يحتاجه للعمل في أي مكان."
+    },
+    "kubernetes": {
+      "title": "Kubernetes",
+      "titleAr": "Kubernetes",
+      "blurb": "Running containers across many machines, and keeping them running.",
+      "blurbAr": "تشغيل الحاويات عبر أجهزة متعددة، وإبقاؤها عاملة."
+    },
+    "helm": {
+      "title": "Helm",
+      "titleAr": "Helm",
+      "blurb": "Packaging Kubernetes manifests so they can be versioned and reused.",
+      "blurbAr": "تحزيم ملفات Kubernetes بحيث يمكن إصدارها وإعادة استخدامها."
+    },
+    "kustomize": {
+      "title": "Kustomize",
+      "titleAr": "Kustomize",
+      "blurb": "One base, many environments, without templating everything.",
+      "blurbAr": "أساس واحد وبيئات متعددة، دون تحويل كل شيء إلى قوالب."
+    },
+    "aws": {
+      "title": "AWS",
+      "titleAr": "AWS",
+      "blurb": "Networks, compute, databases and identity — and what each one costs.",
+      "blurbAr": "الشبكات والحوسبة وقواعد البيانات والهوية — وتكلفة كل منها."
+    },
+    "terraform": {
+      "title": "Terraform",
+      "titleAr": "Terraform",
+      "blurb": "Describing infrastructure as code so it can be reviewed and rebuilt.",
+      "blurbAr": "وصف البنية التحتية ككود بحيث يمكن مراجعتها وإعادة بنائها."
+    },
+    "ansible": {
+      "title": "Ansible",
+      "titleAr": "Ansible",
+      "blurb": "Configuring servers repeatably, without logging into them.",
+      "blurbAr": "تهيئة الخوادم بشكل قابل للتكرار، دون الدخول إليها."
+    },
+    "jenkins": {
+      "title": "Jenkins",
+      "titleAr": "Jenkins",
+      "blurb": "Pipelines that build, test, scan and release on every commit.",
+      "blurbAr": "خطوط تبني وتختبر وتفحص وتُصدر مع كل commit."
+    },
+    "github-actions": {
+      "title": "GitHub Actions",
+      "titleAr": "GitHub Actions",
+      "blurb": "CI that lives next to the code, with no server to maintain.",
+      "blurbAr": "تكامل مستمر يقع بجوار الكود، دون خادم تتولى صيانته."
+    },
+    "nexus": {
+      "title": "Artifacts & Registries",
+      "titleAr": "المخرجات والمستودعات (Artifacts & Registries)",
+      "blurb": "Where built artifacts and images live between build and deploy.",
+      "blurbAr": "أين تستقر المخرجات والصور بين البناء والنشر."
+    },
+    "gitops": {
+      "title": "GitOps",
+      "titleAr": "GitOps",
+      "blurb": "Git as the single source of truth for what is running.",
+      "blurbAr": "Git بوصفه المصدر الوحيد للحقيقة لكل ما يعمل."
+    },
+    "argocd": {
+      "title": "Argo CD",
+      "titleAr": "Argo CD",
+      "blurb": "Reconciling the cluster against git, continuously.",
+      "blurbAr": "مطابقة الكلاستر مع git بشكل مستمر."
+    },
+    "observability": {
+      "title": "Observability",
+      "titleAr": "قابلية الرصد (Observability)",
+      "blurb": "Metrics, logs and traces — knowing what is happening inside.",
+      "blurbAr": "المقاييس والسجلات والتتبّع — أن تعرف ما يجري في الداخل."
+    },
+    "prometheus": {
+      "title": "Prometheus",
+      "titleAr": "Prometheus",
+      "blurb": "Collecting metrics and alerting on them before users notice.",
+      "blurbAr": "جمع المقاييس والتنبيه قبل أن يلاحظ المستخدمون."
+    },
+    "grafana": {
+      "title": "Grafana",
+      "titleAr": "Grafana",
+      "blurb": "Dashboards that answer a question, not just show numbers.",
+      "blurbAr": "لوحات تجيب عن سؤال، لا تعرض أرقاماً فحسب."
+    },
+    "logging": {
+      "title": "Logging",
+      "titleAr": "السجلات المركزية (Centralized Logging)",
+      "blurb": "Centralised logs you can actually search during an incident.",
+      "blurbAr": "سجلات مركزية يمكن البحث فيها فعلياً أثناء العطل."
+    },
+    "security": {
+      "title": "Security",
+      "titleAr": "الأمان (Security)",
+      "blurb": "Image scanning, least privilege, secrets, and default-deny networking.",
+      "blurbAr": "فحص الصور، وأقل صلاحية، والأسرار، وشبكة ترفض افتراضياً."
+    },
+    "sre": {
+      "title": "SRE & Resilience",
+      "titleAr": "SRE والمرونة (Reliability)",
+      "blurb": "Designing for the day it breaks, and practising for it.",
+      "blurbAr": "التصميم تحسباً ليوم العطل، والتدرّب عليه."
+    },
+    "cost": {
+      "title": "Cost",
+      "titleAr": "التكلفة (FinOps)",
+      "blurb": "What the architecture costs, and how to make it cost less.",
+      "blurbAr": "كم تكلّف المعمارية، وكيف تجعلها أقل تكلفة."
+    },
+    "platform-engineering": {
+      "title": "Platform Engineering",
+      "titleAr": "هندسة المنصات (Platform Engineering)",
+      "blurb": "Turning all of the above into something other engineers can use.",
+      "blurbAr": "تحويل كل ما سبق إلى شيء يستطيع مهندسون آخرون استخدامه."
+    },
+    "platform": {
+      "title": "The Reference Platform",
+      "titleAr": "المنصة المرجعية (Reference Platform)",
+      "blurb": "The system every chapter refers back to — its architecture and decisions.",
+      "blurbAr": "النظام الذي يعود إليه كل فصل — معماريته وقراراته."
+    },
+    "labs": {
+      "title": "Labs",
+      "titleAr": "المعامل (Labs)",
+      "blurb": "Hands-on exercises with expected output.",
+      "blurbAr": "تمارين عملية بمخرجات متوقعة."
+    },
+    "troubleshooting": {
+      "title": "Troubleshooting",
+      "titleAr": "حل المشكلات (Troubleshooting)",
+      "blurb": "Start from the error you got, not the tool you suspect.",
+      "blurbAr": "ابدأ من الخطأ الذي ظهر لك، لا من الأداة التي تشك بها."
+    },
+    "glossary": {
+      "title": "Glossary",
+      "titleAr": "المصطلحات (Glossary)",
+      "blurb": "Every term, defined once, in both languages.",
+      "blurbAr": "كل مصطلح، معرَّف مرة واحدة، باللغتين."
+    },
+    "interview": {
+      "title": "Interview Prep",
+      "titleAr": "التحضير للمقابلات (Interview Prep)",
+      "blurb": "What gets asked, and what a strong answer sounds like.",
+      "blurbAr": "ما الذي يُسأل عنه، وكيف تبدو الإجابة القوية."
+    }
+  }
+}
