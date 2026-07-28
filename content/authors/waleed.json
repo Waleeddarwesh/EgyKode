@@ -1,0 +1,20 @@
+{
+  "id": "waleed",
+  "name": "Waleed Darwesh",
+  "nameAr": "وليد درويش",
+  "handle": "Waleeddarwesh",
+  "headline": "Cloud & DevOps Engineer",
+  "headlineAr": "مهندس Cloud و DevOps",
+  "location": "Cairo, Egypt",
+  "locationAr": "القاهرة، مصر",
+  "bio": "I build platforms and write down how they work. Most of what is on EgyKode came out of running these systems myself — including the parts that went wrong.",
+  "bioAr": "أبني منصات وأوثّق كيفية عملها. معظم ما تجده على EgyKode جاء من تشغيل هذه الأنظمة بنفسي، بما في ذلك المواضع التي أخفقت فيها.",
+  "avatar": "/authors/waleed.jpg",
+  "links": {
+    "github": "https://github.com/Waleeddarwesh",
+    "linkedin": "https://www.linkedin.com/in/waleeddarwesh1",
+    "email": "Waleeddarweshsaad1@gmail.com"
+  },
+  "source": "native",
+  "role": "maintainer"
+}
