@@ -1,0 +1,425 @@
+[
+  {
+    "contentId": "start-here",
+    "title": "Start Here — Zero to Production",
+    "domain": "platform",
+    "level": "beginner",
+    "phase": "orientation",
+    "order": 0,
+    "readingTime": 30
+  },
+  {
+    "contentId": "project-overview",
+    "title": "Project Overview",
+    "domain": "platform",
+    "level": "beginner",
+    "phase": "orientation",
+    "order": 1,
+    "readingTime": 25
+  },
+  {
+    "contentId": "system-architecture",
+    "title": "System Architecture",
+    "domain": "platform",
+    "level": "beginner",
+    "phase": "orientation",
+    "order": 2,
+    "readingTime": 35
+  },
+  {
+    "contentId": "requirements",
+    "title": "Platform Requirements",
+    "domain": "platform",
+    "level": "beginner",
+    "phase": "orientation",
+    "order": 3,
+    "readingTime": 25
+  },
+  {
+    "contentId": "repository-structure",
+    "title": "Repository Structure",
+    "domain": "platform",
+    "level": "beginner",
+    "phase": "orientation",
+    "order": 4,
+    "readingTime": 20
+  },
+  {
+    "contentId": "linux-foundations",
+    "title": "The Foundation (Linux)",
+    "domain": "linux",
+    "level": "beginner",
+    "phase": "foundations",
+    "order": 5,
+    "readingTime": 45
+  },
+  {
+    "contentId": "networking-fundamentals",
+    "title": "Networking Fundamentals",
+    "domain": "networking",
+    "level": "beginner",
+    "phase": "foundations",
+    "order": 6,
+    "readingTime": 55
+  },
+  {
+    "contentId": "git-and-github",
+    "title": "Version Control (Git & GitHub)",
+    "domain": "git",
+    "level": "beginner",
+    "phase": "foundations",
+    "order": 7,
+    "readingTime": 50
+  },
+  {
+    "contentId": "build-tools",
+    "title": "Build Tools (Maven & Gradle)",
+    "domain": "build",
+    "level": "beginner",
+    "phase": "build-and-containers",
+    "order": 8,
+    "readingTime": 40
+  },
+  {
+    "contentId": "docker",
+    "title": "Containerization (Docker)",
+    "domain": "docker",
+    "level": "beginner",
+    "phase": "build-and-containers",
+    "order": 9,
+    "readingTime": 50
+  },
+  {
+    "contentId": "aws-overview",
+    "title": "Amazon Web Services (AWS)",
+    "domain": "aws",
+    "level": "beginner",
+    "phase": "cloud",
+    "order": 10,
+    "readingTime": 40
+  },
+  {
+    "contentId": "vpc",
+    "title": "Cloud Networking (AWS VPC)",
+    "domain": "aws",
+    "level": "intermediate",
+    "phase": "cloud",
+    "order": 11,
+    "readingTime": 50
+  },
+  {
+    "contentId": "iam",
+    "title": "Security & Identity (AWS IAM)",
+    "domain": "aws",
+    "level": "intermediate",
+    "phase": "cloud",
+    "order": 12,
+    "readingTime": 50
+  },
+  {
+    "contentId": "terraform",
+    "title": "Infrastructure as Code (Terraform)",
+    "domain": "terraform",
+    "level": "intermediate",
+    "phase": "iac",
+    "order": 13,
+    "readingTime": 60
+  },
+  {
+    "contentId": "ansible",
+    "title": "Configuration Management (Ansible)",
+    "domain": "ansible",
+    "level": "intermediate",
+    "phase": "iac",
+    "order": 14,
+    "readingTime": 50
+  },
+  {
+    "contentId": "rds",
+    "title": "Managed Databases (Amazon RDS)",
+    "domain": "aws",
+    "level": "intermediate",
+    "phase": "cloud",
+    "order": 15,
+    "readingTime": 40
+  },
+  {
+    "contentId": "load-balancers",
+    "title": "High Availability (AWS Load Balancers)",
+    "domain": "aws",
+    "level": "intermediate",
+    "phase": "cloud",
+    "order": 16,
+    "readingTime": 35
+  },
+  {
+    "contentId": "auto-scaling",
+    "title": "Elasticity (AWS Auto Scaling)",
+    "domain": "aws",
+    "level": "intermediate",
+    "phase": "cloud",
+    "order": 17,
+    "readingTime": 35
+  },
+  {
+    "contentId": "secrets-manager",
+    "title": "Security (AWS Secrets Manager)",
+    "domain": "aws",
+    "level": "advanced",
+    "phase": "cloud",
+    "order": 18,
+    "readingTime": 40
+  },
+  {
+    "contentId": "kubernetes",
+    "title": "Container Orchestration (Kubernetes)",
+    "domain": "kubernetes",
+    "level": "intermediate",
+    "phase": "kubernetes",
+    "order": 19,
+    "readingTime": 75
+  },
+  {
+    "contentId": "kubeadm",
+    "title": "Cluster Bootstrapping (Kubeadm)",
+    "domain": "kubernetes",
+    "level": "advanced",
+    "phase": "kubernetes",
+    "order": 20,
+    "readingTime": 60
+  },
+  {
+    "contentId": "helm",
+    "title": "Package Management (Helm)",
+    "domain": "helm",
+    "level": "intermediate",
+    "phase": "kubernetes",
+    "order": 21,
+    "readingTime": 45
+  },
+  {
+    "contentId": "kustomize",
+    "title": "Environment Overlays (Kustomize)",
+    "domain": "kustomize",
+    "level": "intermediate",
+    "phase": "kubernetes",
+    "order": 22,
+    "readingTime": 45
+  },
+  {
+    "contentId": "jenkins",
+    "title": "Continuous Integration (Jenkins)",
+    "domain": "jenkins",
+    "level": "intermediate",
+    "phase": "cicd",
+    "order": 23,
+    "readingTime": 55
+  },
+  {
+    "contentId": "github-actions",
+    "title": "Modern CI (GitHub Actions)",
+    "domain": "github-actions",
+    "level": "intermediate",
+    "phase": "cicd",
+    "order": 24,
+    "readingTime": 35
+  },
+  {
+    "contentId": "ecr",
+    "title": "Container Registry (AWS ECR)",
+    "domain": "aws",
+    "level": "intermediate",
+    "phase": "cloud",
+    "order": 25,
+    "readingTime": 30
+  },
+  {
+    "contentId": "nexus-and-artifacts",
+    "title": "Artifact Management (Nexus)",
+    "domain": "nexus",
+    "level": "intermediate",
+    "phase": "cicd",
+    "order": 26,
+    "readingTime": 35
+  },
+  {
+    "contentId": "gitops",
+    "title": "The GitOps Philosophy",
+    "domain": "gitops",
+    "level": "intermediate",
+    "phase": "gitops",
+    "order": 27,
+    "readingTime": 40
+  },
+  {
+    "contentId": "argocd",
+    "title": "Continuous Delivery (ArgoCD)",
+    "domain": "argocd",
+    "level": "advanced",
+    "phase": "gitops",
+    "order": 28,
+    "readingTime": 45
+  },
+  {
+    "contentId": "observability",
+    "title": "Introduction to Observability",
+    "domain": "observability",
+    "level": "intermediate",
+    "phase": "observability",
+    "order": 29,
+    "readingTime": 30
+  },
+  {
+    "contentId": "prometheus",
+    "title": "Metrics (Prometheus)",
+    "domain": "prometheus",
+    "level": "advanced",
+    "phase": "observability",
+    "order": 30,
+    "readingTime": 55
+  },
+  {
+    "contentId": "grafana",
+    "title": "Data Visualization (Grafana)",
+    "domain": "grafana",
+    "level": "intermediate",
+    "phase": "observability",
+    "order": 31,
+    "readingTime": 35
+  },
+  {
+    "contentId": "logging",
+    "title": "Centralized Logging (Fluentd/Loki)",
+    "domain": "logging",
+    "level": "intermediate",
+    "phase": "observability",
+    "order": 32,
+    "readingTime": 40
+  },
+  {
+    "contentId": "container-security",
+    "title": "DevSecOps (Container Security)",
+    "domain": "security",
+    "level": "advanced",
+    "phase": "security",
+    "order": 33,
+    "readingTime": 55
+  },
+  {
+    "contentId": "network-policies",
+    "title": "Zero-Trust (Network Policies)",
+    "domain": "security",
+    "level": "advanced",
+    "phase": "security",
+    "order": 34,
+    "readingTime": 45
+  },
+  {
+    "contentId": "service-mesh",
+    "title": "Advanced Networking (Service Mesh)",
+    "domain": "kubernetes",
+    "level": "advanced",
+    "phase": "kubernetes",
+    "order": 35,
+    "readingTime": 45
+  },
+  {
+    "contentId": "serverless",
+    "title": "Beyond Kubernetes (Serverless)",
+    "domain": "aws",
+    "level": "intermediate",
+    "phase": "cloud",
+    "order": 36,
+    "readingTime": 35
+  },
+  {
+    "contentId": "chaos-engineering",
+    "title": "System Resilience (Chaos Engineering)",
+    "domain": "sre",
+    "level": "advanced",
+    "phase": "production",
+    "order": 37,
+    "readingTime": 40
+  },
+  {
+    "contentId": "cost-optimization",
+    "title": "Cloud Economics (FinOps)",
+    "domain": "cost",
+    "level": "advanced",
+    "phase": "production",
+    "order": 38,
+    "readingTime": 40
+  },
+  {
+    "contentId": "platform-engineering",
+    "title": "The Future (Platform Engineering)",
+    "domain": "platform-engineering",
+    "level": "advanced",
+    "phase": "production",
+    "order": 39,
+    "readingTime": 40
+  },
+  {
+    "contentId": "disaster-recovery",
+    "title": "The Worst Day (Disaster Recovery)",
+    "domain": "sre",
+    "level": "advanced",
+    "phase": "production",
+    "order": 40,
+    "readingTime": 50
+  },
+  {
+    "contentId": "hands-on-labs",
+    "title": "Hands-On Labs",
+    "domain": "labs",
+    "level": "all",
+    "phase": "reference",
+    "order": 41,
+    "readingTime": 720
+  },
+  {
+    "contentId": "troubleshooting",
+    "title": "Troubleshooting",
+    "domain": "troubleshooting",
+    "level": "all",
+    "phase": "reference",
+    "order": 42,
+    "readingTime": 60
+  },
+  {
+    "contentId": "glossary",
+    "title": "Glossary",
+    "domain": "glossary",
+    "level": "all",
+    "phase": "reference",
+    "order": 43,
+    "readingTime": 10
+  },
+  {
+    "contentId": "interview-prep",
+    "title": "Final Interview Preparation",
+    "domain": "interview",
+    "level": "all",
+    "phase": "reference",
+    "order": 44,
+    "readingTime": 60
+  },
+  {
+    "contentId": "architecture-summary",
+    "title": "Project Architecture Summary (For Recruiters)",
+    "domain": "platform",
+    "level": "all",
+    "phase": "reference",
+    "order": 45,
+    "readingTime": 20
+  },
+  {
+    "contentId": "conclusion",
+    "title": "Conclusion",
+    "domain": "platform",
+    "level": "all",
+    "phase": "reference",
+    "order": 46,
+    "readingTime": 15
+  }
+]
