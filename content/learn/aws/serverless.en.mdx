@@ -1,0 +1,152 @@
+---
+contentId: serverless
+title: "Beyond Kubernetes (Serverless)"
+titleAr: "ما بعد Kubernetes — Serverless"
+description: "Choose containers vs Lambda on traffic shape, not fashion"
+descriptionAr: "متى يكون تشغيل خادم أصلًا هو الاختيار الخاطئ."
+domain: aws
+level: intermediate
+type: concept
+phase: cloud
+order: 36
+readingTime: 35
+prerequisites: ["aws-overview"]
+relatedChapters: ["aws-overview", "vpc", "iam", "rds"]
+objectives:
+  - "Choose containers vs Lambda on traffic shape, not fashion"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/36_Serverless.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Serverless
+
+We have spent 30 chapters building the ultimate Kubernetes platform. It is highly available, secure, and observable. 
+But what if your application is just a 50-line Python script that runs once a day to generate a report?
+Do you really need a 3-node Kubernetes cluster, an Istio Service Mesh, a Prometheus monitoring stack, and an ArgoCD deployment pipeline just to run 50 lines of Python?
+
+No. You use **Serverless**.
+
+---
+
+## Level 1 — Beginner
+
+### What is Serverless?
+Imagine you want a cup of coffee.
+- **The EC2 Way:** You buy the coffee machine, buy the beans, plug it in, and make the coffee. If the machine breaks, you fix it.
+- **The Kubernetes Way:** You hire a manager (Control Plane) to watch 3 coffee machines. If one breaks, the manager buys a new one automatically. 
+- **The Serverless (AWS Lambda) Way:** You walk into Starbucks, give them $3, and they hand you a coffee. You don't know where the machine is, you don't care how they made it, and you only pay for exactly one cup.
+
+"Serverless" does not mean there are no servers. It means *you* don't manage them. AWS manages the servers. You just provide the code, and AWS runs it.
+
+### Why do we need it?
+- **Zero Idle Costs:** If a Kubernetes Node is running at 3:00 AM and nobody is visiting your website, you are still paying Amazon for the EC2 server. In AWS Lambda, if nobody visits your website, you pay $0.00. 
+- **Infinite Scaling:** If 10,000 people click a button at the exact same second, AWS Lambda instantly creates 10,000 copies of your code, runs them in parallel, and deletes them 1 second later. 
+
+---
+
+## Level 2 — Intermediate
+
+### AWS Lambda vs. Kubernetes
+When should you use which?
+1. **Use Kubernetes When:** 
+   - You have a massive, complex microservice architecture.
+   - Your application takes 5 minutes to start up (Spring Boot).
+   - You need strict control over network traffic and security.
+   - You have predictable, constant traffic 24/7.
+2. **Use Serverless When:**
+   - You are running event-driven tasks (e.g., "Run this code every time a file is uploaded to S3").
+   - You have highly unpredictable, spikey traffic (e.g., a ticket sales website).
+   - You want to eliminate the operational overhead of patching Linux servers.
+
+### Cold Starts
+The biggest problem with AWS Lambda is the "Cold Start". 
+When an HTTP request triggers a Lambda function, AWS has to find a physical server, download your code, boot up a micro-VM (Firecracker), and start your application. This takes time (e.g., 500ms - 2 seconds). 
+If a user is waiting for a webpage to load, a 2-second delay is unacceptable. Once the function is warm, subsequent requests take 10ms.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Code (Terraform Serverless)
+
+Let's look at how we deploy an AWS Lambda function using Terraform.
+
+```hcl
+resource "aws_lambda_function" "report_generator" {
+  filename      = "lambda_function.zip"
+  function_name = "daily_report"
+  role          = aws_iam_role.lambda_exec.arn
+  handler       = "main.handler"
+  runtime       = "python3.10"
+
+  environment {
+    variables = {
+      DB_HOST = "ivolve-db.internal"
+    }
+  }
+}
+
+resource "aws_cloudwatch_event_rule" "daily" {
+  name                = "run-every-day"
+  schedule_expression = "cron(0 0 * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "trigger" {
+  rule      = aws_cloudwatch_event_rule.daily.name
+  target_id = "lambda"
+  arn       = aws_lambda_function.report_generator.arn
+}
+```
+
+**Line-by-Line Breakdown:**
+- **`runtime = "python3.10"`**: You don't write a Dockerfile. You don't choose an Operating System. You just tell AWS what language your code is written in.
+- **`role = aws_iam_role.lambda_exec.arn`**: Just like EC2, the Lambda function needs an IAM Role to interact with other AWS services (like reading from S3 or connecting to RDS).
+- **`schedule_expression = "cron(0 0 * * ? *)"`**: We are creating an EventBridge (CloudWatch Events) trigger. Exactly at midnight, EventBridge will trigger the Lambda function. The function runs for 10 seconds, generates the report, and dies. You pay for exactly 10 seconds of compute time per day.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: Kubernetes AND Serverless (KEDA)
+In a massive enterprise, it is not "Kubernetes VS Serverless". It is "Kubernetes AND Serverless".
+
+Enterprises use **KEDA (Kubernetes Event-driven Autoscaling)**.
+By default, the Kubernetes HPA (Horizontal Pod Autoscaler) scales Pods based on CPU. But what if your Pods are pulling messages from an AWS SQS Queue? The CPU might be at 5%, but there are 100,000 messages waiting in the queue. 
+
+KEDA allows Kubernetes to scale *like* a Serverless function.
+You configure KEDA to watch the AWS SQS Queue. If the queue length hits 10,000, KEDA instantly scales your Kubernetes Deployment from 0 to 50 Pods. When the queue hits 0, KEDA scales the Deployment back down to exactly 0 Pods, saving you money, just like AWS Lambda.
+
+### VPC Cold Starts and RDS Proxy
+If your AWS Lambda needs to talk to your private RDS database, the Lambda must be attached to your VPC. 
+Historically, attaching a Lambda to a VPC added a 10-second Cold Start penalty because AWS had to provision an Elastic Network Interface (ENI) on the fly. (AWS fixed this with Hyperplane ENIs, but it is still a consideration).
+
+More importantly, if 10,000 Lambda functions spawn simultaneously to handle a traffic spike, they will create 10,000 simultaneous connections to your RDS database. The database will instantly crash.
+To prevent this, you MUST put **AWS RDS Proxy** (or a similar connection pooler like PgBouncer) between AWS Lambda and the RDS Database.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: Does "Serverless" mean there are no servers involved?**
+A: No. There are still physical servers in an AWS data center. "Serverless" simply means the cloud provider completely manages the servers, the operating system, and the capacity provisioning. The customer only manages the application code.
+
+### Intermediate
+**Q: Explain the "Cold Start" problem in AWS Lambda.**
+A: A Cold Start occurs when a Lambda function is triggered after being idle. AWS must allocate compute resources, download the deployment package, start the runtime environment, and run initialization code. This initialization process introduces latency (delay) to the request. Subsequent requests to the same warm instance do not experience this delay.
+
+### Senior
+**Q: If you have a long-running data processing task that takes 25 minutes to complete, should you use AWS Lambda?**
+A: No. AWS Lambda has a strict hard timeout of 15 minutes. If the process takes 25 minutes, AWS will violently terminate the execution at the 15-minute mark. For long-running serverless tasks, you should use AWS Fargate (Serverless Containers) or AWS Step Functions to orchestrate a distributed workflow.
+
+### Principal/Architect
+**Q: Your developers want to deploy a high-traffic HTTP REST API using API Gateway and AWS Lambda instead of Kubernetes. What architectural limitations and cost implications must you warn them about before approving this design?**
+A: 
+1. **Cold Starts:** If the API requires sub-50ms latency for synchronous user-facing requests, Lambda cold starts will violate the SLA. 
+2. **Cost at Scale:** Lambda is incredibly cheap for low/spiky traffic, but at a constant rate of 10,000 requests per second, Lambda becomes significantly more expensive than running a dedicated EC2/EKS cluster. 
+3. **Database Exhaustion:** Lambda scales horizontally instantly. A sudden spike will overwhelm relational database connection pools unless RDS Proxy is explicitly architected into the data layer. 
+4. **State:** Lambda is strictly stateless. You cannot use in-memory caching or sticky sessions; all state must be externalized to Redis or DynamoDB, which increases application complexity.
+[Contents](/learn) | [37 — System Resilience (Chaos Engineering)](/learn/sre/chaos-engineering) |
