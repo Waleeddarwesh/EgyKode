@@ -1,0 +1,563 @@
+---
+contentId: networking-fundamentals
+title: "Networking Fundamentals"
+titleAr: "أساسيات الشبكات (Networking)"
+description: "Read a CIDR block, explain why a private subnet can reach the internet but not be reached, and debug a connection that hangs"
+descriptionAr: "عناوين IP والـ CIDR والـ DNS والمنافذ والتوجيه و TLS."
+domain: networking
+level: beginner
+type: concept
+phase: foundations
+order: 6
+readingTime: 55
+prerequisites: []
+relatedChapters: []
+objectives:
+  - "Read a CIDR block, explain why a private subnet can reach the internet but not be reached, and debug a connection that hangs"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/06_Networking_Fundamentals.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Why this chapter exists
+
+Networking is where DevOps beginners lose the most time, because the failures
+are *silent*. A misconfigured security group does not print an error — the
+connection just hangs for 30 seconds and times out, and nothing in any log
+explains why.
+
+Chapter 11 covers AWS VPC specifically. This chapter covers the fundamentals
+that chapter assumes. If "10.20.0.0/16" means nothing to you yet, start here.
+
+---
+
+## Level 1 — Beginner
+
+### IP addresses
+
+An address for a machine on a network. `10.20.1.45` is four numbers, each 0–255.
+
+Two kinds matter:
+
+- **Public** — reachable from the internet. Scarce, and they cost money.
+- **Private** — only reachable inside your own network. Free, and reused by
+  every organisation on earth. Three ranges are reserved for this:
+
+```
+10.0.0.0    – 10.255.255.255      ← what this platform uses
+172.16.0.0  – 172.31.255.255
+192.168.0.0 – 192.168.255.255     ← your home router uses this
+```
+
+Your laptop almost certainly has a `192.168.x.x` address right now. So does
+everyone else's. That works because those addresses never leave the local
+network.
+
+### CIDR — the notation that trips everyone up
+
+`10.20.0.0/16` means: *the first 16 bits are fixed; the rest are addresses I can use.*
+
+An IPv4 address is 32 bits. So:
+
+| CIDR | Fixed bits | Free bits | Addresses | Reads as |
+|------|-----------:|----------:|----------:|----------|
+| `/8`  | 8  | 24 | 16,777,216 | `10.anything.anything.anything` |
+| `/16` | 16 | 16 | 65,536 | `10.20.anything.anything` |
+| `/20` | 20 | 12 | 4,096 | a chunk of `10.20.x.x` |
+| `/24` | 24 | 8  | 256 | `10.20.1.anything` |
+| `/32` | 32 | 0  | 1 | exactly one machine |
+
+**The rule of thumb:** smaller number = bigger network. `/16` is big, `/32` is
+one address.
+
+Two you will type constantly:
+
+- **`0.0.0.0/0`** — zero fixed bits, so *every address that exists*. "The whole
+  internet." In a security group ingress rule this means "anyone, anywhere."
+  This platform's Terraform **refuses** it for SSH, deliberately.
+- **`203.0.113.42/32`** — exactly one address. What you should use for your own
+  IP instead.
+
+### Ports
+
+An IP address finds the machine. A port finds the *program* on it.
+
+| Port | Service |
+|-----:|---------|
+| 22 | SSH |
+| 80 | HTTP |
+| 443 | HTTPS |
+| 3306 | MySQL |
+| 6443 | Kubernetes API server |
+| 2379–2380 | etcd |
+| 9090 | Prometheus |
+
+`10.20.1.45:6443` = "the Kubernetes API on that machine."
+
+---
+
+## Level 2 — Intermediate
+
+### Subnets — and why you split a network at all
+
+A subnet is a slice of a bigger network. Our VPC is `10.20.0.0/16`; it is carved
+into `/20` subnets:
+
+```
+10.20.0.0/16   VPC
+├── 10.20.0.0/20    public   AZ-a     ALB, NAT gateway, bastion
+├── 10.20.16.0/20   public   AZ-b
+├── 10.20.32.0/20   private  AZ-a     control plane, workers, CI/CD
+├── 10.20.48.0/20   private  AZ-b
+├── 10.20.64.0/20   database AZ-a     RDS only
+└── 10.20.80.0/20   database AZ-b
+```
+
+You split for two reasons:
+
+1. **Availability zones.** A subnet lives in exactly one AZ. Spanning three AZs
+   requires three subnets. This is why "make it highly available" always starts
+   with the network.
+2. **Trust levels.** A public subnet has a route to the internet; a private one
+   does not. That single difference is the strongest security boundary in the
+   whole design.
+
+**How big should a subnet be?** The trade-off is waste against a wall you cannot
+move:
+
+| Size | Usable AWS addresses | Right for |
+| --- | --- | --- |
+| `/24` | 251 | Public subnets — a few load balancers and NAT gateways |
+| `/20` | 4,091 | Application subnets, especially with the AWS VPC CNI |
+| `/28` | 11 | The minimum AWS allows; almost always too tight |
+
+AWS reserves five addresses in every subnet, which is why a `/24` gives 251 and
+not 256.
+
+**Err generous.** Addresses inside a VPC cost nothing, and a subnet cannot be
+resized after creation — growing one means building a new subnet and migrating
+everything in it. The failure is specific and common with the AWS VPC CNI, where
+every *Pod* takes a VPC address: a `/24` that looked ample for twenty instances
+exhausts itself at a few hundred Pods, and new Pods sit in `ContainerCreating`
+with no obvious cause.
+
+Plan the address space before the first `terraform apply`, leave gaps between the
+ranges you allocate, and keep the VPC CIDR itself well clear of anything you might
+one day need to peer with. Overlapping CIDRs are the one networking mistake that
+cannot be fixed with a route.
+
+### Routing — what actually makes a subnet "public"
+
+A subnet is not public because of its name. It is public because of its **route
+table**.
+
+```
+Public subnet route table:
+  10.20.0.0/16  → local              (traffic inside the VPC stays inside)
+  0.0.0.0/0     → internet gateway   ← THIS makes it public
+
+Private subnet route table:
+  10.20.0.0/16  → local
+  0.0.0.0/0     → NAT gateway        ← out only, never in
+
+Database subnet route table:
+  10.20.0.0/16  → local
+  (nothing else)                     ← cannot reach the internet at all
+```
+
+**Routes are matched most-specific-first.** Traffic to `10.20.1.5` matches the
+`/16` local route and stays internal. Traffic to `1.1.1.1` matches nothing
+specific, falls through to `0.0.0.0/0`, and goes to the gateway.
+
+**Reading the real thing.** When an instance cannot reach the internet, look at
+its route table before you touch anything else:
+
+```bash
+# On the machine — where would this packet actually go?
+ip route
+ip route get 1.1.1.1
+
+# In AWS — what does the subnet's route table say?
+aws ec2 describe-route-tables \
+  --filters "Name=association.subnet-id,Values=subnet-0abc123" \
+  --query 'RouteTables[].Routes[]' --output table
+```
+
+A private subnet with no `0.0.0.0/0` entry is not broken — it is doing exactly
+what it was configured to do. That distinction is most of network debugging.
+
+### NAT — out but not in
+
+The question everyone asks: *if a private subnet has no public IP, how does it
+`apt-get update`?*
+
+A **NAT gateway** sits in a public subnet. A private instance sends traffic to
+it; NAT rewrites the source address to its own public IP, sends it out, and
+remembers the mapping so the reply comes back.
+
+The asymmetry is the point:
+
+- **Outbound works** — NAT knows which internal machine to return the reply to.
+- **Inbound fails** — an unsolicited packet from the internet has no mapping
+  entry, so NAT has nowhere to send it. It is dropped.
+
+Your worker nodes can download container images. Nobody on the internet can
+reach them. That is the entire security value of a private subnet.
+
+> **NAT gateways cost roughly $32/month each, plus data charges.** This platform
+> runs three in production (one per AZ, no shared failure domain) and one in
+> dev. It is a genuine availability-vs-cost decision, not an oversight.
+
+### Security groups vs NACLs
+
+Two firewalls, easily confused:
+
+| | Security group | Network ACL |
+|---|---|---|
+| Attached to | an instance | a subnet |
+| State | **stateful** | stateless |
+| Rules | allow only | allow **and** deny |
+| Evaluation | all rules | in order, first match wins |
+
+**Stateful** is the word that matters. A security group that allows inbound 443
+automatically allows the response out — you do not write a return rule. A NACL
+does not: you must allow the return traffic explicitly, on the ephemeral port
+range, and forgetting that is a classic half-day debugging session.
+
+Use security groups. Reach for NACLs only when you need an explicit *deny*.
+
+### Referencing security groups instead of CIDRs
+
+This platform writes rules like:
+
+```hcl
+resource "aws_security_group_rule" "database_from_workers" {
+  type                     = "ingress"
+  from_port                = 3306
+  to_port                  = 3306
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.database.id
+  source_security_group_id = aws_security_group.worker.id   # ← not a CIDR
+}
+```
+
+"Allow MySQL from anything in the worker security group." When the ASG replaces
+a worker with a new instance and a new IP, the rule still works — because it
+never referenced an IP. **CIDR-based rules rot as infrastructure changes;
+SG-based rules do not.**
+
+---
+
+## Level 3 — Advanced
+
+### DNS
+
+`ivolve.example.com` → `54.23.1.90`. A lookup, essentially.
+
+**What actually happens when you type a name.** Nothing looks up the whole name
+in one place — it is resolved one label at a time, right to left:
+
+```text
+  your machine  ──▶  resolver (systemd-resolved, or 8.8.8.8)
+                        │  cached? return it and stop.
+                        ▼
+                     root servers      "who handles .com?"
+                        ▼
+                     .com TLD servers  "who handles example.com?"
+                        ▼
+                     authoritative     "ivolve.example.com is 54.23.1.90"
+                     (Route 53)
+```
+
+Every step is cached, for as long as the record's **TTL** says. That cache is the
+single most common source of "I changed the DNS and nothing happened" — the
+answer is still being served from a resolver somewhere until the TTL expires.
+Lower the TTL to 60 seconds *before* a migration, not during it.
+
+**The two commands that answer the question:**
+
+```bash
+dig ivolve.example.com +short          # what does DNS say the address is?
+dig ivolve.example.com                 # the full answer, including the TTL
+dig @8.8.8.8 ivolve.example.com        # ask a specific resolver, bypassing local cache
+dig ivolve.example.com CNAME           # ask for one record type
+```
+
+The number in the `ANSWER SECTION` before the record type is the remaining TTL,
+counting down. If it is large and the value is wrong, you are looking at a cache,
+not at your configuration.
+
+Inside a Kubernetes cluster the same mechanism runs locally: **CoreDNS** answers
+for names like `api.production.svc.cluster.local`, and every Pod's
+`/etc/resolv.conf` points at it. When a Pod cannot reach a Service by name, test
+DNS before you suspect the network:
+
+```bash
+kubectl exec -it deploy/api -- nslookup postgres.production.svc.cluster.local
+```
+
+Record types worth knowing:
+
+| Type | Maps | Note |
+|------|------|------|
+| `A` | name → IPv4 | |
+| `CNAME` | name → another name | cannot exist at the zone apex |
+| **`ALIAS`** | name → AWS resource | Route53-specific; **works at the apex** and is free to query |
+
+This platform uses `ALIAS` records to the ALB. The ALB's IP addresses change
+without warning as AWS scales it — an `A` record would silently point at a dead
+address.
+
+**Choosing a record type** comes down to two questions — is this the zone apex,
+and does the target's address change?
+
+| | `A` | `CNAME` | `ALIAS` |
+| --- | --- | --- | --- |
+| Points at | A fixed IP | Another name | An AWS resource |
+| Works at the apex (`ivolve.com`) | Yes | **No** | Yes |
+| Follows a changing address | No | Yes | Yes |
+| Query cost | — | — | Free on Route 53 |
+
+The apex restriction is not a Route 53 quirk — the DNS specification forbids a
+`CNAME` alongside the `SOA` and `NS` records every zone apex must have. `ALIAS`
+is AWS's way around it, resolved inside Route 53 rather than by your client.
+
+**TTL is the other trade-off, and it runs in both directions:**
+
+- **Low TTL (60s)** — changes take effect quickly, at the cost of more queries
+  and a hard dependency on DNS being reachable. Set this *before* a planned
+  migration.
+- **High TTL (24h)** — fewer lookups, more resilience if your DNS provider has a
+  bad day, and a change that takes a day to reach everyone.
+
+The mistake is lowering the TTL at the moment you cut over. Resolvers are still
+holding the old record with the old, long TTL, so the change you just made cannot
+be seen for as long as that says. Lower it a day ahead, migrate, then raise it
+again.
+
+### TLS — what the padlock actually proves
+
+TLS does two separate jobs, and people usually only think about the first:
+
+1. **Encryption** — nobody between you and the server can read the traffic.
+2. **Identity** — the server is who it claims to be. This is the harder one, and
+   it is the reason certificates exist at all.
+
+Encryption without identity is worthless: an attacker who intercepts your
+connection would happily encrypt it *to themselves*.
+
+**The chain of trust.** Your browser does not know `ivolve.example.com`. It knows
+a few dozen **Certificate Authorities** shipped with your operating system. The
+server presents a certificate, and the browser walks the chain upwards:
+
+```text
+  ivolve.example.com  ← signed by →  an intermediate CA
+                                      ← signed by →  a root CA
+                                                      ← already trusted by your OS
+```
+
+If any link is missing, expired, or signed by something the OS does not trust,
+the connection fails. That produces the three errors you will actually meet:
+
+| Error | What it means | Usual cause |
+| --- | --- | --- |
+| `certificate has expired` | The dates on the cert have passed | Renewal automation stopped working |
+| `unable to verify the first certificate` | The chain is incomplete | The server sent the leaf but not the intermediate |
+| `certificate is valid for X, not Y` | Right cert, wrong name | Missing a SAN entry for the hostname |
+
+**Inspecting a certificate** — the first thing to do when HTTPS misbehaves:
+
+```bash
+# What certificate is this host actually serving, and when does it expire?
+openssl s_client -connect ivolve.example.com:443 -servername ivolve.example.com </dev/null \
+  | openssl x509 -noout -subject -issuer -dates
+
+# Just the expiry date, for a monitoring check
+echo | openssl s_client -connect ivolve.example.com:443 2>/dev/null \
+  | openssl x509 -noout -enddate
+```
+
+**Who issues them here.** You almost never generate these by hand:
+
+- **AWS ACM** issues free certificates for load balancers, and renews them
+  automatically. This is what terminates TLS at the ALB (see the Load Balancers
+  chapter).
+- **cert-manager** does the same job inside Kubernetes, requesting certificates
+  from Let's Encrypt and storing them as Secrets.
+
+Both exist for one reason: expired certificates are a leading cause of outages,
+and the only reliable fix is to take humans out of the renewal loop.
+
+### Kubernetes networking — three networks, not one
+
+This is where the mental model usually breaks. A Kubernetes cluster has **three
+separate address spaces**:
+
+```
+Node network     10.20.32.0/20     the EC2 instances (real VPC addresses)
+Pod network     192.168.0.0/16     every pod gets one (virtual, Calico-managed)
+Service network  10.96.0.0/12      stable virtual IPs (not attached to anything)
+```
+
+**They must not overlap.** If the pod CIDR overlapped the VPC CIDR, the kernel
+could not decide whether `10.20.1.5` meant a node or a pod. Traffic would go to
+the wrong place while every component reported itself healthy — one of the
+nastiest failure modes in the whole platform, which is why the config comments
+call it out.
+
+### A Service IP belongs to no machine
+
+`10.96.0.1` is not assigned to any network interface anywhere. You cannot ping
+it from outside the cluster. It exists only as a rule in every node's IPVS
+table: *"traffic to 10.96.0.1:80 → pick a healthy backend pod and rewrite the
+destination."*
+
+That is why a Service survives its pods being replaced. The virtual IP is
+stable; the rules behind it are rewritten as pods come and go.
+
+### Debugging a hanging connection
+
+Timeouts are silent. Work down the layers — **stop at the first failure**:
+
+```bash
+# 1. Does the name resolve?
+nslookup ivolve-api.ivolve.svc.cluster.local
+#    fails → DNS. Is CoreDNS running? Does a NetworkPolicy allow port 53?
+
+# 2. Is the port open?
+nc -zv 10.20.1.45 6443
+#    refused → nothing is listening (service down)
+#    hangs   → a firewall is dropping it (security group / NetworkPolicy)
+
+# 3. Does the Service have any backends?
+kubectl -n ivolve get endpoints ivolve-api
+#    empty → no pod passes its readiness probe. The network is fine;
+#            the application is not.
+
+# 4. Test from inside the cluster
+kubectl -n ivolve run probe --rm -it --restart=Never \
+  --image=curlimages/curl:8.8.0 -- curl -v http://ivolve-api/
+```
+
+**"Connection refused" vs "connection timed out" is the single most useful
+distinction in network debugging.** Refused means a machine answered and said
+no — routing works, nothing is listening. Timed out means nothing answered at
+all — a firewall silently dropped it. They point at completely different causes.
+
+---
+
+## Level 4 — Enterprise
+
+### Address planning before anything else
+
+Enterprises allocate CIDR ranges centrally, before a single VPC exists, because
+overlapping ranges make VPCs impossible to peer later — and you discover this
+during an acquisition, at the worst possible moment.
+
+```
+10.0.0.0/8      the organisation
+├── 10.0.0.0/12     production      us-east-1
+├── 10.16.0.0/12    production      eu-west-1
+├── 10.32.0.0/12    staging
+└── 10.48.0.0/12    development
+```
+
+**Leave room.** A `/16` per VPC feels wasteful with four instances in it. It is
+not: subnets cannot be resized after creation, and running out of addresses in
+a production VPC means rebuilding the network.
+
+### Connecting networks
+
+| Mechanism | Use for | Trade-off |
+|-----------|---------|-----------|
+| VPC peering | two VPCs | not transitive — N² connections |
+| Transit Gateway | many VPCs | hub-and-spoke, scales, costs more |
+| PrivateLink | exposing one service | finest-grained, most work |
+| VPN / Direct Connect | on-premises | DX is expensive and slow to provision |
+
+### Egress control
+
+Most organisations restrict inbound rigorously and leave outbound wide open.
+That is backwards for exfiltration risk: a compromised pod's first move is to
+call home.
+
+This platform restricts pod egress explicitly — see
+`kubernetes/policies/network-policies.yaml`:
+
+```yaml
+egress:
+  - to:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+          except:
+            - 169.254.169.254/32   # deny the instance metadata endpoint
+    ports:
+      - protocol: TCP
+        port: 443
+```
+
+`169.254.169.254` is the EC2 metadata service — the standard
+SSRF-to-credential-theft path. Denying it from pods, *and* requiring IMDSv2 at
+the instance level, closes it from both ends.
+
+---
+
+## Hands-on
+
+```bash
+# 1. What is your own network?
+ip addr                              # Linux
+curl -s ifconfig.me                  # your public IP — put this in trusted_admin_cidrs
+
+# 2. Read the platform's CIDR math
+grep -A3 'cidrsubnet' Cloud-Native-DevOps-Platform/infrastructure/terraform/modules/vpc/main.tf
+#    Work out by hand which /20 the third private subnet gets.
+
+# 3. Prove the refused/timeout difference
+nc -zv google.com 443        # succeeds
+nc -zv google.com 444        # hangs then times out — firewall drop
+nc -zv localhost 9999        # refused instantly — nothing listening
+```
+
+**Checkpoint:** given `10.20.0.0/16` and `cidrsubnet(cidr, 4, 2)`, say what
+subnet comes out — and why the answer is a `/20`.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What does `/24` mean in `192.168.1.0/24`?**
+A: The first 24 bits are the network portion, leaving 8 bits for hosts — 256
+addresses, `192.168.1.0` through `192.168.1.255`. In practice 254 are usable;
+the first is the network address and the last is broadcast.
+
+### Intermediate
+**Q: How does a server in a private subnet download an OS update?**
+A: Through a NAT gateway in a public subnet. The private instance's route table
+sends `0.0.0.0/0` to the NAT, which rewrites the source address to its own
+public IP and tracks the mapping so the reply returns. It is deliberately
+one-directional: an unsolicited inbound packet has no mapping entry, so it is
+dropped. Outbound works, inbound does not.
+
+### Senior
+**Q: Why must the Kubernetes pod CIDR not overlap the VPC CIDR?**
+A: They are separate routing domains sharing one kernel routing table. On
+overlap, the node cannot determine whether a destination is a VPC address or a
+pod address, so traffic is delivered to the wrong place. The failure is
+particularly unpleasant because nothing reports an error — nodes are Ready,
+pods are Running, and only some connections mysteriously fail.
+
+### Principal/Architect
+**Q: How would you design address space for a company expecting 50 VPCs across four regions?**
+A: Allocate from a single `/8` and delegate downward: a `/12` per
+region-and-environment, a `/16` per VPC inside that. That gives 16 VPCs per
+`/12` with room to grow, and keeps every range non-overlapping by construction —
+which is what makes peering and Transit Gateway attachment possible later. I
+would enforce allocation through IPAM rather than a spreadsheet, because the
+failure mode is discovered years afterwards during an acquisition, when two
+business units both used `10.0.0.0/16` and the networks cannot be joined without
+readdressing one of them.
+[Contents](/learn) | [07 — Version Control (Git & GitHub)](/learn/git/git-and-github) |
