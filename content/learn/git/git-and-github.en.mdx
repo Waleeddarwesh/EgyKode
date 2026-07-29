@@ -1,0 +1,411 @@
+---
+contentId: git-and-github
+title: "Version Control (Git & GitHub)"
+titleAr: "التحكم في الإصدارات — Git و GitHub"
+description: "Branch, commit, open a PR, and undo a mistake safely \u2014 the four operations GitOps depends on"
+descriptionAr: "الفروع والدمج والـ pull requests، وسير العمل الذي ترتبط به كل أداة أخرى."
+domain: git
+level: beginner
+type: concept
+phase: foundations
+order: 7
+readingTime: 50
+prerequisites: []
+relatedChapters: []
+objectives:
+  - "Branch, commit, open a PR, and undo a mistake safely \u2014 the four operations GitOps depends on"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/07_Git_And_GitHub.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Why this chapter exists
+
+Most DevOps courses assume you know Git. Then they build a GitOps platform where
+**git is the deployment mechanism** — where a `git revert` is a production
+rollback and a merge is a release.
+
+If your Git model is "commit, push, hope", that is a problem. This chapter fixes
+it. Not as trivia, but as the specific operations this platform relies on.
+
+---
+
+## Level 1 — Beginner
+
+### What is Git?
+
+A save system for a folder — but one that remembers **every** save, forever, and
+lets you go back to any of them.
+
+Compare it to how most people work:
+
+```
+report.docx
+report_v2.docx
+report_v2_FINAL.docx
+report_v2_FINAL_actually.docx     ← you have used version control. Badly.
+```
+
+Git is that, done properly. One folder. Complete history. And critically:
+**several people can edit at once without overwriting each other.**
+
+### Git vs GitHub
+
+Confused constantly, so be precise:
+
+- **Git** is the tool, on your machine. It works with no internet at all.
+- **GitHub** is a website that hosts a copy of a Git repository so other people
+  and other machines can reach it. GitLab and Bitbucket do the same job.
+
+You could use Git for this entire project without GitHub. You could not do
+GitOps without *somewhere* to host the repository, because ArgoCD has to pull
+from a URL.
+
+### The three places a change lives
+
+This is the one Git concept worth genuinely understanding:
+
+```
+   working directory  ──git add──▶  staging area  ──git commit──▶  repository
+   (files you edit)                 (what will be                  (permanent
+                                     in the next                    history)
+                                     commit)
+```
+
+Why the middle step exists: you changed five files, but only three belong in
+this commit. Staging lets you commit those three and leave the other two for a
+separate commit. **Small, focused commits are what make `git revert` useful** —
+reverting a commit that changed one thing is safe; reverting a commit that
+changed nine things undoes eight things you wanted.
+
+### The commands you will actually use
+
+```bash
+git status                  # what has changed? Run this constantly.
+git add <file>              # stage a specific file
+git add -p                  # stage specific *chunks* — how good commits get made
+git commit -m "message"     # save the staged changes
+git push                    # send commits to GitHub
+git pull                    # fetch and merge others' commits
+git log --oneline -10       # the last 10 commits
+git diff                    # what changed, unstaged
+git diff --staged           # what changed, staged
+```
+
+---
+
+## Level 2 — Intermediate
+
+### Branches
+
+A branch is a movable label pointing at a commit. That is genuinely all it is —
+which is why creating one is instant and free.
+
+```bash
+git switch -c feature/add-hpa    # create and move onto a new branch
+# ... work, commit ...
+git push -u origin feature/add-hpa
+```
+
+You work on a branch so that `main` always holds something that works. In this
+platform `main` is deployed by ArgoCD, so **a broken commit on `main` is a
+broken production environment.** Branch protection enforces this: you cannot
+push to `main` directly.
+
+### Pull requests
+
+A PR is a request to merge your branch into `main`, with a place to discuss it
+first. In this repository a PR runs `validate-all.sh` as a required check —
+so a change that fails `terraform validate` cannot be merged, regardless of who
+approves it.
+
+The workflow, end to end:
+
+```bash
+git switch -c fix/probe-timeout
+$EDITOR kubernetes/base/api-deployment.yaml
+./scripts/validate-all.sh                   # catch it locally first
+git add kubernetes/base/api-deployment.yaml
+git commit -m "fix(k8s): raise readiness timeout to survive slow DB startup"
+git push -u origin fix/probe-timeout
+gh pr create --fill                         # or open it in the browser
+```
+
+### Writing a commit message that earns its place
+
+In GitOps, `git log` **is** your deployment history. Someone will read these
+messages at 3am trying to understand what changed.
+
+```
+fix(k8s): raise readiness timeout to survive slow DB startup
+
+The probe used timeoutSeconds: 1, which failed during the connection-pool
+warm-up on a cold RDS instance. Pods were marked unready for ~40s after
+every deploy, draining traffic unnecessarily.
+
+Raised to 3s. The liveness probe is untouched: it must never depend on
+the database.
+```
+
+**Subject line:** what changed. **Body:** *why*, and what you considered.
+The diff already shows what; only you know why.
+
+[Conventional Commits](https://www.conventionalcommits.org/) — `feat:`, `fix:`,
+`docs:`, `chore:` — makes history greppable and enables automated changelogs.
+
+---
+
+## Level 3 — Advanced
+
+### Undoing things — the four cases
+
+The single most valuable Git skill, and the one where people cause real damage.
+
+| Situation | Command | Safe? |
+|-----------|---------|-------|
+| Committed, not pushed, want to edit the message | `git commit --amend` | ✅ yes |
+| Committed, not pushed, want the changes back as unstaged | `git reset --soft HEAD~1` | ✅ yes |
+| **Pushed, and it is wrong** | `git revert <sha>` | ✅ **use this** |
+| Want to throw away uncommitted work | `git restore <file>` | ⚠️ unrecoverable |
+
+**`git revert` vs `git reset --hard` — know the difference cold:**
+
+- **`git revert <sha>`** creates a *new* commit that undoes the old one. History
+  is preserved. Everyone else's clone stays consistent. **This is what you use
+  to roll back a deployment.**
+- **`git reset --hard <sha>`** rewrites history by discarding commits. On a
+  shared branch this breaks every other clone and can destroy other people's
+  work. Never on `main`.
+
+In this platform, a production rollback is:
+
+```bash
+git revert <the-deploy-commit-sha>
+git push
+# ArgoCD reconciles within ~3 minutes. The history stays truthful:
+# it shows the bad deploy AND the revert, which is what an audit needs.
+```
+
+### The GitOps commit
+
+Look at what Jenkins actually does — `jenkins/shared-library/vars/updateGitOpsRepo.groovy`:
+
+```groovy
+sh """
+    cd kubernetes/overlays/${environment}
+    kustomize edit set image ${serviceName}=${imageName}:${imageTag}
+"""
+
+// ... then commit and push
+git commit -m "deploy(${environment}): ${serviceName} ${imageTag}
+
+Image:  ${imageName}:${imageTag}
+Commit: ${env.GIT_COMMIT ?: 'unknown'}
+Build:  ${env.BUILD_URL ?: 'n/a'}
+
+[skip ci]"
+```
+
+Two details that matter:
+
+- **`[skip ci]`** — without it, the deploy commit triggers a build, which
+  produces another deploy commit, which triggers a build. An infinite loop that
+  burns CI minutes until someone notices.
+- **`git pull --rebase` before pushing** — two services promoting at the same
+  moment would otherwise race, and the second push would be rejected.
+
+### `.gitignore` and the thing you must never commit
+
+```gitignore
+*.pem
+*.key
+.env
+terraform.tfvars
+*.tfstate
+```
+
+**If you commit a credential, `.gitignore` cannot save you.** It only ignores
+*untracked* files. Once committed, the secret is in history forever — and
+rewriting history does **not** un-compromise it, because it was pushed and could
+already have been scraped.
+
+The correct order, always:
+
+1. **Rotate the credential.** Immediately. It is compromised.
+2. *Then* clean the history if you want to.
+
+Run `gitleaks detect` before pushing. `validate-all.sh` does this for you.
+
+---
+
+## Level 4 — Enterprise
+
+### Branch protection as a control, not a preference
+
+On `main`, an enterprise enforces:
+
+- no direct pushes — everything through a PR
+- required status checks — CI must be green
+- required reviews — at least one, and for infrastructure, from a code owner
+- signed commits — proving *who* wrote it, not just what the config claims
+- linear history — no merge commits, so `git log` reads as a sequence of changes
+
+These are not bureaucracy. In a GitOps platform, **write access to `main` is
+write access to production.** Branch protection is production access control.
+
+### CODEOWNERS
+
+```
+# .github/CODEOWNERS
+/infrastructure/terraform/   @platform-team
+/kubernetes/policies/        @security-team
+/gitops/argocd/projects/     @platform-team @security-team
+```
+
+A PR touching network policy automatically requires security review. The
+routing is automatic, so it does not depend on someone remembering.
+
+### Trunk-based vs GitFlow
+
+- **GitFlow** — long-lived `develop`, `release/*`, `hotfix/*` branches. Built for
+  quarterly shipped software. Merge conflicts grow with branch age.
+- **Trunk-based** — short-lived branches merged to `main` within a day or two,
+  features hidden behind flags. Built for continuous delivery.
+
+This platform assumes **trunk-based**. Long-lived branches and a GitOps
+`main` that continuously deploys are fundamentally in tension: the longer a
+branch lives, the further it drifts from what is actually running.
+
+**What trunk-based actually requires.** "Merge to `main` daily" is not a rule you
+can follow by willpower. It only works when three things are true:
+
+1. **`main` is always releasable.** Every merge runs the full pipeline — build,
+   test, scan — before it lands. A red `main` blocks everyone, so it gets fixed
+   immediately rather than accumulating.
+2. **Unfinished work is hidden, not un-merged.** A half-built feature merges to
+   `main` behind a feature flag that is off in production. You ship the code
+   without shipping the behaviour.
+3. **Branches are protected.** Nobody pushes to `main` directly.
+
+```bash
+# The daily loop, in full
+git switch -c feat/add-health-endpoint     # branch from main
+# ... commit as you work ...
+git fetch origin && git rebase origin/main # replay your work on top of current main
+git push -u origin feat/add-health-endpoint
+# open a pull request, get a review, merge, delete the branch
+```
+
+The `rebase` step is what keeps the branch short. Rebasing daily means you
+resolve one small conflict at a time, while you still remember the code; merging
+a three-week-old branch means resolving all of them at once, in a hurry.
+
+**Release tagging.** Trunk-based does not mean untracked. Releases are marked
+with annotated tags, and those tags are what a rollback targets:
+
+```bash
+git tag -a v1.4.0 -m "Add health endpoint"
+git push origin v1.4.0
+```
+
+| | GitFlow | Trunk-based |
+| --- | --- | --- |
+| Branch lifetime | Weeks to months | Hours to two days |
+| Release cadence | Scheduled | Any time `main` is green |
+| Hiding unfinished work | On a branch | Behind a feature flag |
+| Conflict pain | Large, at merge time | Small, continuous |
+| Fits GitOps | Poorly | Naturally |
+
+**Where trunk-based goes wrong in practice.** It fails in a specific and
+predictable way when its preconditions are not met:
+
+- **Feature flags that are never removed.** Each one is a permanent branch in the
+  code rather than in Git. After a year the flags interact, no combination is
+  tested, and a "disabled" feature breaks production. Delete the flag as soon as
+  the feature ships.
+- **A `main` that is red for hours.** Trunk-based assumes a fast, reliable
+  pipeline. If the suite takes forty minutes and is flaky, people stop merging
+  daily and the long branches come back on their own.
+- **Reviews as a bottleneck.** Short branches only stay short if pull requests
+  are reviewed in hours. A two-day review queue silently converts every branch
+  into a long-lived one.
+
+GitFlow is not obsolete, either — it is genuinely the right shape when you ship
+versioned software that customers install and you must patch several releases at
+once. It is the wrong shape when there is exactly one running version, which is
+what a continuously deployed platform is.
+
+---
+
+## Hands-on
+
+Do these in a scratch repository, not this one.
+
+```bash
+mkdir /tmp/git-practice && cd /tmp/git-practice && git init
+
+# 1. Make three commits
+echo "one"   > file.txt && git add . && git commit -m "first"
+echo "two"  >> file.txt && git add . && git commit -m "second"
+echo "three">> file.txt && git add . && git commit -m "third"
+
+# 2. Revert the middle one. Read the file. What happened, and why is
+#    "three" still there?
+git revert HEAD~1
+cat file.txt
+git log --oneline
+
+# 3. Branch, diverge, merge
+git switch -c experiment
+echo "branch work" >> file.txt && git commit -am "experiment"
+git switch main
+git merge experiment
+
+# 4. Cause a conflict on purpose, then resolve it.
+#    You WILL hit one under time pressure eventually. Better now.
+```
+
+**Checkpoint:** you can explain, without looking, why `git revert` is safe on a
+shared branch and `git reset --hard` is not.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is the difference between `git fetch` and `git pull`?**
+A: `git fetch` downloads commits from the remote but does not change your working
+files — it lets you look before integrating. `git pull` is `fetch` followed
+immediately by `merge`. On a branch with local changes, `fetch` then reviewing
+is the safer habit.
+
+### Intermediate
+**Q: You pushed a commit to `main` that broke production. Walk me through it.**
+A: `git revert <sha>` and push. That creates a new commit undoing the change,
+so history stays intact and every other clone stays consistent. In this platform
+ArgoCD reconciles within about three minutes. I would not `reset --hard` — that
+rewrites shared history and breaks everyone else's clone. If three minutes is
+too long, `argocd app rollback` buys time, but I would still push the revert
+immediately, because `selfHeal` will otherwise drag the cluster back to whatever
+git says.
+
+### Senior
+**Q: Why does a GitOps deployment commit need `[skip ci]`?**
+A: Because the pipeline itself creates that commit. Without the marker, the
+commit triggers a build, which produces another deploy commit, which triggers
+another build — an infinite loop. It is a small detail with an expensive
+failure mode, and it is the first thing I check when a pipeline starts running
+continuously with no code changes.
+
+### Principal/Architect
+**Q: In a GitOps model, how do you control who can deploy to production?**
+A: You control write access to the branch ArgoCD watches, because in this model
+they are the same thing. Concretely: branch protection on `main` with no direct
+pushes, required status checks so CI must pass, CODEOWNERS routing
+infrastructure and policy changes to the right reviewers, and signed commits so
+authorship is cryptographic rather than claimed. The valuable property is that
+production access becomes reviewable and auditable in the same system as the
+code — rather than living in a separate IAM console that nobody diffs.
+[Contents](/learn) | [08 — Build Tools (Maven & Gradle)](/learn/build/build-tools) |
