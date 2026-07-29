@@ -1,0 +1,327 @@
+---
+contentId: vpc
+title: "Cloud Networking (AWS VPC)"
+titleAr: "شبكات السحابة — AWS VPC"
+description: "Design a three-tier network and justify every route table"
+descriptionAr: "الـ VPC والـ Subnets والـ Route Tables والـ Internet و NAT Gateway."
+domain: aws
+level: intermediate
+type: concept
+phase: cloud
+order: 11
+readingTime: 50
+prerequisites: ["aws-overview"]
+relatedChapters: ["aws-overview", "iam", "rds", "load-balancers"]
+objectives:
+  - "Design a three-tier network and justify every route table"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/11_VPC.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to AWS VPC
+
+In Chapter 02, we looked at the high-level System Architecture of our city. In this chapter, we are going to look at the exact concrete we use to build the roads and walls.
+
+The foundation of AWS Security is the **Virtual Private Cloud (VPC)**. If you do not understand CIDR blocks, Subnets, and Routing Tables, you cannot be a Cloud Engineer.
+
+---
+
+## Level 1 — Beginner
+
+### What is a VPC?
+Imagine you buy an empty plot of land. That is your AWS Account.
+You cannot just build a house in the dirt. You need to build a massive fence around your land, put a gate at the front, and lay down a private road system.
+
+- **The Fence:** The VPC itself. It keeps the public internet out.
+- **The Front Gate:** The Internet Gateway (IGW). It allows authorized traffic in and out.
+- **The Rooms (Subnets):** You divide your land into rooms. The living room (Public Subnet) is for guests. The bedroom (Private Subnet) is locked, and no guests are allowed in.
+- **The Map (Route Table):** A signpost that tells data packets, *"If you want to go to the internet, exit through the Front Gate."*
+
+### ASCII Diagram: The Subnet Split
+
+```text
++-------------------------------------------------------+
+|                 AWS VPC (10.0.0.0/16)                 |
+|                                                       |
+|  [ Public Subnet A ]       [ Private Subnet A ]       |
+|    (Has Internet)           (No direct Internet)      |
+|    - Load Balancer          - Kubernetes Node         |
+|    - NAT Gateway            - Database                |
++-------------------------------------------------------+
+```
+
+---
+
+## Level 2 — Intermediate
+
+### The Math: CIDR Blocks
+When you create a VPC, you must assign it an IP address range using **CIDR (Classless Inter-Domain Routing)** notation.
+In our Terraform code, we use `10.0.0.0/16`.
+- The `/16` means the first two numbers (`10.0`) are locked.
+- The last two numbers (`0.0`) can be anything from `0` to `255`.
+- This gives us **65,536** private IP addresses.
+
+We slice this massive block into smaller `/24` subnets (giving 256 IPs per subnet):
+- Public Subnet 1: `10.0.1.0/24`
+- Private Compute Subnet 1: `10.0.10.0/24`
+- Private Data Subnet 1: `10.0.20.0/24`
+
+### Internet Gateway (IGW) vs. NAT Gateway
+- **Internet Gateway:** A 2-way street. It goes in the Public Subnet. If a server has a Public IP, the IGW allows people on the internet to talk to it, and allows the server to talk to the internet.
+- **NAT Gateway:** A 1-way street. It goes in the Public Subnet, but it serves the Private Subnet. If your Kubernetes Node (in the private subnet) needs to download a Linux update, it sends the request to the NAT Gateway. The NAT Gateway fetches the update and hands it back. Hackers on the internet *cannot* use the NAT Gateway to reach your Kubernetes node.
+
+**Three ways a NAT Gateway goes wrong**, and none of them look like a NAT
+problem at first:
+
+1. **It is in the wrong subnet.** A NAT Gateway must live in a *public* subnet —
+   it needs the Internet Gateway to reach the internet on your behalf. Placed in
+   a private subnet it creates successfully, and then nothing can reach the
+   internet, with no error anywhere.
+2. **The private route table was never updated.** Creating the gateway changes
+   nothing by itself; the private subnet's route table needs `0.0.0.0/0` pointed
+   at it. The symptom is `apt-get update` hanging rather than failing.
+3. **One gateway, several Availability Zones.** A NAT Gateway is zonal. If the
+   AZ holding it fails, every private subnet routing through it loses internet
+   access — including the ones in healthy zones. Highly available means one per
+   AZ, which is also three times the bill.
+
+That bill is the reason this decision gets revisited: a NAT Gateway costs an
+hourly charge *plus* a per-GB data processing charge, and pulling container
+images through it is exactly the kind of traffic that adds up. **VPC endpoints**
+(below) let traffic to S3 and ECR bypass NAT entirely, which is usually the
+single largest saving available in a small AWS account.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+Let's look at how we build this in `infrastructure/terraform/modules/vpc/main.tf`.
+
+This module is written from raw resources rather than wrapping the community
+`terraform-aws-modules/vpc/aws` module. That is deliberate: the community module
+is excellent and would be the right production choice, but wrapping it means you
+never see the route tables — and route tables are exactly what makes a subnet
+public or private.
+
+```hcl
+resource "aws_vpc" "this" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = merge(local.common_tags, { Name = "${var.name_prefix}-vpc" })
+}
+
+resource "aws_subnet" "public" {
+  count = local.az_count
+
+  vpc_id                  = aws_vpc.this.id
+  cidr_block              = cidrsubnet(var.vpc_cidr, 4, count.index)
+  availability_zone       = var.availability_zones[count.index]
+  map_public_ip_on_launch = true
+
+  tags = merge(local.common_tags, {
+    Name                     = "${var.name_prefix}-public-${var.availability_zones[count.index]}"
+    Tier                     = "public"
+    "kubernetes.io/role/elb" = "1"
+  })
+}
+
+resource "aws_subnet" "private" {
+  count = local.az_count
+
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 4, count.index + local.az_count)
+  availability_zone = var.availability_zones[count.index]
+  ...
+}
+```
+
+**Line-by-line breakdown:**
+
+- **`enable_dns_hostnames = true`** — without it, instances get no internal DNS
+  name and service discovery inside the VPC does not work. It is off by default,
+  which surprises people.
+- **`count = local.az_count`** — one subnet per availability zone. A subnet
+  lives in exactly one AZ, so "spread across three AZs" always means "create
+  three subnets". This is why HA starts at the network layer.
+- **`cidrsubnet(var.vpc_cidr, 4, count.index)`** — computes the subnet instead
+  of hardcoding it. Read it as: *take the VPC CIDR, add 4 bits to the prefix
+  (so `/16` becomes `/20`), and give me block number `count.index`.*
+  - public gets blocks 0, 1, 2 → `10.20.0.0/20`, `10.20.16.0/20`, `10.20.32.0/20`
+  - private gets blocks 3, 4, 5 (offset by `az_count`)
+  - database gets blocks 6, 7, 8 (offset by `az_count * 2`)
+
+  Change `vpc_cidr` to `172.16.0.0/16` and every subnet recalculates correctly
+  with no other edit.
+- **`map_public_ip_on_launch = true`** on public only. Nothing in a private
+  subnet ever receives a public IP.
+- **`"kubernetes.io/role/elb" = "1"`** — the AWS cloud provider looks for this
+  tag to decide where to place load balancers. Without it, a `Service` of type
+  `LoadBalancer` fails with an error that does not mention subnet tags at all.
+
+### What actually makes a subnet public
+
+Not its name. Its route table:
+
+```hcl
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.this.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.this.id   # ← this line, and only this line
+  }
+}
+
+resource "aws_route_table" "private" {
+  count  = local.az_count
+  vpc_id = aws_vpc.this.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = var.single_nat_gateway ? aws_nat_gateway.this[0].id : aws_nat_gateway.this[count.index].id
+  }
+}
+
+# Database subnets are intentionally isolated: local routes only.
+resource "aws_route_table" "database" {
+  vpc_id = aws_vpc.this.id
+  tags   = merge(local.common_tags, { Name = "${var.name_prefix}-rt-database" })
+}
+```
+
+- The **public** table routes `0.0.0.0/0` to an internet gateway — traffic flows
+  both ways.
+- The **private** table routes `0.0.0.0/0` to a NAT gateway — outbound only.
+- The **database** table has *no* `0.0.0.0/0` route at all. Those subnets cannot
+  reach the internet in either direction, which is the strongest boundary in
+  the design and costs nothing.
+
+### The NAT cost decision, in code
+
+```hcl
+resource "aws_nat_gateway" "this" {
+  count = var.single_nat_gateway ? 1 : local.az_count
+  ...
+}
+```
+
+One conditional, roughly **$65/month**. `prod` sets `single_nat_gateway = false`
+and gets one NAT per AZ, so losing an availability zone does not take internet
+access away from the others. `dev` sets it to `true` and accepts that risk.
+- **`enable_dns_hostnames = true`**: Essential for Kubernetes. Without this, AWS will not assign internal DNS names to the EC2 instances, which breaks the `kubelet` node registration process.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: VPC Endpoints (AWS PrivateLink)
+In a Private Subnet, traffic bound for the internet (like downloading a Docker image from Docker Hub) goes through the NAT Gateway. AWS charges you **$0.045 per Gigabyte** of data processed by a NAT Gateway.
+
+If your Kubernetes cluster downloads 1 Terabyte of data from AWS S3 per day, and that traffic routes through the NAT Gateway, you will pay AWS **$1,350 per month** just in NAT data fees!
+
+**The Enterprise Solution: VPC Endpoints.**
+We create an S3 VPC Gateway Endpoint. This creates a direct, private tunnel from our VPC straight to the AWS S3 service. When the Kubernetes node tries to talk to S3, the Route Table hijacks the traffic, bypasses the NAT Gateway entirely, and routes it over the free AWS backbone. This one architectural change can save a company hundreds of thousands of dollars a year.
+
+### Network ACLs vs. Security Groups
+- **Security Groups (Stateful):** Attached to the EC2 instance. If you allow inbound traffic on Port 80, the return traffic is automatically allowed out. By default, they allow ALL outbound traffic.
+- **Network ACLs (Stateless):** Attached to the Subnet. They are the true firewall. If you allow inbound Port 80, you MUST explicitly write a rule to allow outbound traffic on the ephemeral port range (1024-65535). In enterprise environments, NACLs are used to explicitly DENY traffic from known malicious IP blocks across the entire subnet simultaneously.
+
+**A security group is an allow-list attached to a network interface.** There is
+no deny rule — anything not explicitly allowed is denied, so you restrict by
+granting less:
+
+```hcl
+resource "aws_security_group" "app" {
+  name   = "ivolve-app"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    description     = "HTTP from the load balancer only"
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]   # a reference, not a CIDR
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+```
+
+`security_groups = [aws_security_group.alb.id]` is the line worth copying. It
+says "whatever is in the load balancer's security group may reach me" — so when
+the ALB is replaced and its IP addresses change, the rule still holds. Writing a
+CIDR there instead hard-codes today's addresses, and it breaks silently the day
+they change.
+
+**The two properties that catch people out:**
+
+| | Security Group | Network ACL |
+| --- | --- | --- |
+| Attached to | An instance / ENI | A whole subnet |
+| State | **Stateful** — replies are automatic | **Stateless** — you must allow the reply |
+| Rules | Allow only | Allow **and** deny, evaluated in number order |
+| Default | Deny inbound, allow all outbound | Allow everything |
+
+Statefulness is the practical difference. A security group that allows inbound
+`443` needs no outbound rule for the response. Do the same on a NACL and the
+connection hangs — the request arrives, the reply is dropped, and the symptom is
+a timeout rather than a refusal, which sends people debugging the application
+instead of the network.
+
+**Checking what is actually attached**, which is faster than reading Terraform
+when something is unreachable:
+
+```bash
+aws ec2 describe-security-groups --group-ids sg-0abc123 \
+  --query 'SecurityGroups[].IpPermissions[]' --output table
+
+# Which security groups is this instance actually in?
+aws ec2 describe-instances --instance-ids i-0abc123 \
+  --query 'Reservations[].Instances[].SecurityGroups' --output table
+```
+
+Reach for a NACL only when you need a blanket deny across an entire subnet — an
+IP block you are actively refusing. For everything else, security groups are the
+right tool, because referencing groups by ID expresses intent that survives
+change.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is an Internet Gateway (IGW)?**
+A: It is the component attached to a VPC that provides a target in your VPC route tables for internet-routable traffic, and performs network address translation (NAT) for instances that have been assigned public IPv4 addresses.
+
+### Intermediate
+**Q: A developer launches an EC2 instance in a Public Subnet, but they cannot ping google.com. What are the three things you should check?**
+A: 
+1. Does the instance have a Public IP address?
+2. Does the Security Group attached to the instance allow outbound ICMP/All traffic?
+3. Does the Subnet's Route Table have a route for `0.0.0.0/0` pointing to the Internet Gateway (IGW)?
+
+### Senior
+**Q: Explain the difference between a NAT Gateway and an Egress-Only Internet Gateway.**
+A: A NAT Gateway is used for IPv4 traffic. It translates the private IPv4 address of an instance to its own elastic public IPv4 address. An Egress-Only Internet Gateway is exclusively for IPv6 traffic. Because IPv6 addresses are globally routable (no private IPs), NAT is mathematically unnecessary. The Egress-Only IGW simply acts as a stateful router that allows outbound IPv6 traffic to the internet but blocks inbound IPv6 connections.
+
+### Principal/Architect
+**Q: Your company merges with another company. You have VPC A (`10.0.0.0/16`) and they have VPC B (`10.0.0.0/16`). You need the Kubernetes cluster in VPC A to query the RDS database in VPC B. How do you architect this without causing IP routing conflicts?**
+A: Because the CIDR blocks overlap identically, you cannot use VPC Peering or a Transit Gateway directly; the routing tables would have no idea which `10.0.x.x` IP to send traffic to. 
+The architectural solution is **AWS PrivateLink**. 
+1. In VPC B, you place a Network Load Balancer (NLB) in front of the RDS database.
+2. You expose that NLB as an AWS VPC Endpoint Service.
+3. In VPC A, you create a VPC Interface Endpoint connecting to that service. 
+AWS will inject an Elastic Network Interface (ENI) into VPC A with a local `10.0.x.x` IP address. The Kubernetes cluster connects to that local IP, and AWS magically transports the packets to the NLB in VPC B, completely bypassing the CIDR overlap routing problem.
+[Contents](/learn) | [12 — Security & Identity (AWS IAM)](/learn/aws/iam) |
