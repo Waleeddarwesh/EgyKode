@@ -1,0 +1,197 @@
+---
+contentId: auto-scaling
+title: "Elasticity (AWS Auto Scaling)"
+titleAr: "المرونة — AWS Auto Scaling"
+description: "Configure an ASG and explain instance refresh"
+descriptionAr: "التوسّع مع الحِمل، وما يكلّفه ذلك."
+domain: aws
+level: intermediate
+type: concept
+phase: cloud
+order: 17
+readingTime: 35
+prerequisites: ["load-balancers"]
+relatedChapters: ["aws-overview", "vpc", "iam", "rds"]
+objectives:
+  - "Configure an ASG and explain instance refresh"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/17_AutoScaling.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Auto Scaling
+
+If you launch an eCommerce website on Black Friday, 1 million people will visit your site. You need 100 servers to handle the traffic. 
+But on Saturday, only 1,000 people visit. If you keep those 100 servers running, you will go bankrupt paying AWS.
+
+**Auto Scaling** is the magic of the Cloud. It allows your infrastructure to expand and shrink dynamically based on actual user demand, saving you massive amounts of money.
+
+---
+
+## Level 1 — Beginner
+
+### What is Auto Scaling?
+Imagine a restaurant that hires waiters by the minute.
+- At 5:00 PM, 10 customers walk in. The Manager hires 1 waiter.
+- At 6:00 PM, 100 customers walk in. The waiters are overwhelmed. The Manager instantly hires 9 more waiters.
+- At 9:00 PM, everyone goes home. The Manager instantly fires 9 waiters so he doesn't have to pay them.
+
+In AWS:
+- The Waiters = EC2 Servers.
+- The Customers = Web Traffic.
+- The Manager = Auto Scaling Group (ASG).
+
+### ASCII Diagram: The Elastic Cloud
+
+```text
+[ Traffic Spike! (CPU > 80%) ]
+          |
+          v
+[ AWS Auto Scaling Group ] ---> "Launch 5 more servers!"
+          |
+          v
+[ Server 1 ] [ Server 2 ] [ Server 3 ] [ Server 4 ] [ Server 5 ]
+          |
+[ Traffic Drops (CPU < 20%) ]
+          |
+          v
+[ AWS Auto Scaling Group ] ---> "Terminate 4 servers!"
+```
+
+---
+
+## Level 2 — Intermediate
+
+### How an ASG Works Internally
+
+An Auto Scaling Group (ASG) requires two main components:
+1. **Launch Template:** The blueprint. It tells the ASG exactly *what* to build (e.g., "Use a `t3.large` instance, use the Ubuntu 22.04 AMI, and attach the `worker-node` Security Group").
+2. **The Auto Scaling Group:** The rules engine. It tells AWS *when* and *where* to build it (e.g., "Keep a minimum of 2 servers, a maximum of 10 servers, and spread them evenly across `us-east-1a` and `us-east-1b`").
+
+### Dynamic Scaling Policies
+How does the ASG know when to scale? It listens to **Amazon CloudWatch** (the AWS metrics monitor).
+You create a policy: *"If the average CPU utilization across all servers exceeds 70% for 3 consecutive minutes, add 2 servers."*
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+Let's look at how we provision the Kubernetes Worker Nodes using Terraform in `infrastructure/terraform/modules/compute/main.tf`.
+
+```hcl
+resource "aws_launch_template" "worker" {
+  name_prefix   = "${var.name_prefix}-worker-"
+  image_id      = data.aws_ami.ubuntu.id
+  instance_type = var.worker_instance_type
+  key_name      = var.key_pair_name
+  user_data     = base64encode(local.node_bootstrap)
+
+  iam_instance_profile {
+    name = var.node_instance_profile_name
+  }
+
+  vpc_security_group_ids = [var.worker_sg_id]
+
+  metadata_options {
+    http_tokens                 = "required"   # IMDSv2 only
+    http_endpoint               = "enabled"
+    http_put_response_hop_limit = 2
+  }
+
+  block_device_mappings {
+    device_name = "/dev/sda1"
+    ebs {
+      volume_size           = var.worker_disk_gb
+      volume_type           = "gp3"
+      encrypted             = true
+      delete_on_termination = true
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_autoscaling_group" "worker" {
+  name                = "${var.name_prefix}-workers"
+  vpc_zone_identifier = var.private_subnet_ids
+  min_size            = var.worker_min_size
+  max_size            = var.worker_max_size
+  desired_capacity    = var.worker_desired_capacity
+
+  health_check_type         = "EC2"
+  health_check_grace_period = 300
+
+  launch_template {
+    id      = aws_launch_template.worker.id
+    version = "$Latest"
+  }
+
+  # Replace nodes a few at a time so the cluster never loses quorum of capacity.
+  instance_refresh {
+    strategy = "Rolling"
+    preferences {
+      min_healthy_percentage = 66
+      instance_warmup        = 300
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+```
+
+**Line-by-Line Breakdown:**
+- **`user_data = base64encode(...)`**: This is brilliant. When the ASG launches a new server, the server is blank. How does it know it's supposed to join a Kubernetes cluster? We inject a bash script (`userdata.sh`) into the server at boot. The script runs `kubeadm join` automatically. 
+- **`vpc_zone_identifier = var.private_subnet_ids`**: The ASG is mathematically bound to our 3 Private Subnets. It will inherently balance the EC2 instances across the 3 Availability Zones.
+- **`version = "$Latest"`**: If we decide to upgrade from `t3.large` to `t3.xlarge`, we update the Launch Template. The ASG automatically detects the `$Latest` version and begins replacing the old servers with new ones.
+
+---
+
+## Level 4 — Enterprise
+
+### ASG vs. Kubernetes Cluster Autoscaler (CA)
+There is a massive conflict when you run Kubernetes inside an AWS ASG. 
+- If the AWS ASG looks at CPU metrics and scales down, it might brutally murder a server that is currently processing a customer's credit card transaction.
+- AWS doesn't know what a "Pod" is. It only knows what an "EC2 Server" is.
+
+**The Enterprise Solution: The Kubernetes Cluster Autoscaler.**
+In a production Kubernetes environment, we *disable* the AWS CPU scaling policies. Instead, we install a pod inside Kubernetes called the **Cluster Autoscaler**.
+1. The Kubernetes Scheduler tries to place a Pod, but there is no CPU left. The Pod goes into `Pending`.
+2. The Cluster Autoscaler sees the `Pending` pod.
+3. The Cluster Autoscaler makes an API call directly to the AWS ASG, commanding it to increase `desired_capacity` by 1.
+4. When scaling down, the Cluster Autoscaler finds an empty node, gracefully drains it, and then commands AWS to terminate that specific node.
+*Result: Kubernetes is in complete control of AWS hardware.*
+
+### Spot Instances and Karpenter
+Enterprise platforms do not pay full price for EC2 instances. They use **AWS Spot Instances** (excess AWS capacity sold at a 70% discount).
+The catch? AWS can take the Spot instance away from you with only a 2-minute warning.
+Modern platform engineering uses **Karpenter** (an advanced open-source node provisioner built by AWS). Karpenter completely replaces the concept of ASGs. It watches for `Pending` pods, instantly calculates the cheapest available Spot instance that fits the pod, and provisions it directly via the EC2 Fleet API in milliseconds. If AWS issues a 2-minute interruption warning, Karpenter instantly drains the node and provisions a replacement before the original node is terminated.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is the difference between an Auto Scaling Group and a Load Balancer?**
+A: An Auto Scaling Group creates and destroys servers based on traffic. A Load Balancer takes the traffic and distributes it evenly among whatever servers the Auto Scaling Group has created.
+
+### Intermediate
+**Q: If your ASG has `min_size = 2` and you manually go into the AWS Console and terminate one of the instances, what happens?**
+A: The ASG Health Checks will detect that the instance was terminated. Because the current capacity (1) is now below the `min_size` (2), the ASG will instantly launch a brand new instance to replace the terminated one.
+
+### Senior
+**Q: Explain how `user_data` works in an EC2 Launch Template and why it is critical for immutable infrastructure.**
+A: `user_data` is a script passed to the EC2 instance metadata service. The `cloud-init` daemon executes this script exactly once during the first boot of the OS. It allows the server to dynamically configure itself (e.g., downloading Ansible, running `kubeadm join`, fetching secrets) without any human intervention. This makes the infrastructure immutable: if a server breaks, you do not SSH in to fix it; you terminate it, and the ASG boots a fresh one that perfectly configures itself via `user_data`.
+
+### Principal/Architect
+**Q: You are running a stateful application (Kafka) on Kubernetes using persistent EBS volumes. The Kubernetes Node fails. The ASG replaces the Node. However, the Kafka Pod is stuck in `Pending` on the new Node because the EBS volume is in a different Availability Zone. How do you architect the ASG to prevent this?**
+A: EBS volumes are locked to a specific Availability Zone (AZ). If a Node in `us-east-1a` dies, the ASG might spin up the replacement Node in `us-east-1b` to maintain balance. The Pod will schedule in `1b`, but the disk is in `1a`. 
+To solve this, you must NOT use a single ASG spanning multiple AZs for stateful workloads. You must create one distinct ASG *per* Availability Zone (e.g., ASG-1a, ASG-1b, ASG-1c). You then use the Kubernetes Cluster Autoscaler's `--balance-similar-node-groups` feature. This guarantees that if a node dies in `1a`, the replacement node is strictly provisioned in `1a`, allowing the Pod to successfully attach its EBS volume.
+[Contents](/learn) | [18 — Security (AWS Secrets Manager)](/learn/aws/secrets-manager) |
