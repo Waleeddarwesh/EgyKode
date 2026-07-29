@@ -1,0 +1,307 @@
+---
+contentId: linux-foundations
+title: "The Foundation (Linux)"
+titleAr: "أساسيات Linux"
+description: "Read a systemd unit, follow a log, and diagnose a failed service"
+descriptionAr: "نظام الملفات والعمليات والصلاحيات والخدمات — ما يفترضه كل ما يليه."
+domain: linux
+level: beginner
+type: concept
+phase: foundations
+order: 5
+readingTime: 45
+prerequisites: []
+relatedChapters: []
+objectives:
+  - "Read a systemd unit, follow a log, and diagnose a failed service"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/05_Linux.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Linux
+
+When Terraform builds a server in AWS, what Operating System does it use? It doesn't use Windows. It uses **Linux** (specifically, Ubuntu).
+When Docker spins up a container, what is running inside it? Linux.
+When Kubernetes manages the cluster, what kernel is it talking to? Linux.
+
+Linux is the bedrock of the entire cloud and DevOps ecosystem. You cannot be a DevOps engineer without understanding Linux.
+
+---
+
+## Level 1 — Beginner
+
+### What is Linux?
+Imagine a computer operating system like a restaurant. 
+- **Windows / macOS:** This is a fancy restaurant. You sit down, look at a pretty menu (the Graphical User Interface / GUI), point at a picture of a burger, and the waiter brings it to you. It's easy, but you can't go into the kitchen.
+- **Linux:** This is a massive industrial kitchen. There is no menu. There are no pictures. You stand in front of a raw terminal (the command line) and you type exact instructions to the chef: *"Take 200g of beef, cook it at 400 degrees for 4 minutes."* It is harder to learn, but you have absolute, limitless control over the computer.
+
+### Why do servers use Linux?
+1. **Free:** Windows Server costs thousands of dollars in licensing. Linux is free and open-source.
+2. **Lightweight:** A Windows GUI takes 2GB of RAM just to show you the desktop background. A Linux server has no GUI; it uses 150MB of RAM, leaving the rest for your application.
+3. **Automated:** Because everything is controlled via text commands, robots (like Ansible) can control it easily.
+
+---
+
+## Level 2 — Intermediate
+
+### Core Linux Concepts for DevOps
+
+#### 1. The File System
+In Windows, you have `C:\` and `D:\`. In Linux, there are no drive letters. There is one tree, and everything starts at the **Root** (`/`) — including your second hard drive, your USB stick, and the network share. They all get *mounted* into a directory somewhere in that single tree.
+
+These are the directories you will actually touch as a DevOps engineer:
+
+| Path | What lives there | Why you will open it |
+| --- | --- | --- |
+| `/etc/` | Configuration files | `/etc/kubernetes/manifests/`, `/etc/nginx/nginx.conf` |
+| `/var/log/` | Log files | The server misbehaved and you need to know why |
+| `/home/<user>/` | A user's own files | Your SSH keys live in `/home/ubuntu/.ssh/` |
+| `/proc/` | The kernel, pretending to be files | `cat /proc/meminfo` to see real memory usage |
+| `/usr/bin/`, `/usr/local/bin/` | Installed programs | Where `kubectl` and `terraform` end up |
+| `/tmp/` | Scratch space, wiped on reboot | Build artifacts you do not want to keep |
+
+Two commands answer the question you will ask most often — *why is this disk full?*
+
+```bash
+df -h                    # how full is each mounted filesystem?
+du -sh /var/log/*        # which thing inside /var/log is the fat one?
+```
+
+A full disk is one of the most common causes of a "mysteriously broken" server: Docker cannot pull images, Kubernetes evicts Pods, and the database refuses writes — all with unrelated-looking error messages.
+
+#### 2. Permissions (chmod)
+Linux is incredibly secure because of its permission system. Every file has an Owner, a Group, and "Others".
+When you generate an SSH key to log into AWS, you run this command:
+```bash
+chmod 400 ~/.ssh/ivolve-key.pem
+```
+**What does `400` mean?**
+- `4` (Owner): Read-only permission.
+- `0` (Group): No access.
+- `0` (Others): No access.
+If you don't run this command, AWS will reject your connection because the key is "too open" and someone else on the computer might steal it.
+
+**Where the numbers come from.** Each digit is the sum of three permissions:
+
+| Number | Permission | On a file | On a directory |
+| --- | --- | --- | --- |
+| `4` | read (`r`) | read the contents | list the names inside |
+| `2` | write (`w`) | change the contents | create or delete files inside |
+| `1` | execute (`x`) | run it as a program | `cd` into it |
+
+Add them together for each of the three audiences — owner, group, others:
+
+```bash
+chmod 644 config.yaml     # owner reads+writes (6), everyone else reads (4)
+chmod 755 deploy.sh       # owner does everything (7), everyone else reads+runs (5)
+chmod 400 key.pem         # owner reads (4), nobody else touches it at all
+chmod +x deploy.sh        # the shorthand: "make this runnable"
+```
+
+`ls -l` prints them the other way round, as letters:
+
+```text
+-rwxr-xr-x  1 ubuntu ubuntu  482 Aug  9 11:20 deploy.sh
+ ^^^                                            = owner:  read, write, execute
+    ^^^                                         = group:  read, execute
+       ^^^                                      = others: read, execute
+```
+
+**Ownership is the other half.** Permissions decide *what* each audience may do; ownership decides *who* those audiences are.
+
+```bash
+chown ubuntu:ubuntu /var/www        # this file now belongs to user ubuntu, group ubuntu
+chown -R ivolve:ivolve /opt/app     # -R = the whole directory tree
+```
+
+This is the same idea you will meet again in Kubernetes as `runAsUser` and `fsGroup`, and in Docker as the `USER` instruction. A container that writes to a mounted volume as UID 1000 when the directory is owned by UID 0 will fail with `Permission denied` — and the fix is `chown`, not more privileges.
+
+**Which permission to reach for.** The temptation under time pressure is always
+`chmod 777`, and it is always the wrong answer — it grants write access to every
+process on the machine, including a compromised one:
+
+| Instead of | Use | Because |
+| --- | --- | --- |
+| `777` on a directory | `775` with a shared group | The group is the thing you actually wanted |
+| `666` on a config file | `644`, or `640` if it holds anything sensitive | Nothing needs to be world-writable |
+| Opening a file to everyone | `chown` it to the right user | Ownership expresses intent; permissions are the fallback |
+
+Prefer **groups over per-user permissions**: add the users who need access to a
+group, `chown` the directory to that group, and set `775`. Adding a person then
+means adding them to a group rather than re-walking a directory tree.
+
+Standard permissions run out when two groups need *different* access to the same
+file — that is what POSIX ACLs (`setfacl`) exist for. They are rarer than they
+look, and reaching for them early usually means the directory layout is wrong.
+
+#### 3. Processes and Daemons
+Every running program is a **process**, and every process has a numeric **process ID (PID)**. A **daemon** is simply a process that runs silently in the background with no terminal attached — a service. Kubernetes' `kubelet`, Docker's `dockerd`, and your database are all daemons.
+
+```bash
+ps aux                   # every process on the machine, with its PID and memory
+ps aux | grep kubelet    # just the one you care about
+top                      # the same thing, live, sorted by CPU
+kill 4821                # ask process 4821 to shut down cleanly (SIGTERM)
+kill -9 4821             # force it to die (SIGKILL) — it gets no chance to clean up
+```
+
+The difference between those last two matters more than it looks. `SIGTERM` is what Kubernetes sends a Pod when it wants it gone; the application is supposed to finish its current request and exit. If it ignores that, Kubernetes waits 30 seconds and then sends `SIGKILL`. An application that does not handle `SIGTERM` drops live user requests on every single deploy.
+
+#### 4. systemd — the service manager
+Nobody starts a daemon by typing its name and hoping. On every modern Linux distribution, **systemd** starts services at boot, restarts them when they crash, and keeps their logs.
+
+```bash
+systemctl status kubelet     # is it running? did it fail? show me the last few log lines
+systemctl restart kubelet    # stop it and start it again
+systemctl enable kubelet     # start automatically on every boot — the one people forget
+journalctl -u kubelet -f     # follow this service's logs live (Ctrl-C to stop)
+journalctl -u kubelet --since "10 min ago"
+```
+
+`enable` and `start` are different, and confusing them causes a specific kind of outage: the service runs perfectly for months, the server reboots at 3am, and the service never comes back — because it was started but never enabled.
+
+**Reading a unit file.** A service is defined by a plain text file. Here is a trimmed version of one:
+
+```ini
+[Unit]
+Description=ivolve API
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/ivolve-api --port 8080
+Restart=on-failure
+RestartSec=5s
+User=ivolve
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- `After=network.target` — do not start this until the network is up.
+- `ExecStart=` — the exact command to run. There is no shell here, so pipes and `$VARIABLES` will not work the way you expect.
+- `Restart=on-failure` — if the process exits non-zero, restart it. This is systemd doing, on one server, what Kubernetes does for a cluster.
+- `User=ivolve` — run as an unprivileged user, not `root`. Same principle as a non-root container.
+
+**Diagnosing a failed service.** When `systemctl status` shows `failed`, the sequence is always the same:
+
+```bash
+systemctl status ivolve-api      # 1. what does systemd think happened? note the exit code
+journalctl -u ivolve-api -n 50   # 2. what did the application itself say before dying?
+systemctl cat ivolve-api         # 3. is the unit file actually what you think it is?
+```
+
+Step 2 is the one beginners skip. `systemctl status` tells you *that* it failed; only the journal tells you *why*.
+
+**`Restart=` is a real decision, not a formality:**
+
+| Value | Behaviour | Use when |
+| --- | --- | --- |
+| `no` | Never restart | A one-shot task that should stay failed |
+| `on-failure` | Restart on a non-zero exit | Almost always — the sensible default |
+| `always` | Restart even on a clean exit | A daemon that should never stop, ever |
+
+`always` sounds safer and often is not: a service that exits cleanly because its
+configuration is invalid will be restarted forever, hiding the problem behind a
+process that looks alive. Pair either setting with `RestartSec` so a crash loop
+does not saturate the machine.
+
+**When systemd is the wrong tool.** It manages processes on *one* machine. For
+scheduled work, a systemd timer and `cron` do the same job — timers give you
+logging, dependencies and `Persistent=true` for missed runs, at the cost of more
+syntax; cron is three fields and universally understood. And once a workload must
+survive the machine itself failing, no process manager is enough — that is the
+problem Kubernetes solves, and `Restart=on-failure` is its single-host ancestor.
+
+---
+
+## Level 3 — Advanced
+
+### How Linux Powers Containers (Docker & Kubernetes)
+
+Containers are not magic. They do not contain their own Operating System. They are just a trick played by the Linux Kernel.
+
+Docker and Kubernetes rely on two fundamental Linux features:
+1. **cgroups (Control Groups):** This limits *how much* a process can use. If we tell Kubernetes that the `ivolve-api` Pod can only use 500MB of RAM, Kubernetes simply asks the Linux Kernel to put a `cgroup` limit on that process. If the API tries to use 501MB, the Linux Kernel instantly kills it (OOMKilled - Out of Memory).
+2. **Namespaces:** This limits *what* a process can see. When the `ivolve-api` container starts, Linux creates a Network Namespace. The API thinks it has its own private IP address and its own private hard drive. It cannot see the database container running right next to it on the same physical server.
+
+### Deep Dive: Shell Scripting in CI/CD
+In DevOps, we automate tasks using Bash scripts. Every pipeline stage, every container entrypoint, and every `user_data` block on an EC2 instance is ultimately a shell script.
+
+**The four lines that belong at the top of every one of them:**
+
+```bash
+#!/bin/bash
+set -euo pipefail
+```
+
+- `#!/bin/bash` — the *shebang*. It tells Linux which interpreter to run the file with.
+- `-e` — exit immediately if any command fails. Without it, a script whose `docker build` failed cheerfully carries on to `docker push` and deploys the previous image.
+- `-u` — treat an unset variable as an error. This is what stops `rm -rf "$APP_DIR/"` from becoming `rm -rf /` when `APP_DIR` was never set.
+- `-o pipefail` — in `a | b`, fail if *any* stage failed, not just the last one. Without it, `trivy image myapp | tee scan.log` reports success no matter what Trivy found, because `tee` succeeded.
+
+Those three flags are the difference between a script that stops at the problem and a script that keeps going and does damage.
+
+**Variables and substitution:**
+
+```bash
+IMAGE_TAG="${GIT_COMMIT:0:7}"          # first 7 characters — a short SHA
+REGISTRY="${REGISTRY:-ghcr.io/ivolve}" # use $REGISTRY if set, otherwise this default
+docker build -t "${REGISTRY}/api:${IMAGE_TAG}" .
+```
+
+Always quote your variables (`"$VAR"`, not `$VAR`). An unquoted variable containing a space is split into two arguments, which is how a script meant to delete one file deletes two directories.
+
+Look at how a Jenkins pipeline executes a command:
+```bash
+sh 'trivy fs --exit-code 1 --severity CRITICAL .'
+```
+Why does this fail the pipeline? Because of Linux **Exit Codes**.
+In Linux, when a program finishes, it sends a hidden number back to the kernel.
+- `0`: Success.
+- `1 - 255`: Error.
+Jenkins is programmed to look at the Linux Exit Code. If it sees a `1`, Jenkins turns the pipeline red.
+
+---
+
+## Level 4 — Enterprise
+
+### Kernel Tuning (Sysctl)
+In a highly scalable enterprise environment, the default Linux settings are not enough. 
+If our Kubernetes cluster is handling 100,000 HTTP requests per second, the Linux server will run out of network ports, or it will drop packets because the TCP buffer is too small.
+
+Platform Engineers use the `sysctl` command to tune the Linux Kernel in production.
+For example, in a high-traffic Kubernetes cluster, we might apply:
+```bash
+sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+sysctl -w net.ipv4.tcp_tw_reuse=1
+```
+This tells the Linux kernel to recycle TCP connections faster so the server doesn't crash under massive load.
+
+### SELinux and AppArmor
+For government or SOC2 compliance, standard file permissions (`chmod`) are insufficient. What if the `root` user is hacked?
+Enterprise Linux distributions (Red Hat, Ubuntu) use **Mandatory Access Control (MAC)** systems like SELinux or AppArmor.
+Even if a hacker gains `root` access to a Docker container, AppArmor will intercept the kernel calls and block the hacker from reading sensitive files on the host machine.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is the `sudo` command?**
+A: `sudo` stands for "SuperUser Do". It allows a normal user to execute a single command with root (Administrator) privileges.
+
+### Intermediate
+**Q: You run `cat /var/log/syslog` and it prints 10,000 lines instantly. How can you view the file so it only shows you the last 20 lines that update in real-time?**
+A: You use the `tail` command with the follow flag: `tail -n 20 -f /var/log/syslog`.
+
+### Senior
+**Q: Explain what `OOMKilled` means in Kubernetes and how it relates to the Linux Kernel.**
+A: `OOMKilled` stands for Out Of Memory Killed. When a container exceeds its defined memory limit, the Linux Kernel's Out-Of-Memory Killer process intervenes to protect the host node from crashing. It terminates the offending process inside the `cgroup`. Kubernetes detects the exit code and updates the Pod status to `OOMKilled`.
+
+### Principal/Architect
+**Q: What is the difference between a Virtual Machine (VM) and a Container at the OS kernel level?**
+A: A Virtual Machine utilizes a Hypervisor (like ESXi or KVM) to emulate physical hardware. Every VM runs a complete, heavy, independent Operating System kernel. A Container (like Docker) does not emulate hardware. It uses the Host's existing Linux Kernel, utilizing `Namespaces` for isolation and `cgroups` for resource limitation. Because containers share a single kernel, they boot in milliseconds and have vastly less overhead than VMs.
+[Contents](/learn) | [06 — Networking Fundamentals](/learn/networking/networking-fundamentals) |
