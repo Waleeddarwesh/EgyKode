@@ -1,0 +1,290 @@
+---
+contentId: aws-overview
+title: "Amazon Web Services (AWS)"
+titleAr: "نظرة عامة على AWS"
+description: "Create an IAM user with MFA and stop using the root account"
+descriptionAr: "البنية العالمية والحسابات ونموذج المسؤولية المشتركة."
+domain: aws
+level: beginner
+type: concept
+phase: cloud
+order: 10
+readingTime: 40
+prerequisites: []
+relatedChapters: ["vpc", "iam", "rds", "load-balancers"]
+objectives:
+  - "Create an IAM user with MFA and stop using the root account"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/10_AWS.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to AWS
+
+If you want to build a website, you need a computer to host it. Historically, companies bought physical computers, plugged them into the wall in a server room, and paid an IT guy to watch them.
+
+**Amazon Web Services (AWS)** revolutionized this. Instead of buying a computer, you rent a fraction of one of Amazon's millions of computers by the second. AWS is the physical foundation upon which our entire DevOps platform is built.
+
+---
+
+## Level 1 — Beginner
+
+### What is AWS?
+Imagine you need a car.
+- **The Old Way:** You buy a car for $30,000. You pay for insurance, maintenance, and gas. Even if it sits in your garage for 6 months, you still spent $30,000.
+- **The Cloud Way (AWS):** You use Uber. You only pay for the exact distance you travel. If you don't travel, you pay nothing. 
+
+AWS is a massive collection of data centers around the world. You use the internet to rent their servers, their hard drives, and their databases.
+
+### ASCII Diagram: The Cloud Illusion
+
+```text
+[ Your Laptop ] ---> "Give me a server!" ---> [ AWS Data Center ]
+                                                |
+                                                |-- Physical Server 1
+                                                |    |-- Virtual Server A (Yours)
+                                                |    |-- Virtual Server B (Someone else's)
+```
+You don't get the whole physical server. AWS uses software to slice the physical server into smaller "Virtual" servers (EC2 instances).
+
+---
+
+## Level 2 — Intermediate
+
+### Core AWS Concepts
+
+AWS provides hundreds of services. In this platform, we only use a critical subset.
+
+#### 1. EC2 (Elastic Compute Cloud)
+- **What is it?** Virtual Machines (Linux servers).
+- **How we use it:** Our Terraform code requests `t3.large` instances to run the Kubernetes Control Plane, and `t3.xlarge` instances to run our Worker Nodes.
+
+**Reading an instance type.** `t3.large` is three pieces of information:
+
+```text
+  t      3      .large
+  │      │        └── size: nano, micro, small, medium, large, xlarge, 2xlarge …
+  │      └─────────── generation: higher is newer, usually cheaper per unit of work
+  └────────────────── family: what this machine is optimised for
+```
+
+| Family | Optimised for | Reach for it when |
+| --- | --- | --- |
+| `t` | Burstable, cheapest | Dev boxes, low-traffic services, anything idle most of the time |
+| `m` | Balanced CPU and memory | The sensible default for application servers |
+| `c` | Compute | CI runners, encoding, anything CPU-bound |
+| `r` | Memory | Databases, caches, JVMs with large heaps |
+
+The `t` family has a catch worth knowing before it bites you: it earns **CPU
+credits** while idle and spends them when busy. Run a `t3.micro` at sustained
+100% CPU and it exhausts its credits, then throttles to a few percent of a core —
+the instance is "up", the application is unusably slow, and nothing in the
+metrics says "throttled" unless you look at `CPUCreditBalance`. Burstable
+instances are for bursty workloads.
+
+**How you pay** changes the bill far more than picking a different size:
+
+| Model | Rough saving | Trade-off |
+| --- | --- | --- |
+| On-Demand | — | Pay per second, walk away any time |
+| Savings Plans | up to ~70% | Commit to a spend level for 1 or 3 years |
+| Spot | up to ~90% | AWS can reclaim it with a 2-minute warning |
+
+Spot is not a gamble if the workload tolerates interruption — stateless Kubernetes
+worker nodes, CI runners, batch jobs. It is a bad idea for anything holding state
+that cannot be rebuilt in two minutes.
+
+**Storage is separate from the instance.** An **EBS volume** is a network-attached
+disk that survives a stop/start; **instance store** is physically attached, much
+faster, and erased the moment the instance stops. Choosing instance store for a
+database is a data-loss incident waiting for a maintenance window.
+
+```bash
+# What is actually running, and what is it costing you?
+aws ec2 describe-instances \
+  --filters "Name=instance-state-name,Values=running" \
+  --query 'Reservations[].Instances[].[InstanceId,InstanceType,Tags[?Key==`Name`].Value|[0]]' \
+  --output table
+```
+
+**User data** is the script that runs on first boot — how an instance joins the
+cluster without anyone logging in:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+kubeadm join 10.20.0.10:6443 --token "$JOIN_TOKEN" \
+  --discovery-token-ca-cert-hash "$CA_HASH"
+```
+
+#### 2. VPC (Virtual Private Cloud)
+- **What is it?** A private network carved out of AWS. 
+- **How we use it:** We wrap a VPC around all our EC2 servers so hackers on the internet cannot access them directly. 
+
+#### 3. S3 (Simple Storage Service)
+- **What is it?** Infinite cloud storage for files (like Dropbox, but for code).
+- **How we use it:** We store our Terraform State file in S3 so multiple engineers can collaborate on infrastructure without overwriting each other.
+
+**S3 is object storage, which is not a filesystem.** There are no directories —
+`logs/2026/08/app.log` is one flat key that happens to contain slashes, and the
+console draws folders for your benefit. You cannot append to an object or edit it
+in place; you replace it. That constraint is why S3 scales the way it does, and
+why it is wrong for anything a database or an application needs to write to
+continuously.
+
+**Storage classes are the main cost lever**, and the difference is retrieval
+speed, not durability — all classes store 11 nines of durability:
+
+| Class | Use for | Retrieval |
+| --- | --- | --- |
+| Standard | Actively read data | Immediate |
+| Intelligent-Tiering | You genuinely don't know the access pattern | Immediate |
+| Glacier Instant | Backups you rarely read but need fast | Immediate, higher per-GB read cost |
+| Glacier Deep Archive | Compliance retention, years | Hours |
+
+A **lifecycle rule** moves objects between them on a schedule, which is where the
+savings actually come from — nobody reclassifies objects by hand:
+
+```hcl
+resource "aws_s3_bucket_lifecycle_configuration" "logs" {
+  bucket = aws_s3_bucket.logs.id
+
+  rule {
+    id     = "archive-old-logs"
+    status = "Enabled"
+
+    transition {
+      days          = 30
+      storage_class = "GLACIER_IR"
+    }
+    expiration {
+      days = 365
+    }
+  }
+}
+```
+
+**The four settings every bucket should have.** Public S3 buckets remain one of
+the most common causes of real-world data breaches, and all four of these are
+one-liners:
+
+```hcl
+resource "aws_s3_bucket_public_access_block" "state" {
+  bucket                  = aws_s3_bucket.state.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_versioning" "state" {
+  bucket = aws_s3_bucket.state.id
+  versioning_configuration { status = "Enabled" }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "state" {
+  bucket = aws_s3_bucket.state.id
+  rule {
+    apply_server_side_encryption_by_default { sse_algorithm = "AES256" }
+  }
+}
+```
+
+**Versioning** deserves its own note: it is what makes an accidental overwrite or
+delete recoverable. On the Terraform state bucket it is not optional — a
+corrupted state file with no previous version is one of the few genuinely
+unrecoverable situations in this handbook.
+
+```bash
+aws s3 ls s3://ivolve-terraform-state/environments/prod/
+aws s3api list-object-versions --bucket ivolve-terraform-state --prefix environments/prod/
+```
+
+#### 4. IAM (Identity and Access Management)
+- **What is it?** The bouncer at the door. It manages usernames, passwords, and permissions.
+- **How we use it:** We create an IAM User with an Access Key so our local terminal can authenticate and build the cluster.
+
+### What Existed Before Cloud? (On-Premises)
+Before AWS (launched in 2006), companies used "On-Premises" datacenters. 
+- **Disadvantage:** If you launch a game on Friday and a million people try to play, your servers crash. You call Dell to order more servers, but they take 3 weeks to arrive. Your game fails.
+- **The AWS Advantage:** With AWS Auto Scaling, if a million people log on, AWS instantly gives you 100 new servers in 30 seconds. When the players go to sleep, AWS deletes 99 servers, and you stop paying for them.
+
+---
+
+## Level 3 — Advanced
+
+### AWS Architecture in This Project (Real Code)
+
+How do we actually interact with AWS? We don't click the website. We use the **AWS CLI** (Command Line Interface) and the **Terraform AWS Provider**.
+
+If you look in our code at `infrastructure/terraform/environments/prod/main.tf`, you'll see the VPC creation module. But how does Terraform know *which* AWS account to build it in?
+
+It relies on the Provider configuration. 
+```hcl
+provider "aws" {
+  region = var.aws_region
+
+  # Every resource carries these even if a module forgets to merge tags.
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = "prod"
+      ManagedBy   = "terraform"
+    }
+  }
+  
+  default_tags {
+    tags = local.common_tags
+  }
+}
+```
+**Line-by-Line Breakdown:**
+- **`provider "aws"`**: We are telling Terraform to load the AWS API plugin.
+- **`region = var.aws_region`**: AWS is split into Regions (like `us-east-1` for Virginia, `eu-west-1` for Ireland). We pass a variable so we can easily deploy the entire platform to a different continent by changing one word.
+- **`default_tags`**: This is an advanced AWS feature. By setting default tags here, every single piece of infrastructure (EC2, S3, RDS) will automatically get tagged with `Environment = prod` and `CostCenter = devops`. This makes calculating the monthly AWS bill incredibly easy.
+
+### Alternative Clouds
+Why AWS and not Google Cloud (GCP) or Microsoft Azure?
+AWS controls ~32% of the global market. It has the most mature feature set, the most extensive documentation, and the deepest integration with Terraform. However, GCP is widely considered superior specifically for Kubernetes (since Google invented Kubernetes), but AWS's broader ecosystem (RDS, IAM, S3) made it the optimal choice for this full-stack platform.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise AWS: Landing Zones and Control Tower
+In this project, we are building inside a single AWS Account. 
+In a Fortune 500 company, putting everything in one account is a disaster. If a junior developer accidentally runs `terraform destroy`, they might delete the production database instead of the dev database.
+
+**The Enterprise Solution: AWS Control Tower & Organizations**
+Instead of one account, enterprises use an "AWS Organization" with hundreds of separate accounts.
+- **Prod Account:** Only the CI/CD pipeline has the password. Humans cannot log in.
+- **Dev Account:** Developers can log in and build things, but billing alerts cap their spending at $100.
+- **Security Account:** Contains the centralized CloudTrail logs (recording every single API call made across all accounts) so auditors can verify SOC2 compliance.
+
+### Multi-Region Disaster Recovery
+If the `us-east-1` region suffers a total catastrophic outage (which has happened), how does an enterprise survive?
+- **Active-Passive:** The infrastructure is duplicated in `us-west-2` via Terraform, but the servers are turned off (to save money). The RDS database continuously replicates data to the West coast. If the East fails, Route53 DNS automatically points users to the West, and the servers are turned on. 
+- **RTO (Recovery Time Objective):** How fast can we recover? Because we use Infrastructure as Code, our RTO is ~15 minutes.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What does "The Cloud" actually mean?**
+A: "The Cloud" is just a marketing term. In reality, it simply means "someone else's computer." You are paying Amazon to rent a server in a massive warehouse. 
+
+### Intermediate
+**Q: What is the difference between AWS S3 and AWS EBS?**
+A: Both store data, but completely differently. **EBS (Elastic Block Store)** is like a hard drive plugged directly into an EC2 server; it's fast, used for operating systems, and dies when the server dies. **S3 (Simple Storage Service)** is object storage accessed via the internet (HTTPS); it is infinitely scalable, extremely cheap, and survives regardless of what happens to your EC2 servers.
+
+### Senior
+**Q: How does AWS billing work for EC2 instances? What happens if you leave a `t3.xlarge` running for a month?**
+A: AWS bills EC2 instances by the second. A `t3.xlarge` costs roughly $0.1664 per hour. If left running 24/7 for a 730-hour month, it will cost ~$121. This is why automated tear-down scripts and Auto Scaling down to 0 during non-business hours are critical cost-optimization strategies.
+
+### Principal/Architect
+**Q: Explain how AWS IAM assumes a role across accounts using STS.**
+A: In a multi-account organization, an identity (User or CI/CD runner) in Account A needs to build resources in Account B. Instead of giving the runner static credentials for Account B, Account B creates an IAM Role with a Trust Policy granting Account A permission to assume it. The runner in Account A calls the AWS Security Token Service (STS) `AssumeRole` API. STS returns temporary, short-lived (e.g., 1 hour) credentials. The runner uses these credentials to execute Terraform against Account B. This adheres to the Principle of Least Privilege and eliminates static key rotation overhead.
+[Contents](/learn) | [11 — Cloud Networking (AWS VPC)](/learn/aws/vpc) |
