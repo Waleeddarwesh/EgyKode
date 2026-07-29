@@ -1,0 +1,164 @@
+---
+contentId: ecr
+title: "Container Registry (AWS ECR)"
+titleAr: "مستودع الصور — Amazon ECR"
+description: "Explain immutable tags and why they enable rollback"
+descriptionAr: "دفع الصور ووسمها ومسحها بحثًا عن الثغرات."
+domain: aws
+level: intermediate
+type: concept
+phase: cloud
+order: 25
+readingTime: 30
+prerequisites: ["docker"]
+relatedChapters: ["aws-overview", "vpc", "iam", "rds"]
+objectives:
+  - "Explain immutable tags and why they enable rollback"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/25_ECR.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to AWS ECR
+
+When Jenkins finishes compiling your code, it runs `docker build` to create a Docker Image. But Jenkins is just a temporary robot. Where does it store the Image so that Kubernetes can download it later?
+
+It pushes the image to a **Container Registry**. In our platform, we use **Amazon Elastic Container Registry (ECR)**.
+
+---
+
+## Level 1 — Beginner
+
+### What is a Container Registry?
+Imagine you write a hit song. 
+- You record it in your studio (Docker Build). 
+- But to let millions of people listen to it, you can't just keep it on your laptop. You upload it to Spotify.
+- People on their phones download the song from Spotify to listen to it.
+
+A Container Registry is Spotify for Docker Images.
+- Jenkins uploads the finished "song" (Docker Image) to ECR.
+- Kubernetes downloads the "song" from ECR to play it on the servers.
+
+### ASCII Diagram: The ECR Workflow
+
+```text
+[ Jenkins ] ---> `docker push` ---> [ AWS ECR (Cloud Locker) ]
+                                                |
+                                                | `docker pull`
+                                                v
+                                      [ Kubernetes Cluster ]
+```
+
+---
+
+## Level 2 — Intermediate
+
+### ECR vs. Docker Hub
+Why don't we just use Docker Hub? It's free!
+- **Public vs. Private:** Docker Hub is primarily public. If you push your company's proprietary source code to a public Docker Hub repository, anyone in the world can download it and steal your code. 
+- **Latency:** If your Kubernetes cluster is running in AWS `us-east-1`, downloading a 500MB Docker image from Docker Hub (which might be hosted elsewhere) takes several seconds. Downloading it from an ECR registry located in the exact same AWS region takes milliseconds.
+- **Rate Limits:** Docker Hub limits how many times you can download an image per hour (to prevent spam). If your Kubernetes cluster autoscales and tries to download the image 200 times, Docker Hub will block you. ECR has massive enterprise rate limits.
+
+### How to use ECR (The Commands)
+To push an image to ECR, Jenkins must first prove who it is.
+```bash
+# 1. Get a temporary password from AWS and log into Docker
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 111122223333.dkr.ecr.us-east-1.amazonaws.com
+
+# 2. Tag the image with the ECR URL
+docker tag ivolve-api:v2.0 111122223333.dkr.ecr.us-east-1.amazonaws.com/ivolve-api:v2.0
+
+# 3. Upload it
+docker push 111122223333.dkr.ecr.us-east-1.amazonaws.com/ivolve-api:v2.0
+```
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+Kubernetes needs permission to download the image from ECR. If ECR is private, how does the `kubelet` bypass the security guard?
+
+In AWS, if the EC2 Worker Nodes have the correct IAM Instance Profile (IAM Role), the `kubelet` natively knows how to ask AWS for an ECR password. 
+But if you are running Kubernetes outside of AWS (or using a strict IAM setup), you must create an `imagePullSecret` in Kubernetes.
+
+Look at how a Pod requests a private image:
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ivolve-api
+spec:
+  containers:
+  - name: api
+    image: 111122223333.dkr.ecr.us-east-1.amazonaws.com/ivolve-api:v2.0
+  imagePullSecrets:
+  - name: ecr-registry-secret
+```
+**Line-by-Line Breakdown:**
+- **`image:`**: The full URL to the ECR registry. The `111122223333` is your AWS Account ID.
+- **`imagePullSecrets:`**: This tells Kubernetes: *"Before you try to download this image, look inside the Kubernetes Secret named `ecr-registry-secret`. You will find a Docker username and password in there. Send those credentials to ECR."*
+
+### Image Tagging Strategies
+Never use the `latest` tag in production (e.g., `image: ivolve-api:latest`). 
+If ArgoCD sees `latest`, it doesn't know if the image actually changed. It might not trigger an update. Furthermore, if you need to rollback, you don't know what the previous version was because it was overwritten by the new `latest`.
+Always tag images with the Git commit hash: `ivolve-api:a1b2c3d`.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: Immutable Repositories
+In a Fortune 500 company, if an image is deployed to production, it must never change. 
+If a developer accidentally builds a broken image and tags it as `v1.0`, and pushes it, they will overwrite the working `v1.0`.
+
+To prevent this, Enterprise ECR repositories are configured with **Image Tag Mutability: IMMUTABLE**.
+Once an image is pushed with a specific tag, the AWS API physically blocks anyone from ever pushing a different image with that same tag again.
+
+### ECR Image Scanning
+As discussed in Chapter 24, we scan images in the CI pipeline using Trivy. 
+But what if a new Zero-Day vulnerability is discovered *tomorrow*, long after the CI pipeline finished?
+Enterprise ECR repositories enable **Continuous Scanning**. AWS continuously scans all stored images against the latest CVE databases. If a new vulnerability is found in an old image that is currently running in your cluster, AWS EventBridge triggers an alert to PagerDuty to wake up the Security team.
+
+### Lifecycle Policies
+If Jenkins runs 50 times a day, it creates 50 new Docker images. At 500MB each, you will quickly owe AWS thousands of dollars in storage fees for images you no longer use.
+Enterprises configure ECR **Lifecycle Policies** (using Terraform):
+```json
+{
+    "rulePriority": 1,
+    "description": "Keep only the 30 most recent images",
+    "selection": {
+        "tagStatus": "any",
+        "countType": "imageCountMoreThan",
+        "countNumber": 30
+    },
+    "action": {
+        "type": "expire"
+    }
+}
+```
+This automatically deletes old, unused images, optimizing cloud costs automatically.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is the difference between Docker Hub and AWS ECR?**
+A: Both are container registries used to store Docker images. Docker Hub is the default, generic public registry. AWS ECR is Amazon's fully managed, highly secure private registry designed for enterprise AWS integration.
+
+### Intermediate
+**Q: Why do we get an `ImagePullBackOff` error in Kubernetes?**
+A: This usually means Kubernetes cannot download the image from the registry. The two most common causes are: a typo in the image name/tag, or Kubernetes lacks the authentication permissions (`imagePullSecrets` or IAM Roles) to access the private ECR repository.
+
+### Senior
+**Q: Explain how you optimize ECR storage costs for a microservice that builds 100 times a day.**
+A: You implement an ECR Lifecycle Policy. The policy evaluates rules daily, such as deleting untagged images older than 7 days, or keeping only the 50 most recently pushed images for tagged releases. This ensures the registry only retains artifacts actively used for production or immediate rollbacks.
+
+### Principal/Architect
+**Q: You have a multi-region Active-Active Kubernetes architecture spanning `us-east-1` and `eu-west-1`. How do you architect the ECR deployment to minimize cross-region data transfer costs and reduce deployment latency?**
+A: You do not have the EU cluster pull images across the Atlantic from the US registry. That incurs high cross-region data transfer out (DTO) costs and slows down pod startup. Instead, you configure **ECR Cross-Region Replication**. You push the image once to `us-east-1`. ECR asynchronously replicates the image to an identical registry in `eu-west-1`. The EU Kubernetes cluster then pulls the image from its local EU ECR, keeping traffic on the AWS backbone and eliminating internet DTO costs while minimizing latency.
+[Contents](/learn) | [26 — Artifact Management (Nexus)](/learn/nexus/nexus-and-artifacts) |
