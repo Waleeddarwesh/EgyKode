@@ -1,0 +1,276 @@
+---
+contentId: rds
+title: "Managed Databases (Amazon RDS)"
+titleAr: "قواعد البيانات المُدارة — Amazon RDS"
+description: "Choose Multi-AZ vs read replica and know what each protects"
+descriptionAr: "الـ Multi-AZ والنسخ الاحتياطي والنسخ المتماثلة (Read Replicas)."
+domain: aws
+level: intermediate
+type: concept
+phase: cloud
+order: 15
+readingTime: 40
+prerequisites: ["aws-overview"]
+relatedChapters: ["aws-overview", "vpc", "iam", "load-balancers"]
+objectives:
+  - "Choose Multi-AZ vs read replica and know what each protects"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/15_RDS.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Amazon RDS
+
+In our Kubernetes cluster, we run stateless applications. If a Pod crashes, we don't care, because it doesn't store any permanent data. 
+But every platform needs a memory. We need a Database to store user accounts, transaction histories, and inventory. 
+
+Instead of running a database manually on a Linux server, we use **Amazon Relational Database Service (RDS)**, a fully managed database service in AWS.
+
+---
+
+## Level 1 — Beginner
+
+### What is RDS?
+Imagine you run a bank. You need a highly secure vault for the money.
+- **The Hard Way (EC2/Self-Managed):** You buy your own vault. You have to hire the guards, grease the hinges, sweep the floor, and upgrade the locks every year. If you forget to lock the door, the money is stolen.
+- **The RDS Way:** You rent a vault inside Fort Knox. Amazon provides the guards, upgrades the locks, and automatically duplicates the money to a second vault just in case the first one catches fire. You just put the money in and take the money out.
+
+### Why do we need it?
+Databases are the most difficult part of software engineering to manage. They require constant patching, complex backup scripts, and terrifying disaster recovery procedures. 
+If your web server dies, you lose 5 minutes of traffic. If your database dies, your company goes bankrupt. AWS RDS automates all the terrifying parts of database management so you can sleep at night.
+
+### ASCII Diagram: The RDS Connection
+
+```text
+[ Kubernetes Worker Node ]
+        |
+    (Queries Data)
+        v
++--------------------------+
+|      Amazon RDS          |
+|  [ MySQL Database ]      |
+|  - Auto-Backups          |
+|  - Auto-Patching         |
++--------------------------+
+```
+
+---
+
+## Level 2 — Intermediate
+
+### Why not run MySQL inside Kubernetes?
+You *can* run a database inside Kubernetes using a `StatefulSet`. But you shouldn't, unless you have a dedicated team of Database Administrators (DBAs).
+- **Storage complexity:** If a Kubernetes Node dies, the Pod moves to a new Node. But the hard drive (EBS volume) is physically stuck in the old Availability Zone. Kubernetes has to unmount it and remount it across the network, which can cause data corruption.
+- **The Golden Rule:** Keep your compute (Kubernetes) stateless, and offload your state (Database) to a Managed Service (RDS).
+
+### RDS Features we utilize:
+1. **Automated Backups:** AWS takes a full snapshot every night and backs up the transaction logs every 5 minutes.
+2. **Point-in-Time Recovery (PITR):** If a developer accidentally drops a production table at 2:14 PM, you can click a button and restore the entire database to exactly 2:13 PM.
+3. **Storage Autoscaling:** If the database hard drive fills up, RDS automatically adds more gigabytes to the hard drive without downtime.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+Let's look at how we provision the database in Terraform. Open `infrastructure/terraform/modules/rds/main.tf`.
+
+```hcl
+resource "aws_db_instance" "this" {
+  identifier = "${var.name_prefix}-mysql"
+
+  engine         = "mysql"
+  engine_version = var.engine_version
+  instance_class = var.instance_class
+
+  allocated_storage     = var.allocated_storage
+  max_allocated_storage = var.max_allocated_storage # storage autoscaling
+  storage_type          = "gp3"
+  storage_encrypted     = true
+  kms_key_id            = var.kms_key_arn
+
+  db_name  = var.database_name
+  username = var.master_username
+  password = random_password.master.result
+  port     = 3306
+
+  db_subnet_group_name   = aws_db_subnet_group.this.name
+  vpc_security_group_ids = [var.database_sg_id]
+  parameter_group_name   = aws_db_parameter_group.this.name
+  publicly_accessible    = false
+
+  # Multi-AZ gives an automatic failover to the standby in another AZ;
+  # this is the difference between minutes and hours of downtime on host loss.
+  multi_az = var.multi_az
+
+  backup_retention_period  = var.backup_retention_days
+  backup_window            = "03:00-04:00"
+  maintenance_window       = "sun:04:30-sun:05:30"
+  copy_tags_to_snapshot    = true
+  delete_automated_backups = false
+  skip_final_snapshot      = var.skip_final_snapshot
+
+  deletion_protection = var.deletion_protection
+
+  performance_insights_enabled    = true
+  monitoring_interval             = 60
+  monitoring_role_arn             = aws_iam_role.rds_monitoring.arn
+  enabled_cloudwatch_logs_exports = ["error", "slowquery"]
+}
+```
+
+**Line-by-line breakdown:**
+
+- **`password = random_password.master.result`** — the password is *generated*,
+  not supplied. Look at what happens to it:
+
+  ```hcl
+  resource "random_password" "master" {
+    length           = 32
+    special          = true
+    override_special = "!#$%&*()-_=+[]{}<>:?"
+  }
+
+  resource "aws_secretsmanager_secret_version" "db" {
+    secret_id = aws_secretsmanager_secret.db.id
+    secret_string = jsonencode({
+      username = var.master_username
+      password = random_password.master.result
+      host     = aws_db_instance.this.address
+      port     = aws_db_instance.this.port
+      dbname   = var.database_name
+    })
+  }
+  ```
+
+  Terraform generates it, writes it straight into Secrets Manager, and the
+  application reads it from there via External Secrets. **No human ever handles
+  it and it appears in no tfvars file.** It does exist in Terraform state, which
+  is why the state bucket is KMS-encrypted with public access blocked.
+
+- **`max_allocated_storage`** enables storage autoscaling. Without it, a full
+  disk takes the database down; with it, RDS grows the volume up to this ceiling.
+  The ceiling matters — unbounded autoscaling is an unbounded bill.
+
+- **`multi_az = var.multi_az`** — a synchronous standby in another AZ with
+  automatic failover, roughly 60 seconds. **This is not a backup and not a read
+  replica**; it is availability. `prod` sets `true`, `dev` sets `false` because
+  it doubles the instance cost.
+
+- **`storage_encrypted` + `kms_key_id`** — encryption at rest. It can only be
+  set at creation; enabling it later means a snapshot-and-restore migration.
+
+- **`deletion_protection`** and **`skip_final_snapshot`** — in `prod`, `true` and
+  `false` respectively, so the database cannot be destroyed by an errant
+  `terraform destroy` and a final snapshot is taken if it ever is. In `dev` the
+  reverse, because dev data is disposable and a final snapshot on every teardown
+  is just clutter.
+
+- **`enabled_cloudwatch_logs_exports`** — the slow query log is how you find the
+  query that is actually causing your latency alert.
+
+### Forcing TLS at the server
+
+```hcl
+resource "aws_db_parameter_group" "this" {
+  name   = "${var.name_prefix}-mysql8"
+  family = "mysql8.0"
+
+  parameter {
+    name  = "require_secure_transport"
+    value = "ON"          # reject unencrypted client connections
+  }
+}
+```
+
+Encryption in transit enforced by the *server*, not requested politely by the
+client. A misconfigured application cannot accidentally connect in plaintext —
+it is refused.
+- **`multi_az = var.environment == "prod" ? true : false`**: This is a Terraform conditional. If we deploy to Dev, we get 1 database. If we deploy to Prod, AWS instantly creates a Synchronous Standby replica in a different Availability Zone.
+- **`skip_final_snapshot = false`**: If an engineer runs `terraform destroy`, AWS will refuse to delete the database until it takes one final backup. This prevents catastrophic accidental data loss.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: Multi-AZ Synchronous Replication
+How does `multi_az = true` actually work at the kernel level?
+When the Kubernetes API writes a row of data to the RDS Master node in `us-east-1a`, the Master node does *not* immediately tell the API "Success". 
+Instead, the Master node replicates the data at the block-storage level across the AWS backbone network to the Standby node in `us-east-1b`. Only when the Standby confirms the data is saved does the Master return "Success" to Kubernetes. 
+
+**Failover:** If someone pulls the power cord on `us-east-1a`, the AWS DNS CNAME record instantly points to the Standby node. Because of synchronous replication, exactly ZERO bytes of data were lost.
+
+**An Availability Zone is a separate building.** A region — `us-east-1` — is a
+group of AZs, each with its own power, cooling and network, far enough apart to
+fail independently and close enough that the round trip between them is a
+millisecond or two. That combination is what makes synchronous replication
+practical inside a region and impractical across regions.
+
+```hcl
+resource "aws_db_instance" "main" {
+  identifier     = "ivolve-prod"
+  engine         = "postgres"
+  instance_class = "db.t3.medium"
+  multi_az       = true      # AWS places the standby in another AZ for you
+}
+
+resource "aws_subnet" "private" {
+  for_each          = toset(["us-east-1a", "us-east-1b", "us-east-1c"])
+  vpc_id            = aws_vpc.main.id
+  availability_zone = each.key
+  cidr_block        = cidrsubnet(aws_vpc.main.cidr_block, 8, index(local.azs, each.key))
+}
+```
+
+```bash
+# Which AZs does this region actually offer to your account?
+aws ec2 describe-availability-zones --region us-east-1 \
+  --query 'AvailabilityZones[].[ZoneName,ZoneId,State]' --output table
+```
+
+Two details matter more than they appear:
+
+- **AZ names are per-account.** Your `us-east-1a` and another account's
+  `us-east-1a` are usually different physical zones. When you need to compare
+  across accounts, use the **ZoneId** (`use1-az4`), which is stable.
+- **Multi-AZ is not a read replica.** The standby serves no traffic — it exists
+  only to take over. Paying for it does not buy read capacity; that is what read
+  replicas are for, and they replicate asynchronously.
+
+**The trade-off is cost against blast radius.** Multi-AZ roughly doubles the
+database bill and is a straightforward yes for production. Spreading application
+nodes across three AZs costs nothing extra in compute, but cross-AZ data transfer
+is billed per GB — chatty services split across zones can generate a surprising
+line item. And a single-AZ deployment is not wrong for a development
+environment: the correct question is what an hour of downtime costs, compared
+with what the standby costs every hour.
+
+### RDS Proxy (Connection Pooling)
+In a massive Enterprise Kubernetes cluster, 10,000 Pods might try to connect to the database simultaneously.
+MySQL uses a thread-per-connection model. 10,000 TCP connections will consume 100% of the database RAM, crashing the server.
+**The Solution:** AWS RDS Proxy.
+RDS Proxy sits between Kubernetes and the Database. The 10,000 Pods connect to the Proxy. The Proxy multiplexes those requests into a small, highly efficient pool of 500 connections to the actual database, shielding the database from connection exhaustion.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: Why don't we give the RDS database a Public IP address so developers can connect to it from home using DBeaver?**
+A: Giving a database a public IP is the number one cause of enterprise data breaches. Hackers scan the internet for open Port 3306 (MySQL). The database must be in a Private Subnet. Developers should use an AWS Client VPN or an SSM Session Manager jump-host to access it.
+
+### Intermediate
+**Q: What is the difference between an RDS Read Replica and RDS Multi-AZ?**
+A: **Multi-AZ** is for Disaster Recovery; it creates a hidden, synchronous standby node that you cannot read from. If the primary dies, AWS fails over to the standby automatically. **Read Replicas** are for Performance; they create asynchronous copies of the database that you *can* read from. If your application has heavy read traffic (like generating reports), you point the read queries to the Read Replica to take the load off the Primary.
+
+### Senior
+**Q: Explain how Terraform manages the RDS `password` without exposing it in plaintext in the `.tf` file.**
+A: In our code, `password = var.db_password`. This is a variable. We never hardcode it. In production, we execute Terraform via a CI/CD pipeline. The pipeline pulls the password securely from HashiCorp Vault or AWS Secrets Manager, and injects it into Terraform at runtime as an environment variable (`TF_VAR_db_password`). Furthermore, the state file must be stored in an encrypted S3 bucket, because the password *will* be stored in plaintext inside `terraform.tfstate`.
+
+### Principal/Architect
+**Q: Your RDS Multi-AZ database is experiencing severe replication lag during a massive data migration, causing write latency to spike across the Kubernetes cluster. How do you re-architect the data layer?**
+A: Standard RDS Multi-AZ uses block-level synchronous replication, which is sensitive to heavy I/O spikes. If write latency is unacceptable, the architecture must transition from standard RDS MySQL to **Amazon Aurora MySQL**. Aurora decouples compute from storage. It does not use block-level replication to a standby node. Instead, it writes redo logs directly to a distributed storage fleet spanning 3 AZs (6 copies of data). This eliminates the traditional replication lag bottleneck entirely, resulting in vastly higher write throughput and sub-10 millisecond failover times.
+[Contents](/learn) | [16 — High Availability (AWS Load Balancers)](/learn/aws/load-balancers) |
