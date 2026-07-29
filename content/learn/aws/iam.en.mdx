@@ -1,0 +1,257 @@
+---
+contentId: iam
+title: "Security & Identity (AWS IAM)"
+titleAr: "الهوية والصلاحيات — AWS IAM"
+description: "Write a least-privilege policy and explain why no static keys exist"
+descriptionAr: "المستخدمون والأدوار والسياسات، ومبدأ أقل صلاحية (Least Privilege)."
+domain: aws
+level: intermediate
+type: concept
+phase: cloud
+order: 12
+readingTime: 50
+prerequisites: ["aws-overview"]
+relatedChapters: ["aws-overview", "vpc", "rds", "load-balancers"]
+objectives:
+  - "Write a least-privilege policy and explain why no static keys exist"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/12_IAM.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to AWS IAM
+
+The most dangerous thing in AWS is not a hacker guessing your database password. The most dangerous thing in AWS is a leaked IAM Key.
+
+**Identity and Access Management (IAM)** is the absolute center of AWS Security. It controls exactly *who* (or what) can log into your AWS account, and exactly *what* they are allowed to do once inside.
+
+---
+
+## Level 1 — Beginner
+
+### What is IAM?
+Imagine AWS is a massive, top-secret government building.
+- **IAM Users:** These are the ID Badges given to human employees.
+- **IAM Policies:** These are the microchips inside the ID badge. The chip says, *"Bob is allowed to open the front door, but Bob is NOT allowed to open the vault."*
+- **IAM Roles:** These are temporary ID Badges given to robots. When a robot (like an EC2 server or a GitHub Actions runner) needs to do a job, it puts on a "Role Hat". When the job is done, it takes the hat off.
+
+### Why is it so important?
+If you put your AWS Access Keys on GitHub by accident, a hacker will find them in exactly 4 seconds. The hacker will use those keys to launch 10,000 massive servers to mine Bitcoin. When you wake up, Amazon will send you a bill for $50,000. IAM prevents this by enforcing strict limits on what a key can do.
+
+---
+
+## Level 2 — Intermediate
+
+### The Core Components
+
+1. **User:** A permanent entity (like `developer-alice`). It has long-lived credentials (a password for the console, and Access Keys for the terminal).
+2. **Group:** A collection of Users. You put Alice into the `Developers` group. You attach permissions to the Group, not the User.
+3. **Policy:** A JSON document that explicitly defines permissions using `Allow` or `Deny`.
+4. **Role:** An identity that you can "assume" temporarily. It does not have long-lived passwords. EC2 instances and Lambda functions use Roles.
+
+### Reading and writing an IAM policy
+
+Every IAM decision is one JSON document. Four keys carry all of it:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadAppConfigOnly",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::ivolve-app-config",
+        "arn:aws:s3:::ivolve-app-config/*"
+      ],
+      "Condition": {
+        "StringEquals": { "aws:PrincipalTag/Environment": "prod" }
+      }
+    }
+  ]
+}
+```
+
+- **`Effect`** — `Allow` or `Deny`. An explicit `Deny` always wins, no matter how
+  many policies `Allow` it. This is how a guardrail beats a permissive role.
+- **`Action`** — what may be done, as `service:Operation`. `s3:*` is where least
+  privilege goes to die.
+- **`Resource`** — which ARNs it applies to. Note the two entries above: bucket
+  operations (`ListBucket`) act on the *bucket* ARN, object operations
+  (`GetObject`) act on `bucket/*`. Giving only one is the classic cause of
+  "AccessDenied on a policy that clearly allows it".
+- **`Condition`** — the circumstances. This is where most real security lives.
+
+**Roles, not users, for anything that is not a human.** A user has long-lived
+access keys; a role is assumed and issues credentials that expire in an hour.
+
+```hcl
+resource "aws_iam_role" "app" {
+  name = "ivolve-app"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }   # who may become this role
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "app_config" {
+  role       = aws_iam_role.app.name
+  policy_arn = aws_iam_policy.read_app_config.arn
+}
+```
+
+The `assume_role_policy` — the **trust policy** — is a separate question from the
+permissions policy, and confusing the two is the most common IAM mistake. The
+trust policy answers *who may become this role*; the attached policy answers
+*what the role may then do*. An `AccessDenied` on `sts:AssumeRole` is a trust
+policy problem; an `AccessDenied` on `s3:GetObject` is a permissions problem.
+
+**Verify before you ship**, rather than discovering it in production:
+
+```bash
+# Would this actually be allowed? Simulate it without doing it.
+aws iam simulate-principal-policy \
+  --policy-source-arn arn:aws:iam::123456789012:role/ivolve-app \
+  --action-names s3:GetObject \
+  --resource-arns "arn:aws:s3:::ivolve-app-config/settings.yaml"
+
+# Who am I right now, and as what?
+aws sts get-caller-identity
+```
+
+`aws sts get-caller-identity` is the first command to run whenever permissions
+behave strangely — very often the answer is that you are not the principal you
+assumed you were.
+
+### The Principle of Least Privilege
+This is the golden rule of Cloud Security. **Never give a user more permission than they need.**
+If Alice only needs to read files from S3, you do not give her `AdministratorAccess`. You give her a policy that specifically says:
+`Allow: s3:GetObject` on `Resource: arn:aws:s3:::my-bucket`.
+If Alice's computer is hacked, the hacker can only read files. They cannot delete the database.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+How do our Kubernetes Worker Nodes know they are allowed to pull images from ECR? We define this in Terraform using IAM Roles.
+
+Look at `infrastructure/terraform/modules/iam/main.tf`:
+
+```hcl
+locals {
+  ec2_assume_role = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role" "node" {
+  name               = "${var.name_prefix}-k8s-node"
+  assume_role_policy = local.ec2_assume_role
+  tags               = local.common_tags
+}
+
+resource "aws_iam_policy" "node" {
+  name        = "${var.name_prefix}-k8s-node"
+  description = "Cloud provider integration for kubeadm nodes"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ManageOwnedVolumes"
+        Effect = "Allow"
+        Action = ["ec2:AttachVolume", "ec2:DetachVolume", "ec2:CreateVolume", "ec2:DeleteVolume"]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            # Only volumes belonging to THIS cluster.
+            "aws:ResourceTag/kubernetes.io/cluster/${var.cluster_name}" = "owned"
+          }
+        }
+      },
+      {
+        Sid      = "PullFromPlatformRepos"
+        Effect   = "Allow"
+        Action   = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]
+        Resource = var.ecr_repository_arns
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "node" {
+  role       = aws_iam_role.node.name
+  policy_arn = aws_iam_policy.node.arn
+}
+
+resource "aws_iam_instance_profile" "node" {
+  name = "${var.name_prefix}-k8s-node"
+  role = aws_iam_role.node.name
+}
+```
+
+> **Note there is no `AmazonEC2ContainerRegistryReadOnly` here.** That AWS-managed
+> policy grants pull access to *every* repository in the account. This module
+> writes a custom policy scoped to `var.ecr_repository_arns` instead — a node can
+> pull the platform's images and nothing else. Managed policies are convenient
+> and almost always broader than you need.
+
+**Line-by-Line Breakdown:**
+- **`assume_role_policy` (The Trust Policy):** This is the most confusing part of IAM. This block does *not* grant permissions to read ECR. Instead, it tells AWS: *"I am creating a Role. Who is allowed to wear this Role?"* The `Principal = Service = ec2` means ONLY Amazon EC2 instances are allowed to put this hat on. A human cannot put this hat on.
+- **`aws_iam_role_policy_attachment`:** This attaches an AWS-managed policy (`AmazonEC2ContainerRegistryReadOnly`) to the Role. *Now*, whoever is wearing the hat has permission to download Docker images from ECR.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: IAM Federation (SSO)
+In a Fortune 500 company, you **never** create IAM Users. There are no users in the AWS account.
+Why? Because if Bob quits, the IT team has to remember to delete his IAM User, his GitHub account, and his Slack account. They will forget.
+
+**The Solution: AWS IAM Identity Center (SSO).**
+AWS is federated with the company's central Active Directory (or Okta). 
+When Bob tries to log into AWS, AWS redirects him to Okta. Okta checks if Bob is still employed. If yes, Okta passes a SAML assertion to AWS. AWS dynamically generates temporary access for Bob based on his Okta Group. When Bob quits, HR disables his Okta account, and he instantly loses access to AWS.
+
+### Permission Boundaries and SCPs
+How do you stop a Senior Engineer (who has Admin rights) from accidentally making the database public?
+- **Service Control Policies (SCPs):** Applied at the AWS Organization level. An SCP can say, *"DENY all actions that make an S3 bucket public."* Even if the engineer has `AdministratorAccess`, the SCP overrides it. It is the ultimate law.
+- **Permission Boundaries:** You attach a boundary to an IAM Role. Even if you give the Role `*` (full access) in its policy, the Boundary acts as a ceiling. If the boundary says "Only EC2 and S3", the Role cannot touch RDS, despite having a full-access policy.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is the difference between an IAM Role and an IAM User?**
+A: A User is a permanent identity with a static password or access key. A Role is a temporary identity without a password; it is assumed dynamically by users, AWS services (like EC2), or federated external identities.
+
+### Intermediate
+**Q: If an IAM Policy has an `Allow` statement for S3, and another policy attached to the same user has a `Deny` statement for S3, what happens?**
+A: In AWS IAM, an explicit `Deny` always wins. Always. The user will be blocked from accessing S3.
+
+### Senior
+**Q: Explain how you would grant an EC2 instance in Account A the permission to read an S3 bucket in Account B.**
+A: This requires Cross-Account IAM. 
+1. In Account A, you create an IAM Role (Instance Profile) for the EC2 instance, granting it permission to perform `s3:GetObject` on the specific bucket ARN.
+2. In Account B, you must attach a Bucket Policy to the S3 bucket. The Bucket Policy must explicitly `Allow` the Principal (the ARN of the IAM Role from Account A) to perform `s3:GetObject`. 
+Both sides must explicitly grant the permission.
+
+### Principal/Architect
+**Q: Your enterprise has 500 AWS accounts. You need to ensure that no developer, even those with AdministratorAccess, can ever launch an EC2 instance outside of the `us-east-1` and `eu-west-1` regions. How do you architect this centrally?**
+A: You use AWS Organizations and Service Control Policies (SCPs). You attach an SCP to the root of the Organization (or specific Organizational Units). The SCP uses a `Deny` effect for `ec2:RunInstances` with a condition key `aws:RequestedRegion` specifying `StringNotEquals` for `us-east-1` and `eu-west-1`. Because SCPs act as a master filter over all IAM policies in the child accounts, this explicitly blocks the action regardless of the local user's Administrator privileges.
+[Contents](/learn) | [13 — Infrastructure as Code (Terraform)](/learn/terraform/terraform) |
