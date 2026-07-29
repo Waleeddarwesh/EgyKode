@@ -1,0 +1,158 @@
+---
+contentId: load-balancers
+title: "High Availability (AWS Load Balancers)"
+titleAr: "الإتاحة العالية — AWS Load Balancers"
+description: "Explain ALB vs NLB and where TLS terminates"
+descriptionAr: "الـ ALB والـ NLB والـ Target Groups وفحوصات الصحة."
+domain: aws
+level: intermediate
+type: concept
+phase: cloud
+order: 16
+readingTime: 35
+prerequisites: ["vpc"]
+relatedChapters: ["aws-overview", "vpc", "iam", "rds"]
+objectives:
+  - "Explain ALB vs NLB and where TLS terminates"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/16_Load_Balancer.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Load Balancing
+
+If you deploy your website on a single server, and that server crashes, your website goes offline.
+To fix this, you deploy your website on 3 servers. 
+
+But now you have a new problem: If you have 3 servers with 3 different IP addresses, which IP address do you give to your customers? 
+You can't give them all three. You give them a **Load Balancer**.
+
+---
+
+## Level 1 — Beginner
+
+### What is a Load Balancer?
+Imagine a busy grocery store.
+- **The Cashiers:** The AWS EC2 Servers running your application.
+- **The Store Manager (Load Balancer):** Stands at the front door.
+
+When a customer walks in, the Manager looks at the cashiers. If Cashier 1 has a long line, the Manager sends the customer to Cashier 2. If Cashier 3 falls asleep (crashes), the Manager stops sending people to them.
+The customer only ever talks to the Manager. They don't know or care how many cashiers are working in the back.
+
+### ASCII Diagram: Traffic Distribution
+
+```text
+       [ User types www.ivolve.com ]
+                  |
+                  v
+       [ AWS LOAD BALANCER ]
+        /         |         \
+       v          v          v
+[ Server 1 ] [ Server 2 ] [ Server 3 ]
+ (33% load)   (33% load)   (33% load)
+```
+
+---
+
+## Level 2 — Intermediate
+
+### Types of AWS Load Balancers
+AWS offers three main types, but in DevOps, we primarily care about two:
+
+1. **Application Load Balancer (ALB):** Operates at Layer 7 (HTTP/HTTPS). It is smart. It looks at the actual URL. If the user goes to `/api`, it sends them to the Backend servers. If they go to `/images`, it sends them to the Frontend servers.
+2. **Network Load Balancer (NLB):** Operates at Layer 4 (TCP/UDP). It is dumb, but blazingly fast. It doesn't look at URLs. It just takes raw network packets and blasts them to the backend servers at millions of requests per second. (We use this for databases or high-performance game servers).
+
+### Health Checks
+How does the Load Balancer know if a server is dead?
+It pings a specific URL (like `/health`) every 10 seconds. If the server responds with an HTTP `200 OK`, it keeps sending traffic. If the server times out or returns a `500 Error`, the Load Balancer marks the server as `Unhealthy` and instantly removes it from the rotation.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+In our Kubernetes cluster, we do not expose the EC2 Worker Nodes to the internet. We put an AWS Application Load Balancer in the Public Subnets, and point it at our NGINX Ingress Controller.
+
+Look at `infrastructure/terraform/modules/alb/main.tf`:
+
+```hcl
+resource "aws_lb" "this" {
+  name               = "${var.name_prefix}-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb.id]
+  subnets            = var.public_subnet_ids
+}
+
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.this.arn
+  port              = 443
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+```
+
+**Line-by-Line Breakdown:**
+- **`internal = false`**: This tells AWS to give the ALB a Public IP address so the internet can reach it. (If it were `true`, only resources inside the VPC could talk to it).
+- **`subnets = var.public_subnet_ids`**: The ALB must be placed in the Public Subnets we created in Chapter 11. Notice it takes a *list* of subnets. For High Availability, we deploy the ALB across 3 different Availability Zones simultaneously.
+- **`default_action { type = "redirect" }`**: This is a security best practice. If a user types `http://ivolve.com`, the ALB doesn't even forward the traffic to Kubernetes. The ALB intercepts it and forces the user's browser to redirect to `https://` (encrypted traffic), returning a 301 Permanent Redirect.
+
+---
+
+## Level 4 — Enterprise
+
+### SSL/TLS Termination
+In an enterprise, encrypting traffic is a legal requirement. But decrypting HTTPS traffic requires heavy CPU math.
+If you have 10,000 Pods, and each Pod is trying to decrypt HTTPS traffic, you waste millions of dollars on CPU overhead.
+
+**The Solution:** SSL Termination at the Edge.
+We attach an AWS ACM (Certificate Manager) SSL Certificate directly to the Application Load Balancer. The ALB uses AWS's massive specialized hardware to decrypt the HTTPS traffic. It then forwards raw, unencrypted HTTP traffic over the private, secure AWS VPC backbone to the Kubernetes nodes. The Pods never have to do math.
+
+### Integration with Kubernetes (AWS Load Balancer Controller)
+In the old days, you had to write Terraform code to create an ALB, then manually link it to Kubernetes. 
+Today, we use the **AWS Load Balancer Controller** (installed via Helm).
+
+You deploy a simple Kubernetes `Ingress` object:
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+```
+The Controller sees this YAML file, reaches out to the AWS API, provisions a real Application Load Balancer, configures the Target Groups, sets up the Health Checks, and attaches the SSL certificate—all completely automatically. This bridges the gap between Kubernetes YAML and AWS hardware.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What happens to user traffic if one of the three backend servers crashes?**
+A: The Load Balancer's health check will fail for the crashed server. The Load Balancer will immediately stop sending traffic to the dead server and distribute 100% of the traffic evenly between the two remaining healthy servers.
+
+### Intermediate
+**Q: Why do we put the Load Balancer in a Public Subnet, but the EC2 servers in a Private Subnet?**
+A: Security. If the servers were in the public subnet, hackers could bypass the Load Balancer and attack the servers directly via SSH or open ports. By putting the servers in a private subnet, the Load Balancer becomes the *only* possible way into the system.
+
+### Senior
+**Q: Explain the difference between an AWS ALB (Application Load Balancer) and a Kubernetes Ingress Controller (like Nginx). Do you need both?**
+A: An ALB is a physical/managed AWS resource that balances traffic across EC2 instances. An Ingress Controller is a software router running *inside* the cluster that balances traffic across Pods. In a production EKS/kubeadm setup, you typically use both: The ALB receives public traffic and routes it to the EC2 nodes on a NodePort. The Nginx Ingress Controller running on those nodes receives the traffic and uses internal Kubernetes DNS to route it to the specific Pods. Alternatively, using the AWS Load Balancer Controller with "IP Mode", the ALB can bypass Nginx entirely and route traffic directly to the Pod IPs via the CNI.
+
+### Principal/Architect
+**Q: During a massive DDoS attack, your Application Load Balancer scales up to handle 500,000 requests per second, but your backend Kubernetes cluster is completely overwhelmed and dies. How do you architect the edge layer to protect the cluster?**
+A: You must decouple the traffic from the compute layer using Edge caching and Web Application Firewalls (WAF). 
+1. Place **AWS CloudFront** (a CDN) in front of the ALB. CloudFront will cache static assets globally at the edge, absorbing 80% of the traffic before it even reaches the ALB.
+2. Attach **AWS WAF** to the ALB or CloudFront. Configure rate-limiting rules (e.g., block any IP making >100 requests per 5 minutes) and enable the AWS Shield Advanced managed DDoS protection. 
+3. The ALB should only ever receive legitimate, dynamic traffic, protecting the fragile Kubernetes backend from volumetric attacks.
+[Contents](/learn) | [17 — Elasticity (AWS Auto Scaling)](/learn/aws/auto-scaling) |
