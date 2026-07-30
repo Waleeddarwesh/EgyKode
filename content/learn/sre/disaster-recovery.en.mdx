@@ -1,0 +1,258 @@
+---
+contentId: disaster-recovery
+title: "The Worst Day (Disaster Recovery)"
+titleAr: "أسوأ يوم — التعافي من الكوارث (Disaster Recovery)"
+description: "Define RTO/RPO and restore etcd under pressure"
+descriptionAr: "الـ RTO والـ RPO والنسخ الاحتياطي، والاستعادة التي جرّبتها فعلًا."
+domain: sre
+level: advanced
+type: concept
+phase: production
+order: 40
+readingTime: 50
+prerequisites: ["rds", "kubeadm"]
+relatedChapters: ["chaos-engineering"]
+objectives:
+  - "Define RTO/RPO and restore etcd under pressure"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/40_Disaster_Recovery.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Disaster Recovery
+
+Everything we have built assumes AWS is functioning perfectly. 
+But what if a meteor hits the AWS `us-east-1` data center? Or what if a disgruntled employee logs into the AWS console and clicks "Delete All"?
+
+**Disaster Recovery (DR)** is the architecture and business process of restoring a company's technical operations after a catastrophic event.
+
+---
+
+## Level 1 — Beginner
+
+### What is Disaster Recovery?
+Imagine you write a 500-page novel on your laptop.
+- **No DR:** You drop the laptop in a lake. The book is gone forever. You cry.
+- **Basic DR:** Every night, you copy the book to a USB drive. If you drop the laptop, you buy a new one, plug in the USB drive, and you only lost today's work.
+- **Enterprise DR:** You type the book in Google Docs. As you type, the words are instantly synchronized to servers in New York, London, and Tokyo. If the New York server dies, you are switched to London fast enough that you never notice, and you do not lose a comma.
+
+### RTO and RPO
+In business, you must define two numbers before you build anything:
+1. **RPO (Recovery Point Objective):** How much data can you afford to lose? (e.g., 5 minutes of data).
+2. **RTO (Recovery Time Objective):** How long can the website be offline before the company goes bankrupt? (e.g., 1 hour).
+
+A low RTO/RPO costs a lot of money.
+
+---
+
+## Level 2 — Intermediate
+
+### The Four DR Strategies
+
+1. **Backup and Restore:** (Cheap, Slow). You back up the RDS database to S3 every night. If the region dies, you manually build a new cluster in a new region and restore the backup. *RTO: 12 hours. RPO: 24 hours.*
+2. **Pilot Light:** You keep a tiny, minimal version of the infrastructure running in a second region (just the database, syncing data). If a disaster strikes, you rapidly scale up the web servers. *RTO: 30 mins. RPO: 5 mins.*
+3. **Warm Standby:** You have a fully functioning, scaled-down version of the cluster running in a second region. *RTO: 5 mins. RPO: Seconds.*
+4. **Multi-Site Active/Active:** (Expensive, Instant). Both `us-east-1` and `eu-west-1` are fully scaled and taking live customer traffic simultaneously via AWS Route 53 DNS routing. *RTO: 0. RPO: 0.*
+
+### How GitOps Saves Us
+In Chapter 27, we learned about GitOps (ArgoCD). GitOps is the ultimate DR tool for Kubernetes. 
+If our `us-east-1` cluster is deleted, we do not need to figure out what was running on it. We just run Terraform to build a new empty cluster in `us-west-2`, install ArgoCD, and point it at GitHub. Within 3 minutes, ArgoCD perfectly rebuilds the entire state of the company.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Code (Velero)
+
+GitOps restores the stateless YAML files. But it does NOT restore the stateful data (like a database or an EBS volume attached to a Pod).
+
+For stateful Kubernetes DR, we use **Velero**.
+Velero is an open-source tool that backs up both the Kubernetes API objects and the physical Persistent Volumes (EBS disks).
+
+How we configure a Velero Backup:
+```yaml
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: nightly-cluster-backup
+  namespace: velero
+spec:
+  includedNamespaces:
+  - '*'
+  excludedNamespaces:
+  - kube-system
+  storageLocation: aws-s3-bucket
+  volumeSnapshotLocations:
+  - aws-ebs-snapshots
+  ttl: 720h0m0s
+```
+
+**Line-by-Line Breakdown:**
+- **`includedNamespaces: ['*']`**: Back up the entire cluster.
+- **`storageLocation: aws-s3-bucket`**: Upload all the YAML manifests to an S3 bucket in a completely different AWS Region.
+- **`volumeSnapshotLocations`**: For any Pod that has a PVC (Persistent Volume Claim), make an API call to AWS to take a block-level snapshot of the underlying EBS hard drive. 
+- **`ttl: 720h0m0s`**: Automatically delete the backup after 30 days to save money on AWS storage costs.
+
+---
+
+## Level 4 — Enterprise
+
+### Cross-Region RDS Replication
+As discussed in Chapter 15, Multi-AZ replication is synchronous, but it only protects against the loss of one Availability Zone. If the entire `us-east-1` region goes offline, Multi-AZ will not save you.
+
+For Enterprise Disaster Recovery, you use **RDS Cross-Region Read Replicas**.
+You configure AWS to asynchronously copy every database transaction from the primary database in Virginia to a Read Replica in Ireland. 
+*Why Asynchronous?* Because the speed of light limits how fast data travels across the Atlantic Ocean. If it were synchronous, every write query would take 150ms to confirm, which would slow down your API.
+
+If Virginia is destroyed by a meteor:
+1. An AWS Route 53 Health Check detects the outage.
+2. Route 53 automatically updates the DNS to point customer traffic to Ireland.
+3. An automated Lambda script runs `PromoteReadReplica` on the Ireland database, turning it from read-only into a writable Primary database.
+The company is back online in 2 minutes.
+
+### High Availability is not Disaster Recovery
+
+These two are constantly confused, and the confusion is expensive — teams buy one
+and believe they have the other.
+
+| | High Availability | Disaster Recovery |
+| --- | --- | --- |
+| Handles | A component failing | A whole region, or a bad decision, failing |
+| Scope | Inside one region | Across regions, or across providers |
+| Recovery | Automatic, seconds | Deliberate, minutes to hours |
+| Example failure | One AZ loses power | A ransomware event, a dropped database |
+| Costs | Roughly 2× the compute | Storage, plus the rehearsals |
+
+**High availability** means no single component is load-bearing: run in at least
+two Availability Zones, put a load balancer in front, use Multi-AZ RDS, and keep
+enough spare capacity that losing a third of it changes nothing a user notices.
+The pattern is always the same — remove single points of failure, and make
+failover automatic.
+
+```text
+        ┌──────────── ALB (spans AZs) ────────────┐
+        ▼                                          ▼
+   AZ us-east-1a                             AZ us-east-1b
+   ├─ 2 app nodes                            ├─ 2 app nodes
+   └─ RDS primary        ── sync replica ──▶ └─ RDS standby
+```
+
+Lose `us-east-1a` entirely and the ALB stops routing to it, RDS promotes the
+standby, and the Auto Scaling group replaces the missing nodes. Nobody is paged
+into a decision.
+
+**Quorum is why odd numbers keep appearing.** etcd, and any consensus system,
+needs a strict majority to accept a write. Three nodes tolerate one failure; four
+nodes *also* tolerate only one, because losing two of four leaves no majority. So
+control planes come in threes and fives, and a two-node "HA" cluster is less
+available than a single node — it can lose quorum and refuse writes while both
+machines are still running.
+
+**Where high availability disappoints people.** It only covers the failures it
+was designed for, and three assumptions are usually wrong:
+
+- **Capacity is not reserved.** Two AZs at 60% utilisation each cannot absorb one
+  another: lose a zone and the survivor needs 120% of its capacity. Highly
+  available means running with enough headroom to lose a zone, which is the part
+  that gets trimmed during cost reviews.
+- **Failover is untested.** A standby nobody has ever promoted is a hypothesis.
+  The failover path — DNS TTLs, connection pools that cache the old address,
+  clients that never retry — is where the surprises live, and only a rehearsal
+  finds them.
+- **The dependency is still single.** Two application nodes in two zones, both
+  talking to one database in one zone, is not highly available. Trace the request
+  to the end; the weakest link sets the number.
+
+Crucially, high availability replicates faults as faithfully as it replicates
+data. A `DROP TABLE`, a bad migration, or an encrypted-by-ransomware volume is
+copied to the standby in milliseconds. That is precisely what backups — and this
+chapter's RTO and RPO targets — exist to survive.
+
+### The Human Element (Runbooks)
+During a disaster, engineers panic. They make mistakes.
+You do not invent a DR plan during a disaster. You execute a **Runbook**.
+A Runbook is a meticulously documented, step-by-step guide on exactly which buttons to click and which scripts to run. In elite organizations, the Runbook is fully automated (a Python script that executes the failover), and humans are only involved to approve the final step.
+
+**Incident response has a shape, and it is worth knowing before you need it:**
+
+1. **Declare.** Say the word "incident" out loud, in a channel, early. The most
+   expensive incidents are the ones where three people debugged privately for
+   forty minutes before anyone else knew.
+2. **Assign roles.** An **incident commander** who decides and delegates but does
+   not debug; a **communications lead** who updates the status page and
+   stakeholders; **responders** who investigate. One person doing all three does
+   none of them.
+3. **Stop the bleeding before finding the cause.** Roll back, fail over, scale
+   out. `kubectl rollout undo` first; the interesting question of *why* the new
+   version leaked memory can wait until users are served again.
+4. **Communicate on a timer.** An update every 30 minutes, even when the update
+   is "still investigating, no change". Silence is read as nothing being done.
+5. **Resolve, then write it up.**
+
+**Severity decides how much of that applies.** Agree the levels in advance, when
+nobody is stressed:
+
+| | Meaning | Response |
+| --- | --- | --- |
+| **SEV1** | Users cannot use the product | Page immediately, all hands, status page |
+| **SEV2** | Major feature broken, or degraded for some users | Page during business hours |
+| **SEV3** | Minor, with a workaround | Ticket, next working day |
+
+**The postmortem is blameless, and that is a design decision rather than
+politeness.** An engineer who expects blame reports less, and you lose the
+information you needed. Write what happened, the timeline, the contributing
+causes, and — the only part that changes anything — a short list of specific,
+owned, dated actions. "Be more careful" is not an action. "Add a readiness probe
+to the payments service, owned by Sara, by 22 August" is.
+
+**The first five minutes, as commands.** Before theorising, establish what
+changed and what is actually broken:
+
+```bash
+# 1. What deployed recently? Most incidents are a change, not a mystery.
+kubectl rollout history deployment/api -n production
+argocd app history ivolve-api
+
+# 2. What is unhealthy right now?
+kubectl get pods -n production --field-selector=status.phase!=Running
+kubectl get events -n production --sort-by=.lastTimestamp | tail -20
+
+# 3. What is the application itself saying?
+kubectl logs deploy/api -n production --tail=100 --since=15m
+kubectl logs deploy/api -n production --previous   # the container that just crashed
+
+# 4. Stop the bleeding.
+kubectl rollout undo deployment/api -n production
+```
+
+`kubectl logs --previous` is the one worth remembering: a crash-looping Pod's
+current container has only just started and knows nothing. The evidence is in the
+container that died.
+
+The test of a runbook is not whether it exists. It is whether someone who has
+never run it can follow it at 3am — which you only discover by rehearsing it,
+deliberately, on a normal Tuesday afternoon.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is the difference between High Availability (HA) and Disaster Recovery (DR)?**
+A: High Availability (like having 3 servers behind a Load Balancer) protects against the failure of a single component. Disaster Recovery protects against the catastrophic failure of the entire primary location (like a data center burning down) by failing over to a secondary location.
+
+### Intermediate
+**Q: Explain RPO and RTO.**
+A: **RPO (Recovery Point Objective):** The maximum acceptable amount of data loss measured in time (e.g., if you back up every hour, your RPO is 1 hour). **RTO (Recovery Time Objective):** The maximum acceptable amount of time the system can be offline before it causes unacceptable damage to the business.
+
+### Senior
+**Q: You use ArgoCD (GitOps) for deployment. Why do you still need a tool like Velero for Disaster Recovery?**
+A: ArgoCD only restores the stateless declarative configuration (the YAML files stored in Git). It has absolutely no knowledge of stateful data. If you have an application using a Persistent Volume (like a StatefulSet running a local database or file cache), ArgoCD will recreate the Pod, but the disk will be completely empty. Velero is required to snapshot and restore the actual block-storage data residing on the physical disks.
+
+### Principal/Architect
+**Q: Your company mandates a Multi-Region Active/Active architecture across US-East and US-West to achieve an RTO of 0. However, the database is a standard relational PostgreSQL database. Explain the architectural impossibility of this requirement and how you would redesign the data layer to accommodate it.**
+A: True Active/Active across regions is impossible for standard relational databases (like PostgreSQL) due to the CAP Theorem and the speed of light. If a user writes to US-East, and a user simultaneously reads from US-West before the data has time to cross the continent, they will see stale data. Attempting synchronous replication across regions will introduce massive write latency (destroying performance). 
+**The Redesign:** You must abandon standard PostgreSQL and move to a globally distributed database designed for Active/Active topologies, such as **Amazon DynamoDB Global Tables** or **CockroachDB**. These databases handle multi-master conflict resolution and asynchronous global replication natively, accepting writes in all regions simultaneously while maintaining eventual (or tunable) consistency.
+[Contents](/learn) | [41 — Hands-On Labs](/learn/labs/hands-on-labs) |
