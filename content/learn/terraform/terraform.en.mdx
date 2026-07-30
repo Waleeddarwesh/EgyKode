@@ -1,0 +1,429 @@
+---
+contentId: terraform
+title: "Infrastructure as Code (Terraform)"
+titleAr: "البنية التحتية ككود — Terraform"
+description: "Write a module, read a plan, and explain why state is locked"
+descriptionAr: "الـ Providers والـ Modules والـ State، والفرق بين plan و apply."
+domain: terraform
+level: intermediate
+type: concept
+phase: iac
+order: 13
+readingTime: 60
+prerequisites: ["aws-overview"]
+relatedChapters: []
+objectives:
+  - "Write a module, read a plan, and explain why state is locked"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/13_Terraform.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Terraform
+
+In Chapter 10, we learned that AWS is a massive warehouse of computers that we can rent. But how do we actually rent them? 
+If you use your mouse to click buttons on the AWS website to build 50 servers, you will make a mistake. You will forget to open a firewall port on server #37. 
+
+To solve this, we use **Infrastructure as Code (IaC)**. We write a text file describing exactly what we want, and a robot builds it for us perfectly every single time. **Terraform** is that robot.
+
+---
+
+## Level 1 — Beginner
+
+### What is Terraform?
+Imagine you want to build a LEGO castle.
+- **The Old Way:** You look at a picture of a castle and try to build it from memory. You might miss a piece.
+- **The Terraform Way:** You write an instruction manual: "Place 10 blue blocks here. Place 2 red blocks there." You hand the manual to a robot, and the robot builds the castle exactly as written.
+
+If your little brother accidentally breaks a tower off the castle, you don't panic. You just hand the manual back to the robot. The robot looks at the broken castle, compares it to the manual, and says, *"Ah! You are missing a tower."* It then rebuilds *only* the missing tower.
+
+### What Infrastructure as Code actually means
+
+Infrastructure as Code is not "a script that builds servers". It is a narrower
+and more useful idea: **the definition of your infrastructure is a file in Git,
+and the running system is derived from that file.**
+
+Three properties follow, and they are the whole reason the practice exists:
+
+1. **Declarative, not imperative.** You describe the end state — three servers in
+   two availability zones — and the tool decides which API calls achieve it. A
+   Bash script describes the *journey*, so running it twice does it twice.
+2. **Idempotent.** Applying the same definition to a system already in that state
+   changes nothing. This is what makes it safe to run continuously.
+3. **Reviewable and revertible.** Infrastructure changes arrive as pull requests.
+   You can see who widened the firewall rule, when, and why — and `git revert`
+   is a real rollback, not a reconstruction from memory.
+
+The alternative — clicking through a console — produces infrastructure nobody
+can reproduce. It works until the person who built it leaves, or the region goes
+down and you need the same thing somewhere else by morning.
+
+### ASCII Diagram: The Terraform Workflow
+
+```text
+[ Your Code (main.tf) ]
+         |
+    (terraform apply)
+         v
+[ Terraform Engine ] ---> Looks at AWS ---> "You asked for 3 servers. You have 0."
+         |
+         v
+[ Creates 3 Servers in AWS ]
+```
+
+---
+
+## Level 2 — Intermediate
+
+### How it Works Internally (The State File)
+Terraform needs a brain. When it builds a server in AWS, it needs to remember the exact ID of that server. It stores this memory in a file called `terraform.tfstate`.
+
+**The Lifecycle:**
+1. `terraform init`: Downloads the AWS plugins.
+2. `terraform plan`: The "Dry Run". Terraform compares your code to the `terraform.tfstate` memory, and tells you exactly what it *will* change, without actually changing anything.
+3. `terraform apply`: Executes the plan and updates the `terraform.tfstate` memory.
+4. `terraform destroy`: Reads the memory and deletes everything it ever created.
+
+### Providers — how Terraform talks to a cloud
+
+Terraform itself knows nothing about AWS. It is a small engine that reads your
+files, builds a dependency graph, and calls **providers** — plugins that
+translate `resource` blocks into API calls. There are providers for AWS,
+Kubernetes, GitHub, Cloudflare, and several thousand other things.
+
+```hcl
+terraform {
+  required_version = ">= 1.6"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.40"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+```
+
+- **`required_providers`** names the plugin and pins its version. `~> 5.40`
+  means "any 5.x from 5.40 up, but never 6.0" — patch and minor updates are
+  allowed, the breaking major is not.
+- **`provider "aws"`** configures it. Credentials are deliberately absent: they
+  come from the environment, the AWS CLI profile, or the instance's IAM role.
+  Access keys never belong in a `.tf` file.
+
+`terraform init` is what downloads these plugins, and it is why the command must
+be run again whenever you add a provider or change a version constraint. It also
+writes `.terraform.lock.hcl`, which records the exact provider versions and
+their checksums — commit that file, so every engineer and the CI runner all
+build with identical plugins.
+
+**How tightly to pin is a real decision**, and both extremes are wrong:
+
+| Constraint | Behaviour | Use when |
+| --- | --- | --- |
+| none | Any version, including breaking ones | Never |
+| `~> 5.40` | 5.40 and later 5.x | Almost always — the sensible default |
+| `= 5.40.1` | Exactly this | You are debugging a provider bug |
+
+`~> 5.40` with a committed lock file gives you both halves: builds are
+reproducible today because of the lock file, and you can adopt fixes deliberately
+by running `terraform init -upgrade` and reviewing the diff. Pinning exactly
+without a lock file is the worst of both — it feels safe while leaving you
+several years behind on the day you finally need a new resource type.
+
+### The plan and apply workflow
+
+Five commands do almost all the work, and the order matters:
+
+```bash
+terraform init          # download providers and configure the backend
+terraform fmt -recursive # normalise formatting, so diffs show real changes only
+terraform validate      # is the configuration internally valid?
+terraform plan          # what WOULD change? changes nothing
+terraform apply         # make it so
+```
+
+**Reading a plan is the skill.** Terraform marks every resource with a symbol,
+and the symbol is the whole message:
+
+| Symbol | Meaning | How worried to be |
+| --- | --- | --- |
+| `+` | create | Normal for new infrastructure |
+| `~` | update in place | Usually safe |
+| `-` | destroy | Read carefully |
+| `-/+` | **destroy then recreate** | Stop and read every line |
+
+`-/+` is the one that causes incidents. It appears when you change an attribute
+that cannot be modified in place — an EC2 instance's subnet, an RDS instance's
+identifier — so Terraform's only route to your desired state is to delete the
+resource and build a new one. On a database, that is your data. The plan says so
+plainly; the failure mode is applying without reading.
+
+The summary line at the end is what you check before typing `yes`:
+
+```text
+Plan: 2 to add, 1 to change, 0 to destroy.
+```
+
+In CI you never re-plan at apply time — you save the plan and apply exactly what
+was reviewed, so nothing can drift between the review and the change:
+
+```bash
+terraform plan -out=tfplan       # review this artifact
+terraform apply tfplan           # apply exactly it, no new decisions
+```
+
+### Variables and outputs
+
+Hard-coding `us-east-1` and `t3.micro` into every file is how dev and prod drift
+apart. **Variables** are the inputs to a configuration:
+
+```hcl
+variable "environment" {
+  description = "Which environment this stack belongs to"
+  type        = string
+}
+
+variable "instance_type" {
+  description = "EC2 size for the application nodes"
+  type        = string
+  default     = "t3.micro"
+
+  validation {
+    condition     = can(regex("^t3\\.", var.instance_type))
+    error_message = "Only t3 instances are approved for this account."
+  }
+}
+```
+
+A variable with no `default` is required, and Terraform will refuse to run
+without it — which is what you want for `environment`. Values come from a
+`.tfvars` file:
+
+```hcl
+# environments/prod/prod.tfvars
+environment   = "prod"
+instance_type = "t3.large"
+```
+
+```bash
+terraform apply -var-file=environments/prod/prod.tfvars
+```
+
+**Never put secrets in `.tfvars`.** They are plain text and usually committed.
+Secrets come from AWS Secrets Manager or environment variables at run time.
+
+**Variable, local, or hard-coded?** The three are not interchangeable:
+
+| | Use it for | Overridable |
+| --- | --- | --- |
+| `variable` | Anything that differs between environments | Yes — by the caller |
+| `locals` | A value computed once from other values | No |
+| A literal | Something that must never vary | No |
+
+The failure mode here is over-parameterisation: a module with forty variables,
+thirty-eight of which nobody has ever changed, is harder to use than one with
+two. Every variable is a promise that the value is genuinely allowed to vary.
+Start with literals, and promote to a variable when a second environment actually
+needs a different value.
+
+**Locals** are for values you compute once and reuse — they are not inputs, so
+they cannot be overridden:
+
+```hcl
+locals {
+  name_prefix = "ivolve-${var.environment}"
+  common_tags = {
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+```
+
+**Outputs** are what a configuration publishes — to you, and to other modules:
+
+```hcl
+output "alb_dns_name" {
+  description = "Public hostname of the load balancer"
+  value       = aws_lb.main.dns_name
+}
+
+output "db_password" {
+  value     = aws_db_instance.main.password
+  sensitive = true   # redacted from CLI output — but still in the state file
+}
+```
+
+That last comment matters: `sensitive = true` hides a value from the terminal.
+It does **not** encrypt it. The state file still holds it in plain text, which is
+the reason the backend below must be encrypted and access-controlled.
+
+### Modules — writing infrastructure once
+
+A **module** is a directory of `.tf` files you can call with different inputs. A
+VPC that is defined once and instantiated three times cannot drift between
+environments, because there is only one definition.
+
+```hcl
+module "network" {
+  source = "../../modules/vpc"
+
+  environment        = var.environment
+  cidr_block         = "10.20.0.0/16"
+  availability_zones = ["us-east-1a", "us-east-1b"]
+}
+
+# Reach into what the module published
+resource "aws_db_subnet_group" "main" {
+  subnet_ids = module.network.private_subnet_ids
+}
+```
+
+The contract is exactly three things: **input variables**, **resources**, and
+**outputs**. Anything the caller needs must be an explicit `output` — there is
+no reaching inside a module to grab a resource directly, and that restriction is
+what makes modules safe to change.
+
+```text
+modules/vpc/
+  main.tf         the resources
+  variables.tf    the inputs  — the module's public API
+  outputs.tf      the outputs — what callers may depend on
+  README.md       what it does, and an example call
+```
+
+Pin the `source` when it is remote (`source = "git::https://…?ref=v1.4.0"`).
+An unpinned module means a colleague's commit changes your infrastructure the
+next time you run `init`.
+
+**Do not modularise everything.** A module earns its cost when the same shape is
+built more than once, or when it hides genuine complexity behind a small
+interface. Wrapping a single `aws_s3_bucket` in a module adds a directory, a
+variables file, an outputs file and a layer of indirection, in exchange for
+nothing — and the next engineer now has to read two files to learn what one
+resource does.
+
+The useful test: **would a second caller exist?** If the answer is no, write the
+resource directly and extract it later, when the second caller actually appears.
+
+| | Local module (`../../modules/vpc`) | Registry or Git module |
+| --- | --- | --- |
+| Versioned | With the repository | Independently, by tag |
+| Changing it | One commit, everything updates | Callers upgrade when ready |
+| Right for | This platform's own building blocks | Something several teams share |
+
+Prefer local modules inside a single repository — you get atomic changes and no
+version skew. Reach for a separately versioned module only when consumers need to
+upgrade on their own schedule.
+
+### What Existed Before? (Bash Scripts)
+Before Terraform, engineers wrote complex Bash or Python scripts to talk to the AWS API. 
+*Why wasn't it enough?* Scripts are **Imperative** (Do this, then do this). If a script crashes halfway through, running it a second time might create duplicate servers.
+Terraform is **Declarative** (I want 3 servers). You can run `terraform apply` 100 times, and if you already have 3 servers, it will do absolutely nothing. This is called **Idempotency**.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+Let's look at how we organized our code in `infrastructure/terraform`.
+
+#### 1. The Resource Dependency Graph
+Terraform is incredibly smart. You don't have to tell it what order to build things in. It builds a mathematical Directed Acyclic Graph (DAG) in memory.
+
+If you look at `infrastructure/terraform/environments/prod/main.tf`, you'll see this:
+```hcl
+module "network" {
+  source = "../../modules/vpc"
+  flow_logs_bucket_arn = module.storage.logs_bucket_arn
+}
+```
+**Line-by-Line Breakdown:**
+- Because the `network` module references `module.storage.logs_bucket_arn`, Terraform's DAG instantly recognizes a dependency. It knows it *must* build the S3 bucket in the `storage` module before it even attempts to build the network. It handles the order of operations automatically.
+
+#### 2. The Remote Backend (State Management)
+If you run Terraform on your laptop, the `terraform.tfstate` file is saved on your laptop. If your coworker tries to update the infrastructure, they don't have your memory file! They might accidentally delete your servers.
+
+Look at `infrastructure/terraform/environments/prod/backend.tf`:
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "ivolve-terraform-state"
+    key            = "environments/prod/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "ivolve-terraform-locks"
+    encrypt        = true
+  }
+}
+```
+**Line-by-Line Breakdown:**
+- **`backend "s3"`**: We move the "brain" off your laptop and into an AWS S3 bucket. Now, you and your coworker share the same memory.
+- **`dynamodb_table = "ivolve-terraform-locks"`**: What if you and your coworker type `terraform apply` at the exact same millisecond? The state file would corrupt. DynamoDB acts as a **State Lock**. Whoever hits enter first locks the database. The second person gets an error saying, "Please wait, another engineer is currently running Terraform."
+
+**How to split state is the decision that outlives the code.** One state file per
+environment is the minimum; beyond that you choose how finely to slice:
+
+| | Workspaces | Separate directories |
+| --- | --- | --- |
+| Environments differ by | A variable | Their own files |
+| Blast radius | One backend, many states | Fully separate |
+| Risk | Applying to the wrong workspace | You must duplicate structure |
+
+**Prefer separate directories** for dev/staging/prod, as this platform does.
+Workspaces share one configuration, so the only thing standing between a staging
+apply and a production apply is which workspace you happen to be in — and that is
+a `terraform workspace select` you can forget. Directories make the environment
+explicit in the path, and let production legitimately differ from staging.
+
+Split further only when it hurts: a state file large enough that `plan` takes
+minutes, or a boundary where one team must not be able to destroy another's
+resources. Very fine-grained states trade that safety for a new problem —
+passing values between them with `terraform_remote_state`, which recreates the
+coupling you split them up to avoid.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: Modules and Blast Radius
+In a Fortune 500 company, you never put all your AWS resources into a single `main.tf` file. If you have a typo, you might destroy the entire company.
+
+1. **Modules (DRY - Don't Repeat Yourself):**
+   We created reusable modules in `infrastructure/terraform/modules/`. Our `compute` module defines the exact security specifications for an EC2 Auto Scaling Group. 
+   When the Dev team needs a cluster, they call `module "compute"`. When the Prod team needs a cluster, they call `module "compute"`. This ensures both environments are mathematically identical, satisfying SOC2 consistency compliance.
+
+2. **Blast Radius Isolation:**
+   We separate the network (`vpc`) from the servers (`compute`). If a junior engineer accidentally corrupts the `compute` code, Terraform might delete the servers, but it *cannot* delete the network. By strictly isolating state, we contain the "blast radius" of human errors.
+
+### The Alternatives (Pulumi & CDK)
+- **Terraform:** Uses HCL (a proprietary config language).
+- **Pulumi / AWS CDK:** Allows developers to write infrastructure using real programming languages (Python, TypeScript). 
+- **The Decision:** We chose Terraform because HCL forces engineers to remain declarative. Using a full programming language for infrastructure often leads to dangerous `if/else` loops and imperative logic that makes the state unpredictable during disaster recovery.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is the difference between `terraform plan` and `terraform apply`?**
+A: `plan` is a safe dry-run that tells you what will happen. `apply` actually executes those changes against the cloud provider.
+
+### Intermediate
+**Q: What is `terraform.tfstate` and why should you never commit it to GitHub?**
+A: It is Terraform's memory file that maps your code to real AWS resource IDs. You must never commit it to Git because it often contains plaintext secrets (like initial database passwords) that were returned by the AWS API during creation. It should always be stored in an encrypted S3 bucket.
+
+### Senior
+**Q: How do you handle a situation where someone manually deleted an EC2 instance in the AWS console, but Terraform still thinks it exists?**
+A: You run `terraform plan`. Terraform will contact the AWS API, realize the instance is missing (detecting Configuration Drift), and the plan will show that it intends to recreate the missing instance to match the declarative code. Running `terraform apply` fixes it automatically.
+
+### Principal/Architect
+**Q: Explain how to safely refactor a Monolithic Terraform state into micro-states without destroying and recreating the infrastructure.**
+A: You must decouple the state file using the `terraform state mv` command. You define the new backend configurations, then surgically move the resource addresses from the monolithic state file to the new micro-state files. This updates the memory mapping without touching the actual AWS APIs, ensuring zero downtime for the production resources.
+[Contents](/learn) | [14 — Configuration Management (Ansible)](/learn/ansible/ansible) |
