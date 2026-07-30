@@ -1,0 +1,299 @@
+---
+contentId: nexus-and-artifacts
+title: "Artifact Management (Nexus)"
+titleAr: "إدارة المخرجات — Nexus"
+description: "Explain why a build should not depend on the public internet, and what write-once repositories protect against"
+descriptionAr: "أين تستقر المخرجات والصور بين البناء والنشر."
+domain: nexus
+level: intermediate
+type: concept
+phase: cicd
+order: 26
+readingTime: 35
+prerequisites: ["ecr", "build-tools"]
+relatedChapters: []
+objectives:
+  - "Explain why a build should not depend on the public internet, and what write-once repositories protect against"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/26_Nexus_And_Artifacts.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Why this chapter exists
+
+Chapter 25 covered ECR — a registry for **container images**. This chapter is
+about everything else: the `.jar` files, npm packages and Helm charts a build
+produces and consumes.
+
+The question it answers: *why run your own repository when Maven Central is
+free?*
+
+---
+
+## Level 1 — Beginner
+
+### What an artifact repository is
+
+A warehouse for build outputs, with two jobs:
+
+1. **Host** the things you build, so other teams and other builds can use them.
+2. **Proxy** the things you download, so you are not dependent on someone else's
+   uptime.
+
+### The problem it solves
+
+Every `mvn package` downloads dependencies from Maven Central. On one laptop
+that is fine. Across an organisation it becomes three problems:
+
+- **Availability** — Central has an outage; every build in the company stops.
+- **Speed** — 200MB over the internet on every cold CI build.
+- **Supply chain** — you have no record of what you pulled in, and no ability to
+  block a compromised package.
+
+A proxy repository fixes all three. The first request fetches from Central and
+caches it; every subsequent request is served locally, permanently, from
+infrastructure you control.
+
+### Hosted vs proxy vs group
+
+| Type | Contains | Example |
+|------|----------|---------|
+| **Proxy** | a cached mirror of an upstream | `maven-central-proxy` |
+| **Hosted** | artifacts you published | `ivolve-releases` |
+| **Group** | one URL that searches several | what developers configure |
+
+---
+
+## Level 2 — Intermediate
+
+### The configuration in this platform
+
+`infrastructure/ansible/roles/nexus/defaults/main.yml`:
+
+```yaml
+nexus_repositories:
+  # Proxy Maven Central so builds are reproducible and survive an upstream outage.
+  - type: maven
+    format: proxy
+    body:
+      name: maven-central-proxy
+      online: true
+      storage: { blobStoreName: default, strictContentTypeValidation: true }
+      proxy: { remoteUrl: "https://repo1.maven.org/maven2/", contentMaxAge: -1, metadataMaxAge: 1440 }
+      negativeCache: { enabled: true, timeToLive: 1440 }
+      httpClient: { blocked: false, autoBlock: true }
+      maven: { versionPolicy: RELEASE, layoutPolicy: STRICT }
+
+  # Internal releases: immutable, so a version number always means one artifact.
+  - type: maven
+    format: hosted
+    body:
+      name: ivolve-releases
+      online: true
+      storage: { blobStoreName: default, strictContentTypeValidation: true, writePolicy: ALLOW_ONCE }
+      maven: { versionPolicy: RELEASE, layoutPolicy: STRICT }
+
+  - type: maven
+    format: hosted
+    body:
+      name: ivolve-snapshots
+      online: true
+      storage: { blobStoreName: default, strictContentTypeValidation: true, writePolicy: ALLOW }
+      maven: { versionPolicy: SNAPSHOT, layoutPolicy: STRICT }
+```
+
+### `ALLOW_ONCE` — the line that matters most
+
+**A released version can be uploaded exactly once and never overwritten.**
+
+Without it, someone can republish `ivolve-api:1.0.0` with different bytes. Then:
+
+- your CI build from last month and today's build produce different results from
+  identical source
+- a rollback to 1.0.0 does not restore what 1.0.0 was
+- the SBOM you generated no longer describes what is actually deployed
+
+**Immutability is what makes a version number mean something.** It is the same
+principle as `IMMUTABLE` tags on the ECR repositories — one idea, applied to
+both artifact types.
+
+### Why snapshots are `ALLOW`
+
+`1.0.0-SNAPSHOT` is explicitly a moving target — "the current state of the
+development branch". Overwriting it is the point. That is exactly why you never
+**deploy** a snapshot: you cannot say which build is running.
+
+### `contentMaxAge: -1`
+
+Never expire cached release artifacts. Correct, because a released version is
+immutable upstream too — Maven Central does not allow republishing either. If
+you have it, it is still valid.
+
+Metadata is different (`1440` minutes) because *the list of available versions*
+does change when someone publishes a new one.
+
+---
+
+## Level 3 — Advanced
+
+### Pointing builds at the proxy
+
+`~/.m2/settings.xml`, or a mounted file on the CI agent:
+
+```xml
+<mirror>
+  <id>nexus</id>
+  <mirrorOf>*</mirrorOf>
+  <url>https://nexus.ivolve.example.com/repository/maven-public/</url>
+</mirror>
+```
+
+`mirrorOf: *` routes **every** repository request through Nexus, including ones
+declared in a `pom.xml` you did not write. That is deliberate: a transitive
+dependency cannot smuggle in its own repository URL.
+
+### Dependency confusion
+
+A real, exploited attack class. An attacker publishes a package to a **public**
+registry using the same name as your **internal** package. A resolver configured
+to check both picks whichever answers first, or whichever has the higher version
+number — and the attacker sets the version to 99.0.0.
+
+Defences, in order of effectiveness:
+
+1. **Scope internal artifacts** to a group ID you own — `com.ivolve.*`.
+2. **Configure the resolver** so that group resolves *only* from the internal
+   hosted repository, with no public fallback.
+3. **Do not use a group repository** that merges internal and proxied content
+   for internal group IDs. The convenience is what creates the ambiguity.
+
+### Cleanup policies
+
+Repositories grow without bound. Every CI build publishing a snapshot means
+thousands of artifacts a year.
+
+- **Snapshots** — keep the last N per version, delete anything older than 30 days.
+- **Releases** — keep everything. Storage is cheap; being unable to reproduce a
+  build from two years ago during an audit is not.
+
+The equivalent for images is the ECR lifecycle policy in
+`infrastructure/terraform/modules/ecr/main.tf` — expire untagged layers after 7
+days, keep the last 30 release tags.
+
+### Nexus is a single point of failure
+
+If Nexus is down, no build can resolve dependencies. Treat it accordingly:
+
+- back the blob store with durable storage and snapshot it
+- monitor it like production, because for the engineering organisation it is
+- keep the ability to fall back to Central in an emergency — documented, tested,
+  and normally disabled
+
+---
+
+## Level 4 — Enterprise
+
+### The full artifact lifecycle
+
+```
+developer commits
+   → CI builds → publishes SNAPSHOT to ivolve-snapshots
+   → tests pass, release is cut
+   → CI publishes 1.4.2 to ivolve-releases  (ALLOW_ONCE — permanent)
+   → container image built FROM that exact jar
+   → image scanned, then pushed to ECR with an immutable tag
+   → SBOM generated and archived to S3
+   → GitOps commit references the image by that tag
+```
+
+Every step is immutable after the release point. That chain is what makes it
+possible to answer, months later: *what exactly is running in production, what
+was in it, and where did each piece come from?*
+
+### Signing, not just storing
+
+Storing an artifact proves you have it. Signing proves where it came from.
+
+- **Artifacts** — GPG-signed on publish; consumers verify the signature.
+- **Images** — signed with Cosign, and an admission controller in the cluster
+  rejects unsigned images.
+
+This platform scans but does not yet sign. That is listed honestly as a gap in
+the roadmap — scanning tells you what is *in* an image; signing tells you it is
+the image your pipeline actually produced.
+
+### Nexus vs Artifactory vs cloud-native
+
+| | Nexus OSS | Artifactory | CodeArtifact / GitHub Packages |
+|---|---|---|---|
+| Cost | free | expensive | usage-based |
+| Formats | Maven, npm, Docker, more | most | fewer |
+| HA | paid tier only | paid | managed |
+| Operate it yourself | yes | yes | no |
+
+This platform runs Nexus OSS because it is free, covers every format used, and —
+like choosing kubeadm over EKS — running it yourself is part of the point.
+CodeArtifact would be the lower-effort production choice.
+
+---
+
+## Hands-on
+
+```bash
+# 1. Reach the UI (it is not publicly exposed)
+kubectl -n ivolve port-forward svc/nexus 8081:8081    # or via the bastion
+open http://localhost:8081
+
+# 2. Publish something, then try to overwrite it
+cd Cloud-Native-DevOps-Platform/application/ivolve-api
+mvn deploy -DaltDeploymentRepository=nexus::default::http://localhost:8081/repository/ivolve-releases/
+mvn deploy -DaltDeploymentRepository=nexus::default::http://localhost:8081/repository/ivolve-releases/
+#    The second one FAILS. That is ALLOW_ONCE doing its job.
+
+# 3. Prove the proxy caches
+#    Delete ~/.m2/repository, build, and watch Nexus's browse view fill up.
+```
+
+**Checkpoint:** explain what breaks if `ivolve-releases` is set to `ALLOW`
+instead of `ALLOW_ONCE`.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: Why run your own artifact repository when Maven Central is free?**
+A: Three reasons. Availability — a Central outage would stop every build in the
+company. Speed — an internal proxy is far closer than the internet. Control —
+you get a record of every dependency pulled in and the ability to block a
+compromised one, which you cannot do against a public registry.
+
+### Intermediate
+**Q: What is the difference between a release and a snapshot repository?**
+A: A release repository holds immutable versions — write-once, never
+overwritten. A snapshot repository holds mutable development builds that are
+expected to change under the same version string. You deploy releases only,
+because with a snapshot you cannot say which build is actually running.
+
+### Senior
+**Q: What is dependency confusion and how do you prevent it?**
+A: An attacker publishes to a public registry using the name of an internal
+package. A resolver that checks both may pick the public one, especially if the
+attacker sets a very high version number. The fix is to scope internal artifacts
+to a group you own and configure resolution so that group comes *only* from the
+internal repository with no public fallback. Using a merged group repository for
+internal coordinates is what creates the ambiguity in the first place.
+
+### Principal/Architect
+**Q: How do you answer "is this CVE in our production systems?" in under an hour?**
+A: You have to have prepared for the question before it was asked. Concretely:
+generate an SBOM on every build and archive it alongside the artifact; use
+immutable version numbers and immutable image tags so an SBOM describes exactly
+one thing forever; and record which image digest is deployed to each environment
+in git. Then answering is a query across archived SBOMs joined to the current
+GitOps state — minutes, not days. Without that, the only honest answer is to
+rebuild and rescan everything you have ever shipped, which is why teams without
+it end up guessing.
+[Contents](/learn) | [27 — The GitOps Philosophy](/learn/gitops/gitops) |
