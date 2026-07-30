@@ -1,0 +1,171 @@
+---
+contentId: grafana
+title: "Data Visualization (Grafana)"
+titleAr: "عرض البيانات — Grafana"
+description: "Build a dashboard laid out in the order questions get asked"
+descriptionAr: "لوحات تجيب عن سؤال، لا تعرض أرقامًا فحسب."
+domain: grafana
+level: intermediate
+type: concept
+phase: observability
+order: 31
+readingTime: 35
+prerequisites: ["prometheus"]
+relatedChapters: []
+objectives:
+  - "Build a dashboard laid out in the order questions get asked"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/31_Grafana.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Grafana
+
+In Chapter 30, we learned that Prometheus is a massive database full of numbers. If the CEO asks you, *"Is the website healthy?"* you cannot show them a spreadsheet of 4 million numbers. You need to show them a beautiful pie chart.
+
+**Grafana** is the visualization engine. It connects to Prometheus, runs PromQL queries, and turns the raw math into stunning, real-time dashboards.
+
+---
+
+## Level 1 — Beginner
+
+### What is Grafana?
+Imagine you are driving a car.
+- **The Engine (Prometheus):** Is doing all the hard work, spinning at 4,000 RPM, getting hot, and pushing the car forward. 
+- **The Dashboard (Grafana):** Is the speedometer and the gas gauge behind your steering wheel.
+
+You don't need to look at the raw engine parts to know how fast you are going. You just look at the speedometer. Grafana is the dashboard for your entire cloud infrastructure. It takes the engine data and makes it readable for humans.
+
+### ASCII Diagram: The Visualization Flow
+
+```text
+[ Developer / CEO ] ---> Looks at [ Grafana UI ]
+                                       |
+                               (Sends PromQL Query)
+                                       v
+                             [ Prometheus TSDB ]
+```
+
+---
+
+## Level 2 — Intermediate
+
+### Dashboards and Panels
+A Grafana **Dashboard** is a collection of widgets called **Panels**.
+Each panel runs a specific query.
+- Panel 1: A Line Graph showing CPU usage over the last 24 hours.
+- Panel 2: A big green number showing `200 OK` HTTP requests.
+- Panel 3: A big red number showing `500 ERROR` HTTP requests.
+
+### Data Sources
+Grafana is famous because it is vendor-agnostic. 
+Prometheus is just one "Data Source". Grafana can connect to 50 different databases simultaneously. 
+You can build a single dashboard where the top graph shows Kubernetes CPU (pulled from Prometheus), the middle graph shows AWS Billing data (pulled from CloudWatch), and the bottom graph shows User Signups (pulled from a raw MySQL database).
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (GitOps Dashboards)
+
+Historically, engineers built dashboards by clicking buttons in the Grafana UI. 
+*Problem:* If the Grafana server crashed, the dashboards were lost forever. 
+*Solution:* Dashboards as Code.
+
+We define our dashboards using JSON files and deploy them using Kubernetes `ConfigMaps`.
+Look at `monitoring/grafana/dashboards/platform-overview.json`:
+```json
+{
+  "title": "iVolve — Platform Overview",
+  "uid": "ivolve-overview",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Availability (30d)",
+      "description": "Objective: 99.9%. Below that the error budget for the period is spent.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "ivolve:availability:ratio30d", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null  },
+              { "color": "orange", "value": 0.995 },
+              { "color": "green",  "value": 0.999 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "area" }
+    }
+  ]
+}
+```
+
+**Two details worth copying:**
+
+- **`"expr": "ivolve:availability:ratio30d"`** — the panel queries a *recording
+  rule*, not a raw expression. A `histogram_quantile` over 30 days of raw
+  buckets is slow enough to time out the panel; against a pre-computed series it
+  is instant. See Chapter 30.
+- **`thresholds`** encode the SLO in the dashboard itself. The tile turns orange
+  below 99.5% and red below the 99.9% objective, so the number is judged rather
+  than merely displayed.
+
+How does this JSON actually get into Grafana? 
+Grafana has a feature called **Sidecar Provisioning**. 
+A sidecar container runs next to Grafana. It watches the Kubernetes API for any `ConfigMap` that has the label `grafana_dashboard: "1"`. When ArgoCD deploys our JSON file as a ConfigMap, the sidecar instantly detects it, injects it into Grafana's database, and the dashboard appears on the screen automatically. 
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: Dynamic Variables (Templating)
+If a company has 500 microservices, you DO NOT build 500 different dashboards. You build exactly ONE dashboard.
+
+You use **Variables**.
+At the top of the Grafana dashboard, there is a dropdown menu called `$Microservice`. 
+The dropdown is populated dynamically by querying Prometheus for all unique `app` labels:
+`label_values(container_cpu_usage_seconds_total, app)`
+
+Every panel in the dashboard uses the variable in its PromQL query:
+`rate(container_cpu_usage_seconds_total{app="$Microservice"}[5m])`
+
+When the user selects `ivolve-api` from the dropdown, all 20 graphs instantly refresh to show only the API's data. When they select `ivolve-frontend`, it shows the frontend's data.
+
+### RBAC and Multi-Tenancy
+In a Fortune 500 company, you don't want the intern accidentally deleting the Production Dashboard. 
+Grafana integrates with AWS SSO (OIDC/SAML) for authentication.
+It maps your AWS SSO Groups to Grafana Roles.
+- **Admin:** The DevOps Team (can edit Data Sources).
+- **Editor:** The Developer Team (can create and edit Dashboards).
+- **Viewer:** The Management Team (can only look at Dashboards).
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: Does Grafana store data?**
+A: No. Grafana is just the UI layer. It relies entirely on backend data sources (like Prometheus or AWS CloudWatch) to store the actual data.
+
+### Intermediate
+**Q: How do you prevent your Grafana dashboards from being lost if the Grafana pod is deleted?**
+A: You practice "Dashboards as Code". You export the dashboard as a JSON file, commit it to your Git repository, and deploy it to the cluster via a `ConfigMap`. Grafana reads the ConfigMap on boot.
+
+### Senior
+**Q: You have a single Grafana dashboard that displays metrics for all pods in a Deployment. However, if a pod crashes and is replaced, the line on the graph breaks and a new line starts, creating a messy graph with dozens of broken lines over a 24-hour period. How do you fix the PromQL query in Grafana to show a single, continuous line for the whole application?**
+A: You are currently graphing by the `pod` label, which is ephemeral (e.g., `pod="api-1234"`). When the pod dies, that specific time series permanently ends. To create a continuous line, you must aggregate away the ephemeral labels using `sum by ()` or `avg by ()`. You modify the query to aggregate by the static `app` label instead: `sum by (app) (rate(container_cpu_usage_seconds_total{app="ivolve-api"}[5m]))`. This combines all the pods into a single logical metric that survives pod churn.
+
+### Principal/Architect
+**Q: Your developers have built 50 custom dashboards using a wide variety of PromQL queries. Suddenly, the Prometheus server starts crashing due to high CPU load exclusively when developers log into Grafana. How do you architect a solution to reduce the query load on Prometheus without deleting their dashboards?**
+A: The developers are likely running highly complex, long-range aggregation queries (e.g., calculating the 99th percentile of 100,000 time series over a 30-day window) directly inside the Grafana panels. Every time they refresh the dashboard, Prometheus has to recalculate the massive equation on the fly. 
+To solve this, you implement **Prometheus Recording Rules**. You define the complex equation in Prometheus itself. Prometheus calculates the math in the background continuously (e.g., every 1 minute) and saves the *result* as a brand new, pre-calculated metric. You then update the Grafana dashboards to query the pre-calculated metric instead of the raw equation. The Grafana load on Prometheus drops from massive CPU spikes to practically zero.
+[Contents](/learn) | [32 — Centralized Logging (Fluentd/Loki)](/learn/logging/logging) |
