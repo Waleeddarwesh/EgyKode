@@ -1,0 +1,202 @@
+---
+contentId: observability
+title: "Introduction to Observability"
+titleAr: "مقدمة في قابلية الرصد (Observability)"
+description: "Distinguish metrics, logs and traces, and know what each answers"
+descriptionAr: "المقاييس والسجلات والتتبّع — والفرق بينها وبين المراقبة."
+domain: observability
+level: intermediate
+type: concept
+phase: observability
+order: 29
+readingTime: 30
+prerequisites: ["kubernetes"]
+relatedChapters: []
+objectives:
+  - "Distinguish metrics, logs and traces, and know what each answers"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/29_Monitoring.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Observability
+
+We have built a massive system. We have Jenkins compiling code, ArgoCD deploying it, Kubernetes running it, Auto Scaling Groups managing the servers, and RDS storing the data.
+
+But what happens when the website goes down at 2:00 AM?
+If you have no visibility into the system, you are flying blind. **Observability** is the practice of understanding the internal state of a complex system based on its external outputs.
+
+---
+
+## Level 1 — Beginner
+
+### What is Observability?
+Imagine you are a doctor. A patient walks in and says, *"I feel sick."*
+You cannot just guess what is wrong. You need data.
+1. **Metrics:** You check their heart rate and blood pressure (Numbers).
+2. **Logs:** You ask them, *"What did you eat today?"* (A diary of events).
+3. **Traces:** You take an X-Ray to see exactly where the pain is traveling through their body (The journey of a request).
+
+In DevOps, Observability is exactly the same:
+- **Metrics:** Is the CPU at 99%?
+- **Logs:** Did the Java app print a `NullPointerException` at 2:04 AM?
+- **Traces:** Did the user's login request slow down inside the database or inside the API?
+
+### Why do we need it?
+Without observability, when a customer complains the site is broken, an engineer has to manually SSH into 15 different servers, reading text files to figure out what happened. It takes hours.
+With observability, the system automatically detects the CPU spike, sends an SMS text message to the engineer's phone, and provides a dashboard showing exactly which line of code caused the crash.
+
+---
+
+## Level 2 — Intermediate
+
+### The Three Pillars of Observability
+
+1. **Metrics (The "What"):** Time-series numerical data. 
+   *Example:* `memory_usage_bytes{pod="api-5"} = 104857600`. Metrics are incredibly cheap to store because they are just numbers. You use metrics to trigger alarms.
+2. **Logs (The "Why"):** Immutable, timestamped records of discrete events. 
+   *Example:* `[ERROR] 2026-05-12T14:32:01 Database Connection Refused`. Logs are expensive to store because they are heavy text. You use logs to debug *after* the alarm wakes you up.
+3. **Traces (The "Where"):** A representation of a series of causally related distributed events.
+   *Example:* A user clicks "Checkout". The trace shows the request spent 10ms in the Frontend, 400ms in the Inventory Microservice, and 5000ms stuck in the Payment Database. 
+
+### Monitoring vs. Observability
+- **Monitoring** answers: *"Is the system broken?"* (Dashboards).
+- **Observability** answers: *"Why is the system broken, and how do I fix it?"* (Deep debugging).
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Architecture (The Observability Stack)
+
+In our Kubernetes cluster, we don't just use one tool. We use a "Stack" of specialized tools.
+
+1. **The Metrics Stack (Prometheus & Grafana):**
+   - Prometheus is the database that stores the numbers.
+   - Grafana is the beautiful graphing tool that makes the charts.
+2. **The Logging Stack (EFK or Loki):**
+   - We use **Loki** (by Grafana) for logs. Unlike Elasticsearch (which indexes every single word and uses massive amounts of RAM), Loki only indexes the metadata (like the Pod name) and compresses the raw text. It is vastly more efficient for Kubernetes.
+3. **The Alerting Stack (Alertmanager):**
+   - Prometheus generates the alarm. Alertmanager groups the alarms (so you don't get 500 emails for one outage) and routes them to Slack or PagerDuty.
+
+### Golden Signals
+Google SRE (Site Reliability Engineering) defines the "Four Golden Signals" you MUST monitor:
+1. **Latency:** How long does a request take? (e.g., 200ms).
+2. **Traffic:** How much demand is placed on your system? (e.g., 50 HTTP requests/second).
+3. **Errors:** What is the rate of requests that fail? (e.g., 5% HTTP 500s).
+4. **Saturation:** How "full" is your system? (e.g., 85% Memory utilization).
+
+**Each one, as a query you can actually run:**
+
+```promql
+# Traffic — requests per second, by service
+sum(rate(http_requests_total[5m])) by (service)
+
+# Errors — the proportion that failed, not the raw count
+sum(rate(http_requests_total{status=~"5.."}[5m]))
+  / sum(rate(http_requests_total[5m]))
+
+# Latency — the 95th percentile, in seconds
+histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+
+# Saturation — how close to its memory limit is this workload?
+max(container_memory_working_set_bytes{container!=""})
+  / max(kube_pod_container_resource_limits{resource="memory"})
+```
+
+**Measure latency as a percentile, never a mean.** An average of 200ms is
+consistent with 95% of users at 50ms and 5% waiting nine seconds. The mean hides
+exactly the users who are having a bad time, which is why the p95 and p99 are the
+numbers that appear on dashboards and in SLOs.
+
+A useful pairing: **latency should be split by outcome.** Failed requests are
+often fast — a connection refused returns in a millisecond — so mixing them in
+makes latency *improve* during an outage.
+
+**Why these four, and not CPU.** The golden signals are *symptoms*, measured
+where the user is. CPU, memory and disk are *causes*, measured where the machine
+is. Both are worth graphing, but only symptoms are worth paging on: high CPU with
+happy users is not an incident, and low CPU with failing requests very much is.
+This is the difference between the four signals here and the older USE method
+(Utilisation, Saturation, Errors), which examines resources rather than
+user-visible behaviour — useful once you are already debugging, misleading as an
+alerting strategy.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: OpenTelemetry (OTel)
+Historically, if you wanted to send traces to DataDog, you had to install the DataDog SDK in your Java code. If you wanted to switch to New Relic, you had to rewrite all your Java code to use the New Relic SDK. This caused massive vendor lock-in.
+
+**The Solution: OpenTelemetry.**
+OpenTelemetry is a CNCF open standard. 
+You instrument your Java code once, using the OpenTelemetry SDK. The Java app sends the metrics/traces/logs to an **OpenTelemetry Collector** running in your cluster. 
+The Collector acts as a router. You can configure the Collector to send Metrics to Prometheus, Logs to Splunk, and Traces to Jaeger. If your enterprise signs a contract with a new vendor, you just change the Collector's YAML configuration. Zero code changes required in the application.
+
+### SLOs and Error Budgets
+In an Enterprise, you do not page an engineer at 3 AM just because CPU hit 90%. CPU hitting 90% doesn't matter if the customer is still happy.
+We page based on **Service Level Objectives (SLOs)**.
+- **SLA (Agreement):** A legal contract. "The site will be up 99.9% of the time, or we pay you."
+- **SLO (Objective):** An internal goal. "We want the site to be up 99.95% of the time."
+- **SLI (Indicator):** The actual Prometheus metric. "The site is currently up 99.98% of the time."
+
+If our goal is 99.9% uptime, that means we are allowed 43 minutes of downtime per month. That 43 minutes is our **Error Budget**. If we release a buggy feature and burn through 40 minutes of our budget, the DevOps team freezes all new feature deployments until the next month to prioritize stability.
+
+**What each nine actually buys you:**
+
+| SLO | Downtime per month | Downtime per year |
+| --- | --- | --- |
+| 99% | 7h 18m | 3.65 days |
+| 99.9% | 43m | 8.76 hours |
+| 99.95% | 21m | 4.38 hours |
+| 99.99% | 4m 21s | 52 minutes |
+
+Each additional nine costs roughly an order of magnitude more — multi-region,
+deeper automation, more on-call. Choosing 99.99% for an internal tool nobody uses
+at night is how a platform team spends a year of budget on nothing a user
+notices. Pick the target from what the business loses during downtime, then work
+backwards.
+
+**Alert on the burn rate, not on the budget being empty.** A slow leak and a
+sudden fire both consume error budget, and only one of them should wake someone:
+
+```promql
+# Error budget burn rate: how many times faster than sustainable are we spending?
+(
+  sum(rate(http_requests_total{status=~"5.."}[1h]))
+    / sum(rate(http_requests_total[1h]))
+) / 0.001    # 0.001 = the 0.1% error budget for a 99.9% SLO
+```
+
+A value of `1` means you will exactly exhaust the budget by the end of the
+window. `14.4` means you will burn a month's budget in about two days — page
+someone. A rate of `2` sustained for six hours is a ticket, not a page. This is
+what makes SLO-based alerting quieter than threshold alerting: it fires in
+proportion to how much trouble you are actually in.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What are the Three Pillars of Observability?**
+A: Metrics, Logs, and Traces.
+
+### Intermediate
+**Q: Why do we separate the tool that stores metrics (Prometheus) from the tool that visualizes them (Grafana)?**
+A: Separation of concerns. Prometheus is a highly specialized time-series database optimized for scraping and storing millions of numbers per second. It is terrible at making pretty graphs. Grafana is a dedicated UI tool that is amazing at graphs, but it doesn't store data. Grafana can also query data from other sources (like AWS CloudWatch or MySQL) simultaneously.
+
+### Senior
+**Q: Explain the difference between Push and Pull metric collection, and why Kubernetes favors Pull.**
+A: In a Push model (like DataDog or StatsD), the application actively connects to the monitoring server and sends its data. If you have 10,000 Pods, they can easily DDoS your monitoring server. In a Pull model (Prometheus), the monitoring server reaches out to the applications on a schedule (e.g., every 15 seconds) and scrapes the data. This allows Prometheus to rate-limit the ingestion and prevents the monitoring system from being overwhelmed by the applications.
+
+### Principal/Architect
+**Q: Your enterprise has 50 Kubernetes clusters globally. Developers are complaining that they have to log into 50 different Grafana dashboards to find their logs and metrics. How do you architect a global observability pane of glass?**
+A: You must decouple local ingestion from global querying.
+1. Run a local Prometheus and Loki instance inside every cluster. Their only job is to aggressively scrape local Pods.
+2. Use **Thanos** or **Cortex** (for metrics) and **Loki's Gateway** (for logs). Configure the local instances to asynchronously ship their compressed data blocks to a central AWS S3 bucket.
+3. In a central Management Cluster, deploy a global Grafana instance connected to a Thanos Querier. The Querier federates queries across the S3 bucket and the live edge clusters, so one endpoint answers for every cluster and long-term data costs S3 prices rather than EBS prices.
+[Contents](/learn) | [30 — Metrics (Prometheus)](/learn/prometheus/prometheus) |
