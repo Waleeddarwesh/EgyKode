@@ -1,0 +1,452 @@
+---
+contentId: jenkins
+title: "Continuous Integration (Jenkins)"
+titleAr: "التكامل المستمر — Jenkins"
+description: "Write a declarative pipeline with a blocking quality gate"
+descriptionAr: "خطوط تبني وتختبر وتفحص وتُصدر مع كل commit."
+domain: jenkins
+level: intermediate
+type: concept
+phase: cicd
+order: 23
+readingTime: 55
+prerequisites: ["docker"]
+relatedChapters: []
+objectives:
+  - "Write a declarative pipeline with a blocking quality gate"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/23_Jenkins.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Jenkins
+
+When a developer finishes writing code, how do we know if it actually works? 
+If we just push it straight to the production server, and there is a typo, the entire company goes offline. 
+
+We need a robot that automatically downloads the developer's code, compiles it, runs automated tests, scans it for security vulnerabilities, and builds a Docker image. This process is called **Continuous Integration (CI)**. Our robot for this job is **Jenkins**.
+
+---
+
+## Level 1 — Beginner
+
+### What is Jenkins?
+Imagine a car factory.
+- The **Developer** is the engineer designing the car engine.
+- **Jenkins** is the assembly line robot. 
+
+When the developer finishes the blueprint, Jenkins takes over. Jenkins builds the engine (compiles code), puts it on a test track to see if it explodes (runs unit tests), and checks if the doors lock properly (security scans). If the car passes all tests, Jenkins puts a "Ready for Sale" sticker on it (Docker Tag). If the car fails, Jenkins sounds an alarm and sends an angry email to the developer.
+
+### Why do we need it?
+Before Jenkins, a human had to manually type `mvn test` and `docker build` every single time they wanted to release a feature. Humans are slow, they take weekends off, and they forget to run tests. Jenkins runs 24/7, executes perfectly every time, and catches bugs *before* they reach the customer.
+
+### ASCII Diagram: The Jenkins Pipeline
+
+```text
+[ Developer Commits Code ] 
+          |
+          v
+[ Jenkins Wakes Up ] ---> [ Stage 1: Build (Java to .jar) ]
+                          [ Stage 2: Test (JUnit)         ]
+                          [ Stage 3: Scan (Trivy Security)]
+                          [ Stage 4: Docker Build & Push  ]
+                                        |
+                                        v
+                                 [ ✅ SUCCESS ]
+```
+
+### Anatomy of a Declarative Pipeline
+
+The pipeline lives in a `Jenkinsfile` in the repository, versioned with the code
+it builds. Every declarative pipeline has the same skeleton:
+
+```groovy
+pipeline {
+  agent { label 'docker' }          // WHERE it runs
+
+  environment {                      // available to every stage
+    IMAGE = "ghcr.io/ivolve/api:${env.GIT_COMMIT.take(7)}"
+  }
+
+  options {
+    timeout(time: 30, unit: 'MINUTES')   // never let a hung stage run forever
+    disableConcurrentBuilds()            // one build of this branch at a time
+  }
+
+  stages {                           // WHAT it does, in order
+    stage('Build') {
+      steps { sh 'mvn -B package -DskipTests' }
+    }
+    stage('Test') {
+      steps { sh 'mvn test' }
+      post { always { junit 'target/surefire-reports/*.xml' } }
+    }
+    stage('Publish') {
+      when { branch 'main' }         // only from main — feature branches build and stop
+      steps { sh "docker push ${IMAGE}" }
+    }
+  }
+
+  post {                             // WHAT HAPPENS AFTER, success or not
+    always  { cleanWs() }
+    failure { notifySlack(status: 'FAILED') }
+  }
+}
+```
+
+The pieces earn their place:
+
+- **`agent`** decides where the work happens. `agent none` at the top with a
+  per-stage agent lets each stage run on a different machine — and stops a
+  pipeline holding an executor while it waits for an approval.
+- **`environment`** computes values once. Deriving the image tag from the commit
+  SHA means every build is traceable to exactly one commit.
+- **`options`** is the part people add only after being burned. A pipeline with
+  no `timeout` can occupy an agent indefinitely; `disableConcurrentBuilds` stops
+  two runs of the same branch pushing the same tag.
+- **`when`** keeps one pipeline for all branches instead of two that drift apart.
+- **`post`** runs whether the build passed or failed — which is where cleanup and
+  notification belong, because a `sh` step after a failing stage never executes.
+
+**Stage order is a design decision.** Put the fast, cheap gates first: a unit
+test suite that fails in 40 seconds should not run after a six-minute image
+build. Engineers learn about a broken test in under a minute, and the expensive
+stages only run on code that has already earned them.
+
+**Declarative or scripted?** Declarative — the syntax above — is validated
+before the build starts, so a typo fails immediately rather than halfway through.
+Scripted pipelines are arbitrary Groovy: more powerful, but nothing checks them
+until execution reaches the broken line. Use declarative, and reach for a
+`script { }` block for the rare piece of real logic.
+
+---
+
+## Level 2 — Intermediate
+
+### The Architecture: Master vs. Agent
+
+Jenkins is not just one server. It is a distributed system.
+1. **The Jenkins Master (Controller):** This is the brain and the GUI. It schedules the jobs and shows you the green/red dashboards. *It does not execute the code.*
+2. **The Jenkins Agents (Nodes):** These are the worker bees. When a pipeline triggers, the Master tells an Agent: *"Here is the code, compile it."* 
+
+### Why split them?
+Compiling a massive Java application takes 100% of the CPU and 8GB of RAM. If you compile code on the Jenkins Master, the Master will crash, and the entire CI/CD system goes down. By offloading the heavy lifting to Agents, the Master stays healthy.
+
+### What Existed Before? (ClickOps)
+In early versions of Jenkins, engineers created pipelines by clicking buttons in the UI (e.g., "Add Build Step -> Execute Shell"). This was a disaster. If the Jenkins server died, the company lost all their pipeline configurations. 
+Now, we use **Pipeline as Code (`Jenkinsfile`)**. The pipeline instructions are stored in Git alongside the application code.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+Let's look at `jenkins/pipelines/Jenkinsfile` in our repository. This is a **Declarative Pipeline**.
+
+```groovy
+@Library('ivolve-pipeline-library@main') _
+
+pipeline {
+    agent { label 'devops-agent' }
+
+    options {
+        // A hung pipeline holds an executor and blocks every other build.
+        timeout(time: 45, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '10'))
+        disableConcurrentBuilds()
+        timestamps()
+        skipDefaultCheckout(true)
+    }
+
+    triggers {
+        githubPush()
+    }
+
+    environment {
+        SERVICE_NAME  = 'ivolve-api'
+        APP_DIR       = 'application/ivolve-api'
+        REGISTRY      = '111122223333.dkr.ecr.us-east-1.amazonaws.com/ivolve-prod'
+        SONAR_PROJECT = 'ivolve-api'
+
+        // Tag is content-addressed to the commit, never 'latest'. A rollback is
+        // then a matter of pointing at a previous tag that still exists.
+        IMAGE_TAG     = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT ?: 'dev'}"
+    }
+```
+
+**Line-by-line breakdown:**
+
+- **`@Library('ivolve-pipeline-library@main') _`** loads the shared library
+  before the pipeline block. The trailing `_` is required syntax — it is the
+  (unused) variable the library is assigned to. Omit it and the load silently
+  does nothing, which is a memorable five minutes to debug.
+
+- **`agent { label 'devops-agent' }`** — work runs on a labelled agent, never on
+  the controller. The controller is configured with `numExecutors: 0` and
+  `mode: EXCLUSIVE` in JCasC, so it *cannot* run a build even by accident. A
+  controller that builds is a controller whose compromise is a full CI
+  compromise.
+
+- **`disableConcurrentBuilds()`** — two runs of the same branch would race on
+  the GitOps commit and one push would be rejected. Serialising per-branch is
+  cheaper than handling that conflict.
+
+- **`skipDefaultCheckout(true)`** — the pipeline checks out explicitly in stage
+  one so it can capture the commit SHA into `IMAGE_TAG`. Without this the
+  implicit checkout happens first and the variable is set too late.
+
+- **`timeout(45, MINUTES)`** — a hung pipeline holds an executor forever and
+  blocks every other build. Every pipeline needs a timeout.
+
+- **`IMAGE_TAG = "${BUILD_NUMBER}-${GIT_COMMIT_SHORT}"`** — monotonic enough to
+  sort, traceable to exactly one revision. **Never `latest`**: a tag that moves
+  is a tag you cannot roll back to.
+
+> **On ephemeral Kubernetes agents:** the Jenkins Kubernetes plugin can create a
+> throwaway pod per build, which is excellent for elastic capacity and costs
+> nothing when idle. This platform uses a persistent containerised agent instead,
+> because the build needs the Docker socket and a warm Trivy vulnerability
+> database — a fresh pod would re-download that database on every build. Both are
+> valid; the trade is elasticity against build latency.
+
+---
+
+## Level 4 — Enterprise
+
+### Security: credentials, and the AWS keys that do not exist
+
+You eventually have to `docker push` to ECR. That needs AWS credentials — so
+where do they come from?
+
+**The common answer, which this platform deliberately does not use:**
+
+```groovy
+environment {
+    AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+    AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+}
+```
+
+This works, and Jenkins masks the values as `****` in the console. But it means
+a long-lived AWS access key exists — in Jenkins' credential store, on somebody's
+laptop when it was created, and in whatever ticket requested it. Long-lived keys
+do not rotate themselves and are the single most commonly leaked AWS credential.
+
+**What this platform does instead: there is no key.**
+
+The CI host runs with an **EC2 instance profile**. The AWS SDK and CLI find
+credentials automatically from instance metadata, and those credentials are
+short-lived and rotated by AWS. See
+`infrastructure/terraform/modules/iam/main.tf`:
+
+```hcl
+resource "aws_iam_policy" "cicd" {
+  name = "${var.name_prefix}-cicd"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "EcrLogin"
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken"]
+        Resource = "*"
+      },
+      {
+        Sid    = "PushAndPullPlatformImages"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:PutImage"
+        ]
+        Resource = var.ecr_repository_arns   # ← these repositories only
+      },
+      {
+        Sid    = "ReadPipelineSecrets"
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue"]
+        # Scoped by path: Jenkins reads CI secrets, not application or RDS ones.
+        Resource = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${var.name_prefix}/ci/*"
+      }
+    ]
+  })
+}
+```
+
+Two things worth noticing:
+
+- **`Resource = var.ecr_repository_arns`** — push access to *these* repositories,
+  not `*`. A compromised pipeline cannot publish to a repository it does not own.
+- **The Secrets Manager path scope** — `.../ci/*` only. Jenkins can read its own
+  credentials and cannot read the database password.
+
+Jenkins still uses `credentials()` for things AWS does not issue — the GitHub
+token, the SonarQube token — and those are injected from Ansible Vault into the
+systemd unit at service start, never written to the Jenkins home directory. But
+**no long-lived AWS key exists anywhere in this platform**, which is the
+property worth being able to state in an interview.
+
+### Quality Gates — the stage that says no
+
+A pipeline that reports problems but ships anyway is a notification system, not a
+gate. A **quality gate** is a stage that *fails the build*, so a change that does
+not meet the standard cannot reach production.
+
+```groovy
+stage('Quality Gate') {
+  steps {
+    withSonarQubeEnv('sonarqube') {
+      sh 'mvn sonar:sonar -Dsonar.qualitygate.wait=true'
+    }
+  }
+}
+```
+
+`-Dsonar.qualitygate.wait=true` is the entire point of that stanza. Without it,
+Maven submits the analysis and exits successfully — the pipeline goes green while
+SonarQube is still deciding. With it, the build blocks until the verdict arrives
+and fails if the gate fails.
+
+**What a gate should measure.** SonarQube's default gate applies its thresholds
+to **new code**, not the whole repository, and that choice is what makes gates
+adoptable:
+
+| Condition on new code | Typical threshold |
+| --- | --- |
+| Coverage | ≥ 80% |
+| Duplicated lines | ≤ 3% |
+| Blocker / critical issues | 0 |
+| Security hotspots reviewed | 100% |
+
+Demanding 80% coverage across a legacy codebase means nobody can merge anything,
+so the gate gets disabled within a week. Demanding it on *newly written lines*
+means the codebase improves with every commit and no one is blocked by code they
+did not write.
+
+**The gates in this pipeline, and what each one stops:**
+
+```groovy
+stage('Unit Tests')     { steps { sh 'mvn test' } }                    // broken logic
+stage('Quality Gate')   { /* as above */ }                             // untested or duplicated code
+stage('Dependency Scan') { steps { sh 'trivy fs --exit-code 1 --severity CRITICAL .' } }
+stage('Image Scan')     { steps { sh 'trivy image --exit-code 1 --severity HIGH,CRITICAL $IMAGE' } }
+```
+
+Each ends in a non-zero exit code on failure, which is the only mechanism
+involved — Jenkins reads the Linux exit code and stops the pipeline, exactly as
+described in the Linux chapter.
+
+**Fail fast, and in the right order.** Put the cheap gates first. Unit tests that
+run in 40 seconds should fail before a 6-minute image build, so an engineer
+learns about a broken test in under a minute rather than after the build.
+
+One caveat worth stating plainly: a gate that fires constantly for reasons the
+team cannot act on gets bypassed, and a bypassed gate is worse than no gate,
+because it teaches everyone that red means nothing. Scope the thresholds so that
+red is always real.
+
+### Shared Libraries
+If your company has 500 Java microservices, you will have 500 identical Jenkinsfiles. If you want to change the Trivy security scan parameters, you have to edit 500 repositories.
+Enterprise Platform teams solve this using **Jenkins Shared Libraries**.
+You write the logic once in a centralized Groovy repository. The developer's Jenkinsfile becomes just 3 lines long:
+```groovy
+@Library('enterprise-shared-library') _
+standardJavaPipeline {
+    appName = 'ivolve-api'
+}
+```
+The Platform Team controls the `standardJavaPipeline` logic, enforcing security scans globally across the entire company.
+
+**How a library is laid out.** Jenkins expects a fixed structure, and the
+directory decides how the code is called:
+
+```text
+enterprise-shared-library/
+  vars/                      one file = one step callable from a Jenkinsfile
+    standardJavaPipeline.groovy
+    notifySlack.groovy
+  src/                       normal Groovy classes, for real logic
+    com/ivolve/DockerUtils.groovy
+  resources/                 static files (templates, JSON) the library ships
+```
+
+A file in `vars/` becomes a step named after the file. `standardJavaPipeline.groovy`
+defines `call()`, which is what makes `standardJavaPipeline { ... }` work:
+
+```groovy
+// vars/standardJavaPipeline.groovy
+def call(Map config) {
+  pipeline {
+    agent { label 'java17' }
+    stages {
+      stage('Build') { steps { sh 'mvn -B package' } }
+      stage('Scan')  { steps { sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${config.appName}" } }
+    }
+    post {
+      failure { notifySlack(status: 'FAILED', app: config.appName) }
+    }
+  }
+}
+```
+
+**Pin the version, or the library changes your builds without warning.** The
+`@Library` annotation takes a Git ref:
+
+```groovy
+@Library('enterprise-shared-library@v2.3.0') _   // a tag — reproducible
+@Library('enterprise-shared-library') _          // implicitly main — moves under you
+```
+
+The second form is how a platform team breaks 500 builds simultaneously at 4pm on
+a Friday. Tag releases, let teams adopt them, and keep the old tag working.
+
+**The failure modes are specific to this being centralised code:**
+
+- **The blast radius is every repository.** A bug in a shared library is not one
+  broken build, it is all of them. Shared libraries need their own tests and
+  their own pipeline, exactly like the applications that consume them.
+- **Groovy sandbox errors.** Library code runs sandboxed by default, and methods
+  outside the allow-list fail with `RejectedAccessException` — often only on the
+  Jenkins controller, never on your laptop.
+- **Debugging happens at a distance.** A stack trace points into library code the
+  application developer cannot see, so a step that swallows errors leaves teams
+  with a red build and no explanation. Fail loudly, with the command that failed.
+
+**The trade-off is standardisation against flexibility.** A shared library is
+right when the pipelines genuinely are the same and the platform team owns the
+standard — security scanning, image signing, deployment. It is the wrong tool
+when every team needs a slightly different variation, because the library grows
+a `config` parameter for each one until it is less readable than the 500
+Jenkinsfiles it replaced.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is a `Jenkinsfile`?**
+A: A text file that contains the definition of a Jenkins Pipeline. It is committed to source control (Git) alongside the application code.
+
+### Intermediate
+**Q: Explain the difference between Declarative and Scripted pipelines in Jenkins.**
+A: Declarative pipelines (starting with `pipeline {}`) have a strict, rigid syntax defined by CloudBees. They are easier to read and have built-in error checking. Scripted pipelines (starting with `node {}`) are raw Groovy code. They offer infinite flexibility but are much harder to maintain and debug.
+
+### Senior
+**Q: When using Kubernetes as a Jenkins Agent provider, how does the Jenkins Master communicate with the dynamically provisioned Pod?**
+A: Jenkins uses the JNLP (Java Network Launch Protocol) / Remoting architecture. The Jenkins Kubernetes plugin makes an API call to the Kubernetes cluster to create the Pod. The Pod contains a special hidden container (the `jnlp` container). Once booted, this `jnlp` container establishes a reverse TCP connection back to the Jenkins Master's JNLP port (usually 50000). The Master then sends the shell commands over this established TCP tunnel.
+
+### Principal/Architect
+**Q: Your Jenkins Master is running out of memory (OOM) every day at 3:00 PM. You've already increased the JVM heap size to 16GB. What architectural flaws cause Jenkins Master instability, and how do you resolve them?**
+A: Increasing the heap is a band-aid. Master instability is almost always caused by executing heavy logic on the Master instead of the Agents. 
+Causes include: 
+1. Using Scripted Pipelines with massive `for` loops or complex Groovy data processing (which executes entirely on the Master's CPU, not the Agent). 
+2. Retaining too much build history (e.g., keeping 10,000 old builds), bloating the XML DOM in memory.
+3. The "God Jenkins" anti-pattern (one Master for 10,000 developers). 
+*Resolution:* Enforce Declarative pipelines (which push execution to agents), enforce aggressive log rotation (`buildDiscarder`), and architect a "Controller-per-Team" model (like CloudBees CI / Jenkins Operations Center) to horizontally scale the Masters rather than vertically scaling a single monolith.
+[Contents](/learn) | [24 — Modern CI (GitHub Actions)](/learn/github-actions/github-actions) |
