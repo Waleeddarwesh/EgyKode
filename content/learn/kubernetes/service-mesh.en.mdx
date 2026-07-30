@@ -1,0 +1,155 @@
+---
+contentId: service-mesh
+title: "Advanced Networking (Service Mesh)"
+titleAr: "الشبكات المتقدمة — Service Mesh"
+description: "Decide whether you actually need a mesh"
+descriptionAr: "إدارة حركة المرور و mTLS بين الخدمات."
+domain: kubernetes
+level: advanced
+type: concept
+phase: kubernetes
+order: 35
+readingTime: 45
+prerequisites: ["network-policies"]
+relatedChapters: ["kubernetes", "kubeadm"]
+objectives:
+  - "Decide whether you actually need a mesh"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/35_Service_Mesh.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Service Mesh
+
+As your company grows, you transition from 2 microservices to 500 microservices. 
+Suddenly, a new set of problems emerges:
+- How do we encrypt the traffic *between* the 500 microservices (mTLS)?
+- If Microservice A calls Microservice B, and B is slow, how does A know to retry the connection?
+- How do we get Prometheus metrics for all 500 services without forcing the developers to rewrite their code?
+
+The answer is a **Service Mesh** (like Istio or Linkerd).
+
+---
+
+## Level 1 — Beginner
+
+### What is a Service Mesh?
+Imagine a city where everyone speaks a different language. 
+When Bob (Microservice A) tries to talk to Alice (Microservice B), they don't understand each other. The conversation is not secure, and if Alice doesn't hear Bob, Bob doesn't know how to repeat himself.
+
+- **The Solution:** The city assigns a Universal Translator (a Sidecar Proxy) to every single person. 
+When Bob wants to talk to Alice, he doesn't talk to Alice directly. Bob talks to his Translator. Bob's Translator encrypts the message and sends it to Alice's Translator. Alice's Translator decrypts it and whispers it into Alice's ear.
+
+If Alice doesn't respond, Bob's Translator automatically retries the message 3 times before giving up, and Bob didn't have to do anything.
+
+### ASCII Diagram: The Envoy Sidecar
+
+```text
+       [ Kubernetes Node ]
++-----------------------------------+
+|             [ Pod A ]             |
+|  (App A) <====> (Envoy Proxy A)   |
++------------------------||---------+
+                         || (mTLS Encrypted Traffic)
++------------------------||---------+
+|             [ Pod B ]  ||         |
+|  (App B) <====> (Envoy Proxy B)   |
++-----------------------------------+
+```
+
+---
+
+## Level 2 — Intermediate
+
+### The Architecture: Data Plane vs. Control Plane
+A Service Mesh is split into two halves:
+1. **The Data Plane:** The fleet of thousands of tiny proxies (like Envoy) running as sidecars inside every single Pod. They do the actual physical routing and encrypting of packets.
+2. **The Control Plane:** The central brain (like `istiod`). It pushes routing rules and cryptographic certificates down to the Data Plane.
+
+### mTLS (Mutual TLS)
+Standard TLS (HTTPS) is one-way. When you go to your bank's website, your browser verifies the bank is real. The bank does not verify who *you* are at the network layer.
+In a Service Mesh, we use **Mutual TLS**. 
+Proxy A verifies Proxy B's certificate, AND Proxy B verifies Proxy A's certificate. The traffic is mathematically encrypted, meaning even if a hacker is sniffing traffic on the AWS VPC network, they only see gibberish.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Code (Istio VirtualServices)
+
+In Chapter 28, we talked about Argo Rollouts and Canary Releases (routing 5% of traffic to a new version). How does that actually work at the network level?
+Kubernetes native `Services` cannot do this. They only do 50/50 round-robin routing.
+
+A Service Mesh can do Layer 7 (HTTP) routing. 
+Look at this Istio `VirtualService`:
+
+```yaml
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: ivolve-api
+spec:
+  hosts:
+  - api.ivolve.internal
+  http:
+  - route:
+    - destination:
+        host: ivolve-api
+        subset: v1
+      weight: 95
+    - destination:
+        host: ivolve-api
+        subset: v2
+      weight: 5
+```
+
+**Line-by-Line Breakdown:**
+- **`kind: VirtualService`**: An Istio CRD that configures the Envoy proxies.
+- **`hosts: [api.ivolve.internal]`**: The internal DNS name the microservices use to communicate.
+- **`subset: v1 | weight: 95`**: Envoy intercepts the HTTP request. It rolls a 100-sided mathematical die. If the number is 1-95, Envoy routes the packet to the old `v1` Pods.
+- **`subset: v2 | weight: 5`**: If the number is 96-100, Envoy routes the packet to the new `v2` Pods. 
+This happens instantaneously, in memory, without the application ever knowing.
+
+---
+
+## Level 4 — Enterprise
+
+### Sidecar-less Service Mesh (eBPF and Ambient Mesh)
+The sidecar pattern (Envoy in every pod) is incredibly powerful, but it has a massive flaw: **Resource Overhead**.
+If you have 10,000 Pods, and each Envoy proxy uses 50MB of RAM, you are wasting **500 Gigabytes of RAM** just on proxies. Furthermore, injecting a proxy into the network path adds 2-3 milliseconds of latency per hop.
+
+**The Enterprise Future: eBPF and Ambient Mesh.**
+Modern Service Meshes (like Cilium Mesh or Istio Ambient Mesh) are moving away from sidecars.
+Instead of putting a proxy inside every Pod, they use **eBPF** (Extended Berkeley Packet Filter) to handle routing and encryption directly inside the Linux Kernel of the Worker Node. 
+A single "ztunnel" (Zero Trust Tunnel) daemon runs on the Node, encrypting traffic for all 100 Pods on that node simultaneously. This reduces RAM overhead by 90% and completely eliminates the network latency penalty.
+
+### Circuit Breaking
+If Microservice B (the Database API) crashes and takes 30 seconds to respond, Microservice A (the Frontend) will wait 30 seconds. If 1,000 users click the website, Microservice A creates 1,000 connections waiting 30 seconds. Microservice A will run out of RAM and crash. The failure cascades, taking down the entire company.
+
+A Service Mesh prevents this using **Circuit Breakers**.
+You configure Envoy: *"If Microservice B fails 5 times in a row, 'Trip the Circuit'."* 
+When the circuit is tripped, Envoy instantly returns a `503 Service Unavailable` to Microservice A without even trying to contact B. This protects Microservice A from exhausting its connection pool, stopping the cascading failure and keeping the rest of the company online.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is a "sidecar" container?**
+A: A sidecar is a secondary container that runs inside the exact same Pod as the primary application container. It shares the same network namespace and IP address. It is used to add functionality (like logging or proxying) without changing the main application code.
+
+### Intermediate
+**Q: Explain how a Service Mesh provides "Observability without code changes".**
+A: Because the Service Mesh Proxy (Envoy) intercepts 100% of the HTTP traffic going in and out of the Pod, the proxy can natively measure how many requests are failing and how long they take. The proxy exposes these metrics to Prometheus. The developer gets golden signal metrics (Latency, Traffic, Errors) without having to import an OpenTelemetry SDK into their Java/Python code.
+
+### Senior
+**Q: Contrast a Service Mesh (Istio) with an API Gateway (Kong/Apigee). Do you need both?**
+A: An API Gateway handles "North-South" traffic (traffic entering the cluster from the public internet). It focuses on external authentication, rate limiting, and monetization. A Service Mesh handles "East-West" traffic (internal traffic between microservices). It focuses on mTLS, internal retries, and circuit breaking. In a mature enterprise, you absolutely need both, as they solve fundamentally different problems.
+
+### Principal/Architect
+**Q: You deploy Istio with strict mTLS enabled globally. Suddenly, your Kubernetes `livenessProbes` and `readinessProbes` for all your Pods start failing, causing the cluster to terminate every application continuously. Why did this happen, and how does the platform natively solve it?**
+A: The `kubelet` (running on the Worker Node) executes the `livenessProbe` by sending a plaintext HTTP request to the Pod's health endpoint. Because Istio is enforcing strict mTLS, the Envoy proxy intercepts the kubelet's plaintext request and rejects it, causing the probe to fail. 
+To solve this, Istio uses a feature called **Probe Rewrite**. The Istio mutating webhook modifies the Pod spec on creation. It rewrites the `livenessProbe` to point to the Envoy proxy's pilot-agent port (e.g., 15020). The `kubelet` sends the plaintext request to the pilot-agent, and the pilot-agent securely proxies the request over localhost to the application, bypassing the external mTLS requirement.
+[Contents](/learn) | [36 — Beyond Kubernetes (Serverless)](/learn/aws/serverless) |
