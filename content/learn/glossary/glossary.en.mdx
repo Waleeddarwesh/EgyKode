@@ -1,0 +1,374 @@
+---
+contentId: glossary
+title: "Glossary"
+titleAr: "المصطلحات (Glossary)"
+description: "Glossary"
+descriptionAr: "كل مصطلح، معرَّف مرة واحدة، بالعربية والإنجليزية."
+domain: glossary
+level: all
+type: concept
+phase: reference
+order: 43
+readingTime: 10
+prerequisites: []
+relatedChapters: []
+objectives:
+  - "Understand Glossary"
+status: partial
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/43_Glossary.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+Terms are grouped by where you meet them. Definitions are written to be *said
+out loud in an interview*, not copied from a vendor page.
+
+---
+
+## Kubernetes
+
+**Pod** — the smallest deployable unit: one or more containers that share a
+network namespace and storage. Containers in a pod reach each other on
+`localhost`. You almost never create one directly; a controller does.
+
+**Deployment** — declares *n* identical pods and keeps that true. Handles rolling
+updates by creating a new ReplicaSet and shifting pods across.
+
+**ReplicaSet** — the thing that actually maintains the pod count. A Deployment
+owns one per revision, which is why `kubectl get rs` shows several — that history
+is what `rollout undo` uses.
+
+**StatefulSet** — like a Deployment, but pods get stable names
+(`mysql-0`, `mysql-1`) and their own persistent volume that follows them across
+reschedules. Use for databases; use a Deployment for everything stateless.
+
+**DaemonSet** — exactly one pod per node, automatically including new ones. For
+node-level agents: node-exporter, CNI, log shippers.
+
+**Service** — a stable virtual IP and DNS name in front of a changing set of
+pods. The IP belongs to no machine; it is a rule in every node's routing table.
+
+**Endpoints** — the actual pod IPs behind a Service. **Empty endpoints is the
+single most diagnostic thing in Kubernetes**: it means no pod is passing its
+readiness probe.
+
+**Ingress** — HTTP routing by hostname and path into the cluster. Needs an
+ingress controller to do anything; the object alone is inert.
+
+**ConfigMap / Secret** — key-value configuration injected as env vars or files.
+A Secret is only base64-encoded, **not encrypted** — encryption comes from
+enabling encryption-at-rest in etcd, or from keeping the value in an external
+store.
+
+**Namespace** — a scope for names and a boundary for quotas, RBAC and network
+policy. Not a security boundary on its own.
+
+**Node** — a machine, physical or virtual, running a kubelet.
+
+**kubelet** — the agent on each node. Talks to the API server, starts containers
+via the container runtime, reports health.
+
+**kube-proxy** — programs the node's routing rules so Service IPs work. IPVS
+mode in this platform.
+
+**etcd** — the distributed key-value store holding *all* cluster state. Lose it
+without a snapshot and the cluster is unrecoverable. Needs an odd number of
+members for quorum.
+
+**Control plane** — the API server, scheduler, controller-manager and etcd. The
+cluster's brain.
+
+**CNI** — Container Network Interface. The plugin giving pods IP addresses and
+routing between them. Calico here, chosen because it enforces NetworkPolicy.
+
+**CRI** — Container Runtime Interface. containerd here; Docker's shim was
+removed in Kubernetes 1.24.
+
+**Taint / Toleration** — a taint on a node repels pods; a matching toleration on
+a pod lets it land anyway. How control plane nodes stay free of application
+workloads.
+
+**Affinity / Anti-affinity** — scheduling preferences: "near these pods" or "not
+on the same node as these pods". Anti-affinity is how replicas get spread across
+failure domains.
+
+**PDB (PodDisruptionBudget)** — the minimum pods that must stay available during
+*voluntary* disruption, like a node drain. **A PDB demanding more than the
+replica count blocks drains forever** — a real trap in dev environments.
+
+**HPA (HorizontalPodAutoscaler)** — scales replica count on metrics. Owns
+`spec.replicas` at runtime, which is why GitOps must be told to ignore that field.
+
+**Probes** — `liveness` (restart if failing), `readiness` (remove from Service if
+failing), `startup` (give a slow starter time before liveness applies). **Liveness
+must never check a dependency**, or a database outage becomes a cluster-wide
+crash loop.
+
+**PV / PVC** — a PersistentVolume is a piece of storage; a PersistentVolumeClaim
+is a pod's request for one. The StorageClass provisions PVs on demand.
+
+**Operator** — a controller that encodes operational knowledge for a specific
+application, extending Kubernetes with CRDs.
+
+**CRD** — CustomResourceDefinition. Adds a new object kind to the API.
+`ServiceMonitor` and `Application` are CRDs.
+
+---
+
+## Delivery
+
+**CI (Continuous Integration)** — every change is built and tested
+automatically, on merge to a shared branch.
+
+**CD** — either *Delivery* (every change is releasable) or *Deployment* (every
+change is released). Worth clarifying which someone means.
+
+**GitOps** — the desired state lives in git; an in-cluster agent continuously
+reconciles reality to it. Pull-based, not push-based.
+
+**Drift** — the cluster differs from git. `selfHeal` reverts it automatically.
+
+**Reconciliation loop** — read git, render, diff against live, apply the
+difference. Repeat forever.
+
+**App-of-apps** — one ArgoCD Application whose job is to create other
+Applications, so only one object is ever applied by hand.
+
+**Sync wave** — an ordering annotation. CRDs and cert-manager must exist before
+the workloads referencing them.
+
+**AppProject** — the security boundary around ArgoCD Applications: which repos,
+which namespaces, which resource kinds.
+
+**Quality gate** — an automated pass/fail on code quality that **blocks the
+build**. Without blocking it is a dashboard, and dashboards get ignored.
+
+**Artifact** — a build output. A `.jar`, a container image, a Helm chart.
+
+**Immutable tag** — a registry tag whose content can never change. What makes
+rollback to a specific version meaningful.
+
+**SBOM** — Software Bill of Materials. The inventory of everything inside an
+artifact. What makes "are we affected by this CVE?" answerable in minutes.
+
+**Shift left** — move testing and security earlier, into the developer's loop,
+where fixing is cheap.
+
+**Blue/green** — two full environments; switch traffic at once. Instant
+rollback, double the infrastructure.
+
+**Canary** — route a small percentage to the new version, watch metrics, then
+proceed or abort.
+
+**Rolling update** — replace pods gradually. What this platform uses. Cheapest,
+and safe when readiness probes are honest.
+
+---
+
+## Infrastructure
+
+**IaC (Infrastructure as Code)** — infrastructure defined in version-controlled
+files rather than console clicks.
+
+**Declarative vs imperative** — declarative states the desired end state
+(Terraform, Kubernetes); imperative states the steps (a bash script). Declarative
+is idempotent by construction.
+
+**Idempotent** — running it twice has the same effect as running it once. The
+core requirement of configuration management; without it you cannot trust a
+re-run.
+
+**State (Terraform)** — the file mapping your config to real cloud resources.
+Losing it means Terraform no longer knows what it manages. Kept in S3, versioned,
+locked via DynamoDB.
+
+**Drift (Terraform)** — real infrastructure differs from state, usually because
+someone changed it in the console.
+
+**Module** — a reusable, parameterised group of Terraform resources.
+
+**Plan / apply** — `plan` shows what would change; `apply` does it. **Read the
+plan.** `-/+` means destroy-and-recreate, which on a database means data loss.
+
+**Provisioning vs configuration** — Terraform creates the server; Ansible
+configures what runs on it. Different jobs, different tools.
+
+**Playbook / role / inventory (Ansible)** — a playbook is what to do; a role is a
+reusable bundle of tasks; the inventory is which hosts. Dynamic inventory
+discovers hosts from cloud tags rather than a static file.
+
+**Ansible Vault** — encrypts secrets at rest in the repository.
+
+---
+
+## AWS
+
+**VPC** — your isolated network in AWS.
+
+**Subnet** — a slice of a VPC, in exactly one availability zone. Public if its
+route table has an internet gateway route.
+
+**Availability Zone** — an isolated datacentre within a region. Spanning three
+is what "highly available" means in practice.
+
+**Internet Gateway** — enables both directions of internet traffic for a public
+subnet.
+
+**NAT Gateway** — lets private instances reach out, while blocking inbound.
+~$32/month each.
+
+**Security group** — a **stateful** instance-level firewall. Allow rules only;
+return traffic is automatic.
+
+**NACL** — a **stateless** subnet-level firewall. Supports deny. Requires
+explicit return rules, which is where people get caught.
+
+**ALB / NLB** — Application (layer 7, routes on HTTP) vs Network (layer 4,
+faster, static IPs).
+
+**ASG (Auto Scaling Group)** — maintains a target number of instances, replacing
+unhealthy ones.
+
+**Launch template** — the blueprint an ASG uses for new instances.
+
+**IAM role vs user** — a role is assumed temporarily and issues short-lived
+credentials; a user has long-lived keys. **Prefer roles always.**
+
+**Instance profile** — how an EC2 instance assumes a role. This is why no static
+AWS keys exist anywhere in this platform.
+
+**IMDS / IMDSv2** — the instance metadata endpoint at `169.254.169.254`, which
+serves credentials. **v2 requires a session token**, which is what blocks the
+classic SSRF-to-credential-theft attack.
+
+**KMS** — managed encryption keys.
+
+**Multi-AZ (RDS)** — a synchronous standby in another AZ with automatic
+failover. Not a read replica, and not a backup.
+
+**Read replica** — an asynchronous copy for read scaling. Not automatic
+failover.
+
+**ECR** — AWS's container registry.
+
+**Secrets Manager** — managed secret storage with rotation.
+
+---
+
+## Observability
+
+**Observability vs monitoring** — monitoring tells you *that* something is
+wrong (known questions); observability lets you work out *why* (unknown ones).
+
+**Metrics / logs / traces** — the three signals. Numbers over time; discrete
+events; a request's path across services.
+
+**Prometheus** — pull-based metrics. It scrapes targets rather than receiving
+pushes.
+
+**PromQL** — Prometheus's query language.
+
+**Recording rule** — a pre-computed query, so dashboards and alerts do not
+re-derive expensive expressions every refresh.
+
+**ServiceMonitor** — a CRD telling Prometheus what to scrape. **A selector that
+matches nothing produces no error** — a silent monitoring gap.
+
+**Alertmanager** — routes, groups, deduplicates and silences alerts.
+
+**Inhibition** — suppressing a symptom alert when its cause is already firing.
+One node failure should page once, not thirty times.
+
+**Watchdog** — an alert that fires permanently by design. An external
+dead-man's-switch alerts if it ever *stops*, proving the alerting path is alive.
+
+**Cardinality** — the number of distinct label combinations. High cardinality
+(user ID as a label) is the standard way to destroy a Prometheus instance.
+
+**SLI / SLO / SLA** — the measurement; the internal target; the contractual
+promise with penalties. SLO is stricter than SLA, deliberately.
+
+**Error budget** — the failure the SLO permits. 99.9% allows ~43 minutes a
+month. Spending it fast is what a burn-rate alert detects.
+
+**Golden signals** — latency, traffic, errors, saturation.
+
+---
+
+## Security
+
+**Least privilege** — the minimum permission needed, and nothing more.
+
+**Zero trust** — verify every request regardless of network position. "Inside
+the network" is not a credential.
+
+**Default deny** — everything blocked until explicitly allowed. How the
+NetworkPolicy in this platform is built.
+
+**RBAC** — permissions bound to roles, roles bound to identities.
+
+**Service account** — an identity for a workload rather than a person. This
+platform sets `automountServiceAccountToken: false` because the apps call no
+Kubernetes API.
+
+**Pod Security Standards** — `privileged` / `baseline` / `restricted`, enforced
+at admission. `restricted` requires non-root, no capabilities, read-only root
+filesystem.
+
+**Admission controller** — intercepts API requests before persistence. Where
+policy is *enforced* rather than *reported*.
+
+**NodeRestriction** — stops a kubelet modifying objects belonging to other
+nodes, or relabelling itself.
+
+**seccomp** — restricts which syscalls a container may make.
+
+**Capabilities** — fine-grained root privileges. `drop: ALL` removes them.
+
+**CVE** — a catalogued vulnerability.
+
+**Ignore-unfixed** — skip vulnerabilities with no available patch. Blocking on
+those does not improve security; it teaches people to bypass the gate.
+
+**SSRF** — Server-Side Request Forgery: tricking a server into making a request
+on your behalf. Against cloud metadata endpoints, it yields credentials.
+
+**Supply chain security** — securing everything you did not write: dependencies,
+base images, build tools.
+
+---
+
+## Reliability
+
+**HA (High Availability)** — surviving component failure without downtime.
+Requires redundancy *and* automatic failover; redundancy alone is not HA.
+
+**DR (Disaster Recovery)** — recovering after failure. Different from HA:
+HA prevents the outage, DR ends it.
+
+**RTO** — how long recovery may take.
+**RPO** — how much data you may lose. Both are business decisions, not technical
+ones.
+
+**Quorum** — the majority needed to agree. etcd with 3 members survives 1
+failure; with 2 it survives none, which is why even numbers are worse than the
+odd number below them.
+
+**Split-brain** — two halves of a cluster both believing they are authoritative.
+What quorum prevents.
+
+**Blast radius** — how much breaks when one thing fails. Most architecture is
+about shrinking it.
+
+**Graceful degradation** — losing some functionality rather than all of it.
+
+**Circuit breaker** — stop calling a failing dependency, to avoid making it
+worse and to fail fast.
+
+**Chaos engineering** — deliberately injecting failure to verify resilience
+claims, with a hypothesis and a bounded blast radius.
+
+**Toil** — manual, repetitive operational work that scales with system size.
+The thing automation should be aimed at.
+[Contents](/learn) | [44 — Final Interview Preparation](/learn/interview/interview-prep) |
