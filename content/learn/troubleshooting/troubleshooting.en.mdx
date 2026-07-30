@@ -1,0 +1,559 @@
+---
+contentId: troubleshooting
+title: "Troubleshooting"
+titleAr: "حل المشكلات (Troubleshooting)"
+description: "Diagnose the failures this platform actually produces, in the order they occur"
+descriptionAr: "ابدأ من الخطأ الذي ظهر لك، لا من الأداة التي تشك بها."
+domain: troubleshooting
+level: all
+type: concept
+phase: reference
+order: 42
+readingTime: 60
+prerequisites: []
+relatedChapters: []
+objectives:
+  - "Diagnose the failures this platform actually produces, in the order they occur"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/42_Troubleshooting.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## How to use this chapter
+
+Keep it open while you build. It is organised by **the symptom you see**, not by
+the tool at fault — because when something breaks you do not yet know which tool
+is responsible.
+
+Every entry follows the same shape: what you see → what it means → how to
+confirm → how to fix.
+
+---
+
+## The method
+
+Before the specific failures, the general approach. It is worth more than any
+individual fix.
+
+### 1. Read the error. Actually read it.
+
+Kubernetes, Terraform and Ansible all produce unusually good error messages.
+People skim them, decide it is "some YAML thing", and start guessing. The error
+usually names the file, the line and the field.
+
+### 2. What changed in the last ten minutes?
+
+Almost always the answer. Before theorising, check:
+
+```bash
+git log --oneline -5
+kubectl -n <ns> get events --sort-by=.lastTimestamp | tail -20
+```
+
+### 3. Work down the layers, stop at the first failure
+
+```
+Is the node Ready?              kubectl get nodes
+  └─ Is the pod Running?        kubectl -n <ns> get pods
+       └─ Is it Ready?          look at the READY column: 0/1 means probes fail
+            └─ Does the Service have endpoints?   kubectl get endpoints
+                 └─ Is the app answering?         curl from inside the cluster
+```
+
+Do not skip levels. A "the ingress is broken" report is usually a pod failing
+its readiness probe three layers down.
+
+### 4. Two commands that solve most pod problems
+
+```bash
+kubectl -n <ns> describe pod <pod>      # read the EVENTS at the bottom
+kubectl -n <ns> logs <pod> --previous   # --previous is essential for crash loops
+```
+
+`--previous` shows the container that *died*. Without it you get the current
+container, which has not logged anything yet — which is why people conclude
+"there are no logs" when the answer is right there.
+
+---
+
+## Phase 2 · Terraform failures
+
+### `Error: creating EC2 Instance: InvalidKeyPair.NotFound`
+
+**Means** the key pair named in `terraform.tfvars` does not exist in that region.
+Key pairs are regional; one created in `eu-west-1` is invisible in `us-east-1`.
+
+```bash
+aws ec2 describe-key-pairs --region us-east-1 --query 'KeyPairs[].KeyName'
+```
+
+Create it, or point `key_pair_name` at one that exists.
+
+### `Error: creating ELBv2 Listener: CertificateNotFound`
+
+**Means** the ACM certificate is in a different region from the ALB, or is not
+yet `ISSUED`.
+
+```bash
+aws acm list-certificates --region us-east-1 \
+  --query "CertificateSummaryList[?Status=='ISSUED']"
+```
+
+A certificate stuck in `PENDING_VALIDATION` needs its DNS validation record
+added to the hosted zone.
+
+### `Error acquiring the state lock`
+
+**Means** another `terraform` process holds the DynamoDB lock — or one crashed
+and left it behind.
+
+**Check that nobody is actually running.** Then, and only then:
+
+```bash
+terraform force-unlock <LOCK_ID>
+```
+
+Force-unlocking while a real apply is in progress corrupts state. The lock
+exists for a reason.
+
+### The plan wants to destroy and recreate the database
+
+**Means** you changed an immutable field — `identifier`, `db_name`, or the
+subnet group.
+
+**Read every plan before applying.** Look specifically for:
+
+```
+# module.database.aws_db_instance.this must be replaced
+-/+ resource "aws_db_instance" "this" {
+```
+
+`-/+` means destroy-then-create. On a database that is your data, gone. In
+production `deletion_protection = true` blocks it; in dev nothing will.
+
+### `terraform destroy` hangs on the VPC
+
+**Means** something outside Terraform's state is still attached — usually a
+load balancer Kubernetes created for a `Service` of type `LoadBalancer`, or an
+ENI left by a deleted pod.
+
+```bash
+aws ec2 describe-network-interfaces --filters Name=vpc-id,Values=<vpc-id> \
+  --query 'NetworkInterfaces[].{ID:NetworkInterfaceId,Desc:Description}'
+```
+
+Delete cluster-created resources with `kubectl` *before* `terraform destroy`.
+This is why the platform uses an ALB with NodePort rather than per-Service load
+balancers.
+
+---
+
+## Phase 3 · Ansible and cluster build failures
+
+### `ansible-inventory --graph` prints nothing
+
+**The single most common Phase 3 failure**, and it looks like an Ansible bug
+when it is a tagging problem.
+
+**Means** the dynamic inventory plugin matched no instances. It filters on
+`Project=ivolve` and reads the `Role` tag.
+
+```bash
+aws ec2 describe-instances \
+  --filters "Name=instance-state-name,Values=running" \
+  --query 'Reservations[].Instances[].{ID:InstanceId,Tags:Tags}'
+```
+
+Also confirm `AWS_REGION` matches the region in `inventories/aws_ec2.yml`.
+
+### Hosts unreachable: `Failed to connect to the host via ssh`
+
+Three causes, in order of likelihood:
+
+1. **`IVOLVE_BASTION_IP` is not exported.** The inventory builds a
+   `ProxyCommand` from it; unset, Ansible tries to reach private IPs directly.
+   ```bash
+   export IVOLVE_BASTION_IP=$(cd infrastructure/terraform/environments/dev \
+     && terraform output -raw bastion_public_ip)
+   ```
+2. **Your public IP changed.** Home connections rotate. Re-check
+   `trusted_admin_cidrs` against `curl ifconfig.me` and re-apply.
+3. **Instances are still booting.** Wait 60 seconds after `terraform apply`.
+
+### Nodes stay `NotReady` after `kubeadm init`
+
+**Means** the CNI is not working. A node without a functioning CNI never
+becomes Ready — this is expected until Calico is installed, and a problem after.
+
+```bash
+kubectl -n calico-system get pods
+kubectl -n calico-system logs -l k8s-app=calico-node --tail=50
+```
+
+**If `calico-node` crash-loops**, the pod CIDR almost certainly overlaps the VPC
+CIDR. Ours: pods `192.168.0.0/16`, VPC `10.20.0.0/16`. If you changed either,
+check they do not intersect.
+
+### Pods stuck in `ContainerCreating` forever
+
+**The classic kubeadm failure.** containerd's cgroup driver does not match the
+kubelet's.
+
+```bash
+sudo grep SystemdCgroup /etc/containerd/config.toml   # must be true
+sudo journalctl -u kubelet -n 50 --no-pager
+```
+
+Fix and restart both, in this order:
+
+```bash
+sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+sudo systemctl restart containerd
+sudo systemctl restart kubelet
+```
+
+Other causes: a missing Secret or ConfigMap referenced by the pod, or a PVC
+that cannot bind.
+
+### `kubeadm join` fails with `couldn't validate the identity of the API Server`
+
+**Means** the token expired. Tokens live 2 hours by design — a leaked playbook
+log cannot be replayed tomorrow.
+
+On the first control plane node:
+
+```bash
+sudo kubeadm token create --ttl 2h --print-join-command
+```
+
+### Worker joined but does not appear in `kubectl get nodes`
+
+**Means** the join reached the API server but the kubelet failed to start.
+
+```bash
+sudo systemctl status kubelet
+sudo journalctl -u kubelet -n 100 --no-pager
+```
+
+Usually swap is still on (`swapoff -a` and remove it from `/etc/fstab`) or the
+node cannot reach the control plane endpoint on 6443.
+
+---
+
+## Phase 4 · Workload failures
+
+### `ImagePullBackOff`
+
+```bash
+kubectl -n ivolve describe pod <pod> | grep -A5 Events
+```
+
+| Message | Cause |
+|---------|-------|
+| `manifest unknown` | the tag does not exist — check the overlay |
+| `no basic auth credentials` | no pull secret, or the node's IAM role lacks ECR permissions |
+| `x509: certificate signed by unknown authority` | a private registry with an untrusted CA |
+
+```bash
+aws ecr describe-images --repository-name ivolve-dev/ivolve-api \
+  --query 'imageDetails[].imageTags'
+```
+
+### `CrashLoopBackOff`
+
+```bash
+kubectl -n ivolve logs <pod> --previous     # ← --previous
+```
+
+| Exit code | Meaning |
+|----------:|---------|
+| 0 | the process exited cleanly — the container had nothing to keep running |
+| 1 | application error. Read the log. Usually a missing env var. |
+| 137 | **OOMKilled** — exceeded the memory limit |
+| 143 | SIGTERM — normal shutdown, not a crash |
+
+```bash
+kubectl -n ivolve get pod <pod> -o jsonpath='{.status.containerStatuses[0].lastState.terminated.reason}'
+```
+
+**If `OOMKilled`:** raise the memory limit *after* checking for a leak. A JVM
+without `-XX:MaxRAMPercentage` ignores the container limit entirely and sizes
+its heap from the host's RAM — that is why the platform sets it.
+
+### `CreateContainerConfigError`
+
+**Means** a referenced Secret or ConfigMap does not exist.
+
+```bash
+kubectl -n ivolve describe pod <pod> | grep -A3 Events
+kubectl -n ivolve get secret ivolve-db
+```
+
+In this platform that Secret is created by External Secrets from AWS Secrets
+Manager. If it is missing, check the operator:
+
+```bash
+kubectl -n ivolve get externalsecret
+kubectl -n external-secrets logs deploy/external-secrets --tail=50
+```
+
+### Pod is `Running` but `0/1 READY`
+
+**Means** the readiness probe is failing. The container is alive; the
+application says it is not ready to serve.
+
+```bash
+kubectl -n ivolve describe pod <pod> | grep -A5 Readiness
+kubectl -n ivolve exec <pod> -- wget -qO- localhost:8080/actuator/health/readiness
+```
+
+**This is often correct behaviour.** Our readiness probe checks the database. If
+the database is unreachable, draining traffic is exactly right — fix the
+database, not the probe.
+
+### Pod stuck `Pending`
+
+```bash
+kubectl -n ivolve describe pod <pod> | grep -A10 Events
+```
+
+| Message | Cause |
+|---------|-------|
+| `Insufficient cpu` / `memory` | no node has room. Scale the ASG or lower requests. |
+| `didn't match Pod's node affinity` | `topologySpreadConstraints` cannot be satisfied |
+| `had taint {...} that the pod didn't tolerate` | trying to schedule on the control plane |
+| `pod has unbound immediate PersistentVolumeClaims` | the PVC cannot bind — check the StorageClass |
+
+Note the platform uses `whenUnsatisfiable: ScheduleAnyway` in dev precisely
+because `DoNotSchedule` on a small cluster leaves pods Pending forever.
+
+### `kubectl exec` fails with `unable to upgrade connection`
+
+**Means** the API server cannot reach the kubelet on port 10250. A security
+group rule is missing — check that the control plane SG allows 10250 to the
+worker SG.
+
+---
+
+## Phase 5 · Pipeline failures
+
+### Jenkins queues builds forever
+
+The controller runs **zero executors** by design. Every build needs an agent.
+
+```bash
+ssh -J ubuntu@<bastion> ubuntu@<cicd-host>
+docker ps | grep jenkins-agent
+docker logs jenkins-agent --tail=50
+```
+
+If the agent shows `Failed to connect`, the JNLP secret is wrong. Get the
+current one from the controller's node page and re-run:
+
+```bash
+ansible-playbook playbooks/30-cicd-stack.yml --tags agents
+```
+
+### Quality gate times out
+
+**Means** SonarQube accepted the analysis but never returned a verdict — usually
+the webhook back to Jenkins is not configured.
+
+In SonarQube: Administration → Configuration → Webhooks → add
+`https://jenkins.<domain>/sonarqube-webhook/`.
+
+Without it, `waitForQualityGate` blocks until the pipeline timeout.
+
+### Trivy fails on a vulnerability with no fix
+
+```
+CVE-2023-XXXXX  HIGH  library  1.2.3  (no fix available)
+```
+
+Blocking on an unfixable vulnerability teaches people to bypass the gate. The
+image scan already sets `--ignore-unfixed`. If it still fires, add a **dated**
+exception:
+
+```
+# .trivyignore
+CVE-2023-45853  # platform / zlib in base image, unreachable from our code / review-by 2026-10-01
+```
+
+An ignore file without expiry dates becomes a permanent blind spot.
+
+### The pipeline loops, building continuously with no code changes
+
+**Means** the GitOps commit is missing `[skip ci]`. The deploy commit triggers a
+build, which produces another deploy commit. Check
+`jenkins/shared-library/vars/updateGitOpsRepo.groovy`.
+
+### `docker: permission denied on /var/run/docker.sock`
+
+**Means** the agent's `docker` group GID does not match the host's.
+
+```bash
+getent group docker      # note the GID on the host
+# rebuild the agent image with the matching value
+docker compose build --build-arg DOCKER_GID=<gid>
+```
+
+---
+
+## Phase 6 · GitOps failures
+
+### Application stuck `OutOfSync`
+
+With `selfHeal` enabled, a sustained OutOfSync means the sync is *erroring*, not
+merely pending.
+
+```bash
+argocd app get ivolve-dev
+kubectl -n argocd logs deploy/argocd-application-controller --tail=100
+```
+
+| Cause | Fix |
+|-------|-----|
+| Invalid manifest | `kustomize build kubernetes/overlays/dev` locally |
+| Missing CRD | the wave-0 Application has not synced — sync it first |
+| Repo unreachable | check the `ivolve-gitops-repo` Secret and token expiry |
+| `permission denied` on a kind | the resource is outside the AppProject whitelist |
+
+### ArgoCD keeps changing the replica count back
+
+**Means** `ignoreDifferences` on `/spec/replicas` is missing. ArgoCD reads the
+HPA's scaling as drift and reverts it; the HPA scales again; they fight forever.
+
+```yaml
+ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+      - /spec/replicas
+```
+
+### A manual `kubectl edit` keeps getting reverted
+
+**That is `selfHeal` working correctly.** Git is the source of truth. Make the
+change in git.
+
+If you genuinely need a temporary manual change during an incident, disable auto
+sync deliberately and re-enable it afterwards:
+
+```bash
+argocd app set ivolve-prod --sync-policy none
+# ... incident work ...
+argocd app set ivolve-prod --sync-policy automated --self-heal
+```
+
+---
+
+## Phase 7 · Monitoring failures
+
+### A Grafana panel is empty
+
+Work backwards from the panel:
+
+```bash
+# 1. Does the metric exist at all?
+kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus 9090
+#    open localhost:9090, run the query from the panel
+
+# 2. Is the target being scraped?
+#    Prometheus UI → Status → Targets. Look for "down".
+
+# 3. Does the ServiceMonitor match a Service?
+kubectl -n ivolve get servicemonitor -o yaml | grep -A5 selector
+kubectl -n ivolve get svc --show-labels
+```
+
+**The commonest cause:** the ServiceMonitor's selector matches nothing. It
+produces no error — the target simply never appears.
+
+**The second commonest:** `serviceMonitorSelectorNilUsesHelmValues` left at its
+default, so Prometheus ignores every ServiceMonitor that lacks the Helm release
+label.
+
+### Alerts never fire
+
+```bash
+kubectl -n monitoring get prometheusrule          # are the rules loaded?
+kubectl -n monitoring exec -it \
+  statefulset/alertmanager-kube-prometheus-stack-alertmanager -- \
+  amtool config routes show
+```
+
+Confirm the `Watchdog` alert is firing. It is designed to fire permanently — if
+*it* is not firing, the whole rule-evaluation path is broken, not just your
+alert.
+
+### Alerts fire constantly
+
+You have cause-based alerts, not symptom-based ones. Alert on the user-visible
+error ratio, not on CPU crossing a line. See Chapter 30.
+
+---
+
+## When you are completely stuck
+
+```bash
+# Collect everything at once
+kubectl cluster-info dump --output-directory=/tmp/dump --all-namespaces
+kubectl get events -A --sort-by=.lastTimestamp | tail -50
+./scripts/health-check.sh dev
+```
+
+Then ask yourself, in order:
+
+1. What did I change in the last 10 minutes?
+2. Did this ever work? If yes, what is different now?
+3. Am I debugging the layer that is actually broken, or a symptom of one below it?
+4. Have I read the error message, all of it, slowly?
+
+**And the nuclear option, which is genuinely fine in dev:**
+
+```bash
+terraform destroy && ./scripts/bootstrap-platform.sh dev
+```
+
+45 minutes and zero cost. If a rebuild *does not* fix it, you have learned
+something important: the problem is in your code, not in the cluster's state.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: A pod is in `CrashLoopBackOff`. What are your first two commands?**
+A: `kubectl describe pod` to read the Events and see the last termination
+reason, then `kubectl logs <pod> --previous` to see what the container printed
+before it died. `--previous` matters — without it you get the newly-restarted
+container, which has not logged yet.
+
+### Intermediate
+**Q: A Service returns nothing but the pods are Running. Where do you look?**
+A: `kubectl get endpoints <service>`. If it is empty, no pod is passing its
+readiness probe, so nothing was ever added to the Service — the network is fine
+and the application is not. If endpoints exist, I would test from inside the
+cluster with a curl pod to separate a Service problem from an ingress problem.
+
+### Senior
+**Q: Pods have been stuck in `ContainerCreating` for ten minutes. Diagnose.**
+A: `describe pod` first for the Events — usually a missing Secret, an unbound
+PVC, or an image pull. If Events are clean, it is the runtime: I check whether
+containerd's cgroup driver matches the kubelet's, because a mismatch produces
+exactly this symptom with no error anywhere obvious. Then `journalctl -u kubelet`
+on the node.
+
+### Principal/Architect
+**Q: How do you make a platform debuggable by people who did not build it?**
+A: Three things, in order of value. First, every alert carries a `runbook_url`
+pointing at a document that says what fired, what it means, how to confirm and
+how to fix — an alert without one is a page to somebody who then has to invent a
+procedure at 3am. Second, symptom-based alerting, so the page describes what
+users experience rather than which metric moved. Third, a single health-check
+command that exercises the whole stack and names what is broken, so the first
+five minutes of an incident are not spent working out where to look. The test is
+whether a new joiner can resolve a page on their first on-call shift.
+[Contents](/learn) | [43 — Glossary](/learn/glossary/glossary) |
