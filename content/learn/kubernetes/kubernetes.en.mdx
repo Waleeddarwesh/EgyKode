@@ -1,0 +1,780 @@
+---
+contentId: kubernetes
+title: "Container Orchestration (Kubernetes)"
+titleAr: "تنسيق الحاويات — Kubernetes"
+description: "Explain the control plane, Pods, Deployments, Services and why probes matter"
+descriptionAr: "الـ Control Plane والـ Pods والـ Deployments والـ Services."
+domain: kubernetes
+level: intermediate
+type: concept
+phase: kubernetes
+order: 19
+readingTime: 75
+prerequisites: ["docker"]
+relatedChapters: ["kubeadm", "service-mesh"]
+objectives:
+  - "Explain Pods, Deployments, Services and why probes matter"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/19_Kubernetes.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Kubernetes
+
+In Chapter 09, we learned that Docker puts our application into a standard shipping container. 
+But if you have 10,000 shipping containers, who decides which truck they go on? Who tracks them if a ship sinks? Who unloads them?
+
+**Kubernetes (K8s)** is the Port Manager. It is a massive orchestration engine developed by Google. You hand Kubernetes your Docker containers, and it automatically places them on your AWS servers, restarts them if they crash, and scales them up if traffic spikes.
+
+---
+
+## Level 1 — Beginner
+
+### What is Kubernetes?
+Imagine you own a symphony orchestra. 
+- The **Musicians** are the Docker Containers (they do the actual work of playing music).
+- The **Conductor** is Kubernetes. 
+The Conductor doesn't play an instrument. Instead, they look at the sheet music (the configuration file), wave their baton, and tell the violins to play louder (scale up) or tell the flutes to stop (delete containers).
+
+### Why do we need it?
+If you have 1 Docker container, you can just log into a server and type `docker run`. 
+If you have 500 microservices running across 50 servers, you cannot manage that manually. If Server #12 catches fire, you need a robot to instantly realize the server died, and move all the containers that were on Server #12 to Server #15.
+
+### ASCII Diagram: The Kubernetes Cluster
+
+```text
++-------------------------------------------------------+
+|                 KUBERNETES CLUSTER                    |
+|                                                       |
+|   +-------------------+       +-------------------+   |
+|   |   CONTROL PLANE   |       |   WORKER NODE     |   |
+|   |    (The Brain)    | ----> |   (The Muscle)    |   |
+|   +-------------------+       | [Pod] [Pod] [Pod] |   |
+|                               +-------------------+   |
++-------------------------------------------------------+
+```
+
+---
+
+## Level 2 — Intermediate
+
+### The Architecture of a Cluster
+
+A Kubernetes cluster is split into two halves:
+
+#### 1. The Control Plane (Master Nodes)
+This is the brain. It makes all the decisions. It contains:
+- **API Server:** The front door. When you type `kubectl apply`, you are talking to the API Server.
+- **Scheduler:** The matchmaker. When you ask for a new Pod, the Scheduler finds a Worker Node with enough free CPU to host it.
+- **Controller Manager:** The enforcer. If you ask for 3 Pods, and one dies, the Controller Manager sees you only have 2, and forces the Scheduler to make a new one.
+- **etcd:** The memory. A highly-available database that stores the exact state of the entire cluster.
+
+#### 2. The Worker Nodes
+These are the AWS EC2 instances that actually run your code. They contain:
+- **kubelet:** The foreman. It listens to the Control Plane and starts/stops the Docker containers.
+- **kube-proxy:** The traffic cop. It handles network rules so Pods can talk to each other.
+- **Container Runtime:** The engine (e.g., `containerd` or Docker) that actually spins up the containers.
+
+### Core Kubernetes Objects
+
+Kubernetes doesn't deal with raw containers. It wraps them in objects. These are
+the five you will use every day, and they stack: a Deployment manages Pods, a
+Service gives them a stable address, an Ingress lets the outside world in.
+
+#### Pods — the smallest unit
+
+A **Pod** is one or more containers that share a network namespace and storage.
+They are always scheduled together on the same node, and they reach each other
+on `localhost`.
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api
+spec:
+  containers:
+    - name: api
+      image: ghcr.io/ivolve/api:1.4.0
+      ports:
+        - containerPort: 8080
+```
+
+Almost always there is exactly one container in a Pod. The exception is the
+**sidecar** pattern — a second container doing a supporting job for the first,
+such as shipping its logs or terminating TLS. It belongs in the same Pod
+precisely because it needs `localhost` access and the same lifecycle.
+
+The thing to internalise: **Pods are disposable.** A Pod is never repaired. When
+its node dies, or it fails a health check, or you deploy a new version, that Pod
+is destroyed and a *different* Pod with a *different* IP address is created. Every
+other object below exists to make that survivable.
+
+You will therefore rarely write a Pod manifest by hand — a bare Pod that dies is
+simply gone, because nothing is watching it.
+
+#### Deployments — keeping Pods alive
+
+A **Deployment** declares the desired state ("three replicas of this image") and
+a controller works continuously to make reality match it.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api          # which Pods this Deployment owns
+  template:             # the Pod spec, stamped out `replicas` times
+    metadata:
+      labels:
+        app: api        # must match the selector above
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/ivolve/api:1.4.0
+```
+
+The `selector` / `labels` pair is the most common source of a Deployment that
+creates no Pods at all: they are matched as plain strings, and a typo produces a
+Deployment that owns nothing rather than an error.
+
+**How a rolling update works.** Change the image tag and the Deployment does not
+replace all three Pods at once. It creates a new ReplicaSet and shifts capacity
+across gradually — new Pod up and healthy, old Pod removed, repeat — so the
+service never goes to zero:
+
+```bash
+kubectl set image deployment/api api=ghcr.io/ivolve/api:1.5.0
+kubectl rollout status deployment/api     # watch it, and fail if it stalls
+kubectl rollout undo deployment/api       # back to the previous ReplicaSet
+```
+
+`rollout undo` works because the old ReplicaSet is kept, scaled to zero. That is
+the cheapest rollback in this entire handbook, and it takes seconds.
+
+#### Services — a stable address for moving Pods
+
+Pods get new IPs constantly, so nothing can hold a Pod IP. A **Service** is a
+permanent name and virtual IP in front of whichever Pods currently match its
+selector.
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+spec:
+  type: ClusterIP
+  selector:
+    app: api            # any Pod with this label receives traffic
+  ports:
+    - port: 80          # the port the Service exposes
+      targetPort: 8080  # the port the container listens on
+```
+
+Other Pods now reach it as `http://api` inside the namespace, or
+`http://api.production.svc.cluster.local` across namespaces — CoreDNS resolves
+the name, and the Service load-balances across the healthy Pods behind it.
+
+| Type | What it gives you | Use it for |
+| --- | --- | --- |
+| `ClusterIP` | An internal-only address | Everything inside the cluster — the default |
+| `NodePort` | A high port on every node's IP | Debugging, or a load balancer in front |
+| `LoadBalancer` | A cloud load balancer (an AWS ALB/NLB) | One public entry point per Service |
+
+`LoadBalancer` is why you do not expose services individually in production:
+each one provisions — and bills for — its own cloud load balancer. That is the
+problem Ingress solves.
+
+#### Ingress — one entry point, many routes
+
+An **Ingress** defines HTTP routing rules: which hostname and path goes to which
+Service. One load balancer serves the whole cluster.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ivolve
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.ivolve.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 80
+```
+
+An Ingress **object does nothing on its own**. It is only a set of rules; an
+**Ingress controller** (NGINX, Traefik, or the AWS Load Balancer Controller) has
+to be running to read them and configure a real proxy. An Ingress that appears to
+be ignored is usually a cluster with no controller installed, or a missing
+`ingressClassName`.
+
+> **Where this is going.** Ingress is stable and everywhere, but it is
+> feature-frozen, and vendors extended it through annotations that are not
+> portable between controllers. Its successor is the **Gateway API**
+> (`Gateway`, `HTTPRoute`), which expresses the same routing in typed fields and
+> splits responsibility between the platform team and the application team.
+> Learn Ingress first — it is what you will meet in existing clusters — but new
+> platforms should expect to land on Gateway API.
+
+**Choosing how traffic gets in:**
+
+| | `LoadBalancer` Service | Ingress | Gateway API |
+| --- | --- | --- | --- |
+| Cloud load balancers | One per Service | One for the cluster | One per Gateway |
+| Routes on | Port only (L4) | Host and path (L7) | Host, path, header, weight |
+| TLS termination | At the Service | Centralised | Centralised |
+| Right for | Non-HTTP protocols | HTTP, today | HTTP, going forward |
+
+Use a `LoadBalancer` Service when the protocol is not HTTP — a database, gRPC
+streaming, anything where L7 routing has nothing to offer. Use an Ingress for
+everything else, because the cost of one load balancer per service is both money
+and a growing list of DNS records.
+
+Two failure modes account for most Ingress support requests:
+
+- **`pathType` is not what people assume.** `Prefix` matches on path *segments*,
+  so `/api` matches `/api/users` but never `/apiv2`. `Exact` matches the whole
+  path and nothing beneath it. A route that "does not work" is very often a
+  `pathType` mismatch rather than a backend problem.
+- **The Service behind it has no ready endpoints.** The Ingress is correct, the
+  controller is running, and requests return `503` because the Service selects
+  no ready Pod. Check `kubectl get endpoints <service>` before touching the
+  Ingress at all.
+
+#### ConfigMaps and Secrets — configuration outside the image
+
+The same image must run in dev, staging and production. Anything that differs
+between them is configuration, and it belongs outside the image:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+data:
+  LOG_LEVEL: "info"
+  DB_HOST: "postgres.production.svc.cluster.local"
+```
+
+```yaml
+spec:
+  containers:
+    - name: api
+      envFrom:
+        - configMapRef:
+            name: api-config
+        - secretRef:
+            name: api-credentials
+```
+
+A **Secret** is the same shape, for sensitive values. One warning that matters:
+Secret data is **base64-encoded, not encrypted**. Base64 is an encoding, not a
+protection — anyone who can read the Secret can decode it instantly:
+
+```bash
+kubectl get secret api-credentials -o jsonpath='{.data.password}' | base64 -d
+```
+
+Treat a Secret as "keep it out of the image and out of Git", not as "this is now
+safe". Real protection needs encryption at rest in etcd, RBAC restricting who can
+read Secrets, and ideally an external store — which is what the AWS Secrets
+Manager chapter covers.
+
+**Three behaviours that catch people out:**
+
+- **Changing a ConfigMap does not restart anything.** Values injected with
+  `envFrom` are read once at container start, so an edited ConfigMap changes
+  nothing until the Pods are replaced. Either roll the Deployment explicitly
+  (`kubectl rollout restart deployment/api`) or include a hash of the config in
+  the Pod template annotations so a change forces a new rollout on its own.
+- **Mounted as a volume, it *does* update** — eventually, and without restarting
+  the process. The file on disk changes after a delay of up to a minute, which
+  helps only if your application re-reads it.
+- **There is a 1 MiB limit.** ConfigMaps and Secrets are stored in etcd, and etcd
+  is not a file server. A large seed file or TLS bundle belongs in a volume or an
+  image, not here.
+
+Prefer `envFrom` for a handful of settings, and a mounted volume for anything
+file-shaped — a config file the application already knows how to read is simpler
+than translating it into a dozen environment variables.
+
+#### Storage — Volumes, PersistentVolumes and PVCs
+
+A container's filesystem dies with the container. Anything that must outlive a
+restart needs a **volume**, and Kubernetes splits that into three objects so that
+developers never have to know what the storage actually is:
+
+| Object | Says | Owned by |
+| --- | --- | --- |
+| `StorageClass` | *How* to provision storage — which disk type | The platform team |
+| `PersistentVolume` (PV) | A specific piece of storage that exists | Usually created automatically |
+| `PersistentVolumeClaim` (PVC) | *"I need 20Gi of fast storage"* | The application |
+
+A Pod references a PVC; the PVC binds to a PV; the PV is created on demand from
+the StorageClass. The developer writes only the middle one:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 20Gi
+---
+# in the Pod spec
+spec:
+  containers:
+    - name: postgres
+      volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: postgres-data
+```
+
+**Access modes are a property of the storage, not a wish.** `ReadWriteOnce` means
+one *node* may mount it — which is what an AWS EBS volume physically is. A
+Deployment with three replicas and one `ReadWriteOnce` PVC will schedule one Pod
+and leave the others `Pending` forever, with an event nobody reads. Shared
+read-write access across nodes (`ReadWriteMany`) needs a file system like EFS,
+not a block device.
+
+**For stateful workloads, use a StatefulSet.** A Deployment's Pods are
+interchangeable and share one PVC; a StatefulSet gives each replica a stable name
+and *its own* volume, created from a template:
+
+```yaml
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 20Gi
+```
+
+Two behaviours surprise people, and both are deliberate:
+
+- **Deleting a StatefulSet does not delete its PVCs.** This protects your data,
+  and it also means a "clean" reinstall silently reuses the old disks.
+- **`reclaimPolicy` decides what happens to the PV when the PVC goes.** `Delete`
+  — the default on most cloud StorageClasses — destroys the underlying disk.
+  `Retain` keeps it for manual recovery. Check which one your cluster uses
+  *before* you need to find out.
+
+```bash
+kubectl get pvc,pv
+kubectl get storageclass
+kubectl describe pvc postgres-data     # why is it Pending? the events say
+```
+
+The honest trade-off: running databases on Kubernetes is entirely possible and
+routinely done, but a managed service like RDS gives you backups, failover and
+patching that you would otherwise operate yourself. Choose Kubernetes storage for
+workloads that genuinely belong next to the application — caches, queues, search
+indexes — and think carefully before it holds your primary data.
+
+#### Cluster networking — how Pods actually reach each other
+
+Kubernetes networking rests on one rule: **every Pod gets its own IP address, and
+every Pod can reach every other Pod without NAT.** That flat model is why you
+never map ports between containers the way Docker does.
+
+Three separate networks are in play, and confusing them is most networking
+confusion:
+
+| Network | Range | Who assigns it |
+| --- | --- | --- |
+| Node network | Your VPC subnets | AWS |
+| Pod network | e.g. `10.244.0.0/16` | The CNI plugin |
+| Service network | e.g. `10.96.0.0/12` | The API server |
+
+**The CNI plugin implements the Pod network.** Kubernetes itself does no
+networking — it delegates to a plugin (Calico, Cilium, or the AWS VPC CNI) that
+attaches an interface to each Pod and arranges routing between nodes. This is why
+a cluster with no CNI installed has every Pod stuck in `ContainerCreating`: the
+kubelet cannot finish creating a Pod it cannot give an address to.
+
+The AWS VPC CNI is worth understanding specifically, because it gives Pods real
+VPC addresses — excellent for security groups and VPC-native routing, but each
+instance type supports a fixed number of IPs, so a small node can hit its Pod
+limit long before it runs out of CPU or memory.
+
+**A Service IP belongs to no machine.** It is a virtual address that `kube-proxy`
+programmes into every node's iptables (or IPVS) rules. A packet to a Service IP is
+rewritten to a real Pod IP on the way out — which is why you can never ping a
+Service IP, and why `tcpdump` on the destination shows the Pod address rather
+than the Service address.
+
+```bash
+kubectl get pods -o wide                     # Pod IPs and which node they are on
+kubectl get svc -o wide                      # Service IPs and their endpoints
+kubectl get endpoints api                    # which Pods a Service currently routes to
+kubectl exec -it deploy/api -- nslookup postgres
+```
+
+`kubectl get endpoints` is the diagnostic that resolves most "the Service is not
+working" reports. An empty endpoint list means the Service's selector matches no
+running, ready Pod — the problem is a label mismatch or a failing readiness
+probe, not the network.
+
+#### Probes — how Kubernetes knows a Pod is healthy
+
+Kubernetes cannot tell whether your application works. A process can be running
+and still be unable to serve a request. **Probes** are how you tell it:
+
+```yaml
+    livenessProbe:            # is it alive? if this fails, restart the container
+      httpGet:
+        path: /healthz
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 10
+    readinessProbe:           # is it ready for traffic? if this fails, remove it
+      httpGet:                # from the Service — but do NOT restart it
+        path: /ready
+        port: 8080
+      periodSeconds: 5
+    startupProbe:             # is it still booting? suspends the other two
+      httpGet:
+        path: /healthz
+        port: 8080
+      failureThreshold: 30
+      periodSeconds: 10
+```
+
+The distinction is the point:
+
+- **Liveness fails → restart.** For a process that has deadlocked and will never
+  recover on its own.
+- **Readiness fails → stop sending traffic, keep the Pod.** For a process that is
+  temporarily busy, or waiting on a dependency. This is what makes rolling
+  updates safe: a new Pod receives no traffic until it says it is ready.
+- **Startup** exists for slow-booting applications. Without it, a JVM that takes
+  90 seconds to start gets killed by its own liveness probe at 30 seconds,
+  forever — a crash loop caused entirely by the health check.
+
+Pointing a liveness probe at an endpoint that checks the *database* is a classic
+production incident: the database has a slow minute, every Pod fails liveness at
+once, and Kubernetes restarts the entire fleet — turning a degradation into an
+outage. Liveness checks the process. Readiness checks the dependencies.
+
+**Choosing the probe type:**
+
+| | Use when | Cost |
+| --- | --- | --- |
+| `httpGet` | The app serves HTTP — almost always | Cheapest; the kubelet does it |
+| `tcpSocket` | It listens but speaks no HTTP | Only proves the port is open |
+| `exec` | Neither of the above fits | Runs a process in the container every period |
+
+`exec` is the one to be careful with: it forks a command inside the container on
+every check, so a five-second period across hundreds of Pods is real CPU spent on
+asking whether things are fine.
+
+**When to leave a probe out.** A liveness probe is not free insurance — it is a
+standing instruction to restart. If your application has no failure mode that a
+restart fixes, a liveness probe can only add outages, and readiness alone is the
+better choice. The defaults are tuned for that caution too: prefer a longer
+`periodSeconds` and a `failureThreshold` above 1, so a single slow response
+during a garbage-collection pause does not kill a healthy container.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+Let's look at how we deploy the API in this project. Open `kubernetes/base/api-deployment.yaml`.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ivolve-api
+  namespace: ivolve
+  labels:
+    app.kubernetes.io/name: ivolve-api
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ivolve-api
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Never drop below the current replica count during a rollout, and only
+      # add one pod at a time — a bad image fails the readiness probe and the
+      # rollout stalls with the old version still serving every request.
+      maxUnavailable: 0
+      maxSurge: 1
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ivolve-api
+        app.kubernetes.io/component: backend
+    spec:
+      containers:
+        - name: ivolve-api
+          image: ivolve-api:1.0.0
+          ports:
+            - name: http
+              containerPort: 8080
+
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 15
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+            failureThreshold: 2
+```
+
+**Note four things that differ from the tutorial version of this manifest:**
+
+- **`app.kubernetes.io/name`, not `app`.** These are the standard labels
+  `kubectl`, Helm and ArgoCD all understand without configuration.
+- **`maxUnavailable: 0`** — the rollout adds a pod before removing one. A broken
+  image cannot reduce serving capacity; the rollout simply stalls.
+- **A `startupProbe` separate from liveness.** The JVM takes ~20 seconds to
+  start. Without a startup probe you must either set a long
+  `initialDelaySeconds` on liveness (slow to detect a real hang later) or watch
+  the pod get killed mid-boot. The startup probe gives it 150 seconds to come
+  up, then hands over to an aggressive liveness probe.
+- **Liveness and readiness point at *different* endpoints.** Liveness never
+  touches the database; readiness does. A database outage should drain traffic,
+  not restart every pod — restarting a pod because its dependency is down turns
+  a degradation into a crash loop.
+
+**Line-by-line breakdown:**
+- **`apiVersion` / `kind` / `metadata`**: create a `Deployment` named `ivolve-api`
+  in the `ivolve` namespace.
+- **`replicas: 3`**: the desired state. If two pods exist, the controller manager
+  creates one. If four exist, it deletes one.
+- **`selector: matchLabels`**: the Deployment manages any pod carrying
+  `app.kubernetes.io/name: ivolve-api`. **This field is immutable** — which is
+  why the version is deliberately *not* in it. Include a changing value here and
+  every upgrade fails with a field-immutable error.
+- **`template`**: the blueprint. Every pod the Deployment stamps out gets these
+  labels, which is how the selector finds them.
+- **`image`**: overwritten by the pipeline's GitOps commit with an immutable tag.
+- **`resources.requests`**: the scheduler will not place this pod on a node with
+  less than 250m CPU and 512Mi free. This is also the number capacity planning
+  uses.
+- **`resources.limits.memory`**: a hard ceiling. Memory is incompressible — a
+  container exceeding it is `OOMKilled`, because it cannot be throttled instead.
+- **`livenessProbe`**: the kubelet calls `/actuator/health/liveness` every 15
+  seconds. Three consecutive failures and it restarts the container. Note this
+  endpoint deliberately does **not** check the database.
+
+### High Availability and Scaling
+Our architecture uses the **Horizontal Pod Autoscaler (HPA)**. We don't just rely on `replicas: 3`. 
+The HPA watches the CPU metrics of the Pods. If CPU usage crosses 80%, the HPA dynamically modifies the Deployment, changing `replicas` from 3 to 10. 
+Once traffic subsides, the HPA scales it back down to 3 to save money.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: Zero Trust with Network Policies
+By default, Kubernetes is a "Flat Network". Any Pod can talk to any other Pod. If a hacker breaches the `frontend` pod, they can `curl` the `database` pod directly.
+
+In a Fortune 500 environment, this violates SOC2 compliance. We use a CNI (Container Network Interface) like **Calico** to enforce Zero Trust.
+
+Look at `kubernetes/policies/network-policies.yaml`:
+```yaml
+# Default deny first: a new pod in this namespace can reach nothing
+# until a later rule explicitly allows it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: ivolve
+spec:
+  podSelector: {}            # empty selector = every pod in the namespace
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-ingress
+  namespace: ivolve
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ivolve-api
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ivolve-storefront
+      ports:
+        - protocol: TCP
+          port: 8080
+```
+**What does this do?**
+This tells the Linux kernel (via `iptables` or `eBPF`) to drop *all* incoming traffic to the API pods, EXCEPT if the traffic originates from a Pod labeled `ivolve-frontend` in the `frontend` namespace. Even if a hacker compromises a different microservice, the network physically blocks them from reaching the API.
+
+### Multi-Tenancy and RBAC
+In an enterprise, 50 different developer teams share the same cluster. 
+We use **Namespaces** to create virtual clusters inside the physical cluster. 
+We then use **RBAC (Role-Based Access Control)** to bind Active Directory groups to Namespaces. Team A has admin rights in Namespace A, but they have completely read-only access in Namespace B. They cannot accidentally delete Team B's Pods.
+
+**How RBAC is actually assembled.** Four objects, and the split is the whole
+design: two say *what may be done*, two say *who may do it*.
+
+| Object | Answers | Scope |
+| --- | --- | --- |
+| `Role` | What actions on which resources? | One namespace |
+| `ClusterRole` | The same, cluster-wide | Whole cluster |
+| `RoleBinding` | Who gets that Role? | One namespace |
+| `ClusterRoleBinding` | Who gets it everywhere? | Whole cluster |
+
+A **Role** is a list of permissions and nothing else. It names no user:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: team-a
+  name: pod-reader
+rules:
+  - apiGroups: [""]                      # "" is the core API group
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]      # read only — no delete, no create
+```
+
+A **RoleBinding** attaches it to a subject — a user, a group, or a ServiceAccount:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  namespace: team-a
+  name: team-a-read-pods
+subjects:
+  - kind: Group
+    name: team-a-developers          # comes from your OIDC / SSO provider
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+```
+
+Two properties of RBAC surprise people, and both are deliberate:
+
+- **It is purely additive.** There is no "deny" rule. A subject can do the union
+  of everything its bindings grant, so you restrict by *not granting*, never by
+  subtracting. If someone has too much access, find the extra binding.
+- **A namespaced RoleBinding can reference a ClusterRole.** This is the common
+  pattern: define `view` or `edit` once as a ClusterRole, then bind it per
+  namespace. The permissions apply only inside the binding's namespace.
+
+**ServiceAccounts are the same system, for machines.** Every Pod runs as a
+ServiceAccount — `default` if you do not say otherwise, which is exactly what you
+should say otherwise about:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api
+  namespace: team-a
+---
+# in the Pod spec
+spec:
+  serviceAccountName: api
+  automountServiceAccountToken: false   # if the app never calls the K8s API
+```
+
+That last line matters more than it looks. By default Kubernetes mounts an API
+token into every Pod. An application that never talks to the Kubernetes API has
+no use for it — but an attacker who reaches the container does.
+
+**Verifying, instead of hoping.** RBAC is easy to get wrong in the safe
+direction (nothing works) and in the dangerous one (everything works). Ask the
+cluster directly:
+
+```bash
+kubectl auth can-i delete pods --namespace team-b --as alice@ivolve.com
+kubectl auth can-i --list --namespace team-a --as system:serviceaccount:team-a:api
+```
+
+Run that second command against your own workloads. A ServiceAccount that can
+list Secrets cluster-wide is the single most common over-grant in a real
+cluster.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is a Pod? Why don't we just deploy Containers directly?**
+A: A Pod is the smallest deployable unit in Kubernetes. It is a wrapper around one or more containers. We use Pods because Kubernetes needs to attach metadata (labels, IP addresses, storage volumes) to the workload, and it attaches these to the Pod, not the raw Docker container.
+
+### Intermediate
+**Q: What is the difference between a Deployment and a StatefulSet?**
+A: A Deployment is for stateless applications (like web servers); the Pods are identical, interchangeable, and have random names (e.g., `api-5f8g9`). A StatefulSet is for stateful applications (like databases); the Pods have sticky, predictable identities (e.g., `db-0`, `db-1`) and are guaranteed to start and stop in a strict order.
+
+### Senior
+**Q: Explain how a Kubernetes Service routes traffic to Pods.**
+A: A Service gets a virtual IP address (ClusterIP) managed by `kube-proxy`. The Service has a label selector (e.g., `app: my-api`). The Kubernetes Endpoints controller continuously watches for Pods matching that label. When it finds them, it adds their real IPs to an `Endpoints` object. When traffic hits the Service IP, `kube-proxy` (using Linux `iptables` or `IPVS`) load-balances the TCP packets to the IPs in the Endpoints list.
+
+### Principal/Architect
+**Q: During a massive traffic spike, your Horizontal Pod Autoscaler scales from 10 to 100 pods, but 50 of them remain in a `Pending` state. Walk me through the exact architectural bottleneck and how to automate the resolution.**
+A: The `Pending` state means the Scheduler cannot find a Worker Node with sufficient aggregate CPU/RAM capacity to satisfy the Pod's `requests`. The cluster is out of physical resources. To automate resolution, we must implement the **Cluster Autoscaler** (or Karpenter in AWS). The Cluster Autoscaler watches for `Pending` pods. When it sees them, it makes an API call to the AWS Auto Scaling Group to provision a new EC2 instance. Once the new EC2 instance boots and joins the cluster, the Kubernetes Scheduler recognizes the new capacity and schedules the pending Pods onto it.
+[Contents](/learn) | [20 — Cluster Bootstrapping (Kubeadm)](/learn/kubernetes/kubeadm) |
