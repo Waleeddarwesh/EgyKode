@@ -1,0 +1,236 @@
+---
+contentId: cost-optimization
+title: "Cloud Economics (FinOps)"
+titleAr: "اقتصاديات السحابة — FinOps"
+description: "Find the three line items that are 80% of a cloud bill"
+descriptionAr: "ما تكلّفه المعمارية، وكيف تجعلها أقل تكلفة."
+domain: cost
+level: advanced
+type: concept
+phase: production
+order: 38
+readingTime: 40
+prerequisites: ["auto-scaling"]
+relatedChapters: []
+objectives:
+  - "Find the three line items that are 80% of a cloud bill"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/38_Cost_Optimization.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to FinOps
+
+In traditional IT, you buy a server for $10,000. It sits in a rack for 5 years. The cost is fixed.
+In the Cloud, if you write a bad piece of Terraform code, you can accidentally spend $10,000 in *one weekend*.
+
+**FinOps (Cloud Financial Management)** is the practice of bringing financial accountability to the variable spend model of the cloud. It means engineers must care about the AWS Bill just as much as they care about the CPU utilization.
+
+---
+
+## Level 1 — Beginner
+
+### What is FinOps?
+Imagine renting a hotel room.
+- **The Bad Way:** You rent a 5-bedroom penthouse for 30 days, but you only sleep in 1 room for 3 days. You leave the lights on, the AC running, and the water on when you check out. You get a massive bill.
+- **The FinOps Way:** You rent exactly 1 room. You check out the exact moment you wake up. You turn off the lights. You check your receipt every morning to make sure they didn't charge you for the minibar.
+
+In AWS:
+- The Penthouse = Over-provisioned EC2 instances (`t3.2xlarge` when you only need a `t3.micro`).
+- Leaving the lights on = Forgetting to delete EBS volumes after you terminate a server.
+- The Receipt = AWS Cost Explorer and Grafana Dashboards.
+
+---
+
+## Level 2 — Intermediate
+
+### The Three Phases of FinOps
+
+1. **Inform:** You cannot optimize what you cannot see. You must tag every single AWS resource (e.g., `Team: Frontend`, `Environment: Prod`). This allows you to generate a report showing exactly which team is spending the most money.
+2. **Optimize:** You turn off idle resources. You downsize oversized servers (Rightsizing). You buy AWS Reserved Instances or Savings Plans to get a 70% discount on servers you know you will run 24/7.
+3. **Operate:** You build automation. You write a script that automatically shuts down the Staging cluster every Friday at 5:00 PM and turns it back on Monday at 8:00 AM.
+
+**Inform, concretely.** Tagging is the whole foundation, and it only works if it
+is enforced rather than requested — untagged resources become an "unallocated"
+bucket that grows until nobody can explain a third of the bill:
+
+```hcl
+# Apply the same tags to every resource in the provider, automatically
+provider "aws" {
+  region = "us-east-1"
+
+  default_tags {
+    tags = {
+      Environment = var.environment
+      Team        = "platform"
+      ManagedBy   = "terraform"
+      CostCenter  = "eng-infra"
+    }
+  }
+}
+```
+
+Then the bill can be asked questions:
+
+```bash
+# What did each team spend last month?
+aws ce get-cost-and-usage \
+  --time-period Start=2026-07-01,End=2026-08-01 \
+  --granularity MONTHLY --metrics UnblendedCost \
+  --group-by Type=TAG,Key=Team
+
+# Which services are the biggest lines?
+aws ce get-cost-and-usage \
+  --time-period Start=2026-07-01,End=2026-08-01 \
+  --granularity MONTHLY --metrics UnblendedCost \
+  --group-by Type=DIMENSION,Key=SERVICE
+```
+
+**Find the waste that is invisible on a dashboard.** Idle resources cost full
+price and appear in no error log:
+
+```bash
+# Unattached EBS volumes — deleted instances often leave their disks behind
+aws ec2 describe-volumes --filters Name=status,Values=available \
+  --query 'Volumes[].[VolumeId,Size,CreateTime]' --output table
+
+# Elastic IPs not associated with anything are billed hourly
+aws ec2 describe-addresses \
+  --query 'Addresses[?AssociationId==`null`].[PublicIp,AllocationId]' --output table
+
+# Old snapshots nobody remembers taking
+aws ec2 describe-snapshots --owner-ids self \
+  --query 'Snapshots[?StartTime<=`2025-08-01`].[SnapshotId,VolumeSize,StartTime]' --output table
+```
+
+**Set a budget before you need one.** The cheapest FinOps control is being told
+early:
+
+```bash
+aws budgets create-budget --account-id 123456789012 \
+  --budget file://monthly-budget.json \
+  --notifications-with-subscribers file://alert-at-80-percent.json
+```
+
+Optimise in that order — visibility, then elimination, then commitment. Buying a
+three-year Savings Plan for an instance you should have deleted locks the waste
+in for three years.
+
+### Identifying Waste in Kubernetes
+Kubernetes is famous for hiding waste. A developer might request `cpu: "4"` in their Pod YAML, but the app only uses `0.1` CPU. Kubernetes will aggressively scale up the EC2 instances to provide the 4 CPUs, costing you thousands of dollars for idle, unused capacity.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Code (Kubernetes Resource Requests)
+
+To fix the waste problem, you must enforce strict Resource Limits.
+
+Look at `kubernetes/base/api-deployment.yaml`:
+```yaml
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    # No CPU limit on purpose: CFS throttling on a JVM causes latency
+    # spikes far worse than the noisy-neighbour risk the limit avoids.
+    # The request plus the namespace quota bound consumption.
+    memory: 1Gi
+```
+
+**Line-by-line breakdown:**
+
+- **`requests`** is what the scheduler does arithmetic with. It reserves a
+  quarter of a CPU and 512Mi for this pod and will not place it on a node
+  without room. This is also the number capacity planning uses — see the
+  `ivolve:cluster_cpu_requested:ratio` recording rule.
+
+- **`limits.memory`** is a hard ceiling enforced by cgroups. Memory is
+  *incompressible*: a container exceeding it cannot be slowed down, only killed.
+  A memory limit is the difference between one pod being OOMKilled and the whole
+  node running out of memory and taking every pod on it down with it.
+
+- **There is deliberately no `limits.cpu`.** This is the one that surprises
+  people, and it is a documented decision — see
+  [ADR-0005](https://github.com/Waleeddarwesh/Cloud-Native-DevOps-Platform/blob/main/docs/adr/0005-no-cpu-limits.md).
+
+### Why no CPU limit
+
+When a container hits its CPU limit, the kernel throttles it for the remainder
+of the 100ms scheduling period — **even if the node is completely idle**. On a
+JVM with GC threads and a request thread pool, that produces latency spikes that
+are genuinely hard to attribute: the application looks slow, the node looks
+unloaded, and nothing in the pod's own metrics explains it.
+
+CPU is compressible, so the protection a limit provides is available another way:
+
+- **`requests` already guarantee a share.** Under contention, the Linux CFS
+  scheduler divides CPU in proportion to requests. A pod with `250m` gets at
+  least its share, and can burst above it when capacity is free — which is
+  exactly the behaviour you want.
+- **The namespace `ResourceQuota` caps the total**, so no workload can consume
+  the cluster.
+- **The `LimitRange` supplies defaults** for any container that forgets to
+  declare requests, so the quota cannot be bypassed by omission.
+
+**The FinOps consequence:** because scheduling is driven by requests, an
+over-stated request wastes money directly — it reserves capacity nobody uses and
+forces the cluster autoscaler to add nodes. Right-sizing *requests* is where the
+savings are. Right-sizing limits mostly is not.
+
+### Kubecost
+How do you know if `250m` was the right number? 
+We deploy **Kubecost**. Kubecost connects to Prometheus, analyzes exactly how much CPU the Pod actually used over the last 7 days, and compares it to the AWS billing API. It then generates a report: *"The API Pod requested 250m CPU but only used 10m. You are wasting $40/month. Change the request to 50m."*
+
+---
+
+## Level 4 — Enterprise
+
+### Spot Instances and Karpenter
+We touched on this in Chapter 17, but from a financial perspective, Spot Instances are the holy grail of FinOps.
+
+AWS has millions of empty servers sitting idle. To make *some* money, AWS rents them out at up to a 90% discount. But AWS can terminate them at any time.
+If you run your production web traffic on Spot instances, you save 90% on your compute bill. 
+
+**The Architecture:**
+We use **Karpenter** to provision Nodes. We configure the Karpenter Provisioner to *only* buy Spot instances. 
+When AWS issues a 2-minute interruption warning, an AWS EventBridge rule triggers a Lambda function (or native Karpenter logic). It cordons the dying node, evicts the pods, and requests replacement capacity. Whether users notice depends entirely on whether the replacement is ready before the two minutes run out — which is why Spot belongs on stateless, replicated workloads and not on your database. Done properly, that capacity costs up to 90% less than on-demand.
+
+### Data Transfer Costs
+Data transfer is the silent killer in AWS.
+- Data entering AWS is Free.
+- Data moving between AZs (`us-east-1a` to `us-east-1b`) costs **$0.01/GB**.
+- Data moving out to the Internet costs **$0.09/GB**.
+- Data processed by a NAT Gateway costs **$0.045/GB**.
+
+If you have a microservice in `AZ-a` constantly querying a database in `AZ-b`, you are paying $0.01 per GB in both directions. For massive data pipelines (Terabytes per day), this will bankrupt you.
+**The Fix:** You use Kubernetes Topology Spread Constraints to force the microservice Pod to schedule in the exact same AZ as the database leader, dropping the data transfer cost to exactly $0.00.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: Why should we shut down the Development and Staging clusters on the weekends?**
+A: In the cloud, you pay by the second. A weekend is roughly 60 hours. If a Development cluster costs $5 an hour, leaving it running while all the developers are at home sleeping costs the company $300 every single weekend for absolutely no reason.
+
+### Intermediate
+**Q: What is the difference between a `request` and a `limit` in Kubernetes?**
+A: A `request` is a guaranteed reservation; the scheduler uses it to find a node with enough available capacity to host the pod. A `limit` is a hard boundary enforced by the OS; if the pod exceeds its memory limit, it is OOMKilled. If it exceeds its CPU limit, it is throttled.
+
+### Senior
+**Q: Explain what an "Orphaned Resource" is in AWS and give three common examples.**
+A: Orphaned resources are infrastructure components that are no longer actively used by any application but continue to generate hourly billing charges. 
+1. **Unattached EBS Volumes:** An EC2 instance is deleted, but the hard drive was not set to `DeleteOnTermination`. It sits idle, costing money.
+2. **Elastic IPs:** A static IP is reserved but not attached to any running server. (AWS charges you for *not* using them).
+3. **Old Snapshots:** Keeping 5 years of daily RDS automated snapshots when compliance only requires 30 days.
+
+### Principal/Architect
+**Q: You notice a sudden $5,000 spike in your AWS bill attributed to "NAT Gateway Data Processing". Your EKS cluster runs entirely in Private Subnets. How do you architect a solution to eliminate this cost without exposing your nodes to the public internet?**
+A: The high NAT Gateway cost is almost certainly caused by Pods in the private subnets pulling massive Docker images from ECR, or downloading large files from S3. Because these AWS services live outside the VPC, traffic routes through the NAT Gateway.
+**The Solution:** Implement **AWS VPC Endpoints (PrivateLink)**. You create Gateway Endpoints for S3 and DynamoDB (which are completely free), and Interface Endpoints for ECR and CloudWatch. This modifies the VPC Route Table to hijack the traffic and send it directly over the AWS internal backbone to the AWS services, bypassing the NAT Gateway entirely and dropping the data processing costs to near zero.
+[Contents](/learn) | [39 — The Future (Platform Engineering)](/learn/platform-engineering/platform-engineering) |
