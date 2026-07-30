@@ -1,0 +1,186 @@
+---
+contentId: github-actions
+title: "Modern CI (GitHub Actions)"
+titleAr: "التكامل المستمر الحديث — GitHub Actions"
+description: "Compare hosted CI with self-managed and pick deliberately"
+descriptionAr: "تكامل مستمر بجوار الكود، دون خادم تتولى صيانته."
+domain: github-actions
+level: intermediate
+type: concept
+phase: cicd
+order: 24
+readingTime: 35
+prerequisites: ["jenkins"]
+relatedChapters: []
+objectives:
+  - "Compare hosted CI with self-managed and pick deliberately"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/24_GitHub_Actions.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to GitHub Actions
+
+In Chapter 23, we learned about Jenkins. Jenkins is incredibly powerful, but it requires you to maintain a server. If the Jenkins Master crashes, you have to wake up at 2 AM to fix it.
+
+What if the platform where you store your code (GitHub) could just run the CI tests for you? 
+That is **GitHub Actions**. It is a fully managed CI/CD service built directly into GitHub.
+
+---
+
+## Level 1 — Beginner
+
+### What is GitHub Actions?
+Imagine you are writing a book in Google Docs.
+- **Jenkins:** Is like hiring a separate editor who lives in another country. You have to email them your book, wait for them to read it, and email you back. If their internet goes down, you are stuck.
+- **GitHub Actions:** Is like Google Docs having a built-in grammar checker. The moment you finish typing, the tool is already right there, checking your work instantly.
+
+You don't install anything. You don't manage any servers. You just put a file in a special folder (`.github/workflows`), and GitHub's servers automatically test your code.
+
+### ASCII Diagram: The GitHub Actions Workflow
+
+```text
+[ You Push Code to GitHub ] 
+          |
+          v
+[ GitHub Reads .github/workflows/main.yml ]
+          |
+          v
+[ GitHub Spawns a Free Virtual Machine ]
+          |
+          +--> Compiles Code
+          +--> Runs Tests
+          +--> Builds Docker Image
+          |
+          v
+    [ ✅ SUCCESS ]
+```
+
+---
+
+## Level 2 — Intermediate
+
+### How it Works Internally
+
+1. **Workflow:** The overarching process (e.g., "Deploy to Production"). It is defined in a YAML file.
+2. **Event:** The trigger that starts the workflow (e.g., `on: push` or `on: pull_request`).
+3. **Jobs:** A set of steps. Jobs run in *parallel* by default. If you have a "Test Java" job and a "Test Python" job, GitHub runs them at the exact same time on two different machines.
+4. **Steps:** The individual tasks inside a Job (e.g., running `npm test`).
+5. **Runners:** The virtual machines that execute the jobs. GitHub provides free Ubuntu, Windows, and macOS runners.
+
+### Jenkins vs. GitHub Actions
+Why would we use GitHub Actions instead of Jenkins?
+- **Maintenance:** Jenkins requires patching, plugin updates, and server management. GitHub Actions is managed by Microsoft. Zero maintenance.
+- **Community:** In Jenkins, you write custom bash scripts. In GitHub Actions, there is a massive marketplace of open-source "Actions" (e.g., `actions/checkout@v4`). If you need to log into AWS, you don't write a script; you just use `aws-actions/configure-aws-credentials`.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+If we were to replace our Jenkinsfile with a GitHub Actions workflow, it would look like this (`.github/workflows/ci.yml`):
+
+```yaml
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::111122223333:role/GitHubActionsRole
+          aws-region: us-east-1
+
+      - name: Log in to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+```
+
+**Line-by-Line Breakdown:**
+- **`on: push:`**: This workflow only triggers if code is pushed specifically to the `main` branch.
+- **`permissions: id-token: write`**: **This is an advanced security feature.** It allows GitHub to request a temporary JWT (JSON Web Token) to authenticate with external clouds (like AWS).
+- **`runs-on: ubuntu-latest`**: GitHub automatically spins up a fresh Ubuntu virtual machine. When the job finishes, the VM is completely destroyed.
+- **`uses: actions/checkout@v4`**: This downloads our repository's code into the runner.
+- **`role-to-assume:`**: Notice there are NO passwords here. GitHub uses the OIDC JWT to securely assume an IAM role in our AWS account.
+
+### Self-Hosted Runners
+GitHub provides free runners, but they are hosted on the public internet. 
+What if our Jenkins deployment needed to deploy a backend to our private EKS cluster that has *no public IP addresses*?
+GitHub's public runners cannot reach our private cluster. 
+
+The solution is **Self-Hosted Runners**. You deploy a pod in your private Kubernetes cluster that reaches *out* to GitHub. When a job triggers, GitHub sends the instructions to your private pod. This allows GitHub Actions to operate securely inside your private VPC.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: Reusable Workflows
+In Jenkins, we solved the "500 identical microservices" problem using Shared Libraries. 
+In GitHub Actions, we use **Reusable Workflows**.
+
+The Platform Team creates a central repository called `company-ci-standards`. They write a workflow there:
+```yaml
+# company-ci-standards/.github/workflows/java-build.yml
+on:
+  workflow_call:
+    inputs:
+      java_version:
+        required: true
+        type: string
+```
+
+A developer in a totally different repository can use it with 3 lines of code:
+```yaml
+jobs:
+  build:
+    uses: my-org/company-ci-standards/.github/workflows/java-build.yml@main
+    with:
+      java_version: '17'
+```
+This centralizes the CI/CD logic, ensuring security teams can enforce vulnerability scanning globally.
+
+### Security and Supply Chain Attacks
+If you use a community action like `uses: random-developer/cool-action@master`, you are exposing your enterprise to a Supply Chain Attack.
+If `random-developer` is hacked, the hacker can push malicious code to the `master` branch of their action. Because your workflow pulls from `@master`, the malicious code will immediately run inside your CI/CD pipeline and steal your AWS credentials.
+
+**Enterprise Best Practice:** Never use branch names. Always pin Actions to a specific cryptographic SHA hash:
+```yaml
+uses: actions/checkout@1d96c772d19495a3b5c517cd2bc0cb401ea0529f
+```
+Even if the repository is hacked, the SHA hash guarantees the code you run is immutable.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: Where do you put the YAML files for GitHub Actions?**
+A: They must be placed inside the `.github/workflows/` directory at the root of the repository.
+
+### Intermediate
+**Q: What is the difference between a Job and a Step in GitHub Actions?**
+A: A Job is a collection of Steps that run on a single virtual machine (runner). Multiple Jobs run in parallel by default on separate virtual machines. A Step is a sequential, individual task (like running a shell script or calling a pre-built Action) within that Job.
+
+### Senior
+**Q: Explain how OIDC (OpenID Connect) works between GitHub Actions and AWS, and why it is superior to static IAM User keys.**
+A: With static IAM User keys, you must store long-lived secrets in GitHub. If they leak, your AWS account is compromised. OIDC establishes a trust relationship. GitHub acts as the Identity Provider (IdP). The workflow requests a short-lived JWT from GitHub. AWS IAM verifies the cryptographically signed JWT. If it matches the Trust Policy (e.g., verifying the repo name), AWS STS issues temporary session credentials valid for only 1 hour. There are zero long-lived secrets to rotate or steal.
+
+### Principal/Architect
+**Q: If you have an Enterprise GitHub Organization and need to enforce that every repository executes a specific security scan before deployment, how do you architect this using GitHub Actions natively?**
+A: You implement **Required Workflows** (a feature of GitHub Enterprise). You define the security scanning workflow in a centralized `.github` repository for the organization. You then configure the Organization's Branch Protection Rules to require that specific workflow to pass before any Pull Request can be merged into `main`. Developers cannot bypass or remove this workflow from their local repositories.
+[Contents](/learn) | [25 — Container Registry (AWS ECR)](/learn/aws/ecr) |
