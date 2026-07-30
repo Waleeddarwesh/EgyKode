@@ -1,0 +1,144 @@
+---
+contentId: chaos-engineering
+title: "System Resilience (Chaos Engineering)"
+titleAr: "مرونة الأنظمة (System Resilience) — Chaos Engineering"
+description: "Design an experiment with a hypothesis and a blast radius"
+descriptionAr: "التدرّب على العطل قبل أن يحدث في الإنتاج."
+domain: sre
+level: advanced
+type: concept
+phase: production
+order: 37
+readingTime: 40
+prerequisites: ["observability"]
+relatedChapters: ["disaster-recovery"]
+objectives:
+  - "Design an experiment with a hypothesis and a blast radius"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/37_Chaos_Engineering.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Chaos Engineering
+
+In traditional IT, you build a server, pray it never crashes, and panic when it does.
+In Cloud-Native DevOps, you *assume* the server is going to crash. 
+
+But how do you know if your Kubernetes cluster will actually survive a crash? 
+You test it. You intentionally destroy your own servers in Production. This is called **Chaos Engineering**.
+
+---
+
+## Level 1 — Beginner
+
+### What is Chaos Engineering?
+Imagine you are the captain of a pirate ship.
+- **Traditional IT:** You wait until you are in the middle of a massive storm, and then you discover your crew doesn't know how to row the boat. You sink.
+- **Chaos Engineering:** On a beautiful, sunny Tuesday morning, you randomly set a small fire on the deck. You watch your crew put out the fire. If they fail, it's okay, because the weather is nice and you can help them. 
+
+When the real storm comes, you know exactly what your crew will do.
+
+### The Chaos Monkey
+Netflix invented Chaos Engineering. They wrote a script called **Chaos Monkey**. 
+During normal business hours, Chaos Monkey would randomly log into AWS and terminate production EC2 instances. The engineers at Netflix were forced to design their software so well that customers watching movies never noticed the servers were dying behind the scenes.
+
+---
+
+## Level 2 — Intermediate
+
+### The Scientific Method of Chaos
+You do not just unplug cables randomly. Chaos Engineering is a strict scientific experiment.
+1. **Steady State:** Define what "normal" looks like (e.g., 500 HTTP requests per second with \< 50ms latency).
+2. **Hypothesis:** "If we delete the primary Database, the system will failover to the Standby Database within 10 seconds, and users will only experience a slight delay."
+3. **Run the Experiment:** Introduce the chaos (run a script to kill the Database).
+4. **Observe:** Look at Grafana. Did the latency spike? Did it recover?
+5. **Learn:** If the system failed, fix the code. If it succeeded, automate the experiment to run every week.
+
+### Game Days
+Enterprise teams run "Game Days". The entire engineering team gets in a room, orders pizza, and intentionally breaks the staging environment to see how fast they can fix it. It is a fire drill for software engineers.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Code (Chaos Mesh)
+
+In Kubernetes, we don't manually delete Pods. We use a Cloud Native tool like **Chaos Mesh** or **LitmusChaos**.
+
+Look at this YAML definition for a Chaos Experiment:
+```yaml
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: network-delay-api
+spec:
+  action: delay
+  mode: one
+  selector:
+    namespaces:
+      - default
+    labelSelectors:
+      app: ivolve-api
+  delay:
+    latency: '500ms'
+    correlation: '100'
+    jitter: '0ms'
+  duration: '60s'
+```
+
+**Line-by-Line Breakdown:**
+- **`kind: NetworkChaos`**: We are not deleting the Pod. We are simulating a bad network connection.
+- **`action: delay`**: We are injecting artificial latency.
+- **`latency: '500ms'`**: Chaos Mesh uses eBPF (or iptables) to intercept the network packets entering the API pod and holds them in memory for exactly half a second before releasing them. 
+- **`duration: '60s'`**: The experiment will run for exactly 1 minute and then automatically revert the damage. 
+
+**Why do this?** 
+If the API takes 500ms to respond, does the Frontend microservice timeout and crash? Does the Service Mesh circuit breaker trip correctly? You won't know until you inject the delay.
+
+---
+
+## Level 4 — Enterprise
+
+### Continuous Chaos in CI/CD
+In a mature enterprise, Chaos Engineering is fully automated into the CI/CD pipeline.
+When a developer pushes code, Jenkins doesn't just run Unit Tests. 
+Jenkins deploys the code to a staging cluster, runs automated load testing traffic, and *simultaneously* triggers Chaos Mesh to delete 30% of the Pods. 
+If the application crashes, the pipeline fails, and the code is rejected. Only software that survives the chaos is allowed into Production.
+
+### Blast Radius and Abort Conditions
+You do not run Chaos Monkey on day one. You control the **Blast Radius**.
+1. **Canary Chaos:** You only inject latency into 1 single Pod out of 100.
+2. **Namespace Chaos:** You kill Pods, but only in the Staging namespace.
+3. **AZ Chaos:** You simulate the loss of an entire AWS Availability Zone.
+
+**Abort Conditions:**
+What if your experiment goes wrong and takes down the entire company?
+Tools like Chaos Mesh allow you to define a Prometheus metric as an Abort Condition. 
+*Example:* "If the `http_500_error_rate` metric exceeds 2%, immediately abort the experiment and restore the system." This guarantees the chaos never causes a severe customer outage.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: Why would a company intentionally break its own servers in production?**
+A: To discover hidden vulnerabilities, test automated failover mechanisms, and ensure the engineering team knows how to respond to an outage during normal business hours, rather than panicking at 3:00 AM during a real emergency.
+
+### Intermediate
+**Q: Explain the concept of the "Blast Radius".**
+A: The blast radius is the extent of the damage caused by a failure or a chaos experiment. In Chaos Engineering, you always start with the smallest possible blast radius (e.g., affecting one user or one pod) and slowly expand it (e.g., affecting an entire availability zone) as your confidence in the system's resilience grows.
+
+### Senior
+**Q: You use Chaos Mesh to simulate 100% packet loss (a network partition) between the Frontend pods and the Backend pods. The Frontend pods immediately crash with Out Of Memory (OOM) errors. Explain the architectural flaw this experiment exposed.**
+A: The experiment exposed a lack of timeouts and Circuit Breaking in the Frontend code. When the network partitioned, the Backend stopped responding. The Frontend kept accepting new user requests, creating thousands of open HTTP connections waiting for a response that would never come. These open connections exhausted the RAM, causing the OOM. The fix is to configure strict network timeouts in the code or implement an Istio Circuit Breaker to instantly reject traffic when the backend is unreachable.
+
+### Principal/Architect
+**Q: How do you implement a Chaos Engineering culture in a large enterprise where management is terrified of causing outages, and developers view it as a distraction?**
+A: You start small and focus on the Staging environment. You do not touch Production. 
+1. Organize "Game Days" in Staging to make it a fun, team-building exercise rather than a scary audit. 
+2. Tie the chaos experiments directly to historical outages. ("Remember that bug that took us down last month? Let's write a chaos experiment to prove it can never happen again.") 
+3. Present the Grafana metrics to management showing how the automated failover succeeded. 
+Once you build trust in Staging, and prove that Chaos Engineering *prevents* midnight pages, the culture naturally shifts toward embracing it in Production via automated pipelines.
+[Contents](/learn) | [38 — Cloud Economics (FinOps)](/learn/cost/cost-optimization) |
