@@ -1,0 +1,263 @@
+---
+contentId: helm
+title: "Package Management (Helm)"
+titleAr: "إدارة الحزم — Helm"
+description: "Template a chart and know when Helm beats Kustomize"
+descriptionAr: "تحزيم ملفات Kubernetes بحيث يمكن إصدارها وإعادة استخدامها."
+domain: helm
+level: intermediate
+type: concept
+phase: kubernetes
+order: 21
+readingTime: 45
+prerequisites: ["kubernetes"]
+relatedChapters: []
+objectives:
+  - "Template a chart and know when Helm beats Kustomize"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/21_Helm.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Helm
+
+In Chapter 19, we saw that deploying a simple API to Kubernetes requires a massive YAML file. 
+Now imagine you want to install something complex, like a Prometheus Monitoring stack. It requires **40 different YAML files** (Deployments, Services, ConfigMaps, Secrets, RBAC Roles, DaemonSets). 
+
+If you try to write and manage 40 YAML files by hand, you will go insane.
+
+**Helm** is the Package Manager for Kubernetes. It is exactly like `apt` for Ubuntu or `npm` for Node.js, but for Kubernetes.
+
+---
+
+## Level 1 — Beginner
+
+### What is Helm?
+Imagine you want to bake a cake. 
+- **The Raw YAML Way:** You have to buy the flour, crack the eggs, measure the sugar, and bake it for exactly 35 minutes.
+- **The Helm Way:** You go to the store and buy a "Cake Mix in a Box." You just add water and press a button.
+
+A Helm "Chart" is the Cake Mix. It is a pre-packaged bundle of YAML files created by experts. You just download the Chart, change a few variables (like adding water), and Helm automatically installs the entire application into your cluster.
+
+### ASCII Diagram: The Helm Workflow
+
+```text
+[ Helm Chart Registry (The Store) ]
+         |
+    (helm install)
+         v
+[ Your values.yaml ] ---> [ HELM ENGINE ] ---> [ Generates 40 YAML Files ]
+                                                       |
+                                                       v
+                                            [ Kubernetes Cluster ]
+```
+
+---
+
+## Level 2 — Intermediate
+
+### How it Works Internally (The Terminology)
+
+1. **Chart:** The package itself. A folder containing templates and a `Chart.yaml` file.
+2. **Release:** An instance of a Chart running in a cluster. If you install the Redis Chart twice, you have two Releases.
+3. **Repository:** A server where Helm Charts are hosted (e.g., Bitnami).
+4. **Values.yaml:** This is the magic file. It contains the variables that you want to inject into the Chart.
+
+### What Existed Before? (Kustomize and Raw YAML)
+Before Helm, people used `kubectl apply -f folder/`. If they needed to change a password, they used `sed` to find-and-replace text inside the YAML files. It was incredibly error-prone. 
+Kubernetes eventually released **Kustomize** (a native overlay tool), which is still used today for simple apps, but for complex third-party apps (like ArgoCD or Grafana), Helm is the undisputed industry standard.
+
+### Example: Installing Prometheus
+To install Prometheus via Helm, you just run:
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm install my-prom prometheus-community/kube-prometheus-stack -f my-values.yaml
+```
+Helm downloads the templates, injects the overrides from `my-values.yaml`, and creates all 40 resources in Kubernetes.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+Helm is essentially a Go Template rendering engine. 
+Inside a Helm Chart, a file like `deployment.yaml` doesn't contain hardcoded values. It contains Go templates `{{ }}`.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mychart.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+```
+
+**Line-by-Line Breakdown:**
+- **`name: {{ include "mychart.fullname" . }}`**: Helm executes a function called `fullname` (defined in a helper file) to dynamically generate a unique name for the Deployment, preventing conflicts if you install the Chart twice.
+- **`replicas: {{ .Values.replicaCount }}`**: Helm looks inside your `values.yaml` file, finds the `replicaCount` key, and injects that number here.
+- **`image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"`**: It dynamically constructs the Docker image URL. If you want to upgrade the app, you don't edit the YAML. You just change the `tag` string in your `values.yaml` file.
+
+### Helm Rollbacks
+Because Helm tracks "Releases", it tracks history as Kubernetes Secrets. 
+If you upgrade a Chart to v2.0 and the application crashes, you don't need to panic or rewrite YAML. You simply run:
+```bash
+helm rollback my-prom 1
+```
+Helm instantly reads the state of Release #1 and forces the cluster back to the exact working configuration.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: Helm + GitOps (ArgoCD)
+In a modern enterprise, **humans do not run `helm install`**. 
+Giving an engineer permission to run `helm install` means giving them a `kubeconfig` file with administrative rights to the cluster. This is a massive security risk.
+
+Instead, we combine Helm with GitOps (ArgoCD).
+In this repository, ArgoCD is the *only* entity allowed to talk to the Kubernetes API. 
+
+Look at how ArgoCD deploys a Helm chart (like the Nginx Ingress Controller):
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+spec:
+  source:
+    repoURL: 'https://kubernetes.github.io/ingress-nginx'
+    targetRevision: 4.8.0
+    chart: ingress-nginx
+    helm:
+      values: |
+        controller:
+          metrics:
+            enabled: true
+```
+**The Enterprise Workflow:**
+1. We commit this ArgoCD file to GitHub.
+2. ArgoCD detects the commit.
+3. ArgoCD downloads the Helm Chart from `kubernetes.github.io`.
+4. ArgoCD injects our `values` (enabling metrics).
+5. ArgoCD runs the `helm template` engine internally.
+6. ArgoCD applies the resulting YAML to the cluster.
+*Result: We get the power of Helm, but without any human ever touching the cluster directly.*
+
+### Building Internal Helm Charts
+Fortune 500 companies build an "Internal Developer Platform". Instead of every developer writing 5 YAML files for their microservice, the Platform team writes ONE generic "Microservice Helm Chart". 
+Developers just provide a 5-line `values.yaml` file containing their Docker image name and port. The Helm Chart generates the Deployment, HPA, Service, and Ingress automatically, ensuring every app in the company follows the exact same architectural standards.
+
+**What a chart is, on disk.** Four things, and the layout is fixed:
+
+```text
+ivolve-api/
+  Chart.yaml       name, version, and this chart's dependencies
+  values.yaml      the defaults — every knob, documented
+  templates/       the Kubernetes manifests, with placeholders
+    deployment.yaml
+    service.yaml
+    _helpers.tpl   named templates reused across the others
+  charts/          charts this one depends on, vendored
+```
+
+Two version numbers live in `Chart.yaml` and they are not the same thing:
+
+```yaml
+apiVersion: v2
+name: ivolve-api
+version: 1.4.0        # the CHART's version — bump when the templates change
+appVersion: "2.7.1"   # the APPLICATION's version — the image tag you ship
+```
+
+Changing the default image tag and forgetting to bump `version` means Helm sees
+no change and installs from cache. Bump the chart version on every chart change,
+however small.
+
+### Helm Templating
+
+A template is Kubernetes YAML with Go template placeholders. The engine renders
+it against `values.yaml`, then hands plain YAML to the cluster:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ivolve-api.fullname" . }}
+  labels:
+    {{- include "ivolve-api.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+```
+
+- **`.Values`** is `values.yaml`, overridden by `--set` and `-f` at install time.
+  **`.Chart`** is `Chart.yaml`. **`.Release`** is the install itself
+  (`.Release.Name`, `.Release.Namespace`).
+- **`| default .Chart.AppVersion`** supplies a fallback, so a chart with no
+  `image.tag` set still renders something valid.
+- **`{{- with .Values.resources }}`** omits the whole block when that value is
+  absent — the difference between a clean manifest and one containing
+  `resources: null`.
+
+**Indentation is where charts actually break.** `nindent 12` emits a newline and
+indents by twelve spaces; plain `indent` does not add the newline. Get it wrong
+and the rendered YAML is structurally invalid, with an error that points at the
+generated document rather than your template.
+
+The `{{-` and `-}}` markers trim surrounding whitespace. Omitting the dash leaves
+blank lines that are harmless in a Deployment and fatal inside a list.
+
+**Never debug this by installing it.** Render it and look:
+
+```bash
+helm template ivolve-api ./ivolve-api -f values-prod.yaml   # print the YAML, install nothing
+helm lint ./ivolve-api                                       # structural problems
+helm install ivolve-api ./ivolve-api --dry-run --debug       # render AND validate against the cluster
+helm diff upgrade ivolve-api ./ivolve-api -f values-prod.yaml  # what would change? (helm-diff plugin)
+```
+
+`helm template` is the first thing to run when a chart misbehaves. Most "Helm
+bugs" are a value that was never set, and one look at the rendered output shows
+an empty string where an image tag should be.
+
+**The trade-off against Kustomize** is worth stating plainly: Helm gives you
+parameters, packaging, versioned releases and rollback, at the cost of templating
+a whitespace-sensitive format with a string-substitution engine. Kustomize
+patches real YAML and never has an indentation bug, but has no release history
+and no `--set`. Use Helm to *distribute* something configurable to people you do
+not know; use Kustomize to vary your own manifests across environments you
+control.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is the `values.yaml` file used for?**
+A: It is the configuration file for a Helm chart. It allows you to customize the application (like changing the password, the number of replicas, or the memory limits) without having to edit the actual underlying YAML templates.
+
+### Intermediate
+**Q: What is the difference between Helm and Kustomize?**
+A: Helm is a templating engine (it uses `{{ }}` brackets to inject variables into templates). Kustomize is an overlay engine (it takes standard, valid YAML files and mathematically merges new lines into them). Helm is better for sharing generic packages publicly. Kustomize is often better for simple, internal environment variations (dev/prod).
+
+### Senior
+**Q: Explain how `helm template` is different from `helm install`, and why it is useful for CI/CD pipelines.**
+A: `helm install` talks directly to the Kubernetes API and deploys the application. `helm template` renders the Go templates locally on your machine and simply prints the raw YAML to the screen, without connecting to a cluster. In CI/CD, we run `helm template` and pipe the output to a tool like `kubeval` or `polaris` to validate the syntax and security of the generated YAML *before* it is ever deployed.
+
+### Principal/Architect
+**Q: In an ArgoCD GitOps architecture, why is it considered an anti-pattern to use Helm's `lookup` function or lifecycle hooks (like `pre-install` Jobs)?**
+A: Helm's `lookup` function attempts to query the live Kubernetes API during template rendering to fetch data (like an existing Secret). GitOps tools like ArgoCD render Helm charts purely deterministically, often in a vacuum without live cluster access, causing `lookup` to fail or produce non-deterministic results (Configuration Drift). Similarly, Helm lifecycle hooks rely on the Helm binary orchestrating the deployment order. ArgoCD bypasses the Helm binary, using it only for rendering, and applies the YAML using its own synchronization waves. Therefore, Helm hooks are often ignored or mishandled by GitOps tools, requiring a migration to ArgoCD SyncHooks instead.
+[Contents](/learn) | [22 — Environment Overlays (Kustomize)](/learn/kustomize/kustomize) |
