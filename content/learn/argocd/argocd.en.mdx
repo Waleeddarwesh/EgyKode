@@ -1,0 +1,253 @@
+---
+contentId: argocd
+title: "Continuous Delivery (ArgoCD)"
+titleAr: "التسليم المستمر — Argo CD"
+description: "Configure an Application with selfHeal and sync waves"
+descriptionAr: "المطابقة المستمرة، وكشف الانحراف، والإصلاح الذاتي."
+domain: argocd
+level: advanced
+type: concept
+phase: gitops
+order: 28
+readingTime: 45
+prerequisites: ["kubernetes", "gitops"]
+relatedChapters: []
+objectives:
+  - "Configure an Application with selfHeal and sync waves"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/28_ArgoCD.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to ArgoCD
+
+In Chapters 13 and 14, we learned how Jenkins and GitHub Actions compile our Java code, run tests, and build a Docker image. But what happens next? How does that Docker image actually get into our Kubernetes cluster?
+
+**ArgoCD** is the answer. It is a declarative, GitOps continuous delivery tool for Kubernetes. It lives *inside* your cluster and acts as a strict synchronization engine.
+
+---
+
+## Level 1 — Beginner
+
+### What is ArgoCD?
+Imagine you are a strict librarian.
+- The **Catalog (Git Repository):** Says exactly which books should be on Shelf A.
+- The **Shelf (Kubernetes Cluster):** Is where the books actually are.
+- **ArgoCD (The Librarian):** Constantly looks at the Catalog, looks at the Shelf, and compares them. 
+
+If the Catalog says there should be 3 books, but the Shelf only has 2 books, ArgoCD immediately puts a 3rd book on the Shelf.
+If a malicious user sneaks into the library and puts a random comic book on Shelf A, ArgoCD sees it is not in the Catalog, and immediately throws the comic book in the trash.
+
+### ASCII Diagram: The Pull Architecture
+
+```text
+[ Developer Commits YAML ] 
+          |
+          v
+    [ GitHub Repo ] 
+          ^
+          | (Pulls changes every 3 minutes)
+          |
+[ ArgoCD (Inside Kubernetes) ] ---> [ Applies YAML to Cluster ]
+```
+
+---
+
+## Level 2 — Intermediate
+
+### Push vs. Pull (The Old Way vs. ArgoCD)
+
+1. **The Push Model (Jenkins):**
+   Jenkins finishes building the Docker image. Then, the Jenkins script runs `kubectl apply -f deployment.yaml`. Jenkins *pushes* the change into the cluster.
+   - *Security Flaw:* Jenkins needs the Administrator password to the Kubernetes cluster. If Jenkins is hacked, the cluster is hacked.
+
+2. **The Pull Model (ArgoCD):**
+   Jenkins finishes building the Docker image. It just updates a text file in GitHub saying `image: v2.0`. It does nothing else.
+   ArgoCD, which is safely locked inside the Kubernetes cluster, wakes up, looks at GitHub, sees `v2.0`, and pulls the change in.
+   - *Security Win:* The cluster has no incoming firewall ports open. Jenkins has no cluster credentials. ArgoCD only needs read-access to GitHub.
+
+### The Application Custom Resource
+ArgoCD extends Kubernetes by creating a new object called an `Application`. 
+You create an `Application` manifest that tells ArgoCD: "Watch *this* GitHub URL, and deploy the YAML files you find there into *this* namespace."
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ivolve-api
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/Waleeddarwesh/EgyKode
+    targetRevision: main            # a branch, tag, or commit SHA
+    path: k8s/overlays/production
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
+
+  syncPolicy:
+    automated:
+      prune: true                   # delete resources removed from Git
+      selfHeal: true                # revert changes made directly to the cluster
+    syncOptions:
+      - CreateNamespace=true
+```
+
+### Drift Detection and Self-Healing
+
+**Drift** is any difference between what Git says should be running and what is
+actually running. ArgoCD compares the two continuously — by default every three
+minutes — and reports one of three states:
+
+| Status | Meaning |
+| --- | --- |
+| `Synced` | The cluster matches Git |
+| `OutOfSync` | It does not, and ArgoCD is waiting or about to act |
+| `Unknown` | ArgoCD cannot reach the repository or the cluster |
+
+Drift arrives from exactly two directions, and only one of them is a mistake:
+
+1. **Git moved.** Someone merged a change. The cluster is behind, and syncing is
+   simply deployment.
+2. **The cluster moved.** Someone ran `kubectl edit` at 2am to stop an incident,
+   or a controller rewrote a field. This is the drift worth detecting: the change
+   exists nowhere in Git, so the next deployment silently reverts it, and nobody
+   connects the outage to the fix that disappeared.
+
+The two flags above decide what happens next:
+
+- **`selfHeal: true`** reverts cluster-side changes automatically. It makes Git
+  genuinely authoritative — and it will undo an emergency hand-fix within
+  minutes, which is correct behaviour that feels hostile the first time it
+  happens to you. The right response is to commit the fix, not to disable
+  self-heal.
+- **`prune: true`** deletes resources that no longer exist in Git. Without it,
+  deleted manifests leave orphans running forever. With it, a mis-scoped `path`
+  or a bad merge can delete more than you intended — which is why it belongs
+  behind branch protection and review.
+
+```bash
+argocd app get ivolve-api                 # current sync and health status
+argocd app diff ivolve-api                # exactly what differs from Git
+argocd app sync ivolve-api                # reconcile now, without waiting
+argocd app history ivolve-api             # every sync, with its commit SHA
+argocd app rollback ivolve-api 42         # go back to a previous revision
+```
+
+`argocd app diff` is the command that matters. "OutOfSync" is a status; the diff
+is the answer.
+
+**Some drift is not drift.** A HorizontalPodAutoscaler legitimately changes
+`replicas`, and a mutating webhook legitimately injects a sidecar — so ArgoCD
+reports a permanent difference against Git and self-heal fights the other
+controller in a loop. The fix is to tell it which fields are managed elsewhere:
+
+```yaml
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas          # the HPA owns this, not Git
+```
+
+**How aggressively to reconcile is a judgement, not a default:**
+
+| | `selfHeal: false` | `selfHeal: true` |
+| --- | --- | --- |
+| Emergency `kubectl edit` | Survives until the next sync | Reverted within minutes |
+| Git as source of truth | Aspirational | Enforced |
+| Right for | A cluster you are still migrating | Steady-state production |
+
+The same applies to `prune`. Both flags make the system stricter and less
+forgiving, which is exactly what you want once the workflow is established — and
+exactly wrong while a team is still learning it, because their first experience
+of GitOps should not be their hotfix vanishing without explanation.
+
+Turn automation on deliberately: start manual, watch the diffs for a couple of
+weeks, then enable `selfHeal`, then `prune`. Turning it all on from day one is
+how GitOps acquires a reputation for deleting things.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+Look at `gitops/argocd/app-of-apps.yaml` in our repository. This is the master file that controls the entire platform.
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ivolve-platform
+  namespace: argocd
+spec:
+  project: ivolve
+  source:
+    repoURL: https://github.com/WaleedDarwesh/cloud-native-devops-platform.git
+    path: gitops/argocd/applications
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+```
+
+**Line-by-Line Breakdown:**
+- **`apiVersion: argoproj.io/v1alpha1`**: We are defining a Custom Resource Definition (CRD) that ArgoCD installed into the cluster.
+- **`repoURL:` & `path:`**: We are telling ArgoCD to watch this specific Git repository, and only look inside the `gitops/argocd/applications` folder.
+- **`targetRevision: main`**: Watch the main branch. The moment a commit merges to main, deploy it.
+- **`server: https://kubernetes.default.svc`**: Deploy the files into the cluster that ArgoCD is currently running inside (the local cluster).
+- **`syncPolicy: automated:`**: Do not wait for a human to click a button. Deploy automatically.
+- **`prune: true`**: If an engineer deletes `api-deployment.yaml` from GitHub, ArgoCD will actively delete the API from the live Kubernetes cluster. (If this was false, the API would become an orphaned "ghost" process).
+- **`selfHeal: true`**: If an engineer manually types `kubectl delete pod` in the live cluster, ArgoCD detects the cluster is "OutOfSync" with Git, and instantly recreates the Pod.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: Multi-Cluster Management
+In a Fortune 500 company, you don't have 1 cluster. You have 50 clusters (Dev, QA, Staging, Prod-US, Prod-EU).
+Do you install ArgoCD 50 times? No.
+You install one **ArgoCD Hub**. 
+
+You register the 50 remote clusters with the Hub using `argocd cluster add`. 
+When defining the `Application` YAML, you change the `destination.server` field to point to the remote cluster's API endpoint. 
+A single commit to GitHub causes the ArgoCD Hub to simultaneously deploy the microservice across 50 global data centers.
+
+### Argo Rollouts (Progressive Delivery)
+Deploying a new version of the API directly over the old version (a Rolling Update) is dangerous. If the new version crashes, 100% of your users see a 500 Error.
+
+Enterprise teams use **Argo Rollouts** to perform **Canary Releases**.
+1. ArgoCD deploys `v2.0` of the API alongside `v1.0`.
+2. ArgoCD configures the Ingress Controller to route exactly **5%** of user traffic to `v2.0`.
+3. ArgoCD watches the Prometheus metrics. If the 5% of users experience a high error rate, ArgoCD automatically aborts the rollout and routes 100% of traffic back to `v1.0`. The developer is notified, and 95% of the customers never noticed a problem.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is the difference between Jenkins and ArgoCD?**
+A: Jenkins is an automation engine primarily used for Continuous Integration (compiling code and running tests). ArgoCD is a deployment engine for Continuous Delivery, specifically built for Kubernetes, that ensures the live cluster matches the Git repository.
+
+### Intermediate
+**Q: What does the term "OutOfSync" mean in the ArgoCD dashboard?**
+A: It means the live state of the Kubernetes cluster does not match the YAML files stored in the Git repository. Either someone manually changed the live cluster (Configuration Drift), or a new commit was pushed to Git and ArgoCD hasn't applied it yet.
+
+### Senior
+**Q: Why is the "App-of-Apps" pattern a best practice in ArgoCD?**
+A: If you have 100 microservices, managing 100 ArgoCD `Application` YAMLs manually is tedious. The App-of-Apps pattern defines a single "Root" Application that points to a folder containing the 100 child Application YAMLs. When you want to add a new microservice, you just commit a new child YAML to that folder. The Root Application synchronizes it, which creates the child Application, which synchronizes the actual microservice. It is complete automation.
+
+### Principal/Architect
+**Q: Contrast ArgoCD with FluxCD. Why might an enterprise choose one over the other?**
+A: Both are CNCF graduated GitOps tools. ArgoCD is famous for its exceptional GUI, its strong multi-cluster management (Hub-and-Spoke model), and its Application CRD architecture, making it highly visible and easy for developers to use. FluxCD (often Flux v2) is fundamentally designed around the Kubernetes API (using Kustomization and HelmRelease CRDs) without a native GUI, focusing strictly on native controller patterns and high performance. An enterprise heavily invested in developer self-service and visual dashboards will choose ArgoCD; an enterprise focused purely on infrastructure-as-code automation via CLI/API integrations might prefer Flux.
+[Contents](/learn) | [29 — Introduction to Observability](/learn/observability/observability) |
