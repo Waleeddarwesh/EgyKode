@@ -1,0 +1,243 @@
+---
+contentId: kubeadm
+title: "Cluster Bootstrapping (Kubeadm)"
+titleAr: "تهيئة الكلاستر — kubeadm"
+description: "Bootstrap an HA control plane and explain controlPlaneEndpoint"
+descriptionAr: "بناء كلاستر Kubernetes بنفسك بدلًا من استخدام خدمة مُدارة."
+domain: kubernetes
+level: advanced
+type: concept
+phase: kubernetes
+order: 20
+readingTime: 60
+prerequisites: ["kubernetes", "ansible"]
+relatedChapters: ["kubernetes", "service-mesh"]
+objectives:
+  - "Bootstrap an HA control plane and explain controlPlaneEndpoint"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/20_Kubeadm.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Kubeadm
+
+In Chapter 19, we talked about the magic of Kubernetes. But how does Kubernetes actually get installed? 
+
+If you use a managed service like Amazon EKS, AWS installs it for you (and charges you $73 a month for the privilege). In this project, we are building a **Self-Managed** cluster from raw EC2 instances. To do this, we use the official Kubernetes bootstrapping tool: **`kubeadm`**.
+
+---
+
+## Level 1 — Beginner
+
+### What is Kubeadm?
+Imagine you buy a massive, complicated IKEA bookshelf. You have 500 pieces of wood, 1,000 screws, and a manual. Building it yourself would take 3 days and you'd probably make a mistake.
+- **A single-node local tool:** a pre-built, tiny toy bookshelf. Fine for learning on your laptop, but you cannot put real books on it — and you can never test what happens when a shelf breaks.
+- **Kubeadm:** a robot that reads the IKEA manual and perfectly assembles the massive, production-grade bookshelf for you in 2 minutes.
+
+`kubeadm` is a command-line tool. You run it on a blank Linux server, and it transforms that server into a Kubernetes control plane node.
+
+### Why do we need it?
+Kubernetes is not just one program. It is a complex web of Certificates, API Servers, Databases (`etcd`), and Schedulers. If you try to manually install and link all these pieces (known as "Kubernetes the Hard Way"), you will suffer. `kubeadm` automates the nightmare.
+
+---
+
+## Level 2 — Intermediate
+
+### How it Works Internally
+
+Building a cluster with `kubeadm` is a 2-step process.
+
+#### Step 1: The Brain (`kubeadm init`)
+You log into the server that you want to be the Control Plane (the master node) and run:
+```bash
+kubeadm init --pod-network-cidr=192.168.0.0/16
+```
+**What happens in the background?**
+1. **Preflight Checks:** It checks if Linux is ready (Is swap memory disabled? Is the CPU powerful enough?).
+2. **PKI (Public Key Infrastructure):** It generates all the cryptographic certificates needed so the components can talk to each other securely.
+3. **Control Plane:** It starts the `etcd` database, the API Server, the Scheduler, and the Controller Manager.
+4. **The Token:** At the very end, it prints a secret "Join Token" to your screen.
+
+#### Step 2: The Muscle (`kubeadm join`)
+You log into your Worker Nodes (the servers that will run your Docker containers) and paste the token:
+```bash
+kubeadm join 10.0.1.50:6443 --token abcdef.1234567890abcdef --discovery-token-ca-cert-hash sha256:1234...
+```
+**What happens in the background?**
+The Worker Node reaches out to the Master Node's IP (`10.0.1.50`). It proves its identity using the Token. The Master node says "Welcome," and the Worker Node starts the `kubelet` process. 
+
+### Why not a single-node local cluster?
+Local development clusters pack the entire control plane and a worker into one
+virtual machine. They cannot span physical servers, cannot form an etcd quorum,
+and cannot lose a node — so they cannot demonstrate the three operations that
+actually matter in production: a rolling upgrade, a node drain, and a restore.
+`kubeadm` builds real, multi-node clusters.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+In our project, we never type `kubeadm init` by hand. Ansible does it.
+
+Open the real file: **`infrastructure/ansible/roles/control-plane/tasks/main.yml`**
+
+```yaml
+- name: Check whether this node is already part of a cluster
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubeadm_admin_conf
+
+- name: Determine the bootstrap node
+  ansible.builtin.set_fact:
+    is_bootstrap_node: "{{ inventory_hostname == groups['control_plane'][0] }}"
+
+- name: Initialise the cluster
+  ansible.builtin.command:
+    cmd: kubeadm init --config /root/kubeadm-config.yaml --upload-certs
+  register: kubeadm_init
+  when:
+    - is_bootstrap_node
+    - not kubeadm_admin_conf.stat.exists
+  changed_when: kubeadm_init.rc == 0
+```
+
+**Line-by-line breakdown:**
+
+- **The `stat` check plus `when: not ...stat.exists`** is what makes this
+  idempotent. `kubeadm init` is *not* safe to run twice — it would fail on a
+  cluster that already exists. Guarding on `admin.conf`, the file that only
+  exists after a successful init, means re-running the playbook on a healthy
+  cluster is a no-op. **Idempotency is not a nice-to-have in configuration
+  management; it is the entire premise.**
+- **`is_bootstrap_node`** — only the *first* control plane node runs `init`.
+  The other two `join`. Getting this wrong means three separate one-node
+  clusters that each think they are in charge.
+- **`--upload-certs`** uploads the control plane certificates to a temporary
+  Secret in the cluster, so the other two control plane nodes can pull them
+  during `join` instead of you copying private keys between servers by hand.
+
+### The config file it renders
+
+`kubeadm init` can take twenty command-line flags, or one declarative file.
+We use the file — see
+`infrastructure/ansible/roles/control-plane/templates/kubeadm-config.yaml.j2`:
+
+```yaml
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+kubernetesVersion: v{{ kubernetes_version }}      # 1.30.4, from group_vars/all.yml
+clusterName: {{ cluster_name }}
+
+controlPlaneEndpoint: "{{ control_plane_endpoint }}"
+
+networking:
+  podSubnet: {{ pod_network_cidr }}               # 192.168.0.0/16
+  serviceSubnet: {{ service_cidr }}               # 10.96.0.0/12
+
+apiServer:
+  extraArgs:
+    audit-log-path: /var/log/kubernetes/audit.log
+    audit-policy-file: /etc/kubernetes/audit-policy.yaml
+    authorization-mode: Node,RBAC
+    enable-admission-plugins: NodeRestriction,PodSecurity,ResourceQuota,LimitRanger,ServiceAccount
+```
+
+**Why each of those matters:**
+
+- **`kubernetesVersion` is templated from a variable, not hardcoded.** One edit
+  in `group_vars/all.yml` changes every environment. Hardcoding it in the
+  template is how dev and prod silently diverge.
+- **`controlPlaneEndpoint`** — *the* high-availability decision. With three
+  control plane nodes, which IP do workers connect to? If they connect to
+  node 1 and node 1 dies, every worker loses the cluster. This value points at
+  an internal load balancer instead, so a node failure is invisible to clients.
+  **Set this at `init` time.** Adding it later means regenerating certificates
+  across the whole cluster.
+- **`podSubnet` must not overlap the VPC CIDR.** Ours is `192.168.0.0/16`; the
+  VPC is `10.20.0.0/16`. Overlap produces routing failures that are miserable
+  to diagnose, because every component reports itself as healthy.
+- **`authorization-mode: Node,RBAC`** — the `Node` authorizer restricts each
+  kubelet to reading only the Secrets belonging to pods scheduled *on that node*.
+  Without it, compromising any node yields every Secret in the cluster.
+- **`NodeRestriction`** stops a compromised node relabelling itself to attract
+  workloads it should not run.
+
+### The certificate problem
+
+`kubeadm` generates the cluster's certificates with a **1-year** lifetime. Forget
+to renew, and the cluster stops accepting connections roughly 365 days after you
+built it — with error messages that do not obviously say "expired certificate".
+
+```bash
+sudo kubeadm certs check-expiration     # put this in a calendar reminder
+sudo kubeadm certs renew all            # then restart the control plane pods
+```
+
+A `kubeadm upgrade` renews them as a side effect, which is why clusters that are
+upgraded regularly rarely hit this — and clusters left alone for a year do.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: High Availability (Stacked vs. External etcd)
+When using `kubeadm` in an enterprise production environment, you must survive the loss of an entire AWS Availability Zone. You need 3 Control Plane nodes. 
+
+But where do you put the `etcd` database?
+1. **Stacked Topology (Our Architecture):** `etcd` runs directly on the Control Plane nodes.
+   - *Pros:* Simpler to manage. Only requires 3 servers total.
+   - *Cons:* If a Control Plane node runs out of CPU, `etcd` slows down, which slows down the entire cluster.
+2. **External etcd Topology:** `etcd` runs on 3 *separate* dedicated servers. The Control Plane nodes are just stateless API servers.
+   - *Pros:* Ultimate performance and fault isolation.
+   - *Cons:* Requires 6 servers minimum (3 etcd, 3 API). Vastly more complex to manage with Ansible.
+
+### Day 2 Operations: Upgrades
+In an enterprise, you can't just delete a cluster to upgrade it. You must perform a rolling upgrade with zero downtime.
+`kubeadm` handles this beautifully:
+1. `kubeadm upgrade plan`: Checks if an upgrade is possible.
+2. `kubeadm upgrade apply v1.29.0`: Upgrades the Control Plane.
+3. Then, you drain a Worker Node (`kubectl drain node-1`), SSH into it, and run `kubeadm upgrade node`.
+
+### Disaster Recovery
+If you lose all 3 Master Nodes in a stacked topology, the cluster is dead. 
+Enterprise SRE teams run a cronjob to snapshot the `etcd` database every hour and upload it to an S3 bucket:
+```bash
+ETCDCTL_API=3 etcdctl snapshot save /tmp/snapshot.db
+aws s3 cp /tmp/snapshot.db s3://ivolve-etcd-backups/
+```
+To recover, you provision a new server, run `etcdctl snapshot restore`, and point a fresh `kubeadm` instance at the restored database.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is the difference between `kubeadm` and `kubectl`?**
+A: `kubeadm` builds the cluster (you run it once). `kubectl` talks to the cluster after it is built (you run it every day to deploy apps).
+
+### Intermediate
+**Q: When you run `kubeadm init`, it creates a folder at `~/.kube/config`. What is this file?**
+A: This is the `kubeconfig` file. It contains the cluster's IP address and the administrative cryptographic certificates required to authenticate as the `kubernetes-admin` user. Without this file, `kubectl` will return a "Connection Refused" or "Unauthorized" error.
+
+### Senior
+**Q: Why does Kubernetes require you to disable swap memory (`swapoff -a`) before running `kubeadm`?**
+A: Kubernetes is a highly precise orchestrator. It needs to know exactly how much RAM every Pod is using to make scheduling decisions and enforce memory Limits. If the Linux kernel starts moving RAM into a Swap file on the hard drive, Kubernetes loses track of the memory consumption, leading to severe performance degradation and unpredictable `OOMKilled` behavior. (Note: As of Kubernetes v1.28+, swap support is available in beta, but disabling it remains the standard best practice).
+
+### Principal/Architect
+**Q: Walk me through the exact architectural steps to upgrade a production `kubeadm` cluster with zero downtime to the running applications.**
+A: 
+1. Backup `etcd` using `etcdctl snapshot save`.
+2. Upgrade the primary Control Plane node by upgrading the `kubeadm` binary via `apt`, then executing `kubeadm upgrade apply`. This orchestrates the upgrade of the API Server, Controller Manager, and Scheduler static pods.
+3. Upgrade the remaining Control Plane nodes using `kubeadm upgrade node`.
+4. For each Worker Node sequentially: 
+   - Execute `kubectl drain <node>` to gracefully evict all running Pods, forcing the Deployments to reschedule them onto other nodes. 
+   - Upgrade the `kubeadm` and `kubelet` binaries on the node.
+   - Execute `kubeadm upgrade node` to update the local node configuration.
+   - Restart the `kubelet` service.
+   - Execute `kubectl uncordon <node>` to allow new Pods to be scheduled on it again.
+This rolling strategy ensures that at least N-1 instances of any replicated Deployment are always serving traffic.
+[Contents](/learn) | [21 — Package Management (Helm)](/learn/helm/helm) |
