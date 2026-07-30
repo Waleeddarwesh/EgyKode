@@ -1,0 +1,233 @@
+---
+contentId: prometheus
+title: "Metrics (Prometheus)"
+titleAr: "المقاييس — Prometheus"
+description: "Write a PromQL alert on a ratio, not a raw count"
+descriptionAr: "جمع المقاييس والتنبيه عليها قبل أن يلاحظ المستخدمون."
+domain: prometheus
+level: advanced
+type: concept
+phase: observability
+order: 30
+readingTime: 55
+prerequisites: ["observability"]
+relatedChapters: []
+objectives:
+  - "Write a PromQL alert on a ratio, not a raw count"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/30_Prometheus.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Prometheus
+
+How do you know if a server's CPU is at 99%? Someone has to check.
+
+**Prometheus** is a Time-Series Database (TSDB) and monitoring system. Its entire job is to constantly ask every server and Pod in your cluster, *"How are you doing right now?"* and write the answers down in a massive database.
+
+---
+
+## Level 1 — Beginner
+
+### What is Prometheus?
+Imagine a very annoying boss walking around a factory.
+Every 15 seconds, the boss walks up to a worker (a Pod) and asks:
+- *"How many boxes have you packed?"* (HTTP requests served)
+- *"How tired are you?"* (CPU usage)
+- *"Did you drop any boxes?"* (Error rate)
+
+The worker has a whiteboard on their desk with all these numbers. The boss just reads the whiteboard, writes the numbers in a giant ledger, and walks away.
+
+- **The Whiteboard:** The `/metrics` endpoint on your application.
+- **The Boss:** Prometheus.
+- **The Process:** Scraping.
+
+### ASCII Diagram: The Pull Architecture
+
+```text
+       [ Prometheus ]
+         |   ^   |
+         |   |   |
+(Scrapes) v   |   v
+[ Pod 1 ] [ Pod 2 ] [ Node Exporter ]
+```
+
+---
+
+## Level 2 — Intermediate
+
+### Exporters and the `/metrics` Endpoint
+Prometheus doesn't speak "Linux" or "MySQL". It only speaks HTTP text.
+If Prometheus wants to know how much RAM a Linux server is using, it cannot run the `free -m` command. 
+
+To solve this, we use **Exporters**. An Exporter is a tiny sidecar application.
+- **Node Exporter:** Installed on every EC2 instance. It translates Linux kernel data into HTTP text.
+- **Kube-State-Metrics:** Translates Kubernetes API data (like "How many Pods are Pending?") into HTTP text.
+
+When Prometheus visits `http://10.0.1.50:9100/metrics`, the Node Exporter returns raw text that looks like this:
+```text
+node_memory_Active_bytes 1.4815232e+09
+node_cpu_seconds_total{cpu="0",mode="idle"} 1243.2
+```
+
+### PromQL (Prometheus Query Language)
+Because Prometheus stores millions of numbers, you need a way to search them. We use PromQL.
+To find the CPU usage, you don't use SQL (`SELECT * FROM...`). You write a math equation.
+Example: *Give me the rate of CPU usage over the last 5 minutes for the API pod.*
+`rate(container_cpu_usage_seconds_total{pod="ivolve-api"}[5m])`
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (ServiceMonitors)
+
+If a developer deploys a brand new microservice, how does Prometheus know it exists so it can start scraping it? 
+Historically, you had to manually edit the Prometheus configuration file and restart Prometheus. In a dynamic Kubernetes cluster where Pods are created and destroyed every second, this is impossible.
+
+We use the **Prometheus Operator** and a Custom Resource called a `ServiceMonitor`.
+
+Look at `kubernetes/helm/ivolve-platform/templates/api.yaml (ServiceMonitor block)`:
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ivolve-api-monitor
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: ivolve-api
+  endpoints:
+  - port: web
+    path: /metrics
+    interval: 15s
+```
+
+**Line-by-Line Breakdown:**
+- **`kind: ServiceMonitor`**: The Prometheus Operator is watching the cluster for this specific YAML object.
+- **`selector: matchLabels: app: ivolve-api`**: We tell the Operator, *"Find any Kubernetes Service that has the label `app: ivolve-api`."*
+- **`endpoints:`**: We tell it exactly where to look (`/metrics` on the `web` port) and how often (`15s`).
+The Operator automatically reconfigures the live Prometheus server in memory. The developer got their app monitored without ever touching Prometheus.
+
+---
+
+## Level 4 — Enterprise
+
+### PromQL Deep Dive: Histograms
+How do you measure latency? If you ask an application, "What is your average response time?", the average lies. If 99 users get a 1ms response, and 1 user gets a 5000ms response (the database crashed), the average is `(99 + 5000) / 100 = 50.9ms`. The dashboard looks fine, but one customer is furious.
+
+In an Enterprise, we never use averages. We use **Histograms and Quantiles**.
+We configure the application to put response times into "buckets" (e.g., `<100ms`, `<500ms`, `>1000ms`).
+In PromQL, we query the **99th Percentile (P99)**:
+```promql
+histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+```
+This query mathematically guarantees that 99% of our users are experiencing speeds faster than the returned number. If the P99 is 4000ms, an alarm fires immediately.
+
+### Alerting — rules, Alertmanager, and not waking people up
+
+Prometheus does not send notifications. It evaluates **alerting rules** on a
+schedule and marks them firing; **Alertmanager** is a separate component that
+receives those firing alerts and decides who hears about it, and how.
+
+```yaml
+groups:
+  - name: api
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5..",job="api"}[5m]))
+            / sum(rate(http_requests_total{job="api"}[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: "API error rate above 5% for 10 minutes"
+          runbook: "https://runbooks.ivolve.example.com/api-errors"
+```
+
+Three fields carry the design:
+
+- **`expr`** is a ratio, not a count. "More than 100 errors" fires at 3am on a
+  busy night and stays silent during a quiet outage; "more than 5% of requests"
+  means the same thing at every traffic level.
+- **`for: 10m`** is what separates an alert from a jump scare. The condition must
+  hold continuously for ten minutes, so a single bad deploy-second or a scrape
+  blip never pages anyone.
+- **`runbook`** turns a page into an instruction. Someone woken at 3am should not
+  also have to work out what this alert means.
+
+**Alertmanager decides what happens next.** Its job is deduplication, grouping
+and routing:
+
+```yaml
+route:
+  group_by: ['alertname', 'namespace']
+  group_wait: 30s          # collect related alerts before the first notification
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: slack-warnings
+  routes:
+    - matchers: [ severity="page" ]
+      receiver: pagerduty-oncall
+
+inhibit_rules:
+  - source_matchers: [ alertname="ClusterDown" ]
+    target_matchers: [ severity="page" ]
+    equal: ['namespace']
+```
+
+`group_by` is why a node failure sends one notification instead of forty. The
+`inhibit_rules` block is the same instinct taken further: when the whole cluster
+is down, every service is also down, and there is no value in paging about each
+one — the root-cause alert suppresses the symptoms.
+
+**What deserves to page a human.** The useful test is: *can the person receiving
+this do something about it right now, and does it matter if they don't?*
+
+| Route it to | For |
+| --- | --- |
+| A page | Symptoms users are feeling now — error rates, latency, an SLO burning fast |
+| A ticket | Real but not urgent — a disk that will fill in nine days |
+| A dashboard | Everything else |
+
+CPU at 90% is not an alert. It is a fact that may or may not matter. If users are
+being served correctly at 90% CPU, nothing is wrong; if they are not, the error
+rate alert already fired and it tells you something actionable. Alerting on
+causes rather than symptoms is the fastest route to a team that ignores its
+alerts.
+
+### High Availability and Data Retention
+Prometheus is not a distributed database. It stores data on a local EBS volume attached to its Pod.
+If the Prometheus Pod dies, and the EBS volume is lost, you lose all your company's historical metrics.
+
+To solve this in production:
+1. **HA Pairs:** You run two identical Prometheus Pods scraping the exact same targets. If one dies, the other still has the data.
+2. **Thanos / Cortex:** As mentioned in Chapter 29, we use Thanos as a sidecar attached to the Prometheus pod. Every 2 hours, Thanos compresses the local TSDB blocks and uploads them to an AWS S3 bucket. S3 provides 99.999999999% durability and infinite storage, allowing you to run PromQL queries on data from 5 years ago without crashing the local Prometheus server.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is a Time-Series Database?**
+A: A database specifically optimized for handling data indexed by time. Instead of storing complex relationships between tables (like a relational DB), it just stores a timestamp, a metric name, and a value (e.g., `[12:00:00], CPU, 80%`).
+
+### Intermediate
+**Q: Explain how the Prometheus Operator uses `ServiceMonitors`.**
+A: The Prometheus Operator automates Prometheus configuration. Instead of manually editing `prometheus.yml`, developers deploy a `ServiceMonitor` Kubernetes object. The Operator watches for these objects, dynamically discovers the associated Kubernetes Services via labels, and instructs Prometheus to begin scraping them without any downtime or manual restarts.
+
+### Senior
+**Q: Why are `rate()` and `irate()` functions required when dealing with counter metrics in PromQL?**
+A: A "Counter" metric in Prometheus only ever goes up (e.g., total HTTP requests served since the server booted). If you just graph the raw counter, you get a useless diagonal line that goes up forever. `rate()` calculates the per-second average rate of increase of the time series in the specified range. It answers "How many requests per second are we getting right now?", which is the actual actionable data you need for a dashboard.
+
+### Principal/Architect
+**Q: You notice that your Prometheus server is OOMKilled (Out of Memory) multiple times a day. You have 5,000 Pods. Upon investigation, you find "Cardinality Explosion" in your custom application metrics. Explain what cardinality explosion is and how you architect a fix at both the code and platform levels.**
+A: Cardinality Explosion occurs when a metric has too many unique label combinations. For example, if a developer adds a `user_id` label to an HTTP request metric, and you have 1 million users, Prometheus must create and hold 1 million distinct time-series in RAM, instantly causing an OOM.
+- **Code Level Fix:** Ban unbounded/high-cardinality labels (like `user_id`, `email`, or raw SQL queries) from metrics. Labels must only represent bounded sets (like `status_code=200` or `method=GET`). High-cardinality data belongs in Logs or Traces, not Metrics.
+- **Platform Level Fix:** Implement metric relabeling rules in Prometheus (or a Promxy/Otel Collector layer) to explicitly `drop` offending labels or entirely `drop` massive metrics before they are ingested into the TSDB engine.
+[Contents](/learn) | [31 — Data Visualization (Grafana)](/learn/grafana/grafana) |
