@@ -1,0 +1,347 @@
+---
+contentId: kustomize
+title: "Environment Overlays (Kustomize)"
+titleAr: "تراكبات البيئات — Kustomize"
+description: "Explain when to use Kustomize instead of Helm, and why the GitOps commit edits an overlay rather than a Deployment"
+descriptionAr: "أساس واحد وبيئات متعددة، دون تحويل كل شيء إلى قوالب."
+domain: kustomize
+level: intermediate
+type: concept
+phase: kubernetes
+order: 22
+readingTime: 45
+prerequisites: ["kubernetes", "helm"]
+relatedChapters: []
+objectives:
+  - "Explain when to use Kustomize instead of Helm, and why the GitOps commit edits an overlay rather than a Deployment"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/22_Kustomize.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Why this chapter exists
+
+Chapter 21 covered Helm. So why does this platform use **both**, and why does
+the CI pipeline commit to a Kustomize overlay rather than a Helm values file?
+
+That is a real architectural decision with a real answer.
+
+---
+
+## Level 1 — Beginner
+
+### The problem
+
+You have one application and three environments. Dev runs 1 replica with debug
+logging; production runs 4 replicas with an RDS endpoint.
+
+The naive solutions are both bad:
+
+1. **Three copies of every manifest.** A fix has to be applied three times. Give
+   it two months and they will have quietly diverged.
+2. **Templating everything.** The manifest becomes unreadable — more `{{ }}`
+   than YAML.
+
+### The Kustomize idea
+
+Keep **one real, valid** set of manifests (the *base*), then describe the
+*differences* per environment (the *overlays*).
+
+```
+kubernetes/
+├── base/                          ← real YAML. Applies as-is.
+│   ├── api-deployment.yaml
+│   └── kustomization.yaml
+└── overlays/
+    ├── dev/kustomization.yaml     ← "same as base, but 1 replica"
+    ├── staging/kustomization.yaml
+    └── prod/kustomization.yaml    ← "same as base, but 4 replicas and ECR images"
+```
+
+**The base is valid YAML you can `kubectl apply -f` directly.** That is the
+single biggest difference from Helm — you can read it, lint it, and understand
+it with no rendering step.
+
+---
+
+## Level 2 — Intermediate
+
+### Kustomize vs Helm
+
+| | Kustomize | Helm |
+|---|---|---|
+| Mechanism | patch/overlay | string templating |
+| Base readable as-is | ✅ yes | ❌ no, must render first |
+| Logic (`if`, loops) | ❌ none | ✅ full |
+| Release lifecycle | none | install/upgrade/rollback, revision history |
+| Distributing to others | poor | excellent |
+| Built into kubectl | ✅ `kubectl -k` | ❌ separate binary |
+
+**The honest summary:**
+
+- **Helm** is a package manager. Use it to *distribute* software to people whose
+  environments you do not know — which is why every third-party component in
+  this platform (ingress-nginx, cert-manager, kube-prometheus-stack) is a chart.
+- **Kustomize** is a patch tool. Use it for *your own* manifests across
+  environments you control.
+
+Helm's power is also its cost. A chart with conditionals can produce output
+nobody predicted, and `helm template` is the only way to find out what it did.
+For your own three environments, that flexibility buys nothing and costs
+readability.
+
+### The actual overlay
+
+`kubernetes/overlays/prod/kustomization.yaml`:
+
+```yaml
+resources:
+  - ../../base
+
+patches:
+  - path: replicas-patch.yaml
+  - path: resources-patch.yaml
+
+configMapGenerator:
+  - name: ivolve-config
+    behavior: merge
+    literals:
+      - APP_ENV=production
+      - LOG_LEVEL=warn
+
+images:
+  - name: ivolve-api
+    newName: 111122223333.dkr.ecr.us-east-1.amazonaws.com/ivolve-prod/ivolve-api
+    newTag: 1.0.0
+```
+
+Four mechanisms worth knowing:
+
+- **`resources`** — what to start from.
+- **`patches`** — strategic-merge or JSON patches applied on top.
+- **`configMapGenerator`** — see below; more important than it looks.
+- **`images`** — rewrite an image reference *without touching the Deployment*.
+
+### `images:` — the field the whole GitOps loop turns on
+
+This is why the pipeline commits here rather than to a Deployment:
+
+```bash
+kustomize edit set image ivolve-api=<registry>/ivolve-api:412-a3f9c21
+```
+
+That is a **structured** edit. It parses the file, changes one field, and writes
+it back. Compare with the alternative:
+
+```bash
+sed -i 's|image: .*|image: newimage:tag|' deployment.yaml   # ← do not do this
+```
+
+The `sed` version will happily match the `image:` line of an init container, a
+sidecar, or nothing at all — and **succeed silently either way**. `kustomize
+edit` fails loudly if the image name does not exist. In an automated pipeline
+that runs unattended, failing loudly is the entire requirement.
+
+### `configMapGenerator` and the hash suffix
+
+Kustomize appends a content hash to generated ConfigMap names:
+
+```
+ivolve-config → ivolve-config-7d9f2k4m8b
+```
+
+and rewrites every reference. Change a value, the hash changes, the Deployment's
+pod spec changes — **so the pods roll automatically.**
+
+Without this, editing a ConfigMap changes nothing at all: the running pods keep
+their old environment variables until someone happens to restart them. That is a
+genuinely confusing bug, because `kubectl get configmap` shows the new value
+while the application uses the old one.
+
+---
+
+## Level 3 — Advanced
+
+### Deleting a resource in an overlay
+
+Production uses RDS, so the in-cluster MySQL StatefulSet must not exist there:
+
+```yaml
+patches:
+  - target:
+      kind: StatefulSet
+      name: ivolve-mysql
+    patch: |
+      $patch: delete
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: ivolve-mysql
+```
+
+The base stays complete and usable for local clusters; production removes what
+it does not need. The alternative — a `mysql.enabled` flag threaded through
+every manifest — is exactly the templating complexity Kustomize avoids.
+
+### Patching by selector, not by name
+
+```yaml
+- target:
+    kind: HorizontalPodAutoscaler
+    name: .*                       # regex — every HPA
+  patch: |
+    - op: replace
+      path: /spec/minReplicas
+      value: 1
+```
+
+One patch applies to all HPAs. Adding a new service later inherits it
+automatically rather than being forgotten.
+
+### The dev PDB patch, and why it exists
+
+```yaml
+- target:
+    kind: PodDisruptionBudget
+    name: .*
+  patch: |
+    - op: replace
+      path: /spec/minAvailable
+      value: 1
+```
+
+The base sets `minAvailable: 2`. Dev runs **1 replica**. A PDB demanding 2
+available pods from a 1-replica Deployment can never be satisfied — so
+`kubectl drain` **blocks forever**, and every node drain in the cluster hangs.
+
+This is the kind of interaction that only shows up when you try to upgrade a
+dev cluster and cannot work out why the drain will not finish.
+
+### Always render before you commit
+
+```bash
+kustomize build kubernetes/overlays/prod          # read it
+kustomize build kubernetes/overlays/prod | kubectl diff -f -   # compare to live
+```
+
+`kustomize build` is in `validate-all.sh` for all three overlays. A patch whose
+target does not match produces an error at build time rather than a silently
+unapplied change at deploy time.
+
+---
+
+## Level 4 — Enterprise
+
+### Kustomize *and* Helm together
+
+They are not mutually exclusive. A common enterprise pattern renders a chart and
+then patches it:
+
+```yaml
+helmCharts:
+  - name: ingress-nginx
+    repo: https://kubernetes.github.io/ingress-nginx
+    version: 4.11.1
+    valuesFile: values.yaml
+
+patches:
+  - path: add-org-annotations.yaml    # things the chart does not expose
+```
+
+This solves the recurring frustration of a third-party chart that does not
+expose the one field you need — instead of forking the chart and maintaining the
+fork forever, you patch its output.
+
+### Components, for cross-cutting concerns
+
+```
+components/
+├── istio-injection/
+├── vault-agent/
+└── compliance-labels/
+```
+
+```yaml
+components:
+  - ../../components/compliance-labels
+```
+
+A regulated environment opts into extra behaviour without every base manifest
+knowing that regulated environments exist.
+
+### ArgoCD renders it for you
+
+You never run `kustomize build` in production. ArgoCD detects the
+`kustomization.yaml`, renders it internally, and diffs the result against the
+cluster. That is why the pipeline only has to commit a tag — the rendering
+happens inside the cluster, from the committed source.
+
+---
+
+## Hands-on
+
+```bash
+cd Cloud-Native-DevOps-Platform
+
+# 1. Render all three. Diff them against each other.
+kustomize build kubernetes/overlays/dev  > /tmp/dev.yaml
+kustomize build kubernetes/overlays/prod > /tmp/prod.yaml
+diff /tmp/dev.yaml /tmp/prod.yaml | head -40
+
+# 2. Watch the ConfigMap hash change
+grep 'name: ivolve-config' /tmp/prod.yaml
+
+# 3. Do what the pipeline does
+cd kubernetes/overlays/dev
+kustomize edit set image ivolve-api=myregistry/ivolve-api:test-123
+git diff                     # exactly one line changed
+git checkout kustomization.yaml
+
+# 4. Break it on purpose: point a patch at a resource that does not exist,
+#    then run `kustomize build`. Note that it fails loudly — that is the
+#    property `sed` does not have.
+```
+
+**Checkpoint:** explain why the prod render contains no `StatefulSet`, and why
+the dev render's PDB says `minAvailable: 1`.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is the difference between a Kustomize base and an overlay?**
+A: The base is a complete, valid set of manifests that could be applied as-is.
+An overlay describes only the differences for one environment — replica counts,
+image tags, config values — and references the base rather than copying it.
+
+### Intermediate
+**Q: When would you choose Kustomize over Helm?**
+A: For manifests I own, deployed to environments I control. The base stays
+readable YAML with no rendering step, and the differences between environments
+are explicit and small. I use Helm for distributing software to environments I
+do not know — which is why every third-party component here is a chart and every
+first-party workload is a Kustomize base.
+
+### Senior
+**Q: Why does the pipeline use `kustomize edit set image` instead of `sed`?**
+A: Because `sed` matches text and `kustomize edit` understands structure. A `sed`
+on `image:` can match an init container or a sidecar, or match nothing at all,
+and it exits zero either way — so an unattended pipeline reports success having
+changed the wrong thing or nothing. `kustomize edit` fails if the image name is
+not declared, which is what you want when no human is watching.
+
+### Principal/Architect
+**Q: How do you stop environments drifting apart over time?**
+A: Structurally, by making divergence expensive to express. The base holds
+everything shared and the overlay holds only genuine differences, so adding a
+production-only behaviour requires writing an explicit patch that shows up in
+review — rather than editing one of three copied files and nobody noticing. I
+back that with rendering all overlays in CI, so a patch that no longer matches
+its target fails the build rather than silently doing nothing. The measure of
+success is that the diff between the dev and prod renders is short enough to
+read in one sitting; when it is not, that is the signal that something has been
+quietly forked.
+[Contents](/learn) | [23 — Continuous Integration (Jenkins)](/learn/jenkins/jenkins) |
