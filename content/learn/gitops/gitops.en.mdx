@@ -1,0 +1,167 @@
+---
+contentId: gitops
+title: "The GitOps Philosophy"
+titleAr: "فلسفة GitOps"
+description: "Argue pull-based delivery against push, with the costs"
+descriptionAr: "Git بوصفه المصدر الوحيد للحقيقة لكل ما يعمل."
+domain: gitops
+level: intermediate
+type: concept
+phase: gitops
+order: 27
+readingTime: 40
+prerequisites: ["jenkins"]
+relatedChapters: []
+objectives:
+  - "Argue pull-based delivery against push, with the costs"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/27_GitOps.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to GitOps
+
+In Chapter 28, we learned about ArgoCD, the tool. In this chapter, we will learn about **GitOps**, the philosophy.
+
+GitOps inverts who is in charge of deployment. Instead of a pipeline pushing changes into a cluster, an agent inside the cluster pulls them from git — which makes the repository the single source of truth for what is running. If a server, a firewall rule, or a Kubernetes pod is not defined in Git, it is considered rogue and must be deleted.
+
+---
+
+## Level 1 — Beginner
+
+### What is GitOps?
+Imagine a strict law inside a kingdom. 
+The Law says: *"If a rule is not written in the Great Book, it is not a law."*
+
+- **The Great Book:** The Git repository (GitHub).
+- **The Kingdom:** The Kubernetes Cluster.
+- **The King's Guard:** ArgoCD.
+
+If a rogue citizen tries to build a new house (a new Pod) in the kingdom without permission, the King's Guard looks at the Great Book. The Guard says, *"This house is not in the book!"* and immediately bulldozes the house.
+If you want to build a house, you must write a request in the Great Book (a Pull Request), get it approved by the King (Merged), and then the Guard will build it for you.
+
+### ASCII Diagram: The Single Source of Truth
+
+```text
+[ Developer ] ---> Types `kubectl edit deployment` ---> ❌ BLOCKED
+
+[ Developer ] ---> Opens Pull Request in GitHub
+                         |
+                   (Manager Approves)
+                         |
+[ GitHub Repo ] <==========================> [ Kubernetes Cluster ]
+   (The Book)          (ArgoCD Sync)             (The Kingdom)
+```
+
+---
+
+## Level 2 — Intermediate
+
+### The 4 Principles of GitOps
+
+According to OpenGitOps (a CNCF working group), a system must follow 4 rules to be considered GitOps:
+1. **Declarative:** The entire system must be described declaratively (e.g., YAML, Terraform). No imperative bash scripts.
+2. **Versioned and Immutable:** The desired state is stored in a way that enforces immutability and versioning (e.g., Git). You can always rollback.
+3. **Pulled Automatically:** Software agents automatically pull the desired state from Git. No humans push.
+4. **Continuously Reconciled:** The software agent continuously observes the live system. If the live system drifts from Git, it fixes it immediately.
+
+### Why is this better?
+- **Auditing:** In traditional Ops, if the database goes down, you ask, "Who ran a command to delete the database?" Nobody knows. In GitOps, you look at the `git log`. Every change has an author, a timestamp, and a Pull Request approval.
+- **Disaster Recovery:** If the entire AWS datacenter burns to the ground, you just create a new empty cluster, install ArgoCD, and point it at GitHub. The entire architecture rebuilds itself in minutes.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (GitOps in Practice)
+
+How does GitOps handle Image Updates? 
+
+When Jenkins finishes compiling `ivolve-api:v2.0` and pushes the image to ECR, how does the cluster know to update?
+Jenkins does NOT run `kubectl set image`. 
+
+Instead, the last stage of our Jenkinsfile looks like this (pseudocode):
+```bash
+stage('GitOps Update') {
+    steps {
+        sh '''
+        git clone https://github.com/Waleeddarwesh/ivolve-cloud-devops-internship.git
+        cd kubernetes/base/
+        sed -i 's/ivolve-api:v1.0/ivolve-api:v2.0/g' api-deployment.yaml
+        git commit -am "chore: update API image to v2.0"
+        git push origin main
+        '''
+    }
+}
+```
+**The Workflow:**
+1. Jenkins acts as a normal Git user. It edits the text file and pushes a commit.
+2. The Jenkins pipeline is now finished. It goes to sleep.
+3. ArgoCD sees the new commit (`ivolve-api:v2.0`).
+4. ArgoCD updates the cluster.
+
+### The Two-Repo Pattern
+In an advanced architecture, you do not put your application source code (Java/Python) in the same repository as your GitOps manifests (YAML).
+- **Repo 1 (App Repo):** Developers work here. A commit here triggers Jenkins to build a Docker image.
+- **Repo 2 (Manifest Repo):** Only ArgoCD watches this repo. Jenkins pushes YAML updates here.
+
+This prevents an infinite loop where Jenkins updates a YAML file, which creates a Git commit, which triggers Jenkins to run again, which updates a YAML file...
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: Secrets Management in GitOps
+GitOps demands that *everything* must be in Git. But what about the Database Password?
+If you put `password: SuperSecret123` in a YAML file in GitHub, you will be fired.
+
+**The Solution: Sealed Secrets or External Secrets Operator (ESO)**
+In this platform, we use ESO. 
+1. We store the real password in **AWS Secrets Manager**.
+2. In Git, we define a Custom Resource called an `ExternalSecret`.
+   ```yaml
+   apiVersion: external-secrets.io/v1beta1
+   kind: ExternalSecret
+   metadata:
+     name: db-credentials
+   spec:
+     secretStoreRef:
+       name: aws-secrets-manager
+     target:
+       name: k8s-db-secret
+     data:
+     - secretKey: password
+       remoteRef:
+         key: prod/db/password
+   ```
+3. ArgoCD applies this file to the cluster.
+4. The ESO controller inside the cluster reads this file, authenticates with AWS via an IAM Role, fetches the real password from AWS, and creates a native Kubernetes `Secret` purely in memory. 
+*Result:* The entire cluster is defined in Git, but zero passwords exist in Git.
+
+### SOC2 Compliance and "Shift-Left" Security
+GitOps forces security to "Shift-Left" (happen earlier in the process).
+Because no human can SSH into the server to make changes, all changes must be Pull Requests. This allows the Enterprise Security Team to run tools like **Conftest** or **Kyverno** inside the CI pipeline on the YAML files *before* they are merged. 
+If a developer tries to merge a YAML file that requests `root` privileges for a Docker container, the PR is automatically blocked.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: If a hacker logs into the Kubernetes cluster and deletes a Deployment, what happens in a GitOps system?**
+A: ArgoCD immediately notices that the Deployment is missing from the cluster but still exists in the Git repository. Because Git is the Single Source of Truth, ArgoCD instantly recreates the Deployment, effectively fighting off the hacker automatically.
+
+### Intermediate
+**Q: Explain the concept of "Configuration Drift".**
+A: Configuration Drift happens when the actual running state of an environment differs from the documented or desired state (e.g., an engineer manually patches a server in the middle of the night but forgets to update the codebase). GitOps eliminates drift through continuous reconciliation.
+
+### Senior
+**Q: How do you handle environment promotion (Dev -> Staging -> Prod) in a GitOps architecture?**
+A: You use branching or folder structures. A common pattern is folder-based: `namespaces/dev`, `namespaces/staging`, `namespaces/prod`. When Jenkins tests `v2.0` in Dev, it updates the YAML in the `dev/` folder. A human engineer then opens a Pull Request to copy that YAML change into the `prod/` folder. When the PR is approved and merged, ArgoCD detects the change in the `prod/` folder and deploys it.
+
+### Principal/Architect
+**Q: Explain the architectural trade-offs between "Push-based CI/CD" (e.g., Jenkins running `helm upgrade`) versus "Pull-based GitOps" (e.g., ArgoCD) regarding network security and IAM blast radius.**
+A: In a Push-based model, the CI/CD server sits outside the cluster (e.g., Jenkins in a management VPC). To deploy, the Kubernetes API server must be reachable from Jenkins, requiring inbound firewall rules. Furthermore, Jenkins must hold highly privileged cluster-admin credentials. If Jenkins is compromised, the attacker owns the cluster. In a Pull-based GitOps model, ArgoCD lives inside the cluster. It polls Git via outbound HTTPS only. The cluster API requires zero inbound firewall ports from the CI system, and the CI system holds zero cluster credentials, drastically reducing the IAM blast radius and shrinking the network attack surface.
+[Contents](/learn) | [28 — Continuous Delivery (ArgoCD)](/learn/argocd/argocd) |
