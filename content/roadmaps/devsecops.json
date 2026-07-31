@@ -1,0 +1,110 @@
+{
+  "id": "devsecops",
+  "title": "DevSecOps",
+  "titleAr": "DevSecOps",
+  "description": "Security throughout delivery: put the gates in the pipeline, not in a document nobody reads.",
+  "descriptionAr": "الأمان عبر مراحل التسليم: ضع البوابات داخل الـ pipeline، لا في مستند لا يقرؤه أحد.",
+  "level": "advanced",
+  "phases": [
+    {
+      "id": "foundations",
+      "number": "01",
+      "title": "Security Foundations",
+      "titleAr": "أساسيات الأمان",
+      "chapters": [
+        "linux-foundations",
+        "networking-fundamentals"
+      ]
+    },
+    {
+      "id": "identity",
+      "number": "02",
+      "title": "Identity & Secrets",
+      "titleAr": "الهوية والأسرار",
+      "chapters": [
+        "iam",
+        "secrets-manager"
+      ]
+    },
+    {
+      "id": "source",
+      "number": "03",
+      "title": "Secure Source & Dependencies",
+      "titleAr": "الكود والاعتماديات",
+      "chapters": [
+        "git-and-github",
+        "nexus-and-artifacts"
+      ]
+    },
+    {
+      "id": "supply-chain",
+      "number": "04",
+      "title": "Secure Build & Supply Chain",
+      "titleAr": "البناء الآمن وسلسلة التوريد",
+      "chapters": [
+        "docker",
+        "container-security",
+        "ecr"
+      ]
+    },
+    {
+      "id": "gates",
+      "number": "05",
+      "title": "Security Gates",
+      "titleAr": "بوابات الأمان",
+      "chapters": [
+        "jenkins",
+        "github-actions"
+      ]
+    },
+    {
+      "id": "runtime",
+      "number": "06",
+      "title": "Infrastructure & Runtime Security",
+      "titleAr": "أمان البنية التحتية والتشغيل",
+      "chapters": [
+        "terraform",
+        "network-policies",
+        "service-mesh"
+      ]
+    },
+    {
+      "id": "detection",
+      "number": "07",
+      "title": "Detection & Response",
+      "titleAr": "الكشف والاستجابة",
+      "chapters": [
+        "observability",
+        "logging"
+      ]
+    },
+    {
+      "id": "resilience",
+      "number": "08",
+      "title": "Resilience",
+      "titleAr": "المرونة",
+      "chapters": [
+        "chaos-engineering",
+        "disaster-recovery"
+      ]
+    }
+  ],
+  "reference": [
+    "troubleshooting",
+    "interview-prep",
+    "glossary"
+  ],
+  "productionProject": {
+    "id": "cloud-native-devops-platform",
+    "title": "A pipeline that can say no",
+    "titleAr": "Pipeline قادر على الرفض",
+    "summary": "An enforced SonarQube quality gate, Trivy filesystem and image scans that block on high severity, immutable image tags, secrets outside source control, and default-deny network policies in the cluster.",
+    "repo": "cloud-native-devops-platform"
+  },
+  "contentGaps": [
+    "Threat modelling and the secure SDLC as an opening chapter",
+    "Dependency scanning (SCA), secret scanning and SBOM generation",
+    "Image signing and provenance (Sigstore / cosign)",
+    "Kubernetes admission control and Pod Security Standards"
+  ]
+}
