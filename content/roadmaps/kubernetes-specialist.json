@@ -1,0 +1,109 @@
+{
+  "id": "kubernetes-specialist",
+  "title": "Kubernetes Specialist",
+  "titleAr": "متخصص Kubernetes",
+  "description": "Deep Kubernetes operations: run a cluster you built yourself, then secure it, package it, deliver to it and observe it.",
+  "descriptionAr": "تشغيل Kubernetes بعمق: شغّل كلاستر بنيته بنفسك، ثم أمّنه وحزّمه وانشر عليه وراقبه.",
+  "level": "advanced",
+  "phases": [
+    {
+      "id": "prerequisites",
+      "number": "01",
+      "title": "Prerequisites",
+      "titleAr": "المتطلبات",
+      "chapters": [
+        "linux-foundations",
+        "networking-fundamentals",
+        "docker"
+      ]
+    },
+    {
+      "id": "architecture",
+      "number": "02",
+      "title": "Cluster Architecture",
+      "titleAr": "بنية الكلاستر",
+      "chapters": [
+        "kubernetes"
+      ]
+    },
+    {
+      "id": "administration",
+      "number": "03",
+      "title": "Cluster Administration",
+      "titleAr": "إدارة الكلاستر",
+      "chapters": [
+        "kubeadm"
+      ]
+    },
+    {
+      "id": "networking",
+      "number": "04",
+      "title": "Services & Networking",
+      "titleAr": "الخدمات والشبكات",
+      "chapters": [
+        "network-policies"
+      ]
+    },
+    {
+      "id": "traffic",
+      "number": "05",
+      "title": "Traffic Management",
+      "titleAr": "إدارة حركة المرور",
+      "chapters": [
+        "service-mesh"
+      ]
+    },
+    {
+      "id": "packaging",
+      "number": "06",
+      "title": "Packaging & Environments",
+      "titleAr": "التحزيم والبيئات",
+      "chapters": [
+        "helm",
+        "kustomize"
+      ]
+    },
+    {
+      "id": "delivery",
+      "number": "07",
+      "title": "Delivery",
+      "titleAr": "النشر",
+      "chapters": [
+        "gitops",
+        "argocd"
+      ]
+    },
+    {
+      "id": "operate",
+      "number": "08",
+      "title": "Observability & Operations",
+      "titleAr": "المراقبة والتشغيل",
+      "chapters": [
+        "observability",
+        "prometheus",
+        "grafana",
+        "disaster-recovery"
+      ]
+    }
+  ],
+  "reference": [
+    "troubleshooting",
+    "interview-prep",
+    "glossary"
+  ],
+  "productionProject": {
+    "id": "cloud-native-devops-platform",
+    "title": "Self-managed Kubernetes cluster on AWS",
+    "titleAr": "كلاستر Kubernetes ذاتي الإدارة على AWS",
+    "summary": "A kubeadm-provisioned cluster on AWS with Calico networking, default-deny network policies, Helm-packaged workloads, Argo CD reconciliation and a Prometheus stack. Multi-control-plane HA is listed under what this path does not yet teach.",
+    "repo": "Cloud-Native-DevOps-Platform"
+  },
+  "contentGaps": [
+    "Multi-control-plane HA: the control-plane endpoint, etcd quorum and failure behaviour — required before this path can claim to teach HA",
+    "Gateway API: service networking → Ingress → Ingress controllers → Gateway, HTTPRoute and GatewayClass → migrating from Ingress. The Ingress API is frozen upstream, so Gateway is the direction, but it is only worth adding as that full progression",
+    "Workloads in depth: DaemonSets, StatefulSets, Jobs and CronJobs",
+    "Configuration & storage: ConfigMaps, Secrets, PV/PVC, StorageClasses",
+    "Scheduling: taints, tolerations, affinity, requests and limits",
+    "RBAC, ServiceAccounts, Pod Security Standards and admission control"
+  ]
+}
