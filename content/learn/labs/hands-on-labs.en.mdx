@@ -1,0 +1,519 @@
+---
+contentId: hands-on-labs
+title: "Hands-On Labs"
+titleAr: "المعامل التطبيقية (Hands-On Labs)"
+description: "Demonstrate \u2014 not just describe \u2014 every claim this platform makes"
+descriptionAr: "تمارين عملية بمخرجات متوقعة."
+domain: labs
+level: all
+type: concept
+phase: reference
+order: 41
+readingTime: 720
+prerequisites: []
+relatedChapters: []
+objectives:
+  - "Demonstrate \u2014 not just describe \u2014 every claim this platform makes"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/41_Hands_On_Labs.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Why labs, and why these ones
+
+Reading about a rolling update teaches you the vocabulary. Watching one stall
+because you gave it a broken image teaches you the system.
+
+Every lab here follows the same shape:
+
+- **Goal** — one sentence
+- **Do** — exact commands
+- **Observe** — what you should see, and why
+- **Verify** — a check that either passes or fails
+- **Break it** — the failure mode, deliberately triggered
+
+The **Break it** step is the point. Anyone can follow a happy path. Interviews,
+and 3am pages, are about the other one.
+
+> **Cost note:** these run against `dev` (~$180/month). Run
+> `terraform destroy` when you finish a session.
+
+---
+
+## Lab 1 · Container fundamentals
+
+**~45 min · no AWS spend · Chapter 09**
+
+### Goal
+Prove you understand what a multi-stage build actually removes.
+
+### Do
+
+```bash
+cd Cloud-Native-DevOps-Platform/application/ivolve-api
+docker build -t ivolve-api:multi .
+
+# Now build a deliberately bad single-stage version
+cat > /tmp/Dockerfile.bad <<'EOF'
+FROM maven:3.9.8-eclipse-temurin-17
+WORKDIR /app
+COPY . .
+RUN mvn -B clean package -DskipTests
+CMD ["java", "-jar", "target/ivolve-api.jar"]
+EOF
+
+docker build -f /tmp/Dockerfile.bad -t ivolve-api:single .
+docker image ls | grep ivolve-api
+```
+
+### Observe
+
+The single-stage image is roughly **3× larger**. Find out what is in it:
+
+```bash
+docker run --rm ivolve-api:single  which mvn git   # present
+docker run --rm ivolve-api:multi   which mvn git   # absent
+docker run --rm ivolve-api:single  id              # uid=0(root)
+docker run --rm ivolve-api:multi   id              # uid=1001
+```
+
+The single-stage image ships Maven, Git, a JDK and your source code into
+production. Every one of those is attack surface that does nothing at runtime.
+
+### Verify
+
+```bash
+docker run --rm ivolve-api:multi id | grep -q 'uid=0' && echo FAIL || echo PASS
+```
+
+### Break it
+
+Delete the `USER ivolve` line and rebuild. Keep that image — Lab 5 uses it to
+show the `restricted` Pod Security Standard rejecting it at admission.
+
+---
+
+## Lab 2 · Terraform: read a plan properly
+
+**~40 min · no spend if you stop before apply · Chapter 13**
+
+### Goal
+Learn to spot a destructive change before it destroys something.
+
+### Do
+
+```bash
+cd Cloud-Native-DevOps-Platform/infrastructure/terraform/environments/dev
+terraform init
+terraform plan -out=tfplan
+terraform show -json tfplan | jq -r '
+  .resource_changes[] | select(.change.actions[0] != "no-op") |
+  "\(.change.actions|join(","))  \(.address)"' | sort | head -30
+```
+
+### Observe
+
+Answer these from the plan, not from the code:
+
+- How many resources will be created?
+- What `instance_class` is the RDS instance?
+- How many NAT gateways? (This is the cost decision.)
+
+### Break it — the important half
+
+Change something immutable and see what Terraform proposes:
+
+```bash
+# Edit terraform.tfvars, change the project_name, then:
+terraform plan | grep -E '^\s+#.*must be replaced' | head
+```
+
+You should see `must be replaced` on the database. In production that is your
+data. **`-/+` means destroy-then-create** — this is exactly the diff people miss
+by skimming a plan.
+
+Revert the change before applying.
+
+### Verify
+
+You can state, without running anything, which resources in this plan are
+destroy-and-recreate rather than update-in-place.
+
+---
+
+## Lab 3 · Build the cluster and watch it happen
+
+**~90 min · Chapters 07, 11**
+
+### Goal
+See a Kubernetes cluster being born, rather than appearing.
+
+### Do
+
+Run the cluster stage with maximum verbosity and watch:
+
+```bash
+cd infrastructure/ansible
+export IVOLVE_BASTION_IP=$(cd ../terraform/environments/dev && terraform output -raw bastion_public_ip)
+
+ansible-playbook playbooks/site.yml --tags kubernetes --diff
+```
+
+In a second terminal, SSH to the first control plane node and follow along:
+
+```bash
+ssh -J ubuntu@$IVOLVE_BASTION_IP ubuntu@<control-plane-ip>
+watch -n2 'sudo crictl ps 2>/dev/null | head -20'
+```
+
+### Observe
+
+You will see, in order: containerd start → the pause container → etcd →
+kube-apiserver → controller-manager → scheduler. **That order is not arbitrary**
+— etcd must exist before the API server has anywhere to write.
+
+### Verify
+
+```bash
+./scripts/get-kubeconfig.sh dev
+kubectl get nodes
+kubectl get --raw /readyz
+```
+
+### Break it
+
+```bash
+# On a worker: re-enable swap, then restart kubelet
+sudo swapon -a
+sudo systemctl restart kubelet
+sudo systemctl status kubelet     # read the error
+sudo swapoff -a && sudo systemctl restart kubelet
+```
+
+Read the actual error message. This is *why* every kubeadm guide starts with
+`swapoff -a`, and now you have seen the failure rather than trusted the advice.
+
+---
+
+## Lab 4 · Make a rolling update fail safely
+
+**~45 min · Chapter 19 · the single most valuable lab here**
+
+### Goal
+Prove that a bad deploy cannot take down the service.
+
+### Do
+
+```bash
+kubectl -n ivolve get pods -w   # leave this running in terminal 2
+```
+
+Terminal 1 — deploy an image that does not exist:
+
+```bash
+kubectl -n ivolve set image deploy/ivolve-api ivolve-api=ivolve-api:does-not-exist
+kubectl -n ivolve rollout status deploy/ivolve-api --timeout=60s
+```
+
+### Observe
+
+The rollout **stalls**. It does not fail catastrophically:
+
+```bash
+kubectl -n ivolve get rs          # two ReplicaSets: old at 3, new at 1
+kubectl -n ivolve get endpoints ivolve-api    # still 3 healthy pod IPs
+curl -sf https://dev.<your-domain>/api/v1/status   # still works
+```
+
+**This is `maxUnavailable: 0` doing its job.** The new pod cannot become ready,
+so no old pod is removed. Users see nothing.
+
+Now try it with a *working* image but a broken readiness probe:
+
+```bash
+kubectl -n ivolve rollout undo deploy/ivolve-api
+kubectl -n ivolve patch deploy ivolve-api --type=json \
+  -p='[{"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe/httpGet/path","value":"/nope"}]'
+kubectl -n ivolve get endpoints ivolve-api -w
+```
+
+Watch the endpoint list empty as pods fail readiness. That is Kubernetes
+draining traffic from pods that say they cannot serve.
+
+### Verify
+
+```bash
+kubectl -n ivolve rollout undo deploy/ivolve-api
+kubectl -n ivolve rollout status deploy/ivolve-api
+```
+
+### Understand before moving on
+
+Why did the *first* failure leave users unaffected while the *second* one
+emptied the endpoints? What is different about the two failure modes?
+
+---
+
+## Lab 5 · Security controls, tested not assumed
+
+**~60 min · Chapters 28, 29**
+
+### Goal
+Confirm each control actually blocks what it claims to.
+
+### Do — Pod Security Standards
+
+```bash
+# The root image from Lab 1
+kubectl -n ivolve run rooty --image=ivolve-api:rootful --restart=Never
+```
+
+**It is rejected at admission** with a message naming the violated policy. Not
+reported later — refused.
+
+### Do — NetworkPolicy
+
+```bash
+# A pod that is not the storefront or the API tries to reach the database
+kubectl -n ivolve run intruder --rm -it --restart=Never \
+  --image=busybox:1.36 -- sh -c 'nc -zv -w5 ivolve-mysql 3306'
+```
+
+It hangs and times out. Compare with the legitimate path:
+
+```bash
+kubectl -n ivolve exec deploy/ivolve-storefront -- nc -zv -w5 ivolve-mysql 3306
+```
+
+**Note the difference between "timed out" and "connection refused."** Timed out
+means a firewall silently dropped it — a NetworkPolicy working correctly.
+
+### Do — metadata endpoint
+
+```bash
+kubectl -n ivolve exec deploy/ivolve-api -- \
+  timeout 5 wget -qO- http://169.254.169.254/latest/meta-data/ || echo "BLOCKED"
+```
+
+This is the SSRF-to-credential-theft path. It should fail.
+
+### Do — RBAC
+
+```bash
+kubectl auth can-i --list --as=system:serviceaccount:ivolve:ci-verifier -n ivolve
+kubectl auth can-i delete deployments --as=system:serviceaccount:ivolve:ci-verifier -n ivolve
+# → no
+```
+
+### Verify
+
+All four controls block. If any succeeds, that control is not working — find out
+why before continuing.
+
+---
+
+## Lab 6 · The full pipeline, including its failures
+
+**~90 min · Chapters 13, 28**
+
+### Goal
+See each gate fire. A gate you have never seen fire is a gate you do not trust.
+
+### Do — the happy path first
+
+```bash
+git switch -c lab/pipeline-test
+# make a trivial change to the API
+git commit -am "lab: trivial change" && git push -u origin lab/pipeline-test
+```
+
+Watch every stage in Jenkins. Note how long each takes.
+
+### Break it — three ways, one at a time
+
+**1. Failing test**
+
+```java
+// in IvolveApiApplicationTests.java
+@Test void deliberateFailure() { assertThat(1).isEqualTo(2); }
+```
+
+Push. The pipeline stops at Build & Test. **Nothing is built.**
+
+**2. Vulnerable dependency**
+
+```xml
+<dependency>
+  <groupId>org.apache.logging.log4j</groupId>
+  <artifactId>log4j-core</artifactId>
+  <version>2.14.1</version>   <!-- Log4Shell -->
+</dependency>
+```
+
+Push. Trivy stops it. **Nothing is built.** Read the report — it names the CVE
+and the fixed version.
+
+**3. Coverage drop**
+
+Delete most of the test class. Push. The SonarQube quality gate aborts the
+pipeline.
+
+### Verify
+
+```bash
+git switch main && git branch -D lab/pipeline-test
+```
+
+You have watched three independent gates fail closed. Each one prevented a
+different category of bad change from reaching a registry.
+
+---
+
+## Lab 7 · GitOps, and the moment it clicks
+
+**~45 min · Chapters 15, 16**
+
+### Goal
+Experience `selfHeal` reverting you.
+
+### Do
+
+```bash
+kubectl -n ivolve get deploy ivolve-api    # note the replicas
+kubectl -n ivolve scale deploy ivolve-api --replicas=7
+kubectl -n ivolve get deploy ivolve-api    # 7
+
+# Wait up to 3 minutes
+watch kubectl -n ivolve get deploy ivolve-api
+```
+
+### Observe
+
+It goes back. You changed production and the platform undid it, because git said
+otherwise.
+
+Watch ArgoCD notice:
+
+```bash
+kubectl -n argocd logs deploy/argocd-application-controller --tail=30 | grep -i sync
+argocd app diff ivolve-dev
+```
+
+### Then do it the right way
+
+```bash
+$EDITOR kubernetes/overlays/dev/replicas-patch.yaml   # set replicas: 3
+git commit -am "chore: scale api to 3 in dev" && git push
+watch kubectl -n ivolve get deploy ivolve-api
+```
+
+Same outcome. Completely different property: this one has an author, a diff, a
+review and a revert.
+
+### Verify
+
+```bash
+git log --oneline -3 -- kubernetes/overlays/dev/
+```
+
+That output is your deployment history.
+
+---
+
+## Lab 8 · Break the cluster and recover it
+
+**~90 min · Chapters 32, 35 · do this one last**
+
+### Goal
+Survive failures you have caused deliberately, so the real ones are familiar.
+
+### Experiment 1 — kill a worker
+
+**Hypothesis:** pods reschedule, the ASG replaces the node, users see nothing.
+
+```bash
+kubectl get nodes
+aws autoscaling terminate-instance-in-auto-scaling-group \
+  --instance-id <worker-instance-id> --no-should-decrement-desired-capacity
+
+# In another terminal, hammer the endpoint throughout
+while true; do curl -so /dev/null -w "%{http_code} " https://dev.<domain>/; sleep 1; done
+```
+
+Record: how many requests failed? How long until a replacement node was Ready?
+
+### Experiment 2 — fill a disk
+
+```bash
+ssh -J ubuntu@$IVOLVE_BASTION_IP ubuntu@<worker>
+sudo fallocate -l 20G /tmp/balloon
+kubectl describe node <worker> | grep -A5 Conditions   # DiskPressure
+sudo rm /tmp/balloon
+```
+
+Watch the kubelet evict pods. This is the failure `NodeFilesystemFillingUp`
+predicts before it happens.
+
+### Experiment 3 — snapshot and inspect etcd
+
+```bash
+ssh -J ubuntu@$IVOLVE_BASTION_IP ubuntu@<control-plane>
+sudo ./scripts/backup-etcd.sh dev
+sudo ETCDCTL_API=3 etcdctl --write-out=table snapshot status /tmp/etcd-snapshot-*.db
+```
+
+Then **read `docs/runbooks.md#etcd-restore` until you could follow it under
+pressure.** Do not perform the restore on a cluster you still want, unless you
+have time to rebuild.
+
+### Verify
+
+```bash
+./scripts/health-check.sh dev    # exits 0
+```
+
+### Write it up
+
+For each experiment: hypothesis, what actually happened, what surprised you.
+**That document is worth more in an interview than any certification.**
+
+---
+
+## Capstone
+
+Prove the whole thing is genuinely automated:
+
+```bash
+cd infrastructure/terraform/environments/dev
+terraform destroy
+
+cd ../../../..
+./scripts/bootstrap-platform.sh dev
+./scripts/health-check.sh dev
+```
+
+If that succeeds unattended, you have automated the platform. If it does not,
+you have just found the manual step you forgot you performed — which is exactly
+the step that bites a team at 2am.
+
+**Before you destroy anything for the last time: take the screenshots.** See
+`screenshots/README.md`. Once the environment is gone, they are gone.
+
+---
+
+## Progress tracker
+
+| Lab | Done | What it proves |
+|-----|:----:|----------------|
+| 1 · Containers | ☐ | you know what multi-stage actually removes |
+| 2 · Terraform plans | ☐ | you can spot a destructive change |
+| 3 · Cluster build | ☐ | you know the control plane boot order |
+| 4 · Rolling update | ☐ | a bad deploy cannot take down the service |
+| 5 · Security | ☐ | the controls block, not just exist |
+| 6 · Pipeline gates | ☐ | each gate fails closed |
+| 7 · GitOps | ☐ | drift is corrected automatically |
+| 8 · Chaos | ☐ | you have recovered from real failures |
+| Capstone | ☐ | it rebuilds from nothing, unattended |
+[Contents](/learn) | [42 — Troubleshooting](/learn/troubleshooting/troubleshooting) |
