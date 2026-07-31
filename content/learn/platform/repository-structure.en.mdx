@@ -1,0 +1,145 @@
+---
+contentId: repository-structure
+title: "Repository Structure"
+titleAr: "هيكل المستودع"
+description: "Find any file in the platform without searching"
+descriptionAr: "أين يقع كل شيء في المستودع، ولماذا نُظّم بهذا الشكل."
+domain: platform
+level: beginner
+type: concept
+phase: orientation
+order: 4
+readingTime: 20
+prerequisites: ["project-overview"]
+relatedChapters: ["start-here", "project-overview", "system-architecture", "requirements"]
+objectives:
+  - "Find any file in the platform without searching"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/04_Repository_Structure.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to the Repository
+
+A DevOps repository is not just a collection of random files. It is the literal DNA of the entire company. If a new engineer joins the team, they should be able to look at the folder structure and immediately understand how the platform is built, tested, and deployed.
+
+This chapter dissects the exact folder structure of this project, explaining why we organized it this way and what every folder does.
+
+---
+
+## Level 1 — Beginner
+
+### What is a Repository Structure?
+Imagine a massive library. If you just dumped 10,000 books into the middle of the room, nobody could find anything. You need shelves labeled "History", "Science", and "Fiction". 
+
+Our code repository is exactly the same. We have distinct "shelves" for:
+1. **Infrastructure:** The hardware (Terraform/Ansible).
+2. **Kubernetes:** The engine (YAML manifests).
+3. **Jenkins:** The testing robot (Groovy pipelines).
+4. **GitOps:** The deployment robot (ArgoCD).
+
+### ASCII Diagram: The Folder Tree
+
+```text
+Cloud-Native-DevOps-Platform/
+├── infrastructure/     <-- The Hardware (Building the City)
+│   ├── terraform/      <-- AWS Servers and Networks
+│   └── ansible/        <-- Installing software on the servers
+├── kubernetes/         <-- The Engine (Running the Apps)
+│   ├── base/           <-- Default rules for our apps
+│   └── policies/       <-- Security rules (who can talk to who)
+├── jenkins/            <-- The Tester (CI)
+│   ├── pipelines/      <-- The testing instructions
+│   └── pod-templates/  <-- The clean rooms for testing
+└── gitops/             <-- The Deployer (CD)
+    └── argocd/         <-- The robot that pushes code to production
+```
+
+---
+
+## Level 2 — Intermediate
+
+### Deep Dive: What is in these folders?
+
+Let's look at the intermediate mechanics of why these folders exist.
+
+#### 1. `infrastructure/terraform/`
+- **What it does:** Contains HashiCorp Configuration Language (HCL) files.
+- **Subfolders:**
+  - `modules/`: The reusable Lego blocks (e.g., a generic `vpc` block).
+  - `environments/`: The specific implementations of those blocks (e.g., `prod` uses large servers, `dev` uses small servers).
+
+#### 2. `infrastructure/ansible/`
+- **What it does:** Contains YAML playbooks that configure Linux over SSH.
+- **Subfolders:**
+  - `inventories/`: A list of IP addresses that Ansible should connect to.
+  - `roles/`: Reusable software installation tasks (e.g., a role just for installing Docker).
+  - `playbooks/`: The master scripts that call the roles in a specific order (e.g., `site.yml`).
+
+#### 3. `kubernetes/`
+- **What it does:** Contains YAML manifests defining Pods, Services, and Deployments.
+- **Why separate it from Terraform?** Terraform builds the *cluster*. Kubernetes YAML runs *inside* the cluster. Mixing them together causes a "chicken-and-egg" problem (Terraform fails because the cluster doesn't exist yet).
+
+#### 4. `gitops/`
+- **What it does:** Holds the ArgoCD `Application` Custom Resources.
+- **The Concept:** This folder watches the `kubernetes/` folder. When you change a file in `kubernetes/`, ArgoCD (configured by this folder) detects the change and applies it.
+
+---
+
+## Level 3 — Advanced
+
+### Production Monorepo vs. Polyrepo
+This repository is a **Monorepo** (Monolithic Repository). We put the Infrastructure, the CI pipelines, and the Kubernetes manifests all in one giant GitHub repository.
+
+- **The Alternative (Polyrepo):** We could have 4 separate Git repositories: `platform-terraform`, `platform-ansible`, `app-backend`, `app-frontend`.
+- **Why we chose Monorepo:** In a learning or unified platform engineering team, a Monorepo ensures that a single Pull Request can contain a Terraform change (adding a new subnet) AND the Kubernetes change that relies on it. It ensures atomic commits. 
+- **Disadvantage:** As the team grows to 500 engineers, the Monorepo becomes chaotic. CI pipelines take hours to figure out which folder changed. At that scale, companies often migrate to Polyrepos or use advanced build systems like Bazel.
+
+### The "App-of-Apps" Directory Pattern
+Notice the `gitops/argocd/applications/` directory. 
+This is not an accident; it is the **App-of-Apps pattern**.
+Instead of writing a complex deployment script, our Root ArgoCD application literally points to this directory and says: *"Deploy every YAML file inside this folder."* 
+If we want to add a new microservice to our company, we don't touch Kubernetes or AWS. We just drop a new 10-line YAML file into this folder, commit it to Git, and ArgoCD instantly deploys it.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Directory Structure Best Practices
+In a Fortune 500 company, repository structure is enforced by Compliance teams. 
+
+1. **Separation of Duties (SoD):** A junior developer should be able to edit `kubernetes/base/api-deployment.yaml`, but they should be physically blocked from editing `infrastructure/terraform/environments/prod/main.tf`. We enforce this using **GitHub CODEOWNERS**.
+2. **The `CODEOWNERS` file:** We place a `.github/CODEOWNERS` file at the root of the repo:
+   ```text
+   /infrastructure/terraform/environments/prod/ @company/senior-cloud-architects
+   /kubernetes/policies/                        @company/security-team
+   ```
+   If a developer tries to modify a production Terraform file, GitHub will automatically block the Pull Request until a Senior Cloud Architect explicitly approves it. This satisfies SOC2 access control requirements.
+
+### GitOps Folder Segregation
+Enterprise GitOps repositories often split the "App Code" from the "Manifest Code".
+- **Repo 1 (App Code):** Developers write Java code here. The CI pipeline compiles it and pushes `image:v2.0` to Docker Hub.
+- **Repo 2 (Manifest Repo - THIS PROJECT):** The CI pipeline from Repo 1 automatically commits a change to `kubernetes/base/api-deployment.yaml` in this repository, updating the image tag. ArgoCD only watches *this* repository. This isolates application logic from deployment logic.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: Why don't we put all our files in one single folder?**
+A: Organization and predictability. If a team member needs to fix a Jenkins pipeline, they know exactly where to look (`jenkins/pipelines/`) without having to search through hundreds of Terraform and Kubernetes files.
+
+### Intermediate
+**Q: What is the difference between the `terraform/modules` folder and the `terraform/environments` folder?**
+A: `modules` contains generic, reusable templates (like a blueprint for a house). `environments` contains the specific instances of that blueprint (like building the house at a specific address in `dev` or `prod`). You write the code once in `modules`, and call it multiple times from `environments`.
+
+### Senior
+**Q: Explain the chicken-and-egg problem of mixing Terraform and Kubernetes YAML in the same state file.**
+A: If you use the Terraform `kubernetes` provider to apply YAML manifests in the exact same `main.tf` file that builds the EKS/kubeadm cluster, Terraform will evaluate the plan before creating anything. It will try to connect to the Kubernetes API to plan the YAML changes, but the API doesn't exist yet because the cluster hasn't been built. This causes Terraform to crash. This is why we physically separate `infrastructure/` from `kubernetes/` in the repository structure.
+
+### Principal/Architect
+**Q: In an enterprise setting, how do you handle secrets management across a Monorepo that contains multiple environments (Dev/Stage/Prod)?**
+A: You never store plaintext secrets in the repo. You structure the repo to integrate with a dynamic secrets manager (like HashiCorp Vault or AWS Secrets Manager). For Terraform, you use data sources to fetch secrets at runtime. For Kubernetes, you use the External Secrets Operator (ESO) configured in the `kubernetes/` directory. ESO authenticates with AWS Secrets Manager via IRSA (IAM Roles for Service Accounts) and dynamically injects the secrets into the cluster memory, keeping the Git repository completely devoid of sensitive data while maintaining a unified directory structure.
+[Contents](/learn) | [05 — The Foundation (Linux)](/learn/linux/linux-foundations) |
