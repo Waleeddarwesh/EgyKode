@@ -1,0 +1,108 @@
+{
+  "id": "aws-cloud-engineer",
+  "title": "AWS Cloud Engineer",
+  "titleAr": "مهندس AWS Cloud",
+  "description": "Cloud infrastructure: build a VPC that is actually private, then everything that runs inside it — and know what each piece costs.",
+  "descriptionAr": "بنية تحتية سحابية: ابنِ VPC خاصة فعلًا، ثم كل ما يعمل بداخلها — واعرف تكلفة كل جزء.",
+  "level": "intermediate",
+  "phases": [
+    {
+      "id": "cloud-foundations",
+      "number": "01",
+      "title": "Cloud & AWS Foundations",
+      "titleAr": "أساسيات السحابة و AWS",
+      "chapters": [
+        "linux-foundations",
+        "aws-overview"
+      ]
+    },
+    {
+      "id": "networking",
+      "number": "02",
+      "title": "Networking",
+      "titleAr": "الشبكات",
+      "chapters": [
+        "networking-fundamentals",
+        "vpc"
+      ]
+    },
+    {
+      "id": "identity-security",
+      "number": "03",
+      "title": "Identity & Security",
+      "titleAr": "الهوية والأمان",
+      "chapters": [
+        "iam",
+        "secrets-manager"
+      ]
+    },
+    {
+      "id": "compute",
+      "number": "04",
+      "title": "Compute",
+      "titleAr": "الحوسبة",
+      "chapters": [
+        "load-balancers",
+        "serverless"
+      ]
+    },
+    {
+      "id": "storage-data",
+      "number": "05",
+      "title": "Storage & Databases",
+      "titleAr": "التخزين وقواعد البيانات",
+      "chapters": [
+        "rds",
+        "ecr"
+      ]
+    },
+    {
+      "id": "availability",
+      "number": "06",
+      "title": "High Availability & Scalability",
+      "titleAr": "الإتاحة العالية وقابلية التوسع",
+      "chapters": [
+        "auto-scaling",
+        "disaster-recovery"
+      ]
+    },
+    {
+      "id": "iac",
+      "number": "07",
+      "title": "Infrastructure as Code",
+      "titleAr": "البنية التحتية ككود",
+      "chapters": [
+        "terraform",
+        "ansible"
+      ]
+    },
+    {
+      "id": "operations",
+      "number": "08",
+      "title": "Operations & Cost",
+      "titleAr": "التشغيل والتكلفة",
+      "chapters": [
+        "observability",
+        "cost-optimization"
+      ]
+    }
+  ],
+  "reference": [
+    "troubleshooting",
+    "glossary",
+    "interview-prep"
+  ],
+  "productionProject": {
+    "id": "cloud-native-devops-platform",
+    "title": "A VPC you can defend in review",
+    "titleAr": "VPC يمكنك الدفاع عنها في المراجعة",
+    "summary": "Multi-AZ VPC with private data subnets, least-privilege IAM, secrets out of source control, an autoscaling tier behind a load balancer, and a monthly cost you can explain line by line.",
+    "repo": "Cloud-Native-DevOps-Platform"
+  },
+  "contentGaps": [
+    "AWS global infrastructure, regions and the Shared Responsibility Model",
+    "EC2 in depth: AMIs, EBS, launch templates, target groups",
+    "S3 and EFS as their own chapter (currently only referenced)",
+    "CloudWatch, CloudTrail and Cost Explorer as an operations chapter"
+  ]
+}
