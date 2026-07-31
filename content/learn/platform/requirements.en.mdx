@@ -1,0 +1,154 @@
+---
+contentId: requirements
+title: "Platform Requirements"
+titleAr: "متطلبات المنصة"
+description: "State the functional and non-functional targets the design has to hit"
+descriptionAr: "ما يجب توفّره قبل تشغيل أي شيء: حسابات وأدوات ومعرفة مسبقة."
+domain: platform
+level: beginner
+type: concept
+phase: orientation
+order: 3
+readingTime: 25
+prerequisites: ["project-overview"]
+relatedChapters: ["start-here", "project-overview", "system-architecture", "repository-structure"]
+objectives:
+  - "State the functional and non-functional targets the design has to hit"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/03_Requirements.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction to Requirements
+
+Before building a skyscraper, you must ensure the ground is solid, you have the right materials, and you have enough money to pay the construction workers. 
+
+In Platform Engineering, we call these **Requirements**. You cannot build this Cloud-Native DevOps Platform unless your local laptop, your cloud account, and your personal knowledge base meet certain prerequisites.
+
+---
+
+## Level 1 — Beginner
+
+### What are Requirements?
+Imagine you buy a highly advanced video game. You try to play it on an old 10-year-old laptop, and the laptop crashes. The video game has *System Requirements* (it needs a powerful graphics card).
+
+Our DevOps platform is exactly the same. 
+- You need specific software installed on your laptop (like Terraform and Ansible).
+- You need a specific cloud account (AWS).
+- You need a specific amount of money (because AWS charges you for renting their computers).
+
+### ASCII Diagram: The Toolkit
+
+```text
+[ Your Laptop ]
+    |-- Terraform (Builds the hardware)
+    |-- Ansible   (Installs the software)
+    |-- AWS CLI   (The keys to your cloud account)
+    |-- Git       (To download this repository)
+```
+
+---
+
+## Level 2 — Intermediate
+
+### Software Requirements
+To deploy this project, your local workstation (or a dedicated jump-server) must have the following tools installed and added to your system `$PATH`:
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| **AWS CLI** | `v2.x` | Authenticates your terminal session with Amazon Web Services. |
+| **Terraform** | `>= 1.5.0` | Parses our `.tf` files and provisions the AWS infrastructure. |
+| **Ansible** | `>= 2.15` | Runs the `site.yml` playbook over SSH to configure the raw EC2 instances. |
+| **kubectl** | `>= 1.28` | The command-line tool for talking to the Kubernetes API server once it's built. |
+| **Git** | `>= 2.0` | For cloning the repository and managing ArgoCD GitOps configurations. |
+
+### Environmental Requirements (AWS Account)
+1. **AWS Account:** You must have administrative access to an AWS account.
+2. **Access Keys:** You must generate an `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in IAM and configure them locally using `aws configure`.
+3. **Region:** The project defaults to `us-east-1` (N. Virginia), but this can be overridden in the Terraform variables.
+4. **SSH Key Pair:** You must generate a key pair in AWS EC2 so Ansible can securely log into the servers.
+
+### Financial Requirements (Cost Warning)
+> [!WARNING]
+> This platform provisions **Production-Grade Infrastructure** including multiple EC2 instances (`t3.large`, `t3.xlarge`), multiple NAT Gateways, an Application Load Balancer, and an RDS instance. 
+> **THIS IS NOT COVERED BY THE AWS FREE TIER.** 
+> Running this platform 24/7 will cost approximately $300 - $500 per month depending on the worker node count. You must destroy the infrastructure (`terraform destroy`) when you are done learning.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Toolchain
+
+Why did we choose these specific tools? What are the alternatives?
+
+1. **Terraform vs. AWS CloudFormation:**
+   - *Alternative:* AWS CloudFormation is native to AWS and doesn't require state file management.
+   - *Decision:* We chose Terraform because it is Cloud-Agnostic. The HCL (HashiCorp Configuration Language) syntax is the industry standard. If we ever want to move this platform to Google Cloud (GCP) or Azure, Terraform allows us to do so. CloudFormation locks us into AWS.
+
+2. **Ansible vs. Chef/Puppet:**
+   - *Alternative:* Chef and Puppet require you to install an "Agent" (a background program) on every single server you want to configure.
+   - *Decision:* We chose Ansible because it is **Agentless**. It uses standard SSH. You don't need to pre-install anything on the AWS servers; as long as the server has Python and an SSH port open, Ansible can configure it.
+
+### Verifying Requirements via Scripts (Real Code)
+
+In a real enterprise, we don't trust humans to read the requirements document. We write a bash script to verify it. 
+While not explicitly in the root of this repo, a standard `verify-prereqs.sh` looks like this:
+
+```bash
+#!/bin/bash
+# Exit immediately if a command exits with a non-zero status
+set -e
+
+echo "Verifying Platform Requirements..."
+
+command -v terraform >/dev/null 2>&1 || { echo >&2 "Terraform is required but not installed. Aborting."; exit 1; }
+command -v ansible >/dev/null 2>&1 || { echo >&2 "Ansible is required but not installed. Aborting."; exit 1; }
+command -v aws >/dev/null 2>&1 || { echo >&2 "AWS CLI is required but not installed. Aborting."; exit 1; }
+
+echo "All required tools are installed! ✅"
+```
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Requirements: The CI/CD Runner
+In a Fortune 500 company, an engineer *never* runs `terraform apply` from their local laptop. 
+Why?
+1. **Security:** If the engineer's laptop is stolen, the thief has the AWS Access Keys and can destroy the company.
+2. **Auditability:** If someone deletes the production database, we need to know exactly who did it and when.
+
+Therefore, the actual "Requirement" for deploying infrastructure in the enterprise is a **Dedicated CI/CD Runner** (like a Jenkins Agent, GitLab Runner, or Atlantis).
+- The engineer commits the Terraform code to GitHub.
+- The CI/CD runner (which lives securely inside the AWS VPC) detects the commit.
+- The CI/CD runner assumes an IAM Role (no static passwords required).
+- The CI/CD runner executes `terraform apply`.
+
+### Compliance Controls
+To meet SOC2 compliance, your environment must enforce:
+- **MFA (Multi-Factor Authentication):** AWS console access must require a hardware token or authenticator app.
+- **Least Privilege IAM:** The CI/CD runner is not given "AdministratorAccess". It is only given permission to create the exact resources defined in the Terraform code.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What is the AWS CLI and why do we need it?**
+A: The AWS Command Line Interface allows you to type commands into your terminal to control AWS, instead of clicking around the website. Tools like Terraform use these credentials in the background to automatically build servers.
+
+### Intermediate
+**Q: You get a "Permission Denied (publickey)" error when Ansible tries to run. What is the requirement you missed?**
+A: You missed the SSH Key requirement. Ansible is trying to log into the AWS EC2 instance, but it doesn't have the correct private SSH key (`.pem` file) that corresponds to the public key injected into the server by AWS.
+
+### Senior
+**Q: Why do we enforce specific versions of Terraform and Ansible in our requirements? What happens if an engineer uses Terraform 1.6 and another uses 1.4?**
+A: This causes State File corruption. If an engineer uses Terraform 1.6, the remote `terraform.tfstate` file is upgraded to the 1.6 format. When the engineer with 1.4 tries to run a command, Terraform will throw an error and refuse to run, because older versions cannot parse newer state file formats. Version locking is critical.
+
+### Principal/Architect
+**Q: How do you architect a secure mechanism for a CI/CD pipeline to provision AWS infrastructure without using static long-lived IAM Access Keys?**
+A: You use OIDC (OpenID Connect). The CI/CD provider (e.g., GitHub Actions) acts as an Identity Provider. AWS IAM is configured to trust the GitHub OIDC provider for a specific repository. When a workflow runs, it requests a short-lived JSON Web Token (JWT) from GitHub, presents it to AWS STS (Security Token Service), and receives temporary, short-lived session credentials. This eliminates the risk of static keys leaking in source code.
+[Contents](/learn) | [04 — Repository Structure](/learn/platform/repository-structure) |
