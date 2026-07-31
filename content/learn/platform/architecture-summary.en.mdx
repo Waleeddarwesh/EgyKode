@@ -1,0 +1,83 @@
+---
+contentId: architecture-summary
+title: "Project Architecture Summary (For Recruiters)"
+titleAr: "ملخّص المعمارية"
+description: "Summarise the whole platform in 60 seconds"
+descriptionAr: "النظام كاملًا في صفحة واحدة — لمن يقرأ سيرتك الذاتية."
+domain: platform
+level: all
+type: concept
+phase: reference
+order: 45
+readingTime: 20
+prerequisites: []
+relatedChapters: ["start-here", "project-overview", "system-architecture", "requirements"]
+objectives:
+  - "Summarise the whole platform in 60 seconds"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/45_Project_Architecture_Summary.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Introduction
+
+If you are a Recruiter, a Hiring Manager, or a Senior Engineer looking at this GitHub repository, this document serves as the **Executive Summary** of the platform architecture.
+
+This project is not a tutorial. It is a fully functional, production-grade Cloud-Native DevOps Platform built from scratch using Enterprise best practices.
+
+---
+
+## High-Level Architecture Overview
+
+This platform is divided into four strictly segregated operational layers:
+
+### 1. The Infrastructure Layer (AWS + Terraform)
+We do not use AWS "ClickOps". The entire AWS footprint is provisioned immutably using **Terraform**.
+- **Networking:** A custom AWS Virtual Private Cloud (VPC) spanning 3 Availability Zones. It utilizes Public Subnets for Edge routing (ALB/NAT) and strictly isolated Private Subnets for Compute (EC2) and Data (RDS).
+- **Compute:** Auto Scaling Groups (ASGs) using custom Ubuntu AMIs. The ASGs are dynamically provisioned across the private subnets. Bootstrapping is handled via `cloud-init` userdata scripts to ensure immutable infrastructure.
+- **Data:** Amazon RDS (Relational Database Service) deployed in Multi-AZ mode for synchronous replication and zero-data-loss failover. 
+- **Security:** Strict IAM Roles (IRSA ready) and Security Groups implementing default-deny architectures.
+
+### 2. The Configuration Management Layer (Ansible)
+We do not manually SSH into servers. We use **Ansible** to transform raw EC2 instances into a functional Kubernetes cluster.
+- **Idempotency:** Custom Ansible playbooks install container runtimes (containerd), configure the Linux kernel (disabling swap, enabling IP forwarding), and execute `kubeadm init` / `kubeadm join` automatically.
+- **Control Plane:** Automates the provisioning of a stacked `etcd` highly-available Kubernetes Control Plane.
+
+### 3. The Continuous Integration Layer (Jenkins / GitHub Actions / ECR)
+We implement automated, secure software supply chains.
+- **Pipeline-as-Code:** Declarative CI pipelines trigger on Git push.
+- **Build Isolation:** Builds execute inside ephemeral Kubernetes Pods, ensuring clean, predictable compilation without bloating a central master server.
+- **DevSecOps:** Docker images are continuously scanned for CVE vulnerabilities using Trivy. Vulnerable builds are actively blocked from reaching the registry.
+- **Registry:** Successfully built images are pushed to Amazon ECR using short-lived IAM credentials, tagged immutably with their Git commit SHA.
+
+### 4. The Continuous Delivery Layer (GitOps / ArgoCD)
+We enforce the absolute GitOps philosophy. Humans do not deploy code.
+- **ArgoCD:** The deployment engine running inside the cluster. It polls the Git repository for changes.
+- **The App-of-Apps Pattern:** A root ArgoCD Application manages all child applications, allowing developers to provision new microservices simply by opening a Pull Request with a new YAML file.
+- **Self-Healing:** ArgoCD aggressively overwrites configuration drift. Any manual `kubectl` alterations are instantly reversed to match the Git Source of Truth.
+- **Package Management:** Heavy reliance on **Helm** charts for complex deployments (Prometheus, Ingress), rendering the templates securely via ArgoCD.
+
+---
+
+## Security & Observability
+
+### Zero-Trust Networking (Calico)
+The cluster utilizes the Calico CNI to enforce strict Network Policies. Every namespace defaults to a Deny-All posture. Egress and Ingress are explicitly whitelisted, preventing lateral movement during a potential breach.
+
+### Secrets Management (External Secrets Operator)
+Zero static passwords exist in the GitHub repository or the cluster YAML. 
+The External Secrets Operator (ESO) integrates directly with AWS Secrets Manager. It pulls encrypted RDS passwords and injects them dynamically into native Kubernetes Secrets in memory, allowing for automated password rotation without redeployment.
+
+### The Observability Stack (Prometheus + Grafana + Loki)
+- **Metrics:** The Prometheus Operator dynamically manages `ServiceMonitors`, utilizing a Pull architecture to scrape time-series metrics from every node and pod.
+- **Logs:** Promtail DaemonSets scrape `stdout` logs across the cluster and ship them to Grafana Loki. Loki minimizes compute costs by exclusively indexing metadata labels, storing compressed log chunks in cheap object storage.
+- **Dashboards:** Dashboards-as-Code. JSON definitions are injected into Grafana via Kubernetes ConfigMaps, ensuring the visualization layer is as immutable as the infrastructure.
+
+---
+
+## Conclusion
+
+This repository demonstrates the ability to architect, provision, secure, and monitor a distributed microservice ecosystem. It bridges the gap between traditional IT infrastructure and modern, elastic, cloud-native software delivery.
+[Contents](/learn) | [46 — Conclusion](/learn/platform/conclusion) |
