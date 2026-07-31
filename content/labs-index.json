@@ -1,0 +1,192 @@
+[
+  {
+    "labId": "lab-01-aws-vpc-subnets-gateways-route-tables",
+    "title": "AWS VPC, Subnets, Gateways & Route Tables",
+    "domain": "terraform",
+    "phase": "iac",
+    "level": "intermediate",
+    "order": 1,
+    "estimatedMinutes": 47,
+    "criteria": 5
+  },
+  {
+    "labId": "lab-02-iam-roles-irsa-policies-security-groups",
+    "title": "IAM Roles, IRSA Policies & Security Groups",
+    "domain": "terraform",
+    "phase": "iac",
+    "level": "intermediate",
+    "order": 2,
+    "estimatedMinutes": 23,
+    "criteria": 2
+  },
+  {
+    "labId": "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
+    "title": "Amazon ECR Container Registry & S3 Storage Buckets",
+    "domain": "terraform",
+    "phase": "iac",
+    "level": "intermediate",
+    "order": 3,
+    "estimatedMinutes": 23,
+    "criteria": 1
+  },
+  {
+    "labId": "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
+    "title": "Amazon RDS PostgreSQL & AWS Secrets Manager Integration",
+    "domain": "terraform",
+    "phase": "iac",
+    "level": "intermediate",
+    "order": 4,
+    "estimatedMinutes": 31,
+    "criteria": 4
+  },
+  {
+    "labId": "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+    "title": "Amazon EKS Cluster & Managed Node Group Provisioning",
+    "domain": "terraform",
+    "phase": "iac",
+    "level": "intermediate",
+    "order": 5,
+    "estimatedMinutes": 31,
+    "criteria": 3
+  },
+  {
+    "labId": "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
+    "title": "Jenkins EC2 Instance, S3 Backend & AWS Backup Vault",
+    "domain": "terraform",
+    "phase": "iac",
+    "level": "intermediate",
+    "order": 6,
+    "estimatedMinutes": 23,
+    "criteria": 3
+  },
+  {
+    "labId": "lab-07-ansible-architecture-configuration-automated-inventory",
+    "title": "Ansible Architecture, Configuration & Automated Inventory",
+    "domain": "ansible",
+    "phase": "iac",
+    "level": "intermediate",
+    "order": 7,
+    "estimatedMinutes": 39,
+    "criteria": 3
+  },
+  {
+    "labId": "lab-08-automated-jenkins-server-toolchain-provisioning",
+    "title": "Automated Jenkins Server & Toolchain Provisioning",
+    "domain": "ansible",
+    "phase": "iac",
+    "level": "intermediate",
+    "order": 8,
+    "estimatedMinutes": 31,
+    "criteria": 3
+  },
+  {
+    "labId": "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn",
+    "title": "Production-Grade Multi-Stage Dockerfile for Django & Gunicorn",
+    "domain": "docker",
+    "phase": "build-and-containers",
+    "level": "beginner",
+    "order": 9,
+    "estimatedMinutes": 31,
+    "criteria": 4
+  },
+  {
+    "labId": "lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack",
+    "title": "Nginx Reverse Proxy & Multi-Container Docker Compose Stack",
+    "domain": "docker",
+    "phase": "build-and-containers",
+    "level": "beginner",
+    "order": 10,
+    "estimatedMinutes": 39,
+    "criteria": 4
+  },
+  {
+    "labId": "lab-11-core-kubernetes-workloads-configmaps-secrets",
+    "title": "Core Kubernetes Workloads, ConfigMaps & Secrets",
+    "domain": "kubernetes",
+    "phase": "kubernetes",
+    "level": "intermediate",
+    "order": 11,
+    "estimatedMinutes": 31,
+    "criteria": 4
+  },
+  {
+    "labId": "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+    "title": "Application Routing with K8s Ingress & AWS Load Balancer Controller",
+    "domain": "kubernetes",
+    "phase": "kubernetes",
+    "level": "intermediate",
+    "order": 12,
+    "estimatedMinutes": 23,
+    "criteria": 3
+  },
+  {
+    "labId": "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+    "title": "Kubernetes Security Hardening (NetworkPolicies) & HPA",
+    "domain": "kubernetes",
+    "phase": "kubernetes",
+    "level": "intermediate",
+    "order": 13,
+    "estimatedMinutes": 47,
+    "criteria": 4
+  },
+  {
+    "labId": "lab-14-creating-a-custom-helm-chart-for-django-microservices",
+    "title": "Creating a Custom Helm Chart for Django Microservices",
+    "domain": "helm",
+    "phase": "kubernetes",
+    "level": "intermediate",
+    "order": 14,
+    "estimatedMinutes": 47,
+    "criteria": 4
+  },
+  {
+    "labId": "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
+    "title": "Managing EKS Cluster Add-ons with Helm & IRSA",
+    "domain": "helm",
+    "phase": "kubernetes",
+    "level": "intermediate",
+    "order": 15,
+    "estimatedMinutes": 39,
+    "criteria": 3
+  },
+  {
+    "labId": "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
+    "title": "Enterprise Multibranch CI/CD Pipeline with SonarQube & Trivy",
+    "domain": "jenkins",
+    "phase": "cicd",
+    "level": "advanced",
+    "order": 16,
+    "estimatedMinutes": 31,
+    "criteria": 4
+  },
+  {
+    "labId": "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
+    "title": "Deploying Kube-Prometheus-Stack on AWS EKS",
+    "domain": "prometheus",
+    "phase": "observability",
+    "level": "advanced",
+    "order": 17,
+    "estimatedMinutes": 31,
+    "criteria": 3
+  },
+  {
+    "labId": "lab-18-custom-prometheus-alert-rules-grafana-dashboards",
+    "title": "Custom Prometheus Alert Rules & Grafana Dashboards",
+    "domain": "prometheus",
+    "phase": "observability",
+    "level": "advanced",
+    "order": 18,
+    "estimatedMinutes": 23,
+    "criteria": 1
+  },
+  {
+    "labId": "lab-19-full-platform-operations-security-troubleshooting-guide",
+    "title": "Full Platform Operations, Security & Troubleshooting Guide",
+    "domain": "sre",
+    "phase": "production",
+    "level": "advanced",
+    "order": 19,
+    "estimatedMinutes": 20,
+    "criteria": 0
+  }
+]
