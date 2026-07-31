@@ -1,0 +1,157 @@
+{
+  "id": "cloud-devops-engineer",
+  "title": "Cloud DevOps Engineer",
+  "titleAr": "مهندس Cloud DevOps",
+  "description": "Breadth plus a production platform: from a Linux shell to a system you deploy and operate yourself.",
+  "descriptionAr": "اتساع المعرفة مع منصة إنتاج: من سطر أوامر Linux إلى نظام تنشره وتشغّله بنفسك.",
+  "phases": [
+    {
+      "id": "orientation",
+      "number": "00",
+      "title": "Orientation",
+      "titleAr": "البداية",
+      "chapters": [
+        "start-here",
+        "project-overview",
+        "system-architecture",
+        "requirements",
+        "repository-structure"
+      ]
+    },
+    {
+      "id": "foundations",
+      "number": "01",
+      "title": "Foundations",
+      "titleAr": "الأساسيات",
+      "chapters": [
+        "linux-foundations",
+        "networking-fundamentals",
+        "git-and-github"
+      ]
+    },
+    {
+      "id": "build-and-containers",
+      "number": "02",
+      "title": "Build & Containers",
+      "titleAr": "البناء والحاويات",
+      "chapters": [
+        "build-tools",
+        "docker"
+      ]
+    },
+    {
+      "id": "cloud",
+      "number": "03",
+      "title": "Cloud (AWS)",
+      "titleAr": "السحابة",
+      "chapters": [
+        "aws-overview",
+        "vpc",
+        "iam",
+        "rds",
+        "load-balancers",
+        "auto-scaling",
+        "secrets-manager",
+        "ecr",
+        "serverless"
+      ]
+    },
+    {
+      "id": "iac",
+      "number": "04",
+      "title": "Infrastructure as Code",
+      "titleAr": "البنية ككود",
+      "chapters": [
+        "terraform",
+        "ansible"
+      ]
+    },
+    {
+      "id": "kubernetes",
+      "number": "05",
+      "title": "Kubernetes",
+      "titleAr": "كوبرنيتس",
+      "chapters": [
+        "kubernetes",
+        "kubeadm",
+        "helm",
+        "kustomize",
+        "service-mesh"
+      ]
+    },
+    {
+      "id": "cicd",
+      "number": "06",
+      "title": "CI/CD",
+      "titleAr": "التكامل والتسليم المستمر",
+      "chapters": [
+        "jenkins",
+        "github-actions",
+        "nexus-and-artifacts"
+      ]
+    },
+    {
+      "id": "gitops",
+      "number": "07",
+      "title": "GitOps",
+      "titleAr": "جيت أوبس",
+      "chapters": [
+        "gitops",
+        "argocd"
+      ]
+    },
+    {
+      "id": "observability",
+      "number": "08",
+      "title": "Observability",
+      "titleAr": "المراقبة",
+      "chapters": [
+        "observability",
+        "prometheus",
+        "grafana",
+        "logging"
+      ]
+    },
+    {
+      "id": "security",
+      "number": "09",
+      "title": "Cloud Native Security",
+      "titleAr": "أمان Cloud Native",
+      "chapters": [
+        "container-security",
+        "network-policies"
+      ]
+    },
+    {
+      "id": "production",
+      "number": "10",
+      "title": "Production & SRE",
+      "titleAr": "الإنتاج",
+      "chapters": [
+        "chaos-engineering",
+        "cost-optimization",
+        "platform-engineering",
+        "disaster-recovery"
+      ]
+    }
+  ],
+  "reference": [
+    "hands-on-labs",
+    "troubleshooting",
+    "glossary",
+    "interview-prep",
+    "architecture-summary",
+    "conclusion"
+  ],
+  "productionProject": {
+    "id": "cloud-native-devops-platform",
+    "title": "Cloud Native DevOps Platform",
+    "titleAr": "منصة Cloud Native DevOps",
+    "summary": "A self-managed kubeadm cluster on AWS, provisioned with Terraform, configured with Ansible, delivered by Jenkins and Argo CD, and observed with Prometheus and Grafana.",
+    "repo": "Cloud-Native-DevOps-Platform"
+  },
+  "contentGaps": [
+    "Multi-control-plane HA: control-plane endpoint, etcd quorum and failure modes",
+    "Gateway API as the successor to Ingress, taught as a full progression"
+  ]
+}
