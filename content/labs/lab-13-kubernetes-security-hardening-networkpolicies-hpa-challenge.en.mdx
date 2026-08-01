@@ -1,0 +1,37 @@
+---
+labId: lab-13-kubernetes-security-hardening-networkpolicies-hpa-challenge
+title: "Kubernetes Security Hardening (NetworkPolicies) & HPA"
+description: "Do it without the walkthrough."
+domain: kubernetes
+level: intermediate
+type: lab
+phase: kubernetes
+order: 13
+tier: challenge
+estimatedMinutes: 23
+cloudCost: true
+successCriteria:
+  - "Implement zero-trust network isolation using Kubernetes NetworkPolicy (networkpolicy.yaml)."
+  - "Enforce strict default-deny rules while selectively allowing ingress traffic on Port 8000 and egress database connections on Port 5432."
+  - "Configure HorizontalPodAutoscaler (horizontalpodautoscaler.yaml) to automatically scale pod replicas between 2 and 6 when CPU or Memory utilization exceeds 80%."
+  - "Perform a simulated load test to verify real-time HPA pod scaling."
+guidedLabId: lab-13-kubernetes-security-hardening-networkpolicies-hpa
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## The goal
+
+Build **Kubernetes Security Hardening (NetworkPolicies) & HPA** yourself, starting from an empty directory, without following the guided steps.
+
+Everything you need is in the criteria above. Work down them one at a time, and verify each before moving to the next.
+
+## Rules
+
+- Do not open the guided lab until you have genuinely tried.
+- When something fails, read the error before you search. The error message is the lesson.
+- Tear down anything billable as soon as you finish.
+
+## If you get stuck
+
+The guided lab is one click away at the bottom of this page. Using it is not failure — coming back and repeating the challenge afterwards is the point.
