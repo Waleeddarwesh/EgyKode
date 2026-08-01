@@ -1,0 +1,76 @@
+---
+labId: lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn
+title: "Production-Grade Multi-Stage Dockerfile for Django & Gunicorn"
+description: "Write a production multi-stage Dockerfile (python:3.13-slim)."
+domain: docker
+level: beginner
+type: lab
+phase: build-and-containers
+order: 9
+tier: guided
+estimatedMinutes: 31
+cloudCost: false
+successCriteria:
+  - "Write a production multi-stage Dockerfile (python:3.13-slim)."
+  - "Configure entrypoint.sh wait loop for PostgreSQL database readiness (nc -z $DB_HOST $DB_PORT)."
+  - "Automate Django migrations (python manage.py migrate) and static collection (collectstatic)."
+  - "Build, optimize, and test container execution locally."
+challengeId: lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn-challenge
+sourceFile: "NTI Final Project/03-Containerization-Docker/Lab09-Django-MultiStage-Dockerfile/README.md"
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## What you are building
+
+### What is a Multi-Stage Docker Build?
+A **Multi-Stage Docker Build** leverages multiple `FROM` instructions within a single `Dockerfile`. It separates the heavy build-time compilation environment from the minimal runtime execution environment.
+
+1. **Stage 1 (`builder`)**: Installs compilers (`gcc`, `build-essential`), C-header libraries (`libpq-dev`), and compiles Python wheel packages into a temporary directory.
+2. **Stage 2 (`runtime`)**: Starts from a clean, lightweight image (`python:3.13-slim`), copies ONLY the compiled Python binaries from Stage 1, drops root execution privileges, and runs the container as non-root `USER appuser`.
+
+### Why use Multi-Stage builds & Non-Root Execution?
+- **Extreme Size Reduction**: Reduces final image footprint from ~950MB down to ~160MB.
+- **Vulnerability Surface Reduction**: Omitting compilers (`gcc`, `make`) prevents attackers from compiling malicious exploit code inside compromised containers.
+- **Non-Root Security**: Running as `USER appuser` prevents container breakout exploits from obtaining root access to the host kernel.
+
+```text
+  +-------------------------------------+      +-------------------------------------+
+  | STAGE 1: Builder (python:3.13-slim) |      | STAGE 2: Runtime (python:3.13-slim) |
+  | - Installs gcc, make, libpq-dev     |      | - Copies compiled site-packages     |
+  | - Compiles wheel dependencies       | ===> | - Non-root execution (USER appuser) |
+  | - Image Footprint: ~950MB           |      | - Runs entrypoint.sh wait loop      |
+  |                                     |      | - Image Footprint: ~160MB           |
+  +-------------------------------------+      +-------------------------------------+
+```
+
+---
+
+## Steps
+
+### Step 1: Build Docker Image
+```bash
+cd 03-Containerization-Docker/Lab09-Django-MultiStage-Dockerfile
+docker build -t nti-django-app:1.0 .
+```
+
+### Step 2: Inspect Image Footprint & Layers
+```bash
+docker images nti-django-app:1.0
+```
+
+---
+
+## Verify it worked
+
+```bash
+docker images nti-django-app:1.0
+```
+
+**Expected Output:**
+```text
+REPOSITORY       TAG       IMAGE ID       CREATED         SIZE
+nti-django-app   1.0       a1b2c3d4e5f6   2 minutes ago   162MB
+```
+
+---
