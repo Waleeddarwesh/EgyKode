@@ -1,0 +1,92 @@
+---
+labId: lab-08-automated-jenkins-server-toolchain-provisioning
+title: "Automated Jenkins Server & Toolchain Provisioning"
+description: "Structure 8 modular Ansible roles under roles/."
+domain: ansible
+level: intermediate
+type: lab
+phase: iac
+order: 8
+tier: guided
+estimatedMinutes: 31
+cloudCost: true
+successCriteria:
+  - "Structure 8 modular Ansible roles under roles/."
+  - "Execute master playbook playbooks/site.yml to provision full toolchain."
+  - "Verify running daemons and CLI binary versions using validation playbook playbooks/verify.yml."
+challengeId: lab-08-automated-jenkins-server-toolchain-provisioning-challenge
+sourceFile: "NTI Final Project/02-Configuration-Management-Ansible/Lab08-Jenkins-Server-Automation/README.md"
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## What you are building
+
+### What are Ansible Roles and Playbooks?
+An **Ansible Role** is an enterprise structural convention that organizes playbooks into modular, reusable directories containing tasks, handlers, templates, variables, and defaults. Rather than writing one unmaintainable 1,000-line playbook, Ansible Roles break host provisioning into 8 specialized micro-packages:
+
+1. **`java`**: Installs OpenJDK 17 (mandatory runtime for Jenkins LTS 2.555+).
+2. **`git`**: Installs Git CLI version control for automated code checkouts.
+3. **`docker`**: Installs Docker CE Engine, `docker-compose-plugin`, enables systemd daemon, and attaches `jenkins` user to `docker` socket group.
+4. **`jenkins`**: Registers official Jenkins GPG repository key, installs Jenkins LTS daemon, and enables systemd service on Port 8080.
+5. **`awscli`**: Installs AWS CLI v2 binary for Amazon ECR and EKS API interaction.
+6. **`kubectl`**: Installs `kubectl` v1.34 binary matching EKS control plane version.
+7. **`helm`**: Installs Helm 3 binary for Kubernetes application package management.
+8. **`cloudwatch`**: Installs Amazon CloudWatch Unified Agent daemon to stream host metrics and logs to AWS CloudWatch.
+
+```text
+                                ANSIBLE ROLE ORCHESTRATION PIPELINE
+                                
+  +-----------------------------------------------------------------------------------+
+  |                             MAIN PLAYBOOK (playbooks/site.yml)                    |
+  +-----------------------------------------------------------------------------------+
+        |               |             |              |             |            |
+        v               v             v              v             v            v
+  +-----------+   +-----------+ +-----------+  +-----------+ +-----------+ +----------+
+  | OpenJDK 17|   | Git CLI   | | Docker CE |  |  Jenkins  | |  AWS CLI  | |  kubectl |
+  | Role      |   | Role      | | Daemon    |  |  LTS Role | |  v2 Role  | |  v1.34   |
+  +-----------+   +-----------+ +-----------+  +-----------+ +-----------+ +----------+
+```
+
+---
+
+## Steps
+
+### Step 1: Execute Toolchain Installation Playbook
+```bash
+cd 02-Configuration-Management-Ansible/Lab08-Jenkins-Server-Automation
+ansible-playbook -i ../Lab07-Ansible-Inventory-Setup/inventory/hosts.ini playbooks/site.yml
+```
+
+### Step 2: Execute Post-Installation Verification Playbook
+```bash
+ansible-playbook -i ../Lab07-Ansible-Inventory-Setup/inventory/hosts.ini playbooks/verify.yml
+```
+
+---
+
+## Verify it worked
+
+```bash
+ansible-playbook -i ../Lab07-Ansible-Inventory-Setup/inventory/hosts.ini playbooks/verify.yml
+```
+
+**Expected Output:**
+```yaml
+PLAY [Verify Toolchain Installations] ******************************************
+
+TASK [verify : Check Docker Version] *******************************************
+ok: [jenkins_host] => {
+    "msg": "Docker version 26.1.3, build b72abbf installed successfully"
+}
+
+TASK [verify : Check Jenkins Daemon Status] ************************************
+ok: [jenkins_host] => {
+    "msg": "Jenkins service is active (running) on port 8080"
+}
+
+PLAY RECAP *********************************************************************
+jenkins_host               : ok=8    changed=0    unreachable=0    failed=0
+```
+
+---
