@@ -1,0 +1,83 @@
+---
+labId: lab-02-iam-roles-irsa-policies-security-groups
+title: "IAM Roles, IRSA Policies & Security Groups"
+description: "Create least-privilege IAM Roles for EKS Cluster, EKS Node Group, and Jenkins EC2."
+domain: terraform
+level: intermediate
+type: lab
+phase: iac
+order: 2
+tier: guided
+estimatedMinutes: 23
+cloudCost: true
+successCriteria:
+  - "Create least-privilege IAM Roles for EKS Cluster, EKS Node Group, and Jenkins EC2."
+  - "Configure Security Group chaining: ALB \u2794 EKS Worker Nodes \u2794 RDS PostgreSQL."
+challengeId: lab-02-iam-roles-irsa-policies-security-groups-challenge
+sourceFile: "NTI Final Project/01-Infrastructure-Terraform/Lab02-IAM-Security-Groups/README.md"
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## What you are building
+
+### What are IAM Roles & Security Groups?
+- **AWS IAM Roles**: Identity permissions granting temporary security credentials to AWS services (such as EKS Worker Nodes or EC2 instances) without embedding static credentials.
+- **IRSA (IAM Roles for Service Accounts)**: OIDC integration allowing individual Kubernetes pods to assume specific IAM roles.
+- **Security Groups**: Stateful virtual firewalls controlling inbound and outbound traffic at the instance/ENI level.
+
+```text
+                                SECURITY GROUP CHAINING TOPOLOGY
+                                
+  [ Internet Traffic ]
+           |
+           | HTTP / Port 80
+           v
+  +-----------------------------------------------------------------------------------+
+  |  ALB SECURITY GROUP (sg-alb)                                                      |
+  |  - Ingress: 0.0.0.0/0 on Port 80 / 443                                            |
+  +----------------------------------------+------------------------------------------+
+                                           |
+                                           | Ingress: ALLOW sg-alb on Port 8000
+                                           v
+  +-----------------------------------------------------------------------------------+
+  |  EKS WORKER NODES SECURITY GROUP (sg-eks-nodes)                                   |
+  |  - Ingress: Allow Port 8000 from sg-alb                                           |
+  |  - Ingress: Allow Port 22 from Jenkins SG (sg-jenkins)                            |
+  +----------------------------------------+------------------------------------------+
+                                           |
+                                           | Ingress: ALLOW sg-eks-nodes on Port 5432
+                                           v
+  +-----------------------------------------------------------------------------------+
+  |  RDS DATABASE SECURITY GROUP (sg-rds)                                             |
+  |  - Ingress: Allow Port 5432 ONLY from sg-eks-nodes                                |
+  +-----------------------------------------------------------------------------------+
+```
+
+---
+
+## Steps
+
+### Step 1: Deploy IAM & Security Groups
+```bash
+cd 01-Infrastructure-Terraform/Lab02-IAM-Security-Groups
+terraform init
+terraform apply -auto-approve
+```
+
+---
+
+## Verify it worked
+
+```bash
+terraform output
+```
+
+**Expected Terminal Output:**
+```text
+alb_security_group_id       = "sg-0a1b2c3d4e5f67890"
+eks_nodes_security_group_id = "sg-01111111111111111"
+rds_security_group_id       = "sg-02222222222222222"
+```
+
+---
