@@ -1,0 +1,36 @@
+---
+labId: lab-15-managing-eks-cluster-add-ons-with-helm-irsa-challenge
+title: "Managing EKS Cluster Add-ons with Helm & IRSA"
+description: "Do it without the walkthrough."
+domain: helm
+level: intermediate
+type: lab
+phase: kubernetes
+order: 15
+tier: challenge
+estimatedMinutes: 19
+cloudCost: true
+successCriteria:
+  - "Provision IAM Role for AWS Load Balancer Controller using Terraform IRSA module (irsa/lbc-irsa.tf)."
+  - "Deploy Metrics Server add-on via Helm (releases/metrics-server-values.yaml)."
+  - "Deploy AWS Load Balancer Controller add-on via Helm (releases/aws-load-balancer-controller-values.yaml)."
+guidedLabId: lab-15-managing-eks-cluster-add-ons-with-helm-irsa
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## The goal
+
+Build **Managing EKS Cluster Add-ons with Helm & IRSA** yourself, starting from an empty directory, without following the guided steps.
+
+Everything you need is in the criteria above. Work down them one at a time, and verify each before moving to the next.
+
+## Rules
+
+- Do not open the guided lab until you have genuinely tried.
+- When something fails, read the error before you search. The error message is the lesson.
+- Tear down anything billable as soon as you finish.
+
+## If you get stuck
+
+The guided lab is one click away at the bottom of this page. Using it is not failure — coming back and repeating the challenge afterwards is the point.

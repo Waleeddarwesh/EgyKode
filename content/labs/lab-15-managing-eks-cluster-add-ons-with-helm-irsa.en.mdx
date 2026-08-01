@@ -1,0 +1,92 @@
+---
+labId: lab-15-managing-eks-cluster-add-ons-with-helm-irsa
+title: "Managing EKS Cluster Add-ons with Helm & IRSA"
+description: "Provision IAM Role for AWS Load Balancer Controller using Terraform IRSA module (irsa/lbc-irsa.tf)."
+domain: helm
+level: intermediate
+type: lab
+phase: kubernetes
+order: 15
+tier: guided
+estimatedMinutes: 39
+cloudCost: true
+successCriteria:
+  - "Provision IAM Role for AWS Load Balancer Controller using Terraform IRSA module (irsa/lbc-irsa.tf)."
+  - "Deploy Metrics Server add-on via Helm (releases/metrics-server-values.yaml)."
+  - "Deploy AWS Load Balancer Controller add-on via Helm (releases/aws-load-balancer-controller-values.yaml)."
+challengeId: lab-15-managing-eks-cluster-add-ons-with-helm-irsa-challenge
+sourceFile: "NTI Final Project/05-Helm-Package-Management/Lab15-Helm-Cluster-Addons/README.md"
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## What you are building
+
+### What are EKS Cluster Add-ons and IRSA?
+- **EKS Add-ons**: Core system services running inside the EKS cluster required for infrastructure functionality (such as load balancer automation and pod autoscaling).
+- **IRSA (IAM Roles for Service Accounts)**: IAM Roles for Service Accounts allows Kubernetes pods to securely assume AWS IAM roles using OpenID Connect (OIDC) federation. Pods obtain short-lived AWS credentials automatically without embedding AWS access keys inside container environments.
+
+```text
+                                IRSA OIDC AUTHENTICATION FLOW
+                                
+  +-----------------------------------------------------------------------------------+
+  |  EKS SERVICE ACCOUNT (aws-load-balancer-controller)                               |
+  |  Annotation: eks.amazonaws.com/role-arn = arn:aws:iam::123456789:role/lbc-role     |
+  +----------------------------------------+------------------------------------------+
+                                           |
+                                           | Requests OIDC Token
+                                           v
+  +-----------------------------------------------------------------------------------+
+  |  AWS IAM & OIDC PROVIDER                                                          |
+  |  Validates ServiceAccount Token -> Issues Short-Lived AWS STS Credentials         |
+  +----------------------------------------+------------------------------------------+
+                                           |
+                                           | Authorizes AWS API Calls
+                                           v
+  +-----------------------------------------------------------------------------------+
+  |  AWS EC2 / Elastic Load Balancing API                                             |
+  |  Provisions / Modifies AWS Application Load Balancer                              |
+  +-----------------------------------------------------------------------------------+
+```
+
+---
+
+## Steps
+
+### Step 1: Deploy IRSA IAM Role with Terraform
+```bash
+cd 05-Helm-Package-Management/Lab15-Helm-Cluster-Addons/irsa
+terraform init
+terraform apply -auto-approve
+```
+
+### Step 2: Add Official Helm Repositories
+```bash
+helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+```
+
+### Step 3: Deploy Metrics Server & AWS LBC Add-ons
+```bash
+cd ..
+helm upgrade --install metrics-server metrics-server/metrics-server -n kube-system -f releases/metrics-server-values.yaml
+helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system -f releases/aws-load-balancer-controller-values.yaml
+```
+
+---
+
+## Verify it worked
+
+```bash
+kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
+```
+
+**Expected Output:**
+```text
+NAME                                            READY   STATUS    RESTARTS   AGE
+aws-load-balancer-controller-7b89c6d4f5-x9z8y   1/1     Running   0          2m
+aws-load-balancer-controller-7b89c6d4f5-v1w2u   1/1     Running   0          2m
+```
+
+---
