@@ -1,0 +1,86 @@
+---
+labId: lab-05-amazon-eks-cluster-managed-node-group-provisioning
+title: "Amazon EKS Cluster & Managed Node Group Provisioning"
+description: "Provision Amazon EKS Cluster v1.34 (modules/eks/main.tf)."
+domain: terraform
+level: intermediate
+type: lab
+phase: iac
+order: 5
+tier: guided
+estimatedMinutes: 31
+cloudCost: true
+successCriteria:
+  - "Provision Amazon EKS Cluster v1.34 (modules/eks/main.tf)."
+  - "Deploy EKS Managed Node Group with 2 worker nodes (t3.medium) scaling up to 6."
+  - "Enable AWS IAM OpenID Connect (OIDC) provider for IRSA authentication."
+challengeId: lab-05-amazon-eks-cluster-managed-node-group-provisioning-challenge
+sourceFile: "NTI Final Project/01-Infrastructure-Terraform/Lab05-EKS-Cluster-Provisioning/README.md"
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## What you are building
+
+### What is Amazon EKS?
+**Amazon EKS (Elastic Kubernetes Service)** is a managed Kubernetes service that eliminates the operational burden of deploying and maintaining the Kubernetes Control Plane (API Server, `etcd`, Controller Manager, Scheduler) across multi-AZ availability zones.
+
+- **Managed Node Groups**: AWS handles provisioning, updating, and auto-repairing EC2 instances acting as Kubernetes worker nodes.
+- **OIDC Provider**: Enables IRSA (IAM Roles for Service Accounts) so Kubernetes pods can assume IAM roles natively.
+
+```text
+                                AMAZON EKS CLUSTER ARCHITECTURE
+                                
+  +-----------------------------------------------------------------------------------+
+  |  AWS MANAGED KUBERNETES CONTROL PLANE (Managed by AWS)                            |
+  |  - API Server (kube-apiserver)                                                    |
+  |  - High-Availability etcd Key-Value Store                                         |
+  |  - Controller Manager & Scheduler                                                 |
+  +----------------------------------------+------------------------------------------+
+                                           |
+                                           | Secure Control Plane Communication
+                                           v
+  +-----------------------------------------------------------------------------------+
+  |  PRIVATE SUBNETS (VPC) — EKS MANAGED NODE GROUP                                   |
+  |                                                                                   |
+  |  +-------------------------------+     +---------------------------------+        |
+  |  | Worker Node 1 (us-east-1a)    |     | Worker Node 2 (us-east-1b)      |        |
+  |  | Type: t3.medium               |     | Type: t3.medium                 |        |
+  |  | - Kubelet & Containerd        |     | - Kubelet & Containerd          |        |
+  |  | - AWS VPC CNI Plugin          |     | - AWS VPC CNI Plugin            |        |
+  |  +-------------------------------+     +---------------------------------+        |
+  +-----------------------------------------------------------------------------------+
+```
+
+---
+
+## Steps
+
+### Step 1: Deploy EKS Cluster (~15-20 Minutes Creation Time)
+```bash
+cd 01-Infrastructure-Terraform/Lab05-EKS-Cluster-Provisioning
+terraform init
+terraform apply -auto-approve
+```
+
+### Step 2: Configure Local `kubectl` Context
+```bash
+aws eks update-kubeconfig --name nti-devops-eks --region us-east-1
+```
+
+---
+
+## Verify it worked
+
+```bash
+kubectl get nodes
+```
+
+**Expected Output:**
+```text
+NAME                             STATUS   ROLES    AGE     VERSION
+ip-10-0-10-42.ec2.internal       Ready    <none>   3m20s   v1.34.0
+ip-10-0-11-89.ec2.internal       Ready    <none>   3m18s   v1.34.0
+```
+
+---
