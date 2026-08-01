@@ -1,0 +1,60 @@
+---
+labId: lab-03-amazon-ecr-container-registry-s3-storage-buckets
+title: "Amazon ECR Container Registry & S3 Storage Buckets"
+description: "Amazon ECR Container Registry & S3 Storage Buckets"
+domain: terraform
+level: intermediate
+type: lab
+phase: iac
+order: 3
+tier: guided
+estimatedMinutes: 23
+cloudCost: true
+successCriteria:
+  - "Step 1: Deploy ECR & S3 Infrastructure"
+challengeId: lab-03-amazon-ecr-container-registry-s3-storage-buckets-challenge
+sourceFile: "NTI Final Project/01-Infrastructure-Terraform/Lab03-ECR-S3-Storage/README.md"
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## What you are building
+
+### What are Amazon ECR and S3?
+- **Amazon ECR (Elastic Container Registry)**: A managed AWS Docker container registry with image scanning on push (`scan_on_push = true`) and automated lifecycle policies.
+- **Amazon S3**: Object storage used for ALB access logging and Terraform remote state backends.
+
+---
+
+## Steps
+
+### Step 1: Deploy ECR & S3 Infrastructure
+```bash
+cd 01-Infrastructure-Terraform/Lab03-ECR-S3-Storage
+terraform init
+terraform apply -auto-approve
+```
+
+---
+
+## Verify it worked
+
+```bash
+aws ecr describe-repositories --repository-names nti-devops-ecr
+```
+
+**Expected Output:**
+```json
+{
+    "repositories": [
+        {
+            "repositoryName": "nti-devops-ecr",
+            "imageScanningConfiguration": {
+                "scanOnPush": true
+            }
+        }
+    ]
+}
+```
+
+---
