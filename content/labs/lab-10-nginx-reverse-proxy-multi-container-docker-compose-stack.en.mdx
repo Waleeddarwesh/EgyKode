@@ -1,0 +1,99 @@
+---
+labId: lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack
+title: "Nginx Reverse Proxy & Multi-Container Docker Compose Stack"
+description: "Write Nginx reverse proxy configuration (nginx/nginx.conf) to proxy dynamic requests to Gunicorn and serve static assets directly."
+domain: docker
+level: beginner
+type: lab
+phase: build-and-containers
+order: 10
+tier: guided
+estimatedMinutes: 39
+cloudCost: false
+successCriteria:
+  - "Write Nginx reverse proxy configuration (nginx/nginx.conf) to proxy dynamic requests to Gunicorn and serve static assets directly."
+  - "Define multi-container stack in docker-compose.yml linking Django, PostgreSQL 16, Redis 7, and Nginx."
+  - "Configure persistent Docker named volumes (postgres_data, static_volume) to prevent data loss."
+  - "Launch, test, and verify local stack execution (docker compose up -d --build)."
+challengeId: lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack-challenge
+sourceFile: "NTI Final Project/03-Containerization-Docker/Lab10-Nginx-DockerCompose-Stack/README.md"
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## What you are building
+
+### What is Nginx Reverse Proxy and Docker Compose?
+- **Nginx Reverse Proxy**: An open-source, high-performance HTTP server that sits at the public boundary of your application network. It intercepts incoming client requests, serves static CSS/JS files directly from disk cache, and reverse-proxies dynamic web traffic to backend Gunicorn WSGI application servers.
+- **Docker Compose**: A tool for defining and running multi-container Docker applications using a single declarative YAML file (`docker-compose.yml`). It automates bridge network creation, service dependency ordering (`depends_on`), environment variable injection, and persistent volume management across multiple containers.
+
+```text
+                                DOCKER COMPOSE MULTI-CONTAINER ARCHITECTURE
+                                
+  Client (Browser / Curl)
+         |
+         | HTTP Request (Port 80)
+         v
+  +-----------------------------------------------------------------------------------+
+  |  DOCKER COMPOSE BRIDGE NETWORK (nti_network)                                      |
+  |                                                                                   |
+  |  +--------------------+    Reverse Proxy Pass     +--------------------+          |
+  |  |  Nginx Container   | ========================> |  Django Container  |          |
+  |  |  (nti_nginx_proxy) |    http://app:8000        |  (nti_django_app)  |          |
+  |  |  Port 80:80        |                           |  Gunicorn WSGI     |          |
+  |  +---------+----------+                           +---------+----------+          |
+  |            | Serves Static Files directly                   |                     |
+  |            v                                                |                     |
+  |  +--------------------------------------------------+       |                     |
+  |  |  Shared Named Volume (static_volume)             |       |                     |
+  |  +--------------------------------------------------+       |                     |
+  |                                                             |                     |
+  |                                        +--------------------+------------------+  |
+  |                                        | Encrypted Database | Session Cache    |  |
+  |                                        v Connections        v Connections      |  |
+  |                             +--------------------+     +--------------------+  |  |
+  |                             | PostgreSQL 16 DB   |     | Redis 7 Cache      |  |  |
+  |                             | (nti_postgres_db)  |     | (nti_redis_cache)  |  |  |
+  |                             | Port 5432          |     | Port 6379          |  |  |
+  |                             +--------------------+     +--------------------+  |  |
+  +-----------------------------------------------------------------------------------+
+```
+
+---
+
+## Steps
+
+### Step 1: Launch Local Multi-Container Stack
+```bash
+cd 03-Containerization-Docker/Lab10-Nginx-DockerCompose-Stack
+docker compose up -d --build
+```
+
+### Step 2: Inspect Running Stack Status
+```bash
+docker compose ps
+```
+
+### Step 3: Test Web Proxy Connectivity
+```bash
+curl -I http://localhost
+```
+
+---
+
+## Verify it worked
+
+```bash
+docker compose ps
+```
+
+**Expected Output:**
+```text
+NAME               IMAGE                  COMMAND                  SERVICE   CREATED         STATUS         PORTS
+nti_django_app     lab09-app              "/app/entrypoint.sh …"   app       1 minute ago    Up 1 minute    8000/tcp
+nti_nginx_proxy    nginx:1.27-alpine      "/docker-entrypoint.…"   nginx     1 minute ago    Up 1 minute    0.0.0.0:80->80/tcp
+nti_postgres_db    postgres:16-alpine     "docker-entrypoint.s…"   db        1 minute ago    Up 1 minute    0.0.0.0:5432->5432/tcp
+nti_redis_cache    redis:7-alpine         "docker-entrypoint.s…"   redis     1 minute ago    Up 1 minute    0.0.0.0:6379->6379/tcp
+```
+
+---

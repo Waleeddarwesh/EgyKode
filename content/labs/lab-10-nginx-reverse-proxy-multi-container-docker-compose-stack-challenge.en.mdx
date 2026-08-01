@@ -1,0 +1,37 @@
+---
+labId: lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack-challenge
+title: "Nginx Reverse Proxy & Multi-Container Docker Compose Stack"
+description: "Do it without the walkthrough."
+domain: docker
+level: beginner
+type: lab
+phase: build-and-containers
+order: 10
+tier: challenge
+estimatedMinutes: 19
+cloudCost: false
+successCriteria:
+  - "Write Nginx reverse proxy configuration (nginx/nginx.conf) to proxy dynamic requests to Gunicorn and serve static assets directly."
+  - "Define multi-container stack in docker-compose.yml linking Django, PostgreSQL 16, Redis 7, and Nginx."
+  - "Configure persistent Docker named volumes (postgres_data, static_volume) to prevent data loss."
+  - "Launch, test, and verify local stack execution (docker compose up -d --build)."
+guidedLabId: lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## The goal
+
+Build **Nginx Reverse Proxy & Multi-Container Docker Compose Stack** yourself, starting from an empty directory, without following the guided steps.
+
+Everything you need is in the criteria above. Work down them one at a time, and verify each before moving to the next.
+
+## Rules
+
+- Do not open the guided lab until you have genuinely tried.
+- When something fails, read the error before you search. The error message is the lesson.
+- Tear down anything billable as soon as you finish.
+
+## If you get stuck
+
+The guided lab is one click away at the bottom of this page. Using it is not failure — coming back and repeating the challenge afterwards is the point.
