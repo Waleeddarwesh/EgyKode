@@ -1,0 +1,112 @@
+---
+labId: lab-01-aws-vpc-subnets-gateways-route-tables
+title: "AWS VPC, Subnets, Gateways & Route Tables"
+description: "Write modular Infrastructure as Code (IaC) using Terraform (>= 1.6)."
+domain: terraform
+level: intermediate
+type: lab
+phase: iac
+order: 1
+tier: guided
+estimatedMinutes: 47
+cloudCost: true
+successCriteria:
+  - "Write modular Infrastructure as Code (IaC) using Terraform (>= 1.6)."
+  - "Provision a custom AWS VPC (10.0.0.0/16) across 2 Availability Zones (us-east-1a, us-east-1b)."
+  - "Create 2 Public Subnets (10.0.1.0/24, 10.0.2.0/24) and 2 Private Subnets (10.0.10.0/24, 10.0.11.0/24)."
+  - "Attach an Internet Gateway (aws_internet_gateway), allocate an Elastic IP (aws_eip), and configure a NAT Gateway (aws_nat_gateway)."
+  - "Establish distinct Public and Private Route Tables (aws_route_table) with automatic subnet associations."
+challengeId: lab-01-aws-vpc-subnets-gateways-route-tables-challenge
+sourceFile: "NTI Final Project/01-Infrastructure-Terraform/Lab01-AWS-VPC-Networking/README.md"
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## What you are building
+
+### What is an AWS Virtual Private Cloud (VPC)?
+An **AWS Virtual Private Cloud (VPC)** is a logically isolated virtual network dedicated to your AWS account. It gives you complete control over your virtual networking environment, including selection of your own IP address range, creation of subnets, and configuration of route tables and network gateways.
+
+### Public vs. Private Subnet Topology Architecture
+Production enterprise cloud architecture mandates strict network boundary isolation:
+- **Public Subnets**: Connected directly to an **Internet Gateway (IGW)**. Resources placed here (such as Application Load Balancers or Bastion Hosts) have public IP addresses and can receive inbound internet traffic.
+- **Private Subnets**: Isolated from direct public internet access. Compute workloads (such as EKS Worker Nodes and RDS PostgreSQL databases) reside here. Outbound internet access for software patching or container pulls is routed securely through a **NAT Gateway** located in a Public Subnet.
+
+```text
+                                  AWS REGION (us-east-1)
+                                  
+  +-----------------------------------------------------------------------------------+
+  |  VPC: nti-devops-vpc (CIDR: 10.0.0.0/16)                                          |
+  |                                                                                   |
+  |  +-----------------------------------------------------------------------------+  |
+  |  |  PUBLIC SUBNETS (Connected to Internet Gateway)                            |  |
+  |  |  +-------------------------------+     +---------------------------------+  |  |
+  |  |  | Public Subnet A (us-east-1a)   |     | Public Subnet B (us-east-1b)    |  |  |
+  |  |  | CIDR: 10.0.1.0/24               |     | CIDR: 10.0.2.0/24               |  |  |
+  |  |  | - AWS Application LB (ALB)    |     | - NAT Gateway (Elastic IP)      |  |  |
+  |  |  | - Jenkins EC2 (Public IP)     |     |                                 |  |  |
+  |  |  +---------------+---------------+     +----------------+----------------+  |  |
+  |  +------------------|--------------------------------------|-------------------+  |
+  |                     | Routing                              | Outbound Egress     |
+  |                     v                                      v                     |
+  |  +-----------------------------------------------------------------------------+  |
+  |  |  PRIVATE SUBNETS (No Public IPs — Routed via NAT Gateway)                   |  |
+  |  |  +-------------------------------+     +---------------------------------+  |  |
+  |  |  | Private Subnet A (us-east-1a)  |     | Private Subnet B (us-east-1b)   |  |  |
+  |  |  | CIDR: 10.0.10.0/24              |     | CIDR: 10.0.11.0/24              |  |  |
+  |  |  | - EKS Managed Worker Nodes    |     | - RDS PostgreSQL Database       |  |  |
+  |  |  +-------------------------------+     +---------------------------------+  |  |
+  |  +-----------------------------------------------------------------------------+  |
+  +-----------------------------------------------------------------------------------+
+```
+
+---
+
+## Steps
+
+### Step 1: Initialize Terraform Working Directory
+```bash
+cd 01-Infrastructure-Terraform/Lab01-AWS-VPC-Networking
+terraform init
+```
+*What happens under the hood?* Downloads the AWS Provider plugin (`~> 5.0`) into `.terraform/` and initializes local backend state.
+
+### Step 2: Validate Syntax and Format
+```bash
+terraform fmt -check
+terraform validate
+```
+
+### Step 3: Generate Execution Plan
+```bash
+terraform plan -out=tfplan
+```
+
+### Step 4: Apply Infrastructure Plan
+```bash
+terraform apply tfplan
+```
+
+---
+
+## Verify it worked
+
+```bash
+terraform output
+```
+
+**Expected Terminal Output:**
+```text
+vpc_id              = "vpc-0a1b2c3d4e5f67890"
+public_subnet_ids   = [
+  "subnet-01111111111111111",
+  "subnet-02222222222222222"
+]
+private_subnet_ids  = [
+  "subnet-03333333333333333",
+  "subnet-04444444444444444"
+]
+nat_gateway_ip      = "54.210.100.50"
+```
+
+---
