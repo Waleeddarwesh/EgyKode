@@ -1,0 +1,75 @@
+---
+labId: lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault
+title: "Jenkins EC2 Instance, S3 Backend & AWS Backup Vault"
+description: "Configure S3 remote state backend (backend.tf) with DynamoDB lock table."
+domain: terraform
+level: intermediate
+type: lab
+phase: iac
+order: 6
+tier: guided
+estimatedMinutes: 23
+cloudCost: true
+successCriteria:
+  - "Configure S3 remote state backend (backend.tf) with DynamoDB lock table."
+  - "Provision Jenkins EC2 host (modules/ec2-jenkins/main.tf) with Elastic IP."
+  - "Configure AWS Backup Vault and daily Backup Plan (modules/backup/main.tf)."
+challengeId: lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault-challenge
+sourceFile: "NTI Final Project/01-Infrastructure-Terraform/Lab06-Jenkins-EC2-AWSBackup/README.md"
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## What you are building
+
+### What is the Jenkins Host & AWS Backup Architecture?
+- **Jenkins Host**: Dedicated EC2 host in Public Subnet A running Jenkins LTS, Docker CE, and CI/CD tools. Attached to a persistent Elastic IP (EIP).
+- **AWS Backup Vault**: Fully managed enterprise backup service. Executes automated daily snapshots of the Jenkins EC2 EBS volume at 05:00 UTC with 30-day retention policies.
+- **Remote State Backend**: S3 bucket with DynamoDB state locking to prevent concurrent state corruption during multi-developer terraform runs.
+
+```text
+                                JENKINS EC2 & DISASTER RECOVERY
+                                
+  +-----------------------------------------------------------------------------------+
+  |  PUBLIC SUBNET A (VPC)                                                            |
+  |  - Jenkins EC2 Instance (Elastic IP Attached)                                     |
+  |  - EBS Root Volume (gp3, 30GB Encrypted)                                         |
+  +----------------------------------------+------------------------------------------+
+                                           |
+                                           | Daily Automated Snapshot at 05:00 UTC
+                                           v
+  +-----------------------------------------------------------------------------------+
+  |  AWS BACKUP VAULT (nti-devops-backup-vault)                                       |
+  |  - Rule: Daily Snapshots                                                          |
+  |  - Retention: 30 Days                                                             |
+  |  - Encryption: KMS Key                                                            |
+  +-----------------------------------------------------------------------------------+
+```
+
+---
+
+## Steps
+
+### Step 1: Initialize S3 Remote Backend & Apply Master Infrastructure
+```bash
+cd 01-Infrastructure-Terraform/Lab06-Jenkins-EC2-AWSBackup
+terraform init
+terraform apply -auto-approve
+```
+
+---
+
+## Verify it worked
+
+```bash
+terraform output
+```
+
+**Expected Output:**
+```text
+jenkins_public_ip   = "54.210.142.88"
+eks_cluster_name    = "nti-devops-eks"
+rds_endpoint        = "nti-devops-postgres.c123456789.us-east-1.rds.amazonaws.com"
+```
+
+---
