@@ -1,0 +1,94 @@
+---
+labId: lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy
+title: "Enterprise Multibranch CI/CD Pipeline with SonarQube & Trivy"
+description: "Write declarative Jenkinsfile multibranch pipeline script with 6 automated stages."
+domain: jenkins
+level: advanced
+type: lab
+phase: cicd
+order: 16
+tier: guided
+estimatedMinutes: 31
+cloudCost: true
+successCriteria:
+  - "Write declarative Jenkinsfile multibranch pipeline script with 6 automated stages."
+  - "Integrate SonarQube static code quality analysis and quality gate checks (sonar-project.properties)."
+  - "Integrate Trivy container security scanner (trivy.yaml, .trivyignore) to block images with HIGH or CRITICAL vulnerabilities."
+  - "Automate Amazon ECR login, image tagging, and zero-downtime Helm rolling deployments on EKS."
+challengeId: lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy-challenge
+sourceFile: "NTI Final Project/06-CICD-Jenkins-Pipeline/Lab16-Jenkins-Pipeline-Sonar-Trivy/README.md"
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## What you are building
+
+### What is an Automated Enterprise CI/CD Pipeline?
+Continuous Integration and Continuous Delivery (CI/CD) automates software delivery stages from initial developer code check-in to production deployment on EKS:
+
+1. **Checkout & Unit Testing**: Fetches code from GitHub and runs Pytest unit tests.
+2. **SonarQube Quality Gate**: Executes static code analysis to detect bugs, code smells, and security vulnerabilities. Blocks deployment if quality thresholds fail.
+3. **Docker Multi-Stage Build**: Compiles application image.
+4. **Trivy Vulnerability Scan**: Scans container layers for OS and dependency CVE vulnerabilities. Fails build if `CRITICAL` issues exist.
+5. **Amazon ECR Push**: Tags image with Git SHA and `latest`, pushing artifact to ECR.
+6. **Helm EKS Deployment**: Triggers rolling update on EKS via Helm.
+
+```text
+                                AUTOMATED MULTIBRANCH CI/CD PIPELINE
+                                
+  Developer (git push)
+         |
+         | GitHub Webhook Trigger
+         v
+  +-----------------------------------------------------------------------------------+
+  |  JENKINS MULTIBRANCH PIPELINE (Jenkinsfile)                                       |
+  |                                                                                   |
+  |  [ Stage 1: Checkout Code ]                                                       |
+  |           |                                                                       |
+  |           v                                                                       |
+  |  [ Stage 2: Pytest Unit Tests ]                                                   |
+  |           |                                                                       |
+  |           v                                                                       |
+  |  [ Stage 3: SonarQube Static Analysis & Quality Gate ]                              |
+  |           | (Quality Gate Passed ✅)                                               |
+  |           v                                                                       |
+  |  [ Stage 4: Multi-Stage Docker Build & Trivy CVE Security Scan ]                  |
+  |           | (Zero CRITICAL CVEs ✅)                                                |
+  |           v                                                                       |
+  |  [ Stage 5: Tag & Push Container Image to Amazon ECR ]                            |
+  |           |                                                                       |
+  |           v                                                                       |
+  |  [ Stage 6: Helm Upgrade Rolling Deployment to Amazon EKS ]                       |
+  +-----------------------------------------------------------------------------------+
+```
+
+---
+
+## Steps
+
+### Step 1: Push Code to GitHub Repository
+```bash
+git add .
+git commit -m "feat: trigger enterprise multibranch CI/CD pipeline"
+git push origin main
+```
+
+### Step 2: Verify EKS Deployment Rollout Status
+```bash
+kubectl rollout status deployment/nti-django-app -n nti-devops
+```
+
+---
+
+## Verify it worked
+
+```bash
+kubectl rollout status deployment/nti-django-app -n nti-devops
+```
+
+**Expected Output:**
+```text
+deployment "nti-django-app" successfully rolled out
+```
+
+---
