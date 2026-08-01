@@ -1,0 +1,35 @@
+---
+labId: lab-19-full-platform-operations-security-troubleshooting-guide
+title: "Full Platform Operations, Security & Troubleshooting Guide"
+description: "Full Platform Operations, Security & Troubleshooting Guide"
+domain: sre
+level: advanced
+type: lab
+phase: production
+order: 19
+tier: guided
+estimatedMinutes: 20
+cloudCost: true
+successCriteria:
+  []
+challengeId: lab-19-full-platform-operations-security-troubleshooting-guide-challenge
+sourceFile: "NTI Final Project/08-Documentation-Operations/Lab19-End-To-End-Deployment-Operations/README.md"
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## What you are building
+
+### What is Day-2 Platform Operations?
+**Day-2 Platform Operations** encompasses the ongoing operational lifecycle of software infrastructure following initial deployment: continuous monitoring, incident resolution, cluster maintenance, credential rotation, and disaster recovery.
+
+---
+
+## Verify it worked
+
+Verify all platform namespaces:
+```bash
+kubectl get pods -A
+```
+
+---
