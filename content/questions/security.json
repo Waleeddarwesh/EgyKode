@@ -1,0 +1,82 @@
+[
+  {
+    "id": "container-security-why-shouldn-t-a-docker-container-run-as-root",
+    "question": "Why shouldn't a Docker container run as `root`?",
+    "answer": "If a hacker finds a vulnerability in your application and breaks in, they inherit the permissions of the user running the application. If the user is `root`, the hacker can install malware, alter files, or attempt a container-escape attack to take over the underlying host node.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "security",
+    "chapter": "container-security",
+    "chapterTitle": "DevSecOps (Container Security)"
+  },
+  {
+    "id": "container-security-what-does-the-term-shift-left-mean-in-devsecops",
+    "question": "What does the term \"Shift-Left\" mean in DevSecOps?",
+    "answer": "It refers to moving security checks (like vulnerability scanning and static code analysis) to the earliest possible stages of the software development lifecycle (e.g., local IDEs, Git pre-commit hooks, and CI pipelines), rather than waiting for a QA or Security audit right before production deployment.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "security",
+    "chapter": "container-security",
+    "chapterTitle": "DevSecOps (Container Security)"
+  },
+  {
+    "id": "container-security-a-developer-complains-that-their-application-crashes-on-startup-when-y",
+    "question": "A developer complains that their application crashes on startup when you apply `readOnlyRootFilesystem: true` because the app needs to write temporary cache files to `/tmp`. How do you fix this securely?",
+    "answer": "You do not remove `readOnlyRootFilesystem: true`. Instead, you provide a temporary, isolated writable space specifically for that folder by mounting an `emptyDir` volume backed by memory (tmpfs) to the `/tmp` path in the Pod specification. The rest of the OS remains strictly read-only.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "security",
+    "chapter": "container-security",
+    "chapterTitle": "DevSecOps (Container Security)"
+  },
+  {
+    "id": "container-security-explain-how-ebpf-is-revolutionizing-kubernetes-runtime-security-e-g-us",
+    "question": "Explain how eBPF is revolutionizing Kubernetes runtime security (e.g., using Falco or Tetragon) compared to traditional Sidecar-based security architectures.",
+    "answer": "Traditional sidecar security requires injecting a proxy container into every single Pod. This consumes massive overhead (CPU/RAM per pod) and only has visibility into network traffic or specific application layers; it cannot easily see kernel-level file modifications or process executions.",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "security",
+    "chapter": "container-security",
+    "chapterTitle": "DevSecOps (Container Security)"
+  },
+  {
+    "id": "network-policies-what-is-a-default-deny-network-policy",
+    "question": "What is a \"Default Deny\" network policy?",
+    "answer": "A Default Deny policy is a baseline security rule that explicitly blocks all incoming (Ingress) and outgoing (Egress) traffic for all Pods in a namespace. Once applied, engineers must write explicit \"Allow\" rules to permit necessary traffic.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "security",
+    "chapter": "network-policies",
+    "chapterTitle": "Zero-Trust (Network Policies)"
+  },
+  {
+    "id": "network-policies-why-doesn-t-standard-kubernetes-enforce-network-policies-out-of-the-bo",
+    "question": "Why doesn't standard Kubernetes enforce Network Policies out of the box?",
+    "answer": "Kubernetes is an orchestrator, not a router. It relies on the Container Network Interface (CNI) to handle the actual packet routing. If you install a basic CNI like Flannel (which only does routing), policies are ignored. You must install an advanced CNI like Calico or Cilium, which integrates with the Linux Kernel (iptables/eBPF) to actively drop packets.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "security",
+    "chapter": "network-policies",
+    "chapterTitle": "Zero-Trust (Network Policies)"
+  },
+  {
+    "id": "network-policies-you-applied-a-network-policy-to-block-all-egress-traffic-from-your-pod",
+    "question": "You applied a Network Policy to block all Egress traffic from your Pod. Now, your Pod cannot resolve DNS (e.g., it cannot resolve `database.default.svc.cluster.local`) and the application is crashing. Why, and how do you fix it?",
+    "answer": "When you block all Egress traffic, you also block outbound UDP Port 53 traffic to the Kubernetes `CoreDNS` service. The Pod cannot resolve IP addresses. You must write an explicit Egress rule allowing outbound traffic on Port 53 (UDP/TCP) specifically to the `kube-system` namespace where CoreDNS resides.",
+    "level": "advanced",
+    "kind": "scenario",
+    "domain": "security",
+    "chapter": "network-policies",
+    "chapterTitle": "Zero-Trust (Network Policies)"
+  },
+  {
+    "id": "network-policies-contrast-iptables-based-cnis-like-traditional-calico-with-ebpf-based-c",
+    "question": "Contrast iptables-based CNIs (like traditional Calico) with eBPF-based CNIs (like Cilium) for enforcing Network Policies in a 5,000-node cluster.",
+    "answer": "In a traditional iptables CNI, every Network Policy translates into sequential iptables rules on the Linux node. In a massive cluster, evaluating a packet against 50,000 iptables rules takes a long time, causing severe CPU spikes and network latency (the `iptables` bottleneck).",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "security",
+    "chapter": "network-policies",
+    "chapterTitle": "Zero-Trust (Network Policies)"
+  }
+]

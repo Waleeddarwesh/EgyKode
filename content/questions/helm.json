@@ -1,0 +1,42 @@
+[
+  {
+    "id": "helm-what-is-the-values-yaml-file-used-for",
+    "question": "What is the `values.yaml` file used for?",
+    "answer": "It is the configuration file for a Helm chart. It allows you to customize the application (like changing the password, the number of replicas, or the memory limits) without having to edit the actual underlying YAML templates.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "helm",
+    "chapter": "helm",
+    "chapterTitle": "Package Management (Helm)"
+  },
+  {
+    "id": "helm-what-is-the-difference-between-helm-and-kustomize",
+    "question": "What is the difference between Helm and Kustomize?",
+    "answer": "Helm is a templating engine (it uses `{{ }}` brackets to inject variables into templates). Kustomize is an overlay engine (it takes standard, valid YAML files and mathematically merges new lines into them). Helm is better for sharing generic packages publicly. Kustomize is often better for simple, internal environment variations (dev/prod).",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "helm",
+    "chapter": "helm",
+    "chapterTitle": "Package Management (Helm)"
+  },
+  {
+    "id": "helm-explain-how-helm-template-is-different-from-helm-install-and-why-it-is",
+    "question": "Explain how `helm template` is different from `helm install`, and why it is useful for CI/CD pipelines.",
+    "answer": "`helm install` talks directly to the Kubernetes API and deploys the application. `helm template` renders the Go templates locally on your machine and simply prints the raw YAML to the screen, without connecting to a cluster. In CI/CD, we run `helm template` and pipe the output to a tool like `kubeval` or `polaris` to validate the syntax and security of the generated YAML *before* it is ever deployed.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "helm",
+    "chapter": "helm",
+    "chapterTitle": "Package Management (Helm)"
+  },
+  {
+    "id": "helm-in-an-argocd-gitops-architecture-why-is-it-considered-an-anti-pattern-",
+    "question": "In an ArgoCD GitOps architecture, why is it considered an anti-pattern to use Helm's `lookup` function or lifecycle hooks (like `pre-install` Jobs)?",
+    "answer": "Helm's `lookup` function attempts to query the live Kubernetes API during template rendering to fetch data (like an existing Secret). GitOps tools like ArgoCD render Helm charts purely deterministically, often in a vacuum without live cluster access, causing `lookup` to fail or produce non-deterministic results (Configuration Drift). Similarly, Helm lifecycle hooks rely on the Helm binary orchestrating the deployment order. ArgoCD bypasses the Helm binary, using it only for rendering, and applies the YAML using its own synchronization waves. Therefore, Helm hooks are often ignored or mishandled by GitOps tools, requiring a migration to ArgoCD SyncHooks instead.",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "helm",
+    "chapter": "helm",
+    "chapterTitle": "Package Management (Helm)"
+  }
+]

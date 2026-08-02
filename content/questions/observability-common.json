@@ -1,0 +1,32 @@
+[
+  {
+    "id": "common-what-is-the-difference-between-monitoring-and-observability",
+    "question": "What is the difference between monitoring and observability?",
+    "answer": "Monitoring answers questions you knew to ask — dashboards and thresholds for known failure modes. Observability is whether you can answer *new* questions from the telemetry you already emit, without shipping code. High-cardinality, well-structured data is what makes the difference.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "observability",
+    "chapter": "observability",
+    "chapterTitle": "Introduction to Observability"
+  },
+  {
+    "id": "common-what-should-page-a-human-at-3am",
+    "question": "What should page a human at 3am?",
+    "answer": "Symptoms users are feeling — error rate, latency, an SLO burning fast — not causes like CPU at 90%. The test is whether the recipient can act on it now and whether it matters if they do not. Alerting on causes is the fastest route to a team that ignores its alerts.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "observability",
+    "chapter": "observability",
+    "chapterTitle": "Introduction to Observability"
+  },
+  {
+    "id": "common-why-alert-on-a-ratio-and-a-burn-rate-rather-than-a-raw-count",
+    "question": "Why alert on a ratio and a burn rate rather than a raw count?",
+    "answer": "A count threshold fires on a busy night and stays silent during a quiet outage. A ratio means the same thing at any traffic level, and a burn rate expresses how fast you are consuming the error budget — so a page fires in proportion to how much trouble you are actually in, and a slow leak becomes a ticket rather than a 3am call.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "observability",
+    "chapter": "prometheus",
+    "chapterTitle": "Metrics (Prometheus)"
+  }
+]

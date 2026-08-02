@@ -1,0 +1,42 @@
+[
+  {
+    "id": "grafana-does-grafana-store-data",
+    "question": "Does Grafana store data?",
+    "answer": "No. Grafana is just the UI layer. It relies entirely on backend data sources (like Prometheus or AWS CloudWatch) to store the actual data.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "grafana",
+    "chapter": "grafana",
+    "chapterTitle": "Data Visualization (Grafana)"
+  },
+  {
+    "id": "grafana-how-do-you-prevent-your-grafana-dashboards-from-being-lost-if-the-graf",
+    "question": "How do you prevent your Grafana dashboards from being lost if the Grafana pod is deleted?",
+    "answer": "You practice \"Dashboards as Code\". You export the dashboard as a JSON file, commit it to your Git repository, and deploy it to the cluster via a `ConfigMap`. Grafana reads the ConfigMap on boot.",
+    "level": "intermediate",
+    "kind": "scenario",
+    "domain": "grafana",
+    "chapter": "grafana",
+    "chapterTitle": "Data Visualization (Grafana)"
+  },
+  {
+    "id": "grafana-you-have-a-single-grafana-dashboard-that-displays-metrics-for-all-pods",
+    "question": "You have a single Grafana dashboard that displays metrics for all pods in a Deployment. However, if a pod crashes and is replaced, the line on the graph breaks and a new line starts, creating a messy graph with dozens of broken lines over a 24-hour period. How do you fix the PromQL query in Grafana to show a single, continuous line for the whole application?",
+    "answer": "You are currently graphing by the `pod` label, which is ephemeral (e.g., `pod=\"api-1234\"`). When the pod dies, that specific time series permanently ends. To create a continuous line, you must aggregate away the ephemeral labels using `sum by ()` or `avg by ()`. You modify the query to aggregate by the static `app` label instead: `sum by (app) (rate(container_cpu_usage_seconds_total{app=\"ivolve-api\"}[5m]))`. This combines all the pods into a single logical metric that survives pod churn.",
+    "level": "advanced",
+    "kind": "scenario",
+    "domain": "grafana",
+    "chapter": "grafana",
+    "chapterTitle": "Data Visualization (Grafana)"
+  },
+  {
+    "id": "grafana-your-developers-have-built-50-custom-dashboards-using-a-wide-variety-o",
+    "question": "Your developers have built 50 custom dashboards using a wide variety of PromQL queries. Suddenly, the Prometheus server starts crashing due to high CPU load exclusively when developers log into Grafana. How do you architect a solution to reduce the query load on Prometheus without deleting their dashboards?",
+    "answer": "The developers are likely running highly complex, long-range aggregation queries (e.g., calculating the 99th percentile of 100,000 time series over a 30-day window) directly inside the Grafana panels. Every time they refresh the dashboard, Prometheus has to recalculate the massive equation on the fly.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "grafana",
+    "chapter": "grafana",
+    "chapterTitle": "Data Visualization (Grafana)"
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "networking-fundamentals-what-does-24-mean-in-192-168-1-0-24",
+    "question": "What does `/24` mean in `192.168.1.0/24`?",
+    "answer": "The first 24 bits are the network portion, leaving 8 bits for hosts — 256",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "networking",
+    "chapter": "networking-fundamentals",
+    "chapterTitle": "Networking Fundamentals"
+  },
+  {
+    "id": "networking-fundamentals-how-does-a-server-in-a-private-subnet-download-an-os-update",
+    "question": "How does a server in a private subnet download an OS update?",
+    "answer": "Through a NAT gateway in a public subnet. The private instance's route table",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "networking",
+    "chapter": "networking-fundamentals",
+    "chapterTitle": "Networking Fundamentals"
+  },
+  {
+    "id": "networking-fundamentals-why-must-the-kubernetes-pod-cidr-not-overlap-the-vpc-cidr",
+    "question": "Why must the Kubernetes pod CIDR not overlap the VPC CIDR?",
+    "answer": "They are separate routing domains sharing one kernel routing table. On",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "networking",
+    "chapter": "networking-fundamentals",
+    "chapterTitle": "Networking Fundamentals"
+  },
+  {
+    "id": "networking-fundamentals-how-would-you-design-address-space-for-a-company-expecting-50-vpcs",
+    "question": "How would you design address space for a company expecting 50 VPCs across four regions?",
+    "answer": "Allocate from a single `/8` and delegate downward: a `/12` per",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "networking",
+    "chapter": "networking-fundamentals",
+    "chapterTitle": "Networking Fundamentals"
+  }
+]

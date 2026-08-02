@@ -1,0 +1,42 @@
+[
+  {
+    "id": "cost-optimization-why-should-we-shut-down-the-development-and-staging-clusters-on-the-we",
+    "question": "Why should we shut down the Development and Staging clusters on the weekends?",
+    "answer": "In the cloud, you pay by the second. A weekend is roughly 60 hours. If a Development cluster costs $5 an hour, leaving it running while all the developers are at home sleeping costs the company $300 every single weekend for absolutely no reason.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "cost",
+    "chapter": "cost-optimization",
+    "chapterTitle": "Cloud Economics (FinOps)"
+  },
+  {
+    "id": "cost-optimization-what-is-the-difference-between-a-request-and-a-limit-in-kubernetes",
+    "question": "What is the difference between a `request` and a `limit` in Kubernetes?",
+    "answer": "A `request` is a guaranteed reservation; the scheduler uses it to find a node with enough available capacity to host the pod. A `limit` is a hard boundary enforced by the OS; if the pod exceeds its memory limit, it is OOMKilled. If it exceeds its CPU limit, it is throttled.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "cost",
+    "chapter": "cost-optimization",
+    "chapterTitle": "Cloud Economics (FinOps)"
+  },
+  {
+    "id": "cost-optimization-explain-what-an-orphaned-resource-is-in-aws-and-give-three-common-exam",
+    "question": "Explain what an \"Orphaned Resource\" is in AWS and give three common examples.",
+    "answer": "Orphaned resources are infrastructure components that are no longer actively used by any application but continue to generate hourly billing charges.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "cost",
+    "chapter": "cost-optimization",
+    "chapterTitle": "Cloud Economics (FinOps)"
+  },
+  {
+    "id": "cost-optimization-you-notice-a-sudden-5-000-spike-in-your-aws-bill-attributed-to-nat-gat",
+    "question": "You notice a sudden $5,000 spike in your AWS bill attributed to \"NAT Gateway Data Processing\". Your EKS cluster runs entirely in Private Subnets. How do you architect a solution to eliminate this cost without exposing your nodes to the public internet?",
+    "answer": "The high NAT Gateway cost is almost certainly caused by Pods in the private subnets pulling massive Docker images from ECR, or downloading large files from S3. Because these AWS services live outside the VPC, traffic routes through the NAT Gateway.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "cost",
+    "chapter": "cost-optimization",
+    "chapterTitle": "Cloud Economics (FinOps)"
+  }
+]

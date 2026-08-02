@@ -1,0 +1,32 @@
+[
+  {
+    "id": "common-what-is-the-difference-between-continuous-integration-delivery-and-dep",
+    "question": "What is the difference between continuous integration, delivery and deployment?",
+    "answer": "Integration merges and verifies every change automatically. Delivery keeps every verified change *releasable*, with a human choosing when. Deployment removes that human — every change that passes goes to production. Most teams practise delivery and describe it as deployment.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "jenkins",
+    "chapter": "jenkins",
+    "chapterTitle": "Continuous Integration (Jenkins)"
+  },
+  {
+    "id": "common-what-makes-a-pipeline-stage-an-actual-quality-gate",
+    "question": "What makes a pipeline stage an actual quality gate?",
+    "answer": "It fails the build. A stage that reports findings and exits zero is a notification, not a gate — so scanners run with `--exit-code 1` and analysis waits for its verdict rather than firing and forgetting. Gates should also be scoped to new code, or a legacy codebase makes them unadoptable and they get disabled.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "jenkins",
+    "chapter": "jenkins",
+    "chapterTitle": "Continuous Integration (Jenkins)"
+  },
+  {
+    "id": "common-how-do-you-keep-credentials-out-of-a-pipeline",
+    "question": "How do you keep credentials out of a pipeline?",
+    "answer": "Inject them at run time from a credential store and never write them to disk or the log. Prefer identity over secrets entirely — an IAM role assumed by the runner, or OIDC federation from the CI provider — so there is no long-lived key to rotate or leak.",
+    "level": "intermediate",
+    "kind": "scenario",
+    "domain": "jenkins",
+    "chapter": "jenkins",
+    "chapterTitle": "Continuous Integration (Jenkins)"
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "github-actions-where-do-you-put-the-yaml-files-for-github-actions",
+    "question": "Where do you put the YAML files for GitHub Actions?",
+    "answer": "They must be placed inside the `.github/workflows/` directory at the root of the repository.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "github-actions",
+    "chapter": "github-actions",
+    "chapterTitle": "Modern CI (GitHub Actions)"
+  },
+  {
+    "id": "github-actions-what-is-the-difference-between-a-job-and-a-step-in-github-actions",
+    "question": "What is the difference between a Job and a Step in GitHub Actions?",
+    "answer": "A Job is a collection of Steps that run on a single virtual machine (runner). Multiple Jobs run in parallel by default on separate virtual machines. A Step is a sequential, individual task (like running a shell script or calling a pre-built Action) within that Job.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "github-actions",
+    "chapter": "github-actions",
+    "chapterTitle": "Modern CI (GitHub Actions)"
+  },
+  {
+    "id": "github-actions-explain-how-oidc-openid-connect-works-between-github-actions-and-aws-a",
+    "question": "Explain how OIDC (OpenID Connect) works between GitHub Actions and AWS, and why it is superior to static IAM User keys.",
+    "answer": "With static IAM User keys, you must store long-lived secrets in GitHub. If they leak, your AWS account is compromised. OIDC establishes a trust relationship. GitHub acts as the Identity Provider (IdP). The workflow requests a short-lived JWT from GitHub. AWS IAM verifies the cryptographically signed JWT. If it matches the Trust Policy (e.g., verifying the repo name), AWS STS issues temporary session credentials valid for only 1 hour. There are zero long-lived secrets to rotate or steal.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "github-actions",
+    "chapter": "github-actions",
+    "chapterTitle": "Modern CI (GitHub Actions)"
+  },
+  {
+    "id": "github-actions-if-you-have-an-enterprise-github-organization-and-need-to-enforce-that",
+    "question": "If you have an Enterprise GitHub Organization and need to enforce that every repository executes a specific security scan before deployment, how do you architect this using GitHub Actions natively?",
+    "answer": "You implement **Required Workflows** (a feature of GitHub Enterprise). You define the security scanning workflow in a centralized `.github` repository for the organization. You then configure the Organization's Branch Protection Rules to require that specific workflow to pass before any Pull Request can be merged into `main`. Developers cannot bypass or remove this workflow from their local repositories.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "github-actions",
+    "chapter": "github-actions",
+    "chapterTitle": "Modern CI (GitHub Actions)"
+  }
+]

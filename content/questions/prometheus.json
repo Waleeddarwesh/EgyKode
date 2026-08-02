@@ -1,0 +1,42 @@
+[
+  {
+    "id": "prometheus-what-is-a-time-series-database",
+    "question": "What is a Time-Series Database?",
+    "answer": "A database specifically optimized for handling data indexed by time. Instead of storing complex relationships between tables (like a relational DB), it just stores a timestamp, a metric name, and a value (e.g., `[12:00:00], CPU, 80%`).",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "prometheus",
+    "chapter": "prometheus",
+    "chapterTitle": "Metrics (Prometheus)"
+  },
+  {
+    "id": "prometheus-explain-how-the-prometheus-operator-uses-servicemonitors",
+    "question": "Explain how the Prometheus Operator uses `ServiceMonitors`.",
+    "answer": "The Prometheus Operator automates Prometheus configuration. Instead of manually editing `prometheus.yml`, developers deploy a `ServiceMonitor` Kubernetes object. The Operator watches for these objects, dynamically discovers the associated Kubernetes Services via labels, and instructs Prometheus to begin scraping them without any downtime or manual restarts.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "prometheus",
+    "chapter": "prometheus",
+    "chapterTitle": "Metrics (Prometheus)"
+  },
+  {
+    "id": "prometheus-why-are-rate-and-irate-functions-required-when-dealing-with-counter-me",
+    "question": "Why are `rate()` and `irate()` functions required when dealing with counter metrics in PromQL?",
+    "answer": "A \"Counter\" metric in Prometheus only ever goes up (e.g., total HTTP requests served since the server booted). If you just graph the raw counter, you get a useless diagonal line that goes up forever. `rate()` calculates the per-second average rate of increase of the time series in the specified range. It answers \"How many requests per second are we getting right now?\", which is the actual actionable data you need for a dashboard.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "prometheus",
+    "chapter": "prometheus",
+    "chapterTitle": "Metrics (Prometheus)"
+  },
+  {
+    "id": "prometheus-you-notice-that-your-prometheus-server-is-oomkilled-out-of-memory-mult",
+    "question": "You notice that your Prometheus server is OOMKilled (Out of Memory) multiple times a day. You have 5,000 Pods. Upon investigation, you find \"Cardinality Explosion\" in your custom application metrics. Explain what cardinality explosion is and how you architect a fix at both the code and platform levels.",
+    "answer": "Cardinality Explosion occurs when a metric has too many unique label combinations. For example, if a developer adds a `user_id` label to an HTTP request metric, and you have 1 million users, Prometheus must create and hold 1 million distinct time-series in RAM, instantly causing an OOM.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "prometheus",
+    "chapter": "prometheus",
+    "chapterTitle": "Metrics (Prometheus)"
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "id": "common-what-is-the-terraform-state-file-and-why-does-it-matter",
+    "question": "What is the Terraform state file and why does it matter?",
+    "answer": "It maps your configuration to real resource IDs — Terraform's memory of what it created. Without it Terraform cannot tell an existing resource from one to create. It belongs in an encrypted remote backend with locking, never in Git: it frequently contains secrets in plain text.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "terraform",
+    "chapter": "terraform",
+    "chapterTitle": "Infrastructure as Code (Terraform)"
+  },
+  {
+    "id": "common-how-do-you-stop-two-engineers-corrupting-state-at-the-same-time",
+    "question": "How do you stop two engineers corrupting state at the same time?",
+    "answer": "State locking. With an S3 backend, a DynamoDB table holds the lock: whoever starts first acquires it and the second run fails with a clear message rather than writing concurrently. Locking is the reason a shared backend is safe to use.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "terraform",
+    "chapter": "terraform",
+    "chapterTitle": "Infrastructure as Code (Terraform)"
+  },
+  {
+    "id": "common-a-plan-shows-on-your-production-database-what-do-you-do",
+    "question": "A plan shows `-/+` on your production database. What do you do?",
+    "answer": "Stop. `-/+` means destroy and recreate, because you changed an attribute that cannot be modified in place — on a database that is your data. Identify the forcing attribute in the plan output, and either revert it, use `ignore_changes`, or plan a proper migration with a snapshot first.",
+    "level": "intermediate",
+    "kind": "scenario",
+    "domain": "terraform",
+    "chapter": "terraform",
+    "chapterTitle": "Infrastructure as Code (Terraform)"
+  },
+  {
+    "id": "common-someone-deleted-a-resource-by-hand-in-the-console-what-does-terraform-",
+    "question": "Someone deleted a resource by hand in the console. What does Terraform do?",
+    "answer": "`terraform plan` queries the provider, finds the resource missing — this is configuration drift — and proposes recreating it to match the declared state. `terraform apply` repairs it. This self-healing property is the point of declarative infrastructure.",
+    "level": "intermediate",
+    "kind": "scenario",
+    "domain": "terraform",
+    "chapter": "terraform",
+    "chapterTitle": "Infrastructure as Code (Terraform)"
+  },
+  {
+    "id": "common-how-do-you-refactor-a-large-state-file-without-destroying-infrastructu",
+    "question": "How do you refactor a large state file without destroying infrastructure?",
+    "answer": "`terraform state mv` moves resource addresses between states, and `terraform import` adopts existing resources. Both change the mapping only — no cloud API calls that alter real infrastructure — so production keeps running while the layout changes.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "terraform",
+    "chapter": "terraform",
+    "chapterTitle": "Infrastructure as Code (Terraform)"
+  },
+  {
+    "id": "common-workspaces-or-separate-directories-for-environments",
+    "question": "Workspaces or separate directories for environments?",
+    "answer": "Separate directories, usually. Workspaces share one configuration, so the only thing between a staging apply and a production apply is which workspace you are in — something you can forget. Directories make the environment explicit in the path and let production legitimately differ.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "terraform",
+    "chapter": "terraform",
+    "chapterTitle": "Infrastructure as Code (Terraform)"
+  }
+]

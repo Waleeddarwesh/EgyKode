@@ -1,0 +1,42 @@
+[
+  {
+    "id": "kustomize-what-is-the-difference-between-a-kustomize-base-and-an-overlay",
+    "question": "What is the difference between a Kustomize base and an overlay?",
+    "answer": "The base is a complete, valid set of manifests that could be applied as-is.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "kustomize",
+    "chapter": "kustomize",
+    "chapterTitle": "Environment Overlays (Kustomize)"
+  },
+  {
+    "id": "kustomize-when-would-you-choose-kustomize-over-helm",
+    "question": "When would you choose Kustomize over Helm?",
+    "answer": "For manifests I own, deployed to environments I control. The base stays",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "kustomize",
+    "chapter": "kustomize",
+    "chapterTitle": "Environment Overlays (Kustomize)"
+  },
+  {
+    "id": "kustomize-why-does-the-pipeline-use-kustomize-edit-set-image-instead-of-sed",
+    "question": "Why does the pipeline use `kustomize edit set image` instead of `sed`?",
+    "answer": "Because `sed` matches text and `kustomize edit` understands structure. A `sed`",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "kustomize",
+    "chapter": "kustomize",
+    "chapterTitle": "Environment Overlays (Kustomize)"
+  },
+  {
+    "id": "kustomize-how-do-you-stop-environments-drifting-apart-over-time",
+    "question": "How do you stop environments drifting apart over time?",
+    "answer": "Structurally, by making divergence expensive to express. The base holds",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "kustomize",
+    "chapter": "kustomize",
+    "chapterTitle": "Environment Overlays (Kustomize)"
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "jenkins-what-is-a-jenkinsfile",
+    "question": "What is a `Jenkinsfile`?",
+    "answer": "A text file that contains the definition of a Jenkins Pipeline. It is committed to source control (Git) alongside the application code.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "jenkins",
+    "chapter": "jenkins",
+    "chapterTitle": "Continuous Integration (Jenkins)"
+  },
+  {
+    "id": "jenkins-explain-the-difference-between-declarative-and-scripted-pipelines-in-j",
+    "question": "Explain the difference between Declarative and Scripted pipelines in Jenkins.",
+    "answer": "Declarative pipelines (starting with `pipeline {}`) have a strict, rigid syntax defined by CloudBees. They are easier to read and have built-in error checking. Scripted pipelines (starting with `node {}`) are raw Groovy code. They offer infinite flexibility but are much harder to maintain and debug.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "jenkins",
+    "chapter": "jenkins",
+    "chapterTitle": "Continuous Integration (Jenkins)"
+  },
+  {
+    "id": "jenkins-when-using-kubernetes-as-a-jenkins-agent-provider-how-does-the-jenkins",
+    "question": "When using Kubernetes as a Jenkins Agent provider, how does the Jenkins Master communicate with the dynamically provisioned Pod?",
+    "answer": "Jenkins uses the JNLP (Java Network Launch Protocol) / Remoting architecture. The Jenkins Kubernetes plugin makes an API call to the Kubernetes cluster to create the Pod. The Pod contains a special hidden container (the `jnlp` container). Once booted, this `jnlp` container establishes a reverse TCP connection back to the Jenkins Master's JNLP port (usually 50000). The Master then sends the shell commands over this established TCP tunnel.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "jenkins",
+    "chapter": "jenkins",
+    "chapterTitle": "Continuous Integration (Jenkins)"
+  },
+  {
+    "id": "jenkins-your-jenkins-master-is-running-out-of-memory-oom-every-day-at-3-00-pm-",
+    "question": "Your Jenkins Master is running out of memory (OOM) every day at 3:00 PM. You've already increased the JVM heap size to 16GB. What architectural flaws cause Jenkins Master instability, and how do you resolve them?",
+    "answer": "Increasing the heap is a band-aid. Master instability is almost always caused by executing heavy logic on the Master instead of the Agents.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "jenkins",
+    "chapter": "jenkins",
+    "chapterTitle": "Continuous Integration (Jenkins)"
+  }
+]

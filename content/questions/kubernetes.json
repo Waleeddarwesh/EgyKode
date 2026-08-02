@@ -1,0 +1,112 @@
+[
+  {
+    "id": "kubeadm-what-is-the-difference-between-kubeadm-and-kubectl",
+    "question": "What is the difference between `kubeadm` and `kubectl`?",
+    "answer": "`kubeadm` builds the cluster (you run it once). `kubectl` talks to the cluster after it is built (you run it every day to deploy apps).",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubeadm",
+    "chapterTitle": "Cluster Bootstrapping (Kubeadm)"
+  },
+  {
+    "id": "kubeadm-when-you-run-kubeadm-init-it-creates-a-folder-at-kube-config-what-is-t",
+    "question": "When you run `kubeadm init`, it creates a folder at `~/.kube/config`. What is this file?",
+    "answer": "This is the `kubeconfig` file. It contains the cluster's IP address and the administrative cryptographic certificates required to authenticate as the `kubernetes-admin` user. Without this file, `kubectl` will return a \"Connection Refused\" or \"Unauthorized\" error.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubeadm",
+    "chapterTitle": "Cluster Bootstrapping (Kubeadm)"
+  },
+  {
+    "id": "kubeadm-why-does-kubernetes-require-you-to-disable-swap-memory-swapoff-a-befor",
+    "question": "Why does Kubernetes require you to disable swap memory (`swapoff -a`) before running `kubeadm`?",
+    "answer": "Kubernetes is a highly precise orchestrator. It needs to know exactly how much RAM every Pod is using to make scheduling decisions and enforce memory Limits. If the Linux kernel starts moving RAM into a Swap file on the hard drive, Kubernetes loses track of the memory consumption, leading to severe performance degradation and unpredictable `OOMKilled` behavior. (Note: As of Kubernetes v1.28+, swap support is available in beta, but disabling it remains the standard best practice).",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubeadm",
+    "chapterTitle": "Cluster Bootstrapping (Kubeadm)"
+  },
+  {
+    "id": "kubernetes-what-is-a-pod-why-don-t-we-just-deploy-containers-directly",
+    "question": "What is a Pod? Why don't we just deploy Containers directly?",
+    "answer": "A Pod is the smallest deployable unit in Kubernetes. It is a wrapper around one or more containers. We use Pods because Kubernetes needs to attach metadata (labels, IP addresses, storage volumes) to the workload, and it attaches these to the Pod, not the raw Docker container.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubernetes",
+    "chapterTitle": "Container Orchestration (Kubernetes)"
+  },
+  {
+    "id": "kubernetes-what-is-the-difference-between-a-deployment-and-a-statefulset",
+    "question": "What is the difference between a Deployment and a StatefulSet?",
+    "answer": "A Deployment is for stateless applications (like web servers); the Pods are identical, interchangeable, and have random names (e.g., `api-5f8g9`). A StatefulSet is for stateful applications (like databases); the Pods have sticky, predictable identities (e.g., `db-0`, `db-1`) and are guaranteed to start and stop in a strict order.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubernetes",
+    "chapterTitle": "Container Orchestration (Kubernetes)"
+  },
+  {
+    "id": "kubernetes-explain-how-a-kubernetes-service-routes-traffic-to-pods",
+    "question": "Explain how a Kubernetes Service routes traffic to Pods.",
+    "answer": "A Service gets a virtual IP address (ClusterIP) managed by `kube-proxy`. The Service has a label selector (e.g., `app: my-api`). The Kubernetes Endpoints controller continuously watches for Pods matching that label. When it finds them, it adds their real IPs to an `Endpoints` object. When traffic hits the Service IP, `kube-proxy` (using Linux `iptables` or `IPVS`) load-balances the TCP packets to the IPs in the Endpoints list.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubernetes",
+    "chapterTitle": "Container Orchestration (Kubernetes)"
+  },
+  {
+    "id": "kubernetes-during-a-massive-traffic-spike-your-horizontal-pod-autoscaler-scales-f",
+    "question": "During a massive traffic spike, your Horizontal Pod Autoscaler scales from 10 to 100 pods, but 50 of them remain in a `Pending` state. Walk me through the exact architectural bottleneck and how to automate the resolution.",
+    "answer": "The `Pending` state means the Scheduler cannot find a Worker Node with sufficient aggregate CPU/RAM capacity to satisfy the Pod's `requests`. The cluster is out of physical resources. To automate resolution, we must implement the **Cluster Autoscaler** (or Karpenter in AWS). The Cluster Autoscaler watches for `Pending` pods. When it sees them, it makes an API call to the AWS Auto Scaling Group to provision a new EC2 instance. Once the new EC2 instance boots and joins the cluster, the Kubernetes Scheduler recognizes the new capacity and schedules the pending Pods onto it.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "kubernetes",
+    "chapter": "kubernetes",
+    "chapterTitle": "Container Orchestration (Kubernetes)"
+  },
+  {
+    "id": "service-mesh-what-is-a-sidecar-container",
+    "question": "What is a \"sidecar\" container?",
+    "answer": "A sidecar is a secondary container that runs inside the exact same Pod as the primary application container. It shares the same network namespace and IP address. It is used to add functionality (like logging or proxying) without changing the main application code.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "service-mesh",
+    "chapterTitle": "Advanced Networking (Service Mesh)"
+  },
+  {
+    "id": "service-mesh-explain-how-a-service-mesh-provides-observability-without-code-changes",
+    "question": "Explain how a Service Mesh provides \"Observability without code changes\".",
+    "answer": "Because the Service Mesh Proxy (Envoy) intercepts 100% of the HTTP traffic going in and out of the Pod, the proxy can natively measure how many requests are failing and how long they take. The proxy exposes these metrics to Prometheus. The developer gets golden signal metrics (Latency, Traffic, Errors) without having to import an OpenTelemetry SDK into their Java/Python code.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "service-mesh",
+    "chapterTitle": "Advanced Networking (Service Mesh)"
+  },
+  {
+    "id": "service-mesh-contrast-a-service-mesh-istio-with-an-api-gateway-kong-apigee-do-you-n",
+    "question": "Contrast a Service Mesh (Istio) with an API Gateway (Kong/Apigee). Do you need both?",
+    "answer": "An API Gateway handles \"North-South\" traffic (traffic entering the cluster from the public internet). It focuses on external authentication, rate limiting, and monetization. A Service Mesh handles \"East-West\" traffic (internal traffic between microservices). It focuses on mTLS, internal retries, and circuit breaking. In a mature enterprise, you absolutely need both, as they solve fundamentally different problems.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "service-mesh",
+    "chapterTitle": "Advanced Networking (Service Mesh)"
+  },
+  {
+    "id": "service-mesh-you-deploy-istio-with-strict-mtls-enabled-globally-suddenly-your-kuber",
+    "question": "You deploy Istio with strict mTLS enabled globally. Suddenly, your Kubernetes `livenessProbes` and `readinessProbes` for all your Pods start failing, causing the cluster to terminate every application continuously. Why did this happen, and how does the platform natively solve it?",
+    "answer": "The `kubelet` (running on the Worker Node) executes the `livenessProbe` by sending a plaintext HTTP request to the Pod's health endpoint. Because Istio is enforcing strict mTLS, the Envoy proxy intercepts the kubelet's plaintext request and rejects it, causing the probe to fail.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "kubernetes",
+    "chapter": "service-mesh",
+    "chapterTitle": "Advanced Networking (Service Mesh)"
+  }
+]

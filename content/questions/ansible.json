@@ -1,0 +1,42 @@
+[
+  {
+    "id": "ansible-what-is-the-difference-between-terraform-and-ansible",
+    "question": "What is the difference between Terraform and Ansible?",
+    "answer": "Terraform provisions the hardware (creates the AWS EC2 server). Ansible manages the configuration (installs Docker and Kubernetes onto that server).",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "ansible",
+    "chapter": "ansible",
+    "chapterTitle": "Configuration Management (Ansible)"
+  },
+  {
+    "id": "ansible-how-does-ansible-connect-to-linux-servers-do-i-need-to-install-an-ansi",
+    "question": "How does Ansible connect to Linux servers? Do I need to install an Ansible Agent?",
+    "answer": "No agent is required. Ansible connects natively via SSH (Port 22) using standard SSH key pairs.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "ansible",
+    "chapter": "ansible",
+    "chapterTitle": "Configuration Management (Ansible)"
+  },
+  {
+    "id": "ansible-explain-how-ansible-handlers-work-and-why-they-are-useful",
+    "question": "Explain how Ansible Handlers work and why they are useful.",
+    "answer": "A Handler is a special task that only runs if notified by another task. For example, if Task A modifies the `nginx.conf` file, it notifies the `Restart Nginx` handler. If you run the playbook again, and `nginx.conf` does NOT change, the handler is not notified, and Nginx is not unnecessarily restarted. This is critical for preventing production downtime during configuration runs.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "ansible",
+    "chapter": "ansible",
+    "chapterTitle": "Configuration Management (Ansible)"
+  },
+  {
+    "id": "ansible-in-a-highly-scalable-auto-scaling-environment-running-ansible-playbook",
+    "question": "In a highly scalable auto-scaling environment, running `ansible-playbook` manually is an anti-pattern. How do you integrate configuration management into an ASG (Auto Scaling Group) lifecycle?",
+    "answer": "You integrate it at the image level or the boot level. Ideally, you use Packer to bake the Ansible configuration into a golden AMI, so instances boot instantly. If dynamic runtime configuration is strictly required, you use `cloud-init` (User Data) in the EC2 Launch Template to trigger an Ansible `ansible-pull` command. The instance reaches out to a Git repository on boot, downloads its own configuration, and configures itself before attaching to the Load Balancer, removing the need for a central Ansible push server.",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "ansible",
+    "chapter": "ansible",
+    "chapterTitle": "Configuration Management (Ansible)"
+  }
+]

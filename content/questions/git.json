@@ -1,0 +1,42 @@
+[
+  {
+    "id": "git-and-github-what-is-the-difference-between-git-fetch-and-git-pull",
+    "question": "What is the difference between `git fetch` and `git pull`?",
+    "answer": "`git fetch` downloads commits from the remote but does not change your working",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "git",
+    "chapter": "git-and-github",
+    "chapterTitle": "Version Control (Git & GitHub)"
+  },
+  {
+    "id": "git-and-github-you-pushed-a-commit-to-main-that-broke-production-walk-me-through-it",
+    "question": "You pushed a commit to `main` that broke production. Walk me through it.",
+    "answer": "`git revert <sha>` and push. That creates a new commit undoing the change,",
+    "level": "intermediate",
+    "kind": "scenario",
+    "domain": "git",
+    "chapter": "git-and-github",
+    "chapterTitle": "Version Control (Git & GitHub)"
+  },
+  {
+    "id": "git-and-github-why-does-a-gitops-deployment-commit-need-skip-ci",
+    "question": "Why does a GitOps deployment commit need `[skip ci]`?",
+    "answer": "Because the pipeline itself creates that commit. Without the marker, the",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "git",
+    "chapter": "git-and-github",
+    "chapterTitle": "Version Control (Git & GitHub)"
+  },
+  {
+    "id": "git-and-github-in-a-gitops-model-how-do-you-control-who-can-deploy-to-production",
+    "question": "In a GitOps model, how do you control who can deploy to production?",
+    "answer": "You control write access to the branch ArgoCD watches, because in this model",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "git",
+    "chapter": "git-and-github",
+    "chapterTitle": "Version Control (Git & GitHub)"
+  }
+]

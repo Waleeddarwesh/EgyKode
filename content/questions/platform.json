@@ -1,0 +1,162 @@
+[
+  {
+    "id": "project-overview-what-is-the-difference-between-iaas-and-paas",
+    "question": "What is the difference between IaaS and PaaS?",
+    "answer": "IaaS (Infrastructure as a Service) is renting the raw hardware (like AWS EC2). PaaS (Platform as a Service) provides the hardware *and* the operating system/tools so developers can just focus on code (like Heroku, or the Kubernetes platform we are building in this project).",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "project-overview",
+    "chapterTitle": "Project Overview"
+  },
+  {
+    "id": "project-overview-why-do-we-use-both-terraform-and-ansible-why-not-just-use-one",
+    "question": "Why do we use both Terraform and Ansible? Why not just use one?",
+    "answer": "They serve different purposes. Terraform is an Infrastructure Provisioner (it declares the existence of a server, network, or database in AWS). Ansible is a Configuration Manager (it connects to the server Terraform created and installs software on it). While they have overlapping features, using Terraform for hardware and Ansible for software is the industry standard.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "project-overview",
+    "chapterTitle": "Project Overview"
+  },
+  {
+    "id": "project-overview-how-does-this-platform-handle-the-split-brain-problem-in-a-multi-az-di",
+    "question": "How does this platform handle the \"Split-Brain\" problem in a Multi-AZ disaster scenario?",
+    "answer": "Our Control Plane utilizes `etcd` as its distributed key-value store. `etcd` requires a strict quorum (majority) to elect a leader and commit changes (using the Raft consensus algorithm). By distributing exactly 3 Control Plane nodes across 3 Availability Zones, the system can sustain the total loss of 1 AZ. The remaining 2 nodes maintain a quorum (2/3) and the cluster remains fully operational and writeable.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "project-overview",
+    "chapterTitle": "Project Overview"
+  },
+  {
+    "id": "project-overview-compare-the-operational-overhead-of-a-gitops-driven-self-managed-kuber",
+    "question": "Compare the operational overhead of a GitOps-driven Self-Managed Kubernetes cluster vs. a Managed Service like EKS integrated with a traditional push-based CI pipeline.",
+    "answer": "A GitOps-driven Self-Managed cluster (our architecture) shifts the operational burden to the Platform team (managing etcd backups, API certificate rotations, and kubelet upgrades). However, it guarantees absolute configuration synchronization; the cluster continuously pulls state from Git, neutralizing configuration drift and ensuring disaster recovery is deterministic. EKS reduces the control plane management burden significantly, but if paired with a push-based CI (e.g., Jenkins running `kubectl apply`), it introduces security vulnerabilities (CI requires cluster admin credentials) and risks drift if engineers manually edit cluster state via the AWS console. The architectural tradeoff is Operational Effort (Self-Managed) vs. Security/Determinism (GitOps).",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "project-overview",
+    "chapterTitle": "Project Overview"
+  },
+  {
+    "id": "repository-structure-why-don-t-we-put-all-our-files-in-one-single-folder",
+    "question": "Why don't we put all our files in one single folder?",
+    "answer": "Organization and predictability. If a team member needs to fix a Jenkins pipeline, they know exactly where to look (`jenkins/pipelines/`) without having to search through hundreds of Terraform and Kubernetes files.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "repository-structure",
+    "chapterTitle": "Repository Structure"
+  },
+  {
+    "id": "repository-structure-what-is-the-difference-between-the-terraform-modules-folder-and-the-t",
+    "question": "What is the difference between the `terraform/modules` folder and the `terraform/environments` folder?",
+    "answer": "`modules` contains generic, reusable templates (like a blueprint for a house). `environments` contains the specific instances of that blueprint (like building the house at a specific address in `dev` or `prod`). You write the code once in `modules`, and call it multiple times from `environments`.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "repository-structure",
+    "chapterTitle": "Repository Structure"
+  },
+  {
+    "id": "repository-structure-explain-the-chicken-and-egg-problem-of-mixing-terraform-and-kubernete",
+    "question": "Explain the chicken-and-egg problem of mixing Terraform and Kubernetes YAML in the same state file.",
+    "answer": "If you use the Terraform `kubernetes` provider to apply YAML manifests in the exact same `main.tf` file that builds the EKS/kubeadm cluster, Terraform will evaluate the plan before creating anything. It will try to connect to the Kubernetes API to plan the YAML changes, but the API doesn't exist yet because the cluster hasn't been built. This causes Terraform to crash. This is why we physically separate `infrastructure/` from `kubernetes/` in the repository structure.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "repository-structure",
+    "chapterTitle": "Repository Structure"
+  },
+  {
+    "id": "repository-structure-in-an-enterprise-setting-how-do-you-handle-secrets-management-across-",
+    "question": "In an enterprise setting, how do you handle secrets management across a Monorepo that contains multiple environments (Dev/Stage/Prod)?",
+    "answer": "You never store plaintext secrets in the repo. You structure the repo to integrate with a dynamic secrets manager (like HashiCorp Vault or AWS Secrets Manager). For Terraform, you use data sources to fetch secrets at runtime. For Kubernetes, you use the External Secrets Operator (ESO) configured in the `kubernetes/` directory. ESO authenticates with AWS Secrets Manager via IRSA (IAM Roles for Service Accounts) and dynamically injects the secrets into the cluster memory, keeping the Git repository completely devoid of sensitive data while maintaining a unified directory structure.",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "repository-structure",
+    "chapterTitle": "Repository Structure"
+  },
+  {
+    "id": "requirements-what-is-the-aws-cli-and-why-do-we-need-it",
+    "question": "What is the AWS CLI and why do we need it?",
+    "answer": "The AWS Command Line Interface allows you to type commands into your terminal to control AWS, instead of clicking around the website. Tools like Terraform use these credentials in the background to automatically build servers.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "requirements",
+    "chapterTitle": "Platform Requirements"
+  },
+  {
+    "id": "requirements-you-get-a-permission-denied-publickey-error-when-ansible-tries-to-run-",
+    "question": "You get a \"Permission Denied (publickey)\" error when Ansible tries to run. What is the requirement you missed?",
+    "answer": "You missed the SSH Key requirement. Ansible is trying to log into the AWS EC2 instance, but it doesn't have the correct private SSH key (`.pem` file) that corresponds to the public key injected into the server by AWS.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "requirements",
+    "chapterTitle": "Platform Requirements"
+  },
+  {
+    "id": "requirements-why-do-we-enforce-specific-versions-of-terraform-and-ansible-in-our-re",
+    "question": "Why do we enforce specific versions of Terraform and Ansible in our requirements? What happens if an engineer uses Terraform 1.6 and another uses 1.4?",
+    "answer": "This causes State File corruption. If an engineer uses Terraform 1.6, the remote `terraform.tfstate` file is upgraded to the 1.6 format. When the engineer with 1.4 tries to run a command, Terraform will throw an error and refuse to run, because older versions cannot parse newer state file formats. Version locking is critical.",
+    "level": "advanced",
+    "kind": "scenario",
+    "domain": "platform",
+    "chapter": "requirements",
+    "chapterTitle": "Platform Requirements"
+  },
+  {
+    "id": "requirements-how-do-you-architect-a-secure-mechanism-for-a-ci-cd-pipeline-to-provis",
+    "question": "How do you architect a secure mechanism for a CI/CD pipeline to provision AWS infrastructure without using static long-lived IAM Access Keys?",
+    "answer": "You use OIDC (OpenID Connect). The CI/CD provider (e.g., GitHub Actions) acts as an Identity Provider. AWS IAM is configured to trust the GitHub OIDC provider for a specific repository. When a workflow runs, it requests a short-lived JSON Web Token (JWT) from GitHub, presents it to AWS STS (Security Token Service), and receives temporary, short-lived session credentials. This eliminates the risk of static keys leaking in source code.",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "requirements",
+    "chapterTitle": "Platform Requirements"
+  },
+  {
+    "id": "system-architecture-what-is-the-difference-between-a-public-subnet-and-a-private-subnet",
+    "question": "What is the difference between a Public Subnet and a Private Subnet?",
+    "answer": "A Public Subnet has a routing table entry pointing to an Internet Gateway, allowing servers inside it to be reached from the public internet. A Private Subnet does not; its servers are completely hidden from the outside world.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "system-architecture",
+    "chapterTitle": "System Architecture"
+  },
+  {
+    "id": "system-architecture-why-do-we-put-a-nat-gateway-in-a-public-subnet-but-point-private-subne",
+    "question": "Why do we put a NAT Gateway in a Public Subnet, but point Private Subnets to it?",
+    "answer": "Private servers often need to download updates or API data from the internet. They send their request to the NAT (Network Address Translation) Gateway. The NAT Gateway, sitting in the Public Subnet, acts as a middleman. It forwards the request to the internet on behalf of the private server, and sends the response back, ensuring the private server's IP address is never exposed.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "system-architecture",
+    "chapterTitle": "System Architecture"
+  },
+  {
+    "id": "system-architecture-how-do-you-secure-database-access-across-different-vpcs-without-traver",
+    "question": "How do you secure database access across different VPCs without traversing the public internet?",
+    "answer": "You can use VPC Peering (for simple 1-to-1 connections) or AWS Transit Gateway (for complex hub-and-spoke topologies). Both route traffic entirely across the internal AWS backbone. Alternatively, for exposing specific services, AWS PrivateLink allows one VPC to consume an endpoint in another VPC securely.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "system-architecture",
+    "chapterTitle": "System Architecture"
+  },
+  {
+    "id": "system-architecture-in-an-active-active-multi-region-architecture-e-g-us-east-1-and-eu-wes",
+    "question": "In an active-active multi-region architecture (e.g., `us-east-1` and `eu-west-1`), how do you handle stateful data synchronization and routing?",
+    "answer": "Routing is handled via Route53 latency-based or geolocation routing. For stateful data, we must utilize global databases (like Amazon Aurora Global Database or DynamoDB Global Tables) which replicate storage synchronously or asynchronously at the block level. The architectural tradeoff is latency vs. consistency (CAP Theorem): synchronous replication guarantees consistency but adds high latency across regions, whereas asynchronous replication is fast but risks data loss during an abrupt region failure.",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "platform",
+    "chapter": "system-architecture",
+    "chapterTitle": "System Architecture"
+  }
+]

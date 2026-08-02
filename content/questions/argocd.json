@@ -1,0 +1,42 @@
+[
+  {
+    "id": "argocd-what-is-the-difference-between-jenkins-and-argocd",
+    "question": "What is the difference between Jenkins and ArgoCD?",
+    "answer": "Jenkins is an automation engine primarily used for Continuous Integration (compiling code and running tests). ArgoCD is a deployment engine for Continuous Delivery, specifically built for Kubernetes, that ensures the live cluster matches the Git repository.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "argocd",
+    "chapter": "argocd",
+    "chapterTitle": "Continuous Delivery (ArgoCD)"
+  },
+  {
+    "id": "argocd-what-does-the-term-outofsync-mean-in-the-argocd-dashboard",
+    "question": "What does the term \"OutOfSync\" mean in the ArgoCD dashboard?",
+    "answer": "It means the live state of the Kubernetes cluster does not match the YAML files stored in the Git repository. Either someone manually changed the live cluster (Configuration Drift), or a new commit was pushed to Git and ArgoCD hasn't applied it yet.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "argocd",
+    "chapter": "argocd",
+    "chapterTitle": "Continuous Delivery (ArgoCD)"
+  },
+  {
+    "id": "argocd-why-is-the-app-of-apps-pattern-a-best-practice-in-argocd",
+    "question": "Why is the \"App-of-Apps\" pattern a best practice in ArgoCD?",
+    "answer": "If you have 100 microservices, managing 100 ArgoCD `Application` YAMLs manually is tedious. The App-of-Apps pattern defines a single \"Root\" Application that points to a folder containing the 100 child Application YAMLs. When you want to add a new microservice, you just commit a new child YAML to that folder. The Root Application synchronizes it, which creates the child Application, which synchronizes the actual microservice. It is complete automation.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "argocd",
+    "chapter": "argocd",
+    "chapterTitle": "Continuous Delivery (ArgoCD)"
+  },
+  {
+    "id": "argocd-contrast-argocd-with-fluxcd-why-might-an-enterprise-choose-one-over-th",
+    "question": "Contrast ArgoCD with FluxCD. Why might an enterprise choose one over the other?",
+    "answer": "Both are CNCF graduated GitOps tools. ArgoCD is famous for its exceptional GUI, its strong multi-cluster management (Hub-and-Spoke model), and its Application CRD architecture, making it highly visible and easy for developers to use. FluxCD (often Flux v2) is fundamentally designed around the Kubernetes API (using Kustomization and HelmRelease CRDs) without a native GUI, focusing strictly on native controller patterns and high performance. An enterprise heavily invested in developer self-service and visual dashboards will choose ArgoCD; an enterprise focused purely on infrastructure-as-code automation via CLI/API integrations might prefer Flux.",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "argocd",
+    "chapter": "argocd",
+    "chapterTitle": "Continuous Delivery (ArgoCD)"
+  }
+]

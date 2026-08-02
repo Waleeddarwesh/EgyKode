@@ -1,0 +1,42 @@
+[
+  {
+    "id": "docker-what-is-the-difference-between-an-image-and-a-container",
+    "question": "What is the difference between an Image and a Container?",
+    "answer": "An Image is the static, read-only file (the blueprint). A Container is the running, active process created from that Image.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "docker",
+    "chapter": "docker",
+    "chapterTitle": "Containerization (Docker)"
+  },
+  {
+    "id": "docker-why-is-it-a-bad-practice-to-put-a-database-like-mysql-and-a-web-server",
+    "question": "Why is it a bad practice to put a database (like MySQL) and a web server (like Nginx) inside the same Docker container?",
+    "answer": "The Docker philosophy is \"One Process Per Container.\" If you put both in one container, they compete for resources, you cannot scale the web server without also scaling the database, and if the web server crashes, the container dies, taking the database down with it.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "docker",
+    "chapter": "docker",
+    "chapterTitle": "Containerization (Docker)"
+  },
+  {
+    "id": "docker-explain-how-docker-layers-work-and-how-they-impact-caching-and-build-t",
+    "question": "Explain how Docker Layers work and how they impact caching and build times.",
+    "answer": "Every line in a Dockerfile (e.g., `RUN`, `COPY`) creates a new read-only filesystem layer. Docker caches these layers. If you change a line of code at the very end of the Dockerfile, Docker instantly reuses the cached layers above it, making the build take 1 second. If you change a line at the *top* of the Dockerfile (like updating the base image), it invalidates the cache for *every layer below it*, forcing a completely new, slow build. Therefore, files that change frequently (source code) should be `COPY`'d at the very bottom of the Dockerfile.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "docker",
+    "chapter": "docker",
+    "chapterTitle": "Containerization (Docker)"
+  },
+  {
+    "id": "docker-compare-the-security-boundary-of-a-standard-docker-container-versus-a-",
+    "question": "Compare the security boundary of a standard Docker container versus a Firecracker MicroVM in a multi-tenant SaaS architecture.",
+    "answer": "Standard Docker containers share the exact same Linux Kernel as the host. Despite cgroups and namespaces, a kernel-level vulnerability (e.g., Dirty COW) allows a tenant in Container A to crash the kernel, taking down Container B (another tenant). AWS Firecracker uses KVM to launch hardware-virtualized MicroVMs in milliseconds. Each MicroVM runs its own isolated kernel. This provides the security boundary of a full Virtual Machine with the speed and density of a Docker container, making it the required architectural choice for true multi-tenant untrusted workloads (e.g., AWS Lambda).",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "docker",
+    "chapter": "docker",
+    "chapterTitle": "Containerization (Docker)"
+  }
+]

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "common-what-does-idempotency-mean-in-ansible-and-how-do-you-prove-it",
+    "question": "What does idempotency mean in Ansible, and how do you prove it?",
+    "answer": "Running the same playbook twice produces no further change. You prove it by running it again and seeing `changed=0`. Idempotency comes from using modules that check state rather than `command`/`shell` — and where a shell step is unavoidable, guarding it with `creates`, `removes` or a `when` condition.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "ansible",
+    "chapter": "ansible",
+    "chapterTitle": "Configuration Management (Ansible)"
+  },
+  {
+    "id": "common-when-should-a-variable-go-in-rather-than",
+    "question": "When should a variable go in `defaults/` rather than `vars/`?",
+    "answer": "Almost always `defaults/`. It sits near the bottom of the precedence order so callers can override it; `vars/` sits near the top and is effectively unoverridable. A role whose tunables live in `vars/` cannot be reused, which defeats the purpose of writing one.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "ansible",
+    "chapter": "ansible",
+    "chapterTitle": "Configuration Management (Ansible)"
+  }
+]

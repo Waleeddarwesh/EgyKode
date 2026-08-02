@@ -1,0 +1,22 @@
+[
+  {
+    "id": "common-what-problem-does-gitops-solve-that-a-deploy-pipeline-does-not",
+    "question": "What problem does GitOps solve that a deploy pipeline does not?",
+    "answer": "It replaces push with pull and makes drift visible. A controller in the cluster continuously compares running state to Git and reports or corrects the difference, so Git is genuinely the source of truth. It also means CI credentials never need cluster access — the cluster pulls, rather than the pipeline pushing.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "gitops",
+    "chapter": "gitops",
+    "chapterTitle": "The GitOps Philosophy"
+  },
+  {
+    "id": "common-an-engineer-hotfixes-production-with-what-happens-under-gitops",
+    "question": "An engineer hotfixes production with `kubectl edit`. What happens under GitOps?",
+    "answer": "Argo CD marks the application OutOfSync, and with `selfHeal: true` reverts the change within minutes — correct behaviour that feels hostile the first time. The right response is to commit the fix so Git and the cluster agree. Genuinely controller-owned fields, such as replicas managed by an HPA, belong in `ignoreDifferences`.",
+    "level": "advanced",
+    "kind": "scenario",
+    "domain": "gitops",
+    "chapter": "argocd",
+    "chapterTitle": "Continuous Delivery (ArgoCD)"
+  }
+]

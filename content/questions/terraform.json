@@ -1,0 +1,42 @@
+[
+  {
+    "id": "terraform-what-is-the-difference-between-terraform-plan-and-terraform-apply",
+    "question": "What is the difference between `terraform plan` and `terraform apply`?",
+    "answer": "`plan` is a safe dry-run that tells you what will happen. `apply` actually executes those changes against the cloud provider.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "terraform",
+    "chapter": "terraform",
+    "chapterTitle": "Infrastructure as Code (Terraform)"
+  },
+  {
+    "id": "terraform-what-is-terraform-tfstate-and-why-should-you-never-commit-it-to-github",
+    "question": "What is `terraform.tfstate` and why should you never commit it to GitHub?",
+    "answer": "It is Terraform's memory file that maps your code to real AWS resource IDs. You must never commit it to Git because it often contains plaintext secrets (like initial database passwords) that were returned by the AWS API during creation. It should always be stored in an encrypted S3 bucket.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "terraform",
+    "chapter": "terraform",
+    "chapterTitle": "Infrastructure as Code (Terraform)"
+  },
+  {
+    "id": "terraform-how-do-you-handle-a-situation-where-someone-manually-deleted-an-ec2-in",
+    "question": "How do you handle a situation where someone manually deleted an EC2 instance in the AWS console, but Terraform still thinks it exists?",
+    "answer": "You run `terraform plan`. Terraform will contact the AWS API, realize the instance is missing (detecting Configuration Drift), and the plan will show that it intends to recreate the missing instance to match the declarative code. Running `terraform apply` fixes it automatically.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "terraform",
+    "chapter": "terraform",
+    "chapterTitle": "Infrastructure as Code (Terraform)"
+  },
+  {
+    "id": "terraform-explain-how-to-safely-refactor-a-monolithic-terraform-state-into-micro",
+    "question": "Explain how to safely refactor a Monolithic Terraform state into micro-states without destroying and recreating the infrastructure.",
+    "answer": "You must decouple the state file using the `terraform state mv` command. You define the new backend configurations, then surgically move the resource addresses from the monolithic state file to the new micro-state files. This updates the memory mapping without touching the actual AWS APIs, ensuring zero downtime for the production resources.",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "terraform",
+    "chapter": "terraform",
+    "chapterTitle": "Infrastructure as Code (Terraform)"
+  }
+]

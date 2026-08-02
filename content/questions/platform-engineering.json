@@ -1,0 +1,42 @@
+[
+  {
+    "id": "platform-engineering-what-is-the-main-difference-between-devops-and-platform-engineering",
+    "question": "What is the main difference between DevOps and Platform Engineering?",
+    "answer": "DevOps is a culture where Dev and Ops work closely together (often combining the roles). Platform Engineering is a specialized discipline where a dedicated team builds a self-service product (the platform) for the developers to consume, reducing the cognitive load on the developers.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "platform-engineering",
+    "chapter": "platform-engineering",
+    "chapterTitle": "The Future (Platform Engineering)"
+  },
+  {
+    "id": "platform-engineering-what-is-an-internal-developer-platform-idp",
+    "question": "What is an Internal Developer Platform (IDP)?",
+    "answer": "An IDP is a self-service portal (often built with tools like Backstage) that standardizes and automates the creation of infrastructure, CI/CD pipelines, and application scaffolding. It allows developers to spin up new, fully-compliant microservices in minutes without needing to understand Terraform or Kubernetes.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "platform-engineering",
+    "chapter": "platform-engineering",
+    "chapterTitle": "The Future (Platform Engineering)"
+  },
+  {
+    "id": "platform-engineering-explain-the-concept-of-the-golden-path-or-paved-road-and-why-it-is-be",
+    "question": "Explain the concept of the \"Golden Path\" (or Paved Road) and why it is better than strict IT mandates.",
+    "answer": "Strict IT mandates force developers to use specific tools, causing friction and slowing down innovation. A Golden Path is a fully supported, highly automated, secure route provided by the Platform team. Developers are technically allowed to choose different tools (going off-road), but they lose the automation, support, and on-call protection of the Golden Path. Ultimately, 95% of developers will voluntarily choose the Golden Path simply because it is the easiest way to get their job done.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "platform-engineering",
+    "chapter": "platform-engineering",
+    "chapterTitle": "The Future (Platform Engineering)"
+  },
+  {
+    "id": "platform-engineering-you-are-rolling-out-backstage-as-an-idp-to-500-developers-currently-d",
+    "question": "You are rolling out Backstage as an IDP to 500 developers. Currently, developers deploy infrastructure by opening a Jira ticket to the Ops team. How do you architect the transition to ensure the IDP actually gets adopted, rather than becoming another unused corporate tool?",
+    "answer": "Adoption requires treating the Platform as a Product.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "platform-engineering",
+    "chapter": "platform-engineering",
+    "chapterTitle": "The Future (Platform Engineering)"
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "common-what-actually-happens-when-you-type-a-url-into-a-browser",
+    "question": "What actually happens when you type a URL into a browser?",
+    "answer": "DNS resolves the name to an IP (resolver → root → TLD → authoritative, cached at every step by TTL); TCP connects; TLS negotiates encryption and verifies the certificate chain; HTTP carries the request; the server responds. Most 'network' incidents are really DNS caching or certificate expiry.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "networking",
+    "chapter": "networking-fundamentals",
+    "chapterTitle": "Networking Fundamentals"
+  },
+  {
+    "id": "common-what-makes-a-subnet-public-rather-than-private",
+    "question": "What makes a subnet public rather than private?",
+    "answer": "Its route table. A public subnet has a `0.0.0.0/0` route to an Internet Gateway; a private one either routes `0.0.0.0/0` to a NAT Gateway (outbound only) or has no default route at all. The name is a convention — the route is the mechanism.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "networking",
+    "chapter": "networking-fundamentals",
+    "chapterTitle": "Networking Fundamentals"
+  },
+  {
+    "id": "common-security-group-or-nacl-what-is-the-difference",
+    "question": "Security group or NACL — what is the difference?",
+    "answer": "A security group attaches to an instance, is stateful (return traffic is automatic) and only has allow rules. A NACL attaches to a subnet, is stateless (you must allow the reply explicitly) and supports deny rules. Forgetting the return rule on a NACL produces a hang, not a refusal, which sends people debugging the application.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "networking",
+    "chapter": "networking-fundamentals",
+    "chapterTitle": "Networking Fundamentals"
+  },
+  {
+    "id": "common-you-changed-a-dns-record-and-nothing-happened-what-is-going-on",
+    "question": "You changed a DNS record and nothing happened. What is going on?",
+    "answer": "Resolvers are still serving the old answer until its TTL expires. Check the remaining TTL with `dig`. The fix is procedural: lower the TTL a day *before* a migration, cut over, then raise it again — lowering it at cutover is too late, because the old long TTL is already cached.",
+    "level": "advanced",
+    "kind": "scenario",
+    "domain": "networking",
+    "chapter": "networking-fundamentals",
+    "chapterTitle": "Networking Fundamentals"
+  }
+]

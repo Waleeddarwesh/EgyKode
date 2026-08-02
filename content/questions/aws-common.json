@@ -1,0 +1,62 @@
+[
+  {
+    "id": "common-what-is-the-difference-between-an-iam-user-and-an-iam-role",
+    "question": "What is the difference between an IAM user and an IAM role?",
+    "answer": "A user is a permanent identity with long-lived credentials. A role is assumed temporarily and issues credentials that expire. Anything that is not a human — an EC2 instance, a CI job, a Pod — should use a role, so there is no long-lived key to leak.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "iam",
+    "chapterTitle": "Security & Identity (AWS IAM)"
+  },
+  {
+    "id": "common-an-application-gets-accessdenied-despite-a-policy-that-clearly-allows-",
+    "question": "An application gets AccessDenied despite a policy that clearly allows the action. What do you check?",
+    "answer": "First `aws sts get-caller-identity` — you are often not the principal you assumed. Then check whether the denial is on `sts:AssumeRole` (a trust policy problem) or the action itself (a permissions problem); whether an explicit Deny or an SCP overrides the Allow; and whether the resource ARN matches, remembering that S3 bucket and object operations need both `bucket` and `bucket/*`.",
+    "level": "intermediate",
+    "kind": "scenario",
+    "domain": "aws",
+    "chapter": "iam",
+    "chapterTitle": "Security & Identity (AWS IAM)"
+  },
+  {
+    "id": "common-what-is-a-nat-gateway-for-and-what-does-it-cost-you",
+    "question": "What is a NAT Gateway for, and what does it cost you?",
+    "answer": "It lets instances in private subnets reach the internet without being reachable from it. It is billed hourly plus per GB processed, is zonal (one per AZ for real availability), and pulling container images through it is a common surprise on the bill — VPC endpoints for S3 and ECR remove most of that traffic.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "vpc",
+    "chapterTitle": "Cloud Networking (AWS VPC)"
+  },
+  {
+    "id": "common-is-multi-az-the-same-as-a-read-replica",
+    "question": "Is Multi-AZ the same as a read replica?",
+    "answer": "No. Multi-AZ keeps a synchronous standby that serves no traffic and exists only for failover — it buys availability, not capacity. Read replicas are asynchronous and do serve reads. They solve different problems and are often needed together.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "rds",
+    "chapterTitle": "Managed Databases (Amazon RDS)"
+  },
+  {
+    "id": "common-when-is-a-burstable-instance-the-wrong-choice",
+    "question": "When is a burstable `t` instance the wrong choice?",
+    "answer": "When the workload is sustained rather than bursty. `t` instances earn CPU credits while idle and spend them under load; once exhausted they throttle to a fraction of a core. The instance stays 'healthy' while the application becomes unusably slow, and nothing says throttled unless you look at `CPUCreditBalance`.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "aws-overview",
+    "chapterTitle": "Amazon Web Services (AWS)"
+  },
+  {
+    "id": "common-how-would-you-reduce-a-cloud-bill-that-has-grown-without-anyone-notici",
+    "question": "How would you reduce a cloud bill that has grown without anyone noticing?",
+    "answer": "In order: visibility, then elimination, then commitment. Enforce tagging and group spend by team and service; delete unattached EBS volumes, idle Elastic IPs and forgotten snapshots; right-size what is oversized; then buy Savings Plans for what remains. Committing to three years for an instance you should have deleted locks the waste in.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "aws-overview",
+    "chapterTitle": "Amazon Web Services (AWS)"
+  }
+]

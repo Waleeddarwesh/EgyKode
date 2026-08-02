@@ -1,0 +1,42 @@
+[
+  {
+    "id": "observability-what-are-the-three-pillars-of-observability",
+    "question": "What are the Three Pillars of Observability?",
+    "answer": "Metrics, Logs, and Traces.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "observability",
+    "chapter": "observability",
+    "chapterTitle": "Introduction to Observability"
+  },
+  {
+    "id": "observability-why-do-we-separate-the-tool-that-stores-metrics-prometheus-from-the-to",
+    "question": "Why do we separate the tool that stores metrics (Prometheus) from the tool that visualizes them (Grafana)?",
+    "answer": "Separation of concerns. Prometheus is a highly specialized time-series database optimized for scraping and storing millions of numbers per second. It is terrible at making pretty graphs. Grafana is a dedicated UI tool that is amazing at graphs, but it doesn't store data. Grafana can also query data from other sources (like AWS CloudWatch or MySQL) simultaneously.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "observability",
+    "chapter": "observability",
+    "chapterTitle": "Introduction to Observability"
+  },
+  {
+    "id": "observability-explain-the-difference-between-push-and-pull-metric-collection-and-why",
+    "question": "Explain the difference between Push and Pull metric collection, and why Kubernetes favors Pull.",
+    "answer": "In a Push model (like DataDog or StatsD), the application actively connects to the monitoring server and sends its data. If you have 10,000 Pods, they can easily DDoS your monitoring server. In a Pull model (Prometheus), the monitoring server reaches out to the applications on a schedule (e.g., every 15 seconds) and scrapes the data. This allows Prometheus to rate-limit the ingestion and prevents the monitoring system from being overwhelmed by the applications.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "observability",
+    "chapter": "observability",
+    "chapterTitle": "Introduction to Observability"
+  },
+  {
+    "id": "observability-your-enterprise-has-50-kubernetes-clusters-globally-developers-are-com",
+    "question": "Your enterprise has 50 Kubernetes clusters globally. Developers are complaining that they have to log into 50 different Grafana dashboards to find their logs and metrics. How do you architect a global observability pane of glass?",
+    "answer": "You must decouple local ingestion from global querying.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "observability",
+    "chapter": "observability",
+    "chapterTitle": "Introduction to Observability"
+  }
+]

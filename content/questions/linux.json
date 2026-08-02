@@ -1,0 +1,42 @@
+[
+  {
+    "id": "linux-foundations-what-is-the-sudo-command",
+    "question": "What is the `sudo` command?",
+    "answer": "`sudo` stands for \"SuperUser Do\". It allows a normal user to execute a single command with root (Administrator) privileges.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "linux",
+    "chapter": "linux-foundations",
+    "chapterTitle": "The Foundation (Linux)"
+  },
+  {
+    "id": "linux-foundations-you-run-cat-var-log-syslog-and-it-prints-10-000-lines-instantly-how-ca",
+    "question": "You run `cat /var/log/syslog` and it prints 10,000 lines instantly. How can you view the file so it only shows you the last 20 lines that update in real-time?",
+    "answer": "You use the `tail` command with the follow flag: `tail -n 20 -f /var/log/syslog`.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "linux",
+    "chapter": "linux-foundations",
+    "chapterTitle": "The Foundation (Linux)"
+  },
+  {
+    "id": "linux-foundations-explain-what-oomkilled-means-in-kubernetes-and-how-it-relates-to-the-l",
+    "question": "Explain what `OOMKilled` means in Kubernetes and how it relates to the Linux Kernel.",
+    "answer": "`OOMKilled` stands for Out Of Memory Killed. When a container exceeds its defined memory limit, the Linux Kernel's Out-Of-Memory Killer process intervenes to protect the host node from crashing. It terminates the offending process inside the `cgroup`. Kubernetes detects the exit code and updates the Pod status to `OOMKilled`.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "linux",
+    "chapter": "linux-foundations",
+    "chapterTitle": "The Foundation (Linux)"
+  },
+  {
+    "id": "linux-foundations-what-is-the-difference-between-a-virtual-machine-vm-and-a-container-at",
+    "question": "What is the difference between a Virtual Machine (VM) and a Container at the OS kernel level?",
+    "answer": "A Virtual Machine utilizes a Hypervisor (like ESXi or KVM) to emulate physical hardware. Every VM runs a complete, heavy, independent Operating System kernel. A Container (like Docker) does not emulate hardware. It uses the Host's existing Linux Kernel, utilizing `Namespaces` for isolation and `cgroups` for resource limitation. Because containers share a single kernel, they boot in milliseconds and have vastly less overhead than VMs.",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "linux",
+    "chapter": "linux-foundations",
+    "chapterTitle": "The Foundation (Linux)"
+  }
+]

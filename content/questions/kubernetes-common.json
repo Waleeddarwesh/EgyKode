@@ -1,0 +1,102 @@
+[
+  {
+    "id": "common-what-is-a-pod-and-why-not-just-run-containers",
+    "question": "What is a Pod, and why not just run containers?",
+    "answer": "A Pod is one or more containers sharing a network namespace and storage, always scheduled together and reachable on `localhost`. It is the smallest unit Kubernetes schedules. Usually there is one container; the exception is a sidecar that needs the same lifecycle and localhost access.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubernetes",
+    "chapterTitle": "Container Orchestration (Kubernetes)"
+  },
+  {
+    "id": "common-what-is-the-difference-between-a-deployment-a-replicaset-and-a-pod",
+    "question": "What is the difference between a Deployment, a ReplicaSet and a Pod?",
+    "answer": "A Deployment declares desired state and manages rollouts; it creates a ReplicaSet per version, and the ReplicaSet keeps the requested number of Pods running. Rolling back works because the previous ReplicaSet is retained at zero replicas.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubernetes",
+    "chapterTitle": "Container Orchestration (Kubernetes)"
+  },
+  {
+    "id": "common-explain-liveness-readiness-and-startup-probes",
+    "question": "Explain liveness, readiness and startup probes.",
+    "answer": "Liveness failing restarts the container — for a process that has deadlocked. Readiness failing removes the Pod from Service endpoints without restarting it — for a temporarily busy or dependency-blocked process. Startup suspends the other two while a slow application boots. Pointing liveness at a database check turns a slow database into a cluster-wide restart storm.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubernetes",
+    "chapterTitle": "Container Orchestration (Kubernetes)"
+  },
+  {
+    "id": "common-a-service-returns-nothing-how-do-you-debug-it",
+    "question": "A Service returns nothing. How do you debug it?",
+    "answer": "`kubectl get endpoints <service>` first. An empty list means the selector matches no ready Pod — a label mismatch or a failing readiness probe — and the network is not involved at all. If endpoints exist, check `targetPort` against the container's actual port, then test DNS from inside a Pod.",
+    "level": "intermediate",
+    "kind": "scenario",
+    "domain": "kubernetes",
+    "chapter": "kubernetes",
+    "chapterTitle": "Container Orchestration (Kubernetes)"
+  },
+  {
+    "id": "common-clusterip-nodeport-or-loadbalancer-when-do-you-use-each",
+    "question": "ClusterIP, NodePort or LoadBalancer — when do you use each?",
+    "answer": "`ClusterIP` for internal traffic, which is nearly everything. `NodePort` mainly for debugging or behind an external balancer. `LoadBalancer` provisions a real cloud load balancer per Service, which is why production uses one Ingress in front of many ClusterIP Services rather than a LoadBalancer each.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubernetes",
+    "chapterTitle": "Container Orchestration (Kubernetes)"
+  },
+  {
+    "id": "common-a-pod-is-stuck-in-walk-through-your-diagnosis",
+    "question": "A Pod is stuck in `CrashLoopBackOff`. Walk through your diagnosis.",
+    "answer": "`kubectl logs <pod> --previous` — the current container has just started and knows nothing; the evidence is in the one that died. Then `kubectl describe pod` for events and the exit code: 137 is OOMKilled (raise the memory limit or fix the leak), a config or missing-secret error appears in the logs, and a liveness probe that is too aggressive shows as repeated restarts of an otherwise healthy process.",
+    "level": "intermediate",
+    "kind": "scenario",
+    "domain": "kubernetes",
+    "chapter": "kubernetes",
+    "chapterTitle": "Container Orchestration (Kubernetes)"
+  },
+  {
+    "id": "common-what-does-mean-and-who-kills-the-process",
+    "question": "What does `OOMKilled` mean and who kills the process?",
+    "answer": "The container exceeded its memory limit and the Linux kernel's OOM killer terminated it inside its cgroup — Kubernetes only reports what the kernel did. Fix it by raising the limit if the workload genuinely needs it, or by fixing the leak. Setting requests and limits equal gives the Pod the Guaranteed QoS class and makes it the last to be evicted.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubernetes",
+    "chapterTitle": "Container Orchestration (Kubernetes)"
+  },
+  {
+    "id": "common-how-does-rbac-work-and-why-is-there-no-deny-rule",
+    "question": "How does RBAC work, and why is there no deny rule?",
+    "answer": "A Role (or ClusterRole) is a list of permissions; a RoleBinding attaches it to a user, group or ServiceAccount. RBAC is purely additive — a subject can do the union of what its bindings grant — so you restrict by granting less, never by subtracting. Verify with `kubectl auth can-i --list --as system:serviceaccount:ns:name`.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubernetes",
+    "chapterTitle": "Container Orchestration (Kubernetes)"
+  },
+  {
+    "id": "common-are-kubernetes-secrets-encrypted",
+    "question": "Are Kubernetes Secrets encrypted?",
+    "answer": "By default they are base64-encoded, not encrypted — anyone who can read the Secret can decode it instantly. Real protection needs encryption at rest in etcd, RBAC limiting who can read Secrets, `automountServiceAccountToken: false` where the API is not used, and ideally an external store such as AWS Secrets Manager.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubernetes",
+    "chapterTitle": "Container Orchestration (Kubernetes)"
+  },
+  {
+    "id": "common-why-do-control-planes-come-in-odd-numbers",
+    "question": "Why do control planes come in odd numbers?",
+    "answer": "etcd needs a strict majority to accept a write. Three nodes tolerate one failure; four also tolerate only one, because losing two of four leaves no majority. A two-node 'HA' cluster is less available than a single node — it can lose quorum and refuse writes while both machines are still running.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "kubernetes",
+    "chapter": "kubeadm",
+    "chapterTitle": "Cluster Bootstrapping (Kubeadm)"
+  }
+]

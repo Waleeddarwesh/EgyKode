@@ -1,0 +1,42 @@
+[
+  {
+    "id": "troubleshooting-a-pod-is-in-crashloopbackoff-what-are-your-first-two-commands",
+    "question": "A pod is in `CrashLoopBackOff`. What are your first two commands?",
+    "answer": "`kubectl describe pod` to read the Events and see the last termination",
+    "level": "beginner",
+    "kind": "scenario",
+    "domain": "troubleshooting",
+    "chapter": "troubleshooting",
+    "chapterTitle": "Troubleshooting"
+  },
+  {
+    "id": "troubleshooting-a-service-returns-nothing-but-the-pods-are-running-where-do-you-look",
+    "question": "A Service returns nothing but the pods are Running. Where do you look?",
+    "answer": "`kubectl get endpoints <service>`. If it is empty, no pod is passing its",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "troubleshooting",
+    "chapter": "troubleshooting",
+    "chapterTitle": "Troubleshooting"
+  },
+  {
+    "id": "troubleshooting-pods-have-been-stuck-in-containercreating-for-ten-minutes-diagnose",
+    "question": "Pods have been stuck in `ContainerCreating` for ten minutes. Diagnose.",
+    "answer": "`describe pod` first for the Events — usually a missing Secret, an unbound",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "troubleshooting",
+    "chapter": "troubleshooting",
+    "chapterTitle": "Troubleshooting"
+  },
+  {
+    "id": "troubleshooting-how-do-you-make-a-platform-debuggable-by-people-who-did-not-build-it",
+    "question": "How do you make a platform debuggable by people who did not build it?",
+    "answer": "Three things, in order of value. First, every alert carries a `runbook_url`",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "troubleshooting",
+    "chapter": "troubleshooting",
+    "chapterTitle": "Troubleshooting"
+  }
+]

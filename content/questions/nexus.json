@@ -1,0 +1,42 @@
+[
+  {
+    "id": "nexus-and-artifacts-why-run-your-own-artifact-repository-when-maven-central-is-free",
+    "question": "Why run your own artifact repository when Maven Central is free?",
+    "answer": "Three reasons. Availability — a Central outage would stop every build in the",
+    "level": "beginner",
+    "kind": "scenario",
+    "domain": "nexus",
+    "chapter": "nexus-and-artifacts",
+    "chapterTitle": "Artifact Management (Nexus)"
+  },
+  {
+    "id": "nexus-and-artifacts-what-is-the-difference-between-a-release-and-a-snapshot-repository",
+    "question": "What is the difference between a release and a snapshot repository?",
+    "answer": "A release repository holds immutable versions — write-once, never",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "nexus",
+    "chapter": "nexus-and-artifacts",
+    "chapterTitle": "Artifact Management (Nexus)"
+  },
+  {
+    "id": "nexus-and-artifacts-what-is-dependency-confusion-and-how-do-you-prevent-it",
+    "question": "What is dependency confusion and how do you prevent it?",
+    "answer": "An attacker publishes to a public registry using the name of an internal",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "nexus",
+    "chapter": "nexus-and-artifacts",
+    "chapterTitle": "Artifact Management (Nexus)"
+  },
+  {
+    "id": "nexus-and-artifacts-how-do-you-answer-is-this-cve-in-our-production-systems-in-under-an-ho",
+    "question": "How do you answer \"is this CVE in our production systems?\" in under an hour?",
+    "answer": "You have to have prepared for the question before it was asked. Concretely:",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "nexus",
+    "chapter": "nexus-and-artifacts",
+    "chapterTitle": "Artifact Management (Nexus)"
+  }
+]

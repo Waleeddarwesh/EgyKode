@@ -1,0 +1,42 @@
+[
+  {
+    "id": "gitops-if-a-hacker-logs-into-the-kubernetes-cluster-and-deletes-a-deployment-",
+    "question": "If a hacker logs into the Kubernetes cluster and deletes a Deployment, what happens in a GitOps system?",
+    "answer": "ArgoCD immediately notices that the Deployment is missing from the cluster but still exists in the Git repository. Because Git is the Single Source of Truth, ArgoCD instantly recreates the Deployment, effectively fighting off the hacker automatically.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "gitops",
+    "chapter": "gitops",
+    "chapterTitle": "The GitOps Philosophy"
+  },
+  {
+    "id": "gitops-explain-the-concept-of-configuration-drift",
+    "question": "Explain the concept of \"Configuration Drift\".",
+    "answer": "Configuration Drift happens when the actual running state of an environment differs from the documented or desired state (e.g., an engineer manually patches a server in the middle of the night but forgets to update the codebase). GitOps eliminates drift through continuous reconciliation.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "gitops",
+    "chapter": "gitops",
+    "chapterTitle": "The GitOps Philosophy"
+  },
+  {
+    "id": "gitops-how-do-you-handle-environment-promotion-dev-staging-prod-in-a-gitops-a",
+    "question": "How do you handle environment promotion (Dev -> Staging -> Prod) in a GitOps architecture?",
+    "answer": "You use branching or folder structures. A common pattern is folder-based: `namespaces/dev`, `namespaces/staging`, `namespaces/prod`. When Jenkins tests `v2.0` in Dev, it updates the YAML in the `dev/` folder. A human engineer then opens a Pull Request to copy that YAML change into the `prod/` folder. When the PR is approved and merged, ArgoCD detects the change in the `prod/` folder and deploys it.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "gitops",
+    "chapter": "gitops",
+    "chapterTitle": "The GitOps Philosophy"
+  },
+  {
+    "id": "gitops-explain-the-architectural-trade-offs-between-push-based-ci-cd-e-g-jenk",
+    "question": "Explain the architectural trade-offs between \"Push-based CI/CD\" (e.g., Jenkins running `helm upgrade`) versus \"Pull-based GitOps\" (e.g., ArgoCD) regarding network security and IAM blast radius.",
+    "answer": "In a Push-based model, the CI/CD server sits outside the cluster (e.g., Jenkins in a management VPC). To deploy, the Kubernetes API server must be reachable from Jenkins, requiring inbound firewall rules. Furthermore, Jenkins must hold highly privileged cluster-admin credentials. If Jenkins is compromised, the attacker owns the cluster. In a Pull-based GitOps model, ArgoCD lives inside the cluster. It polls Git via outbound HTTPS only. The cluster API requires zero inbound firewall ports from the CI system, and the CI system holds zero cluster credentials, drastically reducing the IAM blast radius and shrinking the network attack surface.",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "gitops",
+    "chapter": "gitops",
+    "chapterTitle": "The GitOps Philosophy"
+  }
+]

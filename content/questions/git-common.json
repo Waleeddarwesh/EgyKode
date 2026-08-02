@@ -1,0 +1,22 @@
+[
+  {
+    "id": "common-what-is-the-difference-between-and",
+    "question": "What is the difference between `git merge` and `git rebase`?",
+    "answer": "`merge` creates a commit joining two histories and preserves what actually happened. `rebase` replays your commits on top of another branch, producing a linear history but rewriting commit hashes. Rebase your own unpushed work; never rebase a shared branch other people have pulled.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "git",
+    "chapter": "git-and-github",
+    "chapterTitle": "Version Control (Git & GitHub)"
+  },
+  {
+    "id": "common-you-committed-a-secret-and-pushed-it-what-do-you-do",
+    "question": "You committed a secret and pushed it. What do you do?",
+    "answer": "Treat the secret as compromised and rotate it first — that is the only step that actually protects you. Then remove it from history (`git filter-repo` or BFG) and force-push. Deleting the file in a new commit does nothing: the value is still in history and in every clone.",
+    "level": "intermediate",
+    "kind": "scenario",
+    "domain": "git",
+    "chapter": "git-and-github",
+    "chapterTitle": "Version Control (Git & GitHub)"
+  }
+]

@@ -1,0 +1,342 @@
+[
+  {
+    "id": "auto-scaling-what-is-the-difference-between-an-auto-scaling-group-and-a-load-balanc",
+    "question": "What is the difference between an Auto Scaling Group and a Load Balancer?",
+    "answer": "An Auto Scaling Group creates and destroys servers based on traffic. A Load Balancer takes the traffic and distributes it evenly among whatever servers the Auto Scaling Group has created.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "auto-scaling",
+    "chapterTitle": "Elasticity (AWS Auto Scaling)"
+  },
+  {
+    "id": "auto-scaling-if-your-asg-has-min-size-2-and-you-manually-go-into-the-aws-console-an",
+    "question": "If your ASG has `min_size = 2` and you manually go into the AWS Console and terminate one of the instances, what happens?",
+    "answer": "The ASG Health Checks will detect that the instance was terminated. Because the current capacity (1) is now below the `min_size` (2), the ASG will instantly launch a brand new instance to replace the terminated one.",
+    "level": "intermediate",
+    "kind": "scenario",
+    "domain": "aws",
+    "chapter": "auto-scaling",
+    "chapterTitle": "Elasticity (AWS Auto Scaling)"
+  },
+  {
+    "id": "auto-scaling-explain-how-user-data-works-in-an-ec2-launch-template-and-why-it-is-cr",
+    "question": "Explain how `user_data` works in an EC2 Launch Template and why it is critical for immutable infrastructure.",
+    "answer": "`user_data` is a script passed to the EC2 instance metadata service. The `cloud-init` daemon executes this script exactly once during the first boot of the OS. It allows the server to dynamically configure itself (e.g., downloading Ansible, running `kubeadm join`, fetching secrets) without any human intervention. This makes the infrastructure immutable: if a server breaks, you do not SSH in to fix it; you terminate it, and the ASG boots a fresh one that perfectly configures itself via `user_data`.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "auto-scaling",
+    "chapterTitle": "Elasticity (AWS Auto Scaling)"
+  },
+  {
+    "id": "auto-scaling-you-are-running-a-stateful-application-kafka-on-kubernetes-using-persi",
+    "question": "You are running a stateful application (Kafka) on Kubernetes using persistent EBS volumes. The Kubernetes Node fails. The ASG replaces the Node. However, the Kafka Pod is stuck in `Pending` on the new Node because the EBS volume is in a different Availability Zone. How do you architect the ASG to prevent this?",
+    "answer": "EBS volumes are locked to a specific Availability Zone (AZ). If a Node in `us-east-1a` dies, the ASG might spin up the replacement Node in `us-east-1b` to maintain balance. The Pod will schedule in `1b`, but the disk is in `1a`.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "aws",
+    "chapter": "auto-scaling",
+    "chapterTitle": "Elasticity (AWS Auto Scaling)"
+  },
+  {
+    "id": "aws-overview-what-does-the-cloud-actually-mean",
+    "question": "What does \"The Cloud\" actually mean?",
+    "answer": "\"The Cloud\" is just a marketing term. In reality, it simply means \"someone else's computer.\" You are paying Amazon to rent a server in a massive warehouse.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "aws-overview",
+    "chapterTitle": "Amazon Web Services (AWS)"
+  },
+  {
+    "id": "aws-overview-what-is-the-difference-between-aws-s3-and-aws-ebs",
+    "question": "What is the difference between AWS S3 and AWS EBS?",
+    "answer": "Both store data, but completely differently. **EBS (Elastic Block Store)** is like a hard drive plugged directly into an EC2 server; it's fast, used for operating systems, and dies when the server dies. **S3 (Simple Storage Service)** is object storage accessed via the internet (HTTPS); it is infinitely scalable, extremely cheap, and survives regardless of what happens to your EC2 servers.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "aws-overview",
+    "chapterTitle": "Amazon Web Services (AWS)"
+  },
+  {
+    "id": "aws-overview-how-does-aws-billing-work-for-ec2-instances-what-happens-if-you-leave-",
+    "question": "How does AWS billing work for EC2 instances? What happens if you leave a `t3.xlarge` running for a month?",
+    "answer": "AWS bills EC2 instances by the second. A `t3.xlarge` costs roughly $0.1664 per hour. If left running 24/7 for a 730-hour month, it will cost ~$121. This is why automated tear-down scripts and Auto Scaling down to 0 during non-business hours are critical cost-optimization strategies.",
+    "level": "advanced",
+    "kind": "scenario",
+    "domain": "aws",
+    "chapter": "aws-overview",
+    "chapterTitle": "Amazon Web Services (AWS)"
+  },
+  {
+    "id": "aws-overview-explain-how-aws-iam-assumes-a-role-across-accounts-using-sts",
+    "question": "Explain how AWS IAM assumes a role across accounts using STS.",
+    "answer": "In a multi-account organization, an identity (User or CI/CD runner) in Account A needs to build resources in Account B. Instead of giving the runner static credentials for Account B, Account B creates an IAM Role with a Trust Policy granting Account A permission to assume it. The runner in Account A calls the AWS Security Token Service (STS) `AssumeRole` API. STS returns temporary, short-lived (e.g., 1 hour) credentials. The runner uses these credentials to execute Terraform against Account B. This adheres to the Principle of Least Privilege and eliminates static key rotation overhead.",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "aws-overview",
+    "chapterTitle": "Amazon Web Services (AWS)"
+  },
+  {
+    "id": "ecr-what-is-the-difference-between-docker-hub-and-aws-ecr",
+    "question": "What is the difference between Docker Hub and AWS ECR?",
+    "answer": "Both are container registries used to store Docker images. Docker Hub is the default, generic public registry. AWS ECR is Amazon's fully managed, highly secure private registry designed for enterprise AWS integration.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "ecr",
+    "chapterTitle": "Container Registry (AWS ECR)"
+  },
+  {
+    "id": "ecr-why-do-we-get-an-imagepullbackoff-error-in-kubernetes",
+    "question": "Why do we get an `ImagePullBackOff` error in Kubernetes?",
+    "answer": "This usually means Kubernetes cannot download the image from the registry. The two most common causes are: a typo in the image name/tag, or Kubernetes lacks the authentication permissions (`imagePullSecrets` or IAM Roles) to access the private ECR repository.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "ecr",
+    "chapterTitle": "Container Registry (AWS ECR)"
+  },
+  {
+    "id": "ecr-explain-how-you-optimize-ecr-storage-costs-for-a-microservice-that-bui",
+    "question": "Explain how you optimize ECR storage costs for a microservice that builds 100 times a day.",
+    "answer": "You implement an ECR Lifecycle Policy. The policy evaluates rules daily, such as deleting untagged images older than 7 days, or keeping only the 50 most recently pushed images for tagged releases. This ensures the registry only retains artifacts actively used for production or immediate rollbacks.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "ecr",
+    "chapterTitle": "Container Registry (AWS ECR)"
+  },
+  {
+    "id": "ecr-you-have-a-multi-region-active-active-kubernetes-architecture-spanning",
+    "question": "You have a multi-region Active-Active Kubernetes architecture spanning `us-east-1` and `eu-west-1`. How do you architect the ECR deployment to minimize cross-region data transfer costs and reduce deployment latency?",
+    "answer": "You do not have the EU cluster pull images across the Atlantic from the US registry. That incurs high cross-region data transfer out (DTO) costs and slows down pod startup. Instead, you configure **ECR Cross-Region Replication**. You push the image once to `us-east-1`. ECR asynchronously replicates the image to an identical registry in `eu-west-1`. The EU Kubernetes cluster then pulls the image from its local EU ECR, keeping traffic on the AWS backbone and eliminating internet DTO costs while minimizing latency.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "aws",
+    "chapter": "ecr",
+    "chapterTitle": "Container Registry (AWS ECR)"
+  },
+  {
+    "id": "iam-what-is-the-difference-between-an-iam-role-and-an-iam-user",
+    "question": "What is the difference between an IAM Role and an IAM User?",
+    "answer": "A User is a permanent identity with a static password or access key. A Role is a temporary identity without a password; it is assumed dynamically by users, AWS services (like EC2), or federated external identities.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "iam",
+    "chapterTitle": "Security & Identity (AWS IAM)"
+  },
+  {
+    "id": "iam-if-an-iam-policy-has-an-allow-statement-for-s3-and-another-policy-atta",
+    "question": "If an IAM Policy has an `Allow` statement for S3, and another policy attached to the same user has a `Deny` statement for S3, what happens?",
+    "answer": "In AWS IAM, an explicit `Deny` always wins. Always. The user will be blocked from accessing S3.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "iam",
+    "chapterTitle": "Security & Identity (AWS IAM)"
+  },
+  {
+    "id": "iam-explain-how-you-would-grant-an-ec2-instance-in-account-a-the-permissio",
+    "question": "Explain how you would grant an EC2 instance in Account A the permission to read an S3 bucket in Account B.",
+    "answer": "This requires Cross-Account IAM.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "iam",
+    "chapterTitle": "Security & Identity (AWS IAM)"
+  },
+  {
+    "id": "iam-your-enterprise-has-500-aws-accounts-you-need-to-ensure-that-no-develo",
+    "question": "Your enterprise has 500 AWS accounts. You need to ensure that no developer, even those with AdministratorAccess, can ever launch an EC2 instance outside of the `us-east-1` and `eu-west-1` regions. How do you architect this centrally?",
+    "answer": "You use AWS Organizations and Service Control Policies (SCPs). You attach an SCP to the root of the Organization (or specific Organizational Units). The SCP uses a `Deny` effect for `ec2:RunInstances` with a condition key `aws:RequestedRegion` specifying `StringNotEquals` for `us-east-1` and `eu-west-1`. Because SCPs act as a master filter over all IAM policies in the child accounts, this explicitly blocks the action regardless of the local user's Administrator privileges.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "aws",
+    "chapter": "iam",
+    "chapterTitle": "Security & Identity (AWS IAM)"
+  },
+  {
+    "id": "load-balancers-what-happens-to-user-traffic-if-one-of-the-three-backend-servers-crash",
+    "question": "What happens to user traffic if one of the three backend servers crashes?",
+    "answer": "The Load Balancer's health check will fail for the crashed server. The Load Balancer will immediately stop sending traffic to the dead server and distribute 100% of the traffic evenly between the two remaining healthy servers.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "load-balancers",
+    "chapterTitle": "High Availability (AWS Load Balancers)"
+  },
+  {
+    "id": "load-balancers-why-do-we-put-the-load-balancer-in-a-public-subnet-but-the-ec2-servers",
+    "question": "Why do we put the Load Balancer in a Public Subnet, but the EC2 servers in a Private Subnet?",
+    "answer": "Security. If the servers were in the public subnet, hackers could bypass the Load Balancer and attack the servers directly via SSH or open ports. By putting the servers in a private subnet, the Load Balancer becomes the *only* possible way into the system.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "load-balancers",
+    "chapterTitle": "High Availability (AWS Load Balancers)"
+  },
+  {
+    "id": "load-balancers-explain-the-difference-between-an-aws-alb-application-load-balancer-an",
+    "question": "Explain the difference between an AWS ALB (Application Load Balancer) and a Kubernetes Ingress Controller (like Nginx). Do you need both?",
+    "answer": "An ALB is a physical/managed AWS resource that balances traffic across EC2 instances. An Ingress Controller is a software router running *inside* the cluster that balances traffic across Pods. In a production EKS/kubeadm setup, you typically use both: The ALB receives public traffic and routes it to the EC2 nodes on a NodePort. The Nginx Ingress Controller running on those nodes receives the traffic and uses internal Kubernetes DNS to route it to the specific Pods. Alternatively, using the AWS Load Balancer Controller with \"IP Mode\", the ALB can bypass Nginx entirely and route traffic directly to the Pod IPs via the CNI.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "load-balancers",
+    "chapterTitle": "High Availability (AWS Load Balancers)"
+  },
+  {
+    "id": "load-balancers-during-a-massive-ddos-attack-your-application-load-balancer-scales-up-",
+    "question": "During a massive DDoS attack, your Application Load Balancer scales up to handle 500,000 requests per second, but your backend Kubernetes cluster is completely overwhelmed and dies. How do you architect the edge layer to protect the cluster?",
+    "answer": "You must decouple the traffic from the compute layer using Edge caching and Web Application Firewalls (WAF).",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "aws",
+    "chapter": "load-balancers",
+    "chapterTitle": "High Availability (AWS Load Balancers)"
+  },
+  {
+    "id": "rds-why-don-t-we-give-the-rds-database-a-public-ip-address-so-developers-c",
+    "question": "Why don't we give the RDS database a Public IP address so developers can connect to it from home using DBeaver?",
+    "answer": "Giving a database a public IP is the number one cause of enterprise data breaches. Hackers scan the internet for open Port 3306 (MySQL). The database must be in a Private Subnet. Developers should use an AWS Client VPN or an SSM Session Manager jump-host to access it.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "rds",
+    "chapterTitle": "Managed Databases (Amazon RDS)"
+  },
+  {
+    "id": "rds-what-is-the-difference-between-an-rds-read-replica-and-rds-multi-az",
+    "question": "What is the difference between an RDS Read Replica and RDS Multi-AZ?",
+    "answer": "**Multi-AZ** is for Disaster Recovery; it creates a hidden, synchronous standby node that you cannot read from. If the primary dies, AWS fails over to the standby automatically. **Read Replicas** are for Performance; they create asynchronous copies of the database that you *can* read from. If your application has heavy read traffic (like generating reports), you point the read queries to the Read Replica to take the load off the Primary.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "rds",
+    "chapterTitle": "Managed Databases (Amazon RDS)"
+  },
+  {
+    "id": "rds-explain-how-terraform-manages-the-rds-password-without-exposing-it-in-",
+    "question": "Explain how Terraform manages the RDS `password` without exposing it in plaintext in the `.tf` file.",
+    "answer": "In our code, `password = var.db_password`. This is a variable. We never hardcode it. In production, we execute Terraform via a CI/CD pipeline. The pipeline pulls the password securely from HashiCorp Vault or AWS Secrets Manager, and injects it into Terraform at runtime as an environment variable (`TF_VAR_db_password`). Furthermore, the state file must be stored in an encrypted S3 bucket, because the password *will* be stored in plaintext inside `terraform.tfstate`.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "rds",
+    "chapterTitle": "Managed Databases (Amazon RDS)"
+  },
+  {
+    "id": "rds-your-rds-multi-az-database-is-experiencing-severe-replication-lag-duri",
+    "question": "Your RDS Multi-AZ database is experiencing severe replication lag during a massive data migration, causing write latency to spike across the Kubernetes cluster. How do you re-architect the data layer?",
+    "answer": "Standard RDS Multi-AZ uses block-level synchronous replication, which is sensitive to heavy I/O spikes. If write latency is unacceptable, the architecture must transition from standard RDS MySQL to **Amazon Aurora MySQL**. Aurora decouples compute from storage. It does not use block-level replication to a standby node. Instead, it writes redo logs directly to a distributed storage fleet spanning 3 AZs (6 copies of data). This eliminates the traditional replication lag bottleneck entirely, resulting in vastly higher write throughput and sub-10 millisecond failover times.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "aws",
+    "chapter": "rds",
+    "chapterTitle": "Managed Databases (Amazon RDS)"
+  },
+  {
+    "id": "secrets-manager-what-is-the-difference-between-encryption-and-base64-encoding",
+    "question": "What is the difference between encryption and Base64 encoding?",
+    "answer": "Base64 encoding is just a way to translate text into a format computers can easily transmit; anyone can instantly translate it back without a key. Encryption (like AES-256) scrambles the data mathematically; you cannot read the data unless you possess the specific cryptographic key used to lock it. Kubernetes Secrets use Base64. AWS Secrets Manager uses Encryption.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "secrets-manager",
+    "chapterTitle": "Security (AWS Secrets Manager)"
+  },
+  {
+    "id": "secrets-manager-how-does-the-external-secrets-operator-eso-solve-the-gitops-secrets-pr",
+    "question": "How does the External Secrets Operator (ESO) solve the GitOps secrets problem?",
+    "answer": "GitOps requires all YAML to be in Git. ESO allows us to store an `ExternalSecret` YAML in Git that contains *pointers* to AWS (e.g., `key: prod/rds`), rather than the actual passwords. ArgoCD syncs the pointers, and ESO dynamically fetches the real passwords from AWS at runtime.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "secrets-manager",
+    "chapterTitle": "Security (AWS Secrets Manager)"
+  },
+  {
+    "id": "secrets-manager-you-configured-aws-secrets-manager-to-automatically-rotate-the-rds-dat",
+    "question": "You configured AWS Secrets Manager to automatically rotate the RDS database password every 30 days. However, your Java Spring Boot application in Kubernetes crashed with an \"Access Denied\" database error immediately after the rotation. Why, and how do you fix it?",
+    "answer": "While ESO successfully pulled the new password and updated the Kubernetes `Secret`, the Java Spring Boot application only reads environment variables or mounted files *at startup*. It does not hot-reload secrets. You must architect a solution to restart the Pod when the Secret changes. Tools like `Reloader` (Stakater) watch Kubernetes Secrets; when a Secret updates, `Reloader` automatically performs a rolling restart of the associated Deployment, ensuring the Java app reads the new password without downtime.",
+    "level": "advanced",
+    "kind": "scenario",
+    "domain": "aws",
+    "chapter": "secrets-manager",
+    "chapterTitle": "Security (AWS Secrets Manager)"
+  },
+  {
+    "id": "secrets-manager-explain-how-oidc-federation-irsa-establishes-a-chain-of-trust-between-",
+    "question": "Explain how OIDC federation (IRSA) establishes a chain of trust between a Kubernetes cluster and AWS IAM without storing static AWS access keys in the cluster.",
+    "answer": "The Kubernetes API Server is configured as an OpenID Connect (OIDC) Identity Provider. AWS IAM is configured to trust this specific OIDC provider endpoint. When a Pod (with a designated ServiceAccount) is scheduled, the kubelet injects a cryptographically signed JWT into the Pod's filesystem. The AWS SDK inside the Pod reads this JWT and sends an `AssumeRoleWithWebIdentity` API call to AWS STS. STS verifies the JWT's signature against the Kubernetes API Server's public OIDC discovery keys. If valid, STS returns temporary AWS session credentials to the Pod. This entire chain relies on cryptographic trust, eliminating the need to ever create or rotate long-lived static AWS access keys.",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "secrets-manager",
+    "chapterTitle": "Security (AWS Secrets Manager)"
+  },
+  {
+    "id": "serverless-does-serverless-mean-there-are-no-servers-involved",
+    "question": "Does \"Serverless\" mean there are no servers involved?",
+    "answer": "No. There are still physical servers in an AWS data center. \"Serverless\" simply means the cloud provider completely manages the servers, the operating system, and the capacity provisioning. The customer only manages the application code.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "serverless",
+    "chapterTitle": "Beyond Kubernetes (Serverless)"
+  },
+  {
+    "id": "serverless-explain-the-cold-start-problem-in-aws-lambda",
+    "question": "Explain the \"Cold Start\" problem in AWS Lambda.",
+    "answer": "A Cold Start occurs when a Lambda function is triggered after being idle. AWS must allocate compute resources, download the deployment package, start the runtime environment, and run initialization code. This initialization process introduces latency (delay) to the request. Subsequent requests to the same warm instance do not experience this delay.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "serverless",
+    "chapterTitle": "Beyond Kubernetes (Serverless)"
+  },
+  {
+    "id": "serverless-if-you-have-a-long-running-data-processing-task-that-takes-25-minutes-",
+    "question": "If you have a long-running data processing task that takes 25 minutes to complete, should you use AWS Lambda?",
+    "answer": "No. AWS Lambda has a strict hard timeout of 15 minutes. If the process takes 25 minutes, AWS will violently terminate the execution at the 15-minute mark. For long-running serverless tasks, you should use AWS Fargate (Serverless Containers) or AWS Step Functions to orchestrate a distributed workflow.",
+    "level": "advanced",
+    "kind": "scenario",
+    "domain": "aws",
+    "chapter": "serverless",
+    "chapterTitle": "Beyond Kubernetes (Serverless)"
+  },
+  {
+    "id": "vpc-what-is-an-internet-gateway-igw",
+    "question": "What is an Internet Gateway (IGW)?",
+    "answer": "It is the component attached to a VPC that provides a target in your VPC route tables for internet-routable traffic, and performs network address translation (NAT) for instances that have been assigned public IPv4 addresses.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "vpc",
+    "chapterTitle": "Cloud Networking (AWS VPC)"
+  },
+  {
+    "id": "vpc-explain-the-difference-between-a-nat-gateway-and-an-egress-only-intern",
+    "question": "Explain the difference between a NAT Gateway and an Egress-Only Internet Gateway.",
+    "answer": "A NAT Gateway is used for IPv4 traffic. It translates the private IPv4 address of an instance to its own elastic public IPv4 address. An Egress-Only Internet Gateway is exclusively for IPv6 traffic. Because IPv6 addresses are globally routable (no private IPs), NAT is mathematically unnecessary. The Egress-Only IGW simply acts as a stateful router that allows outbound IPv6 traffic to the internet but blocks inbound IPv6 connections.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "aws",
+    "chapter": "vpc",
+    "chapterTitle": "Cloud Networking (AWS VPC)"
+  },
+  {
+    "id": "vpc-your-company-merges-with-another-company-you-have-vpc-a-10-0-0-0-16-an",
+    "question": "Your company merges with another company. You have VPC A (`10.0.0.0/16`) and they have VPC B (`10.0.0.0/16`). You need the Kubernetes cluster in VPC A to query the RDS database in VPC B. How do you architect this without causing IP routing conflicts?",
+    "answer": "Because the CIDR blocks overlap identically, you cannot use VPC Peering or a Transit Gateway directly; the routing tables would have no idea which `10.0.x.x` IP to send traffic to.",
+    "level": "expert",
+    "kind": "scenario",
+    "domain": "aws",
+    "chapter": "vpc",
+    "chapterTitle": "Cloud Networking (AWS VPC)"
+  }
+]

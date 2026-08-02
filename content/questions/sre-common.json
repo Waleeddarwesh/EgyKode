@@ -1,0 +1,32 @@
+[
+  {
+    "id": "common-what-is-the-difference-between-rto-and-rpo",
+    "question": "What is the difference between RTO and RPO?",
+    "answer": "RTO is how long you may take to restore service; RPO is how much data you may lose, measured in time. RTO drives standby capacity and automation, RPO drives backup and replication frequency. Both are business decisions, and a backup nobody has ever restored satisfies neither.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "sre",
+    "chapter": "disaster-recovery",
+    "chapterTitle": "The Worst Day (Disaster Recovery)"
+  },
+  {
+    "id": "common-is-high-availability-the-same-as-disaster-recovery",
+    "question": "Is high availability the same as disaster recovery?",
+    "answer": "No. HA handles a component failing inside a region, automatically and in seconds. DR handles losing a region — or a bad decision such as a dropped table or ransomware — deliberately, in minutes to hours. HA replicates faults as faithfully as data, which is exactly why backups still exist.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "sre",
+    "chapter": "disaster-recovery",
+    "chapterTitle": "The Worst Day (Disaster Recovery)"
+  },
+  {
+    "id": "common-you-are-first-responder-on-a-production-outage-what-are-your-first-mov",
+    "question": "You are first responder on a production outage. What are your first moves?",
+    "answer": "Declare it out loud early, assign an incident commander who decides rather than debugs, and stop the bleeding before finding the cause — roll back or fail over first. Check what changed recently, because most incidents are a change. Communicate on a timer even when there is nothing new, then write a blameless postmortem with specific, owned, dated actions.",
+    "level": "intermediate",
+    "kind": "scenario",
+    "domain": "sre",
+    "chapter": "disaster-recovery",
+    "chapterTitle": "The Worst Day (Disaster Recovery)"
+  }
+]

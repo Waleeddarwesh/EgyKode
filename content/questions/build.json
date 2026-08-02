@@ -1,0 +1,42 @@
+[
+  {
+    "id": "build-tools-what-does-mvn-clean-package-do",
+    "question": "What does `mvn clean package` do?",
+    "answer": "`clean` deletes the `target/` directory so nothing stale is packaged. `package`",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "build",
+    "chapter": "build-tools",
+    "chapterTitle": "Build Tools"
+  },
+  {
+    "id": "build-tools-why-does-the-dockerfile-copy-pom-xml-before-src",
+    "question": "Why does the Dockerfile copy `pom.xml` before `src`?",
+    "answer": "Docker layer caching. Dependency resolution is expensive and changes rarely;",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "build",
+    "chapter": "build-tools",
+    "chapterTitle": "Build Tools"
+  },
+  {
+    "id": "build-tools-the-sonarqube-gate-says-0-coverage-but-the-tests-pass-why",
+    "question": "The SonarQube gate says 0% coverage, but the tests pass. Why?",
+    "answer": "Coverage data is not being produced or not being found. Most likely the",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "build",
+    "chapter": "build-tools",
+    "chapterTitle": "Build Tools"
+  },
+  {
+    "id": "build-tools-how-do-you-make-builds-reproducible-across-developers-and-ci",
+    "question": "How do you make builds reproducible across developers and CI?",
+    "answer": "Four things. Pin every dependency to a release version — no `SNAPSHOT` and no",
+    "level": "expert",
+    "kind": "conceptual",
+    "domain": "build",
+    "chapter": "build-tools",
+    "chapterTitle": "Build Tools"
+  }
+]

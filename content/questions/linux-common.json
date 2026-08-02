@@ -1,0 +1,52 @@
+[
+  {
+    "id": "common-what-is-the-difference-between-a-process-and-a-daemon",
+    "question": "What is the difference between a process and a daemon?",
+    "answer": "Every running program is a process with a numeric PID. A daemon is simply a process that runs in the background with no controlling terminal — a service. `dockerd`, `kubelet` and a database server are all daemons.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "linux",
+    "chapter": "linux-foundations",
+    "chapterTitle": "The Foundation (Linux)"
+  },
+  {
+    "id": "common-a-server-is-out-of-disk-space-how-do-you-find-what-is-using-it",
+    "question": "A server is out of disk space. How do you find what is using it?",
+    "answer": "`df -h` shows which filesystem is full, then `du -sh /var/*` narrows it down directory by directory. The usual culprits are `/var/log` and unpruned container images. A full disk breaks things that look unrelated — Docker cannot pull, Kubernetes evicts Pods, databases refuse writes.",
+    "level": "beginner",
+    "kind": "scenario",
+    "domain": "linux",
+    "chapter": "linux-foundations",
+    "chapterTitle": "The Foundation (Linux)"
+  },
+  {
+    "id": "common-what-does-mean-and-why-is-almost-always-wrong",
+    "question": "What does `chmod 755` mean, and why is `777` almost always wrong?",
+    "answer": "Each digit sums read (4), write (2) and execute (1) for owner, group and others. `755` gives the owner everything and everyone else read and execute. `777` grants write access to every process on the machine, including a compromised one — the fix is nearly always correct ownership (`chown`) plus a shared group, not wider permissions.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "linux",
+    "chapter": "linux-foundations",
+    "chapterTitle": "The Foundation (Linux)"
+  },
+  {
+    "id": "common-a-service-works-when-you-start-it-manually-but-is-gone-after-a-reboot-",
+    "question": "A service works when you start it manually but is gone after a reboot. Why?",
+    "answer": "It was started but never enabled. `systemctl start` runs it now; `systemctl enable` registers it to start at boot. They are independent, and confusing them produces a service that runs perfectly for months and then never comes back after a 3am reboot.",
+    "level": "intermediate",
+    "kind": "scenario",
+    "domain": "linux",
+    "chapter": "linux-foundations",
+    "chapterTitle": "The Foundation (Linux)"
+  },
+  {
+    "id": "common-what-is-the-difference-between-sigterm-and-sigkill-and-why-does-it-mat",
+    "question": "What is the difference between SIGTERM and SIGKILL, and why does it matter in Kubernetes?",
+    "answer": "`SIGTERM` (`kill`) asks a process to shut down cleanly; `SIGKILL` (`kill -9`) terminates it immediately with no chance to clean up. Kubernetes sends SIGTERM when removing a Pod and waits `terminationGracePeriodSeconds` before SIGKILL. An application that ignores SIGTERM drops in-flight user requests on every deploy.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "linux",
+    "chapter": "linux-foundations",
+    "chapterTitle": "The Foundation (Linux)"
+  }
+]

@@ -1,0 +1,52 @@
+[
+  {
+    "id": "common-what-is-the-difference-between-an-image-and-a-container",
+    "question": "What is the difference between an image and a container?",
+    "answer": "An image is an immutable stack of read-only layers — the template. A container is a running instance of that image with a thin writable layer on top. The writable layer is discarded when the container is removed, which is why persistent data needs a volume.",
+    "level": "beginner",
+    "kind": "conceptual",
+    "domain": "docker",
+    "chapter": "docker",
+    "chapterTitle": "Containerization (Docker)"
+  },
+  {
+    "id": "common-why-does-the-order-of-dockerfile-instructions-matter",
+    "question": "Why does the order of Dockerfile instructions matter?",
+    "answer": "Docker caches a layer per instruction and invalidates everything below the first change. Copying source before installing dependencies means every code edit re-downloads dependencies. Copy the manifest, install, then copy source — the difference between a 30-second and a 6-minute build.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "docker",
+    "chapter": "docker",
+    "chapterTitle": "Containerization (Docker)"
+  },
+  {
+    "id": "common-how-do-you-make-a-container-image-smaller-and-safer",
+    "question": "How do you make a container image smaller and safer?",
+    "answer": "Use a multi-stage build so compilers and build dependencies never reach the final image; start from a minimal base (alpine or distroless); combine `RUN` steps; add a `.dockerignore`; and run as a non-root `USER`. Smaller images pull faster and have far less to patch.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "docker",
+    "chapter": "docker",
+    "chapterTitle": "Containerization (Docker)"
+  },
+  {
+    "id": "common-docker-is-deprecated-in-kubernetes-what-does-that-actually-mean",
+    "question": "Docker is 'deprecated' in Kubernetes — what does that actually mean?",
+    "answer": "Kubernetes removed dockershim in 1.24, so it no longer uses the Docker *daemon* as a runtime; it talks to containerd through the CRI. Images are unaffected — they are an OCI standard, so an image built with `docker build` runs unchanged. The practical impact is on the node: `docker ps` no longer shows Kubernetes containers, `crictl ps` does.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "docker",
+    "chapter": "docker",
+    "chapterTitle": "Containerization (Docker)"
+  },
+  {
+    "id": "common-a-secret-was-copied-into-an-image-and-deleted-in-the-next-instruction-",
+    "question": "A secret was copied into an image and deleted in the next instruction. Is it safe?",
+    "answer": "No. Layers are additive — the deletion is a marker in a higher layer, and the original file is still in the lower one and extractable from the image. The secret must be rotated, and builds must take secrets from build secrets or the runtime environment instead.",
+    "level": "advanced",
+    "kind": "scenario",
+    "domain": "docker",
+    "chapter": "docker",
+    "chapterTitle": "Containerization (Docker)"
+  }
+]

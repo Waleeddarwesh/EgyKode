@@ -1,0 +1,32 @@
+[
+  {
+    "id": "common-where-should-container-images-be-scanned",
+    "question": "Where should container images be scanned?",
+    "answer": "At three points: on pull requests, in the build pipeline before the push, and continuously in the registry. The third is the one teams forget — an image that passed on Monday can be critically vulnerable on Friday without a single line changing, because the vulnerability was published, not introduced.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "security",
+    "chapter": "container-security",
+    "chapterTitle": "DevSecOps (Container Security)"
+  },
+  {
+    "id": "common-what-does-a-good-look-like",
+    "question": "What does a good `securityContext` look like?",
+    "answer": "`runAsNonRoot: true`, a numeric `runAsUser`, `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, and `capabilities: drop: [\"ALL\"]`, adding back only what genuinely breaks. Enforce it at the namespace boundary with Pod Security Admission rather than relying on every author remembering.",
+    "level": "advanced",
+    "kind": "conceptual",
+    "domain": "security",
+    "chapter": "container-security",
+    "chapterTitle": "DevSecOps (Container Security)"
+  },
+  {
+    "id": "common-how-do-kubernetes-networkpolicies-behave-by-default",
+    "question": "How do Kubernetes NetworkPolicies behave by default?",
+    "answer": "A Pod selected by no policy accepts all traffic; security starts only once something selects it, which is why the first policy you write is a default-deny. Policies are additive with no deny rule — traffic is allowed if any policy allows it — and an egress policy that forgets DNS to CoreDNS breaks every hostname lookup in the namespace.",
+    "level": "intermediate",
+    "kind": "conceptual",
+    "domain": "security",
+    "chapter": "network-policies",
+    "chapterTitle": "Zero-Trust (Network Policies)"
+  }
+]
