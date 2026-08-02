@@ -1,0 +1,35 @@
+{
+  "id": "ivolve-cloud-devops-internship",
+  "title": "iVolve Cloud & DevOps Internship",
+  "summary": "The full internship worklog — every lab, in order, with the commands that were actually run.",
+  "why": "Kept as a record rather than a portfolio piece. It is useful precisely because it is unpolished: it shows the order things were learned in, and where they went wrong.",
+  "author": "waleed",
+  "repo": "https://github.com/Waleeddarwesh/ivolve-cloud-devops-internship",
+  "license": "No licence declared",
+  "level": "beginner",
+  "featured": false,
+  "stack": [
+    "linux",
+    "git",
+    "docker",
+    "kubernetes",
+    "terraform",
+    "ansible"
+  ],
+  "highlights": [],
+  "phases": [
+    "foundations",
+    "build-and-containers",
+    "iac"
+  ],
+  "source": {
+    "kind": "github",
+    "stars": 0,
+    "forks": 0,
+    "defaultBranch": "main",
+    "importedAt": "2026-08-09"
+  },
+  "updated": "2026-07-31",
+  "titleAr": "تدريب iVolve للـ Cloud و DevOps",
+  "summaryAr": "سجل التدريب كاملاً — كل معمل بالترتيب، وبالأوامر التي نُفّذت فعلياً."
+}
