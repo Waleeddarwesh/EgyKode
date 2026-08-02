@@ -1,0 +1,45 @@
+{
+  "id": "ivolve-cloud-devops-capstone",
+  "title": "Cloud DevOps Capstone — iVolve",
+  "titleAr": "مشروع التخرج — iVolve",
+  "summary": "Three microservices taken from raw source code to a running, monitored, GitOps-managed deployment on AWS EKS.",
+  "summaryAr": "ثلاث microservices من الكود المصدري حتى نشر يعمل ويخضع للمراقبة ويُدار عبر GitOps على AWS EKS.",
+  "why": "The counterpart to the self-managed platform: the same delivery discipline, but on managed Kubernetes. Running both is what makes the trade-off between them concrete rather than theoretical.",
+  "author": "waleed",
+  "repo": "https://github.com/Waleeddarwesh/CloudDevOpsProject",
+  "license": "MIT",
+  "level": "advanced",
+  "featured": true,
+  "roadmap": "cloud-devops-engineer",
+  "stack": [
+    "terraform",
+    "aws",
+    "kubernetes",
+    "helm",
+    "jenkins",
+    "argocd",
+    "docker"
+  ],
+  "highlights": [
+    "AWS EKS 1.31 provisioned with Terraform 1.10",
+    "Three microservices built, scanned and released independently",
+    "Jenkins shared library so pipeline logic lives in one place",
+    "Argo CD managing all environments from git",
+    "A START-HERE checklist listing every command, in order"
+  ],
+  "highlightsAr": [
+    "AWS EKS 1.31 مُنشأ عبر Terraform 1.10",
+    "ثلاث microservices تُبنى وتُفحص وتُصدَر كل منها على حدة",
+    "Jenkins shared library يجعل منطق الـ pipeline في مكان واحد",
+    "Argo CD يدير جميع البيئات انطلاقاً من git",
+    "ملف START-HERE يسرد كل أمر بالترتيب"
+  ],
+  "phases": [
+    "cloud",
+    "iac",
+    "kubernetes",
+    "cicd",
+    "gitops"
+  ],
+  "updated": "2026-08-07"
+}
