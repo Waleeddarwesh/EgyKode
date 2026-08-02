@@ -1,0 +1,46 @@
+{
+  "id": "nti-final-project",
+  "title": "NTI Final Project",
+  "summary": "Eight modules taken end to end: Terraform infrastructure, Ansible configuration, Docker, Kubernetes, Helm, a Jenkins pipeline, and an observability stack.",
+  "why": "Structured as a course rather than a repository: each module is a numbered directory with its own README, so it can be followed in order without reading the whole thing first. It is the closest thing here to a guided path.",
+  "author": "waleed",
+  "repo": "https://github.com/Waleeddarwesh/NTI_Final_Project",
+  "license": "No licence declared",
+  "level": "intermediate",
+  "featured": false,
+  "stack": [
+    "terraform",
+    "ansible",
+    "docker",
+    "kubernetes",
+    "helm",
+    "jenkins",
+    "observability"
+  ],
+  "highlights": [
+    "01 Infrastructure — Terraform",
+    "02 Configuration Management — Ansible",
+    "03 Containerization — Docker",
+    "04 Kubernetes Orchestration",
+    "05 Helm Package Management",
+    "06 CI/CD — Jenkins Pipeline",
+    "07 Monitoring & Observability",
+    "08 Documentation & Operations"
+  ],
+  "phases": [
+    "iac",
+    "kubernetes",
+    "cicd",
+    "observability"
+  ],
+  "source": {
+    "kind": "github",
+    "stars": 0,
+    "forks": 0,
+    "defaultBranch": "main",
+    "importedAt": "2026-08-09"
+  },
+  "updated": "2026-07-26",
+  "titleAr": "مشروع NTI النهائي",
+  "summaryAr": "ثماني وحدات من البداية إلى النهاية: بنية تحتية بـ Terraform، وتهيئة بـ Ansible، و Docker، و Kubernetes، و Helm، وخط Jenkins، ومنظومة مراقبة."
+}
