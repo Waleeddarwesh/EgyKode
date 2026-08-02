@@ -1,0 +1,54 @@
+{
+  "id": "cloud-native-devops-platform",
+  "title": "Cloud-Native DevOps Platform",
+  "titleAr": "منصة Cloud-Native DevOps",
+  "summary": "A self-managed Kubernetes platform on AWS — provisioned with Terraform, configured with Ansible, delivered through Jenkins and Argo CD.",
+  "summaryAr": "منصة Kubernetes ذاتية الإدارة على AWS — تُبنى بـ Terraform، وتُهيّأ بـ Ansible، وتُسلَّم عبر Jenkins و Argo CD.",
+  "why": "Managed Kubernetes hides the parts worth understanding. This cluster was built without one: three control plane nodes, an etcd quorum, containerd and Calico, provisioned and configured from scratch. Two small applications run on it, but they are not the point — they exist to exercise the delivery path end to end. The platform is the artifact.",
+  "author": "waleed",
+  "license": "MIT",
+  "level": "advanced",
+  "featured": true,
+  "roadmap": "cloud-devops-engineer",
+  "stack": [
+    "terraform",
+    "ansible",
+    "kubernetes",
+    "aws",
+    "jenkins",
+    "argocd",
+    "prometheus",
+    "grafana"
+  ],
+  "highlights": [
+    "12 Terraform modules across dev, staging and prod environments",
+    "13 Ansible roles, from baseline hardening to the full cluster",
+    "kubeadm HA control plane with an etcd quorum across three AZs",
+    "Jenkins pipeline with an enforced SonarQube quality gate and Trivy image scan",
+    "Argo CD app-of-apps with self-heal and drift detection",
+    "kube-prometheus-stack with alert routing"
+  ],
+  "highlightsAr": [
+    "12 وحدة Terraform موزَّعة على بيئات dev و staging و prod",
+    "13 دور Ansible، من التأمين الأساسي للخادم حتى الكلاستر كاملاً",
+    "control plane عالي الإتاحة عبر kubeadm مع etcd quorum على ثلاث AZs",
+    "خط Jenkins مع quality gate إلزامي من SonarQube وفحص صور عبر Trivy",
+    "Argo CD بنمط app-of-apps مع self-heal وكشف الانحراف",
+    "kube-prometheus-stack مع توجيه التنبيهات"
+  ],
+  "decisions": [
+    {
+      "question": "Why kubeadm instead of EKS?",
+      "answer": "Because the goal was to understand what EKS abstracts away. EKS is the right production answer for most teams; it is the wrong learning answer if you have never seen an etcd quorum lose a member."
+    }
+  ],
+  "phases": [
+    "iac",
+    "kubernetes",
+    "cicd",
+    "gitops",
+    "observability"
+  ],
+  "updated": "2026-07-31",
+  "repoStatus": "unpublished"
+}
