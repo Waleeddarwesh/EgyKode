@@ -1,0 +1,2306 @@
+{
+  "areas": [
+    {
+      "id": "foundations",
+      "title": "Linux & Foundations",
+      "titleAr": "لينكس والأساسيات"
+    },
+    {
+      "id": "networking",
+      "title": "Networking",
+      "titleAr": "الشبكات"
+    },
+    {
+      "id": "git",
+      "title": "Git & Workflow",
+      "titleAr": "Git وسير العمل"
+    },
+    {
+      "id": "containers",
+      "title": "Docker & Containers",
+      "titleAr": "Docker والحاويات"
+    },
+    {
+      "id": "cloud",
+      "title": "AWS & Cloud",
+      "titleAr": "AWS والسحابة"
+    },
+    {
+      "id": "iac",
+      "title": "Infrastructure as Code",
+      "titleAr": "البنية ككود"
+    },
+    {
+      "id": "kubernetes",
+      "title": "Kubernetes",
+      "titleAr": "Kubernetes"
+    },
+    {
+      "id": "delivery",
+      "title": "Helm & GitOps",
+      "titleAr": "Helm و GitOps"
+    },
+    {
+      "id": "cicd",
+      "title": "CI/CD",
+      "titleAr": "CI/CD"
+    },
+    {
+      "id": "observability",
+      "title": "Observability",
+      "titleAr": "المراقبة"
+    },
+    {
+      "id": "sre",
+      "title": "Reliability & SRE",
+      "titleAr": "الموثوقية و SRE"
+    },
+    {
+      "id": "security",
+      "title": "Security",
+      "titleAr": "الأمان"
+    }
+  ],
+  "topics": [
+    {
+      "id": "linux-filesystem",
+      "area": "foundations",
+      "domain": "linux",
+      "title": "Linux Filesystem",
+      "titleAr": "نظام ملفات لينكس",
+      "coverage": "explained",
+      "chapters": [
+        "linux-foundations",
+        "docker",
+        "aws-overview",
+        "networking-fundamentals",
+        "logging",
+        "kubernetes",
+        "ansible",
+        "container-security"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-internship"
+      ]
+    },
+    {
+      "id": "linux-processes",
+      "area": "foundations",
+      "domain": "linux",
+      "title": "Processes & Daemons",
+      "titleAr": "العمليات والـ Daemons",
+      "coverage": "explained",
+      "chapters": [
+        "linux-foundations",
+        "docker",
+        "build-tools",
+        "auto-scaling",
+        "service-mesh",
+        "container-security",
+        "hands-on-labs",
+        "troubleshooting"
+      ],
+      "labs": [
+        "lab-08-automated-jenkins-server-toolchain-provisioning",
+        "lab-07-ansible-architecture-configuration-automated-inventory"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-internship"
+      ]
+    },
+    {
+      "id": "linux-permissions",
+      "area": "foundations",
+      "domain": "linux",
+      "title": "Permissions",
+      "titleAr": "الصلاحيات",
+      "coverage": "explained",
+      "chapters": [
+        "linux-foundations",
+        "iam",
+        "container-security",
+        "aws-overview",
+        "ecr",
+        "github-actions",
+        "kubernetes",
+        "vpc"
+      ],
+      "labs": [
+        "lab-02-iam-roles-irsa-policies-security-groups",
+        "lab-07-ansible-architecture-configuration-automated-inventory",
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-internship"
+      ]
+    },
+    {
+      "id": "systemd",
+      "area": "foundations",
+      "domain": "linux",
+      "title": "systemd & Services",
+      "titleAr": "systemd والخدمات",
+      "coverage": "explained",
+      "chapters": [
+        "linux-foundations",
+        "networking-fundamentals",
+        "jenkins",
+        "troubleshooting",
+        "hands-on-labs",
+        "start-here"
+      ],
+      "labs": [
+        "lab-08-automated-jenkins-server-toolchain-provisioning",
+        "lab-07-ansible-architecture-configuration-automated-inventory"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-internship"
+      ]
+    },
+    {
+      "id": "shell-scripting",
+      "area": "foundations",
+      "domain": "linux",
+      "title": "Shell Scripting",
+      "titleAr": "Shell Scripting",
+      "coverage": "explained",
+      "chapters": [
+        "linux-foundations",
+        "terraform",
+        "aws-overview",
+        "github-actions",
+        "auto-scaling",
+        "gitops",
+        "glossary",
+        "requirements"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-internship"
+      ]
+    },
+    {
+      "id": "ip-addressing",
+      "area": "networking",
+      "domain": "networking",
+      "title": "IP & CIDR",
+      "titleAr": "IP و CIDR",
+      "coverage": "explained",
+      "chapters": [
+        "networking-fundamentals",
+        "vpc",
+        "docker",
+        "linux-foundations",
+        "rds",
+        "kubernetes",
+        "ansible",
+        "load-balancers"
+      ],
+      "labs": [
+        "lab-01-aws-vpc-subnets-gateways-route-tables",
+        "lab-07-ansible-architecture-configuration-automated-inventory",
+        "lab-11-core-kubernetes-workloads-configmaps-secrets",
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "subnetting",
+      "area": "networking",
+      "domain": "networking",
+      "title": "Subnets",
+      "titleAr": "الـ Subnets",
+      "coverage": "explained",
+      "chapters": [
+        "networking-fundamentals",
+        "vpc",
+        "load-balancers",
+        "rds",
+        "auto-scaling",
+        "terraform",
+        "kubernetes",
+        "cost-optimization"
+      ],
+      "labs": [
+        "lab-01-aws-vpc-subnets-gateways-route-tables",
+        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
+        "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-07-ansible-architecture-configuration-automated-inventory",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "dns",
+      "area": "networking",
+      "domain": "networking",
+      "title": "DNS",
+      "titleAr": "DNS",
+      "coverage": "explained",
+      "chapters": [
+        "networking-fundamentals",
+        "aws-overview",
+        "vpc",
+        "kubernetes",
+        "load-balancers",
+        "rds",
+        "disaster-recovery",
+        "network-policies"
+      ],
+      "labs": [
+        "lab-11-core-kubernetes-workloads-configmaps-secrets"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "routing",
+      "area": "networking",
+      "domain": "networking",
+      "title": "Routing",
+      "titleAr": "التوجيه",
+      "coverage": "explained",
+      "chapters": [
+        "networking-fundamentals",
+        "vpc",
+        "git-and-github",
+        "kubernetes",
+        "logging",
+        "service-mesh",
+        "network-policies",
+        "disaster-recovery"
+      ],
+      "labs": [
+        "lab-01-aws-vpc-subnets-gateways-route-tables",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "tls",
+      "area": "networking",
+      "domain": "networking",
+      "title": "TLS & Certificates",
+      "titleAr": "TLS والشهادات",
+      "coverage": "explained",
+      "chapters": [
+        "networking-fundamentals",
+        "load-balancers",
+        "rds",
+        "kubeadm",
+        "service-mesh",
+        "kubernetes",
+        "kustomize",
+        "container-security"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "load-balancing",
+      "area": "networking",
+      "domain": "aws",
+      "title": "Load Balancing",
+      "titleAr": "توزيع الأحمال",
+      "coverage": "explained",
+      "chapters": [
+        "load-balancers",
+        "vpc",
+        "auto-scaling",
+        "rds",
+        "networking-fundamentals",
+        "kubernetes",
+        "ansible",
+        "terraform"
+      ],
+      "labs": [
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+        "lab-02-iam-roles-irsa-policies-security-groups",
+        "lab-01-aws-vpc-subnets-gateways-route-tables",
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
+        "lab-03-amazon-ecr-container-registry-s3-storage-buckets"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone"
+      ]
+    },
+    {
+      "id": "git-branching",
+      "area": "git",
+      "domain": "git",
+      "title": "Branching & Merging",
+      "titleAr": "الفروع والدمج",
+      "coverage": "explained",
+      "chapters": [
+        "git-and-github",
+        "jenkins",
+        "github-actions",
+        "gitops",
+        "nexus-and-artifacts",
+        "terraform",
+        "argocd",
+        "container-security"
+      ],
+      "labs": [
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-internship"
+      ]
+    },
+    {
+      "id": "git-workflows",
+      "area": "git",
+      "domain": "git",
+      "title": "Git Workflows",
+      "titleAr": "سير عمل Git",
+      "coverage": "explained",
+      "chapters": [
+        "git-and-github",
+        "jenkins"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "cloud-devops-engineer",
+        "devsecops"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-internship"
+      ]
+    },
+    {
+      "id": "docker-images",
+      "area": "containers",
+      "domain": "docker",
+      "title": "Images & Layers",
+      "titleAr": "الصور والطبقات",
+      "coverage": "explained",
+      "chapters": [
+        "docker",
+        "ecr",
+        "helm",
+        "iam",
+        "vpc",
+        "github-actions",
+        "gitops",
+        "jenkins"
+      ],
+      "labs": [
+        "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "dockerfile",
+      "area": "containers",
+      "domain": "docker",
+      "title": "Dockerfile",
+      "titleAr": "Dockerfile",
+      "coverage": "explained",
+      "chapters": [
+        "docker",
+        "build-tools",
+        "linux-foundations",
+        "serverless",
+        "container-security",
+        "platform-engineering",
+        "hands-on-labs",
+        "interview-prep"
+      ],
+      "labs": [
+        "lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack",
+        "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "multi-stage-builds",
+      "area": "containers",
+      "domain": "docker",
+      "title": "Multi-stage Builds",
+      "titleAr": "البناء متعدد المراحل",
+      "coverage": "explained",
+      "chapters": [
+        "docker",
+        "hands-on-labs",
+        "interview-prep"
+      ],
+      "labs": [
+        "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn",
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy"
+      ],
+      "roadmaps": [
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "docker-compose",
+      "area": "containers",
+      "domain": "docker",
+      "title": "Docker Compose",
+      "titleAr": "Docker Compose",
+      "coverage": "explained",
+      "chapters": [
+        "docker",
+        "troubleshooting"
+      ],
+      "labs": [
+        "lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack",
+        "lab-08-automated-jenkins-server-toolchain-provisioning"
+      ],
+      "roadmaps": [
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "container-registry",
+      "area": "containers",
+      "domain": "aws",
+      "title": "Container Registries",
+      "titleAr": "مستودعات الصور",
+      "coverage": "explained",
+      "chapters": [
+        "ecr",
+        "linux-foundations",
+        "docker",
+        "container-security",
+        "iam",
+        "vpc",
+        "build-tools",
+        "jenkins"
+      ],
+      "labs": [
+        "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices",
+        "lab-08-automated-jenkins-server-toolchain-provisioning"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone"
+      ]
+    },
+    {
+      "id": "containerd",
+      "area": "containers",
+      "domain": "docker",
+      "title": "containerd & Runtimes",
+      "titleAr": "containerd وبيئات التشغيل",
+      "coverage": "explained",
+      "chapters": [
+        "docker",
+        "kubernetes",
+        "logging",
+        "troubleshooting",
+        "glossary",
+        "architecture-summary",
+        "hands-on-labs",
+        "start-here"
+      ],
+      "labs": [
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning"
+      ],
+      "roadmaps": [
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "aws-vpc",
+      "area": "cloud",
+      "domain": "aws",
+      "title": "VPC",
+      "titleAr": "VPC",
+      "coverage": "explained",
+      "chapters": [
+        "vpc",
+        "aws-overview",
+        "serverless",
+        "load-balancers",
+        "networking-fundamentals",
+        "terraform",
+        "kubernetes",
+        "github-actions"
+      ],
+      "labs": [
+        "lab-01-aws-vpc-subnets-gateways-route-tables",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone"
+      ]
+    },
+    {
+      "id": "aws-ec2",
+      "area": "cloud",
+      "domain": "aws",
+      "title": "EC2",
+      "titleAr": "EC2",
+      "coverage": "explained",
+      "chapters": [
+        "aws-overview",
+        "iam",
+        "auto-scaling",
+        "load-balancers",
+        "vpc",
+        "serverless",
+        "rds",
+        "ecr"
+      ],
+      "labs": [
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
+        "lab-07-ansible-architecture-configuration-automated-inventory",
+        "lab-01-aws-vpc-subnets-gateways-route-tables",
+        "lab-02-iam-roles-irsa-policies-security-groups",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone"
+      ]
+    },
+    {
+      "id": "aws-iam",
+      "area": "cloud",
+      "domain": "aws",
+      "title": "IAM",
+      "titleAr": "IAM",
+      "coverage": "explained",
+      "chapters": [
+        "iam",
+        "aws-overview",
+        "secrets-manager",
+        "ecr",
+        "serverless",
+        "vpc",
+        "git-and-github",
+        "github-actions"
+      ],
+      "labs": [
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
+        "lab-02-iam-roles-irsa-policies-security-groups",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone"
+      ]
+    },
+    {
+      "id": "security-groups",
+      "area": "cloud",
+      "domain": "aws",
+      "title": "Security Groups",
+      "titleAr": "Security Groups",
+      "coverage": "explained",
+      "chapters": [
+        "vpc",
+        "networking-fundamentals",
+        "auto-scaling",
+        "kubernetes",
+        "network-policies",
+        "glossary",
+        "architecture-summary",
+        "start-here"
+      ],
+      "labs": [
+        "lab-02-iam-roles-irsa-policies-security-groups"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone"
+      ]
+    },
+    {
+      "id": "nat-gateway",
+      "area": "cloud",
+      "domain": "aws",
+      "title": "NAT Gateway",
+      "titleAr": "NAT Gateway",
+      "coverage": "explained",
+      "chapters": [
+        "vpc",
+        "networking-fundamentals",
+        "cost-optimization",
+        "glossary",
+        "hands-on-labs",
+        "system-architecture",
+        "start-here",
+        "project-overview"
+      ],
+      "labs": [
+        "lab-01-aws-vpc-subnets-gateways-route-tables"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone"
+      ]
+    },
+    {
+      "id": "availability-zones",
+      "area": "cloud",
+      "domain": "aws",
+      "title": "Availability Zones",
+      "titleAr": "Availability Zones",
+      "coverage": "explained",
+      "chapters": [
+        "rds",
+        "disaster-recovery",
+        "kubeadm",
+        "auto-scaling",
+        "vpc",
+        "load-balancers",
+        "networking-fundamentals",
+        "terraform"
+      ],
+      "labs": [
+        "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-01-aws-vpc-subnets-gateways-route-tables"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone"
+      ]
+    },
+    {
+      "id": "aws-rds",
+      "area": "cloud",
+      "domain": "aws",
+      "title": "RDS",
+      "titleAr": "RDS",
+      "coverage": "explained",
+      "chapters": [
+        "rds",
+        "serverless",
+        "disaster-recovery",
+        "aws-overview",
+        "vpc",
+        "iam",
+        "secrets-manager",
+        "docker"
+      ],
+      "labs": [
+        "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
+        "lab-01-aws-vpc-subnets-gateways-route-tables",
+        "lab-02-iam-roles-irsa-policies-security-groups",
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
+        "lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone"
+      ]
+    },
+    {
+      "id": "aws-s3",
+      "area": "cloud",
+      "domain": "aws",
+      "title": "S3 & Object Storage",
+      "titleAr": "S3 والتخزين",
+      "coverage": "explained",
+      "chapters": [
+        "aws-overview",
+        "iam",
+        "vpc",
+        "rds",
+        "serverless",
+        "git-and-github",
+        "terraform",
+        "observability"
+      ],
+      "labs": [
+        "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
+        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone"
+      ]
+    },
+    {
+      "id": "secrets-management",
+      "area": "security",
+      "domain": "aws",
+      "title": "Secrets Management",
+      "titleAr": "إدارة الأسرار",
+      "coverage": "explained",
+      "chapters": [
+        "secrets-manager",
+        "gitops",
+        "kubernetes",
+        "terraform",
+        "ecr",
+        "rds",
+        "auto-scaling",
+        "iam"
+      ],
+      "labs": [
+        "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
+        "lab-11-core-kubernetes-workloads-configmaps-secrets",
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone"
+      ]
+    },
+    {
+      "id": "autoscaling",
+      "area": "cloud",
+      "domain": "aws",
+      "title": "Auto Scaling",
+      "titleAr": "التوسع التلقائي",
+      "coverage": "explained",
+      "chapters": [
+        "auto-scaling",
+        "kubernetes",
+        "aws-overview",
+        "rds",
+        "serverless",
+        "load-balancers",
+        "git-and-github",
+        "networking-fundamentals"
+      ],
+      "labs": [
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone"
+      ]
+    },
+    {
+      "id": "cloud-cost",
+      "area": "cloud",
+      "domain": "cost",
+      "title": "Cloud Cost",
+      "titleAr": "تكلفة السحابة",
+      "coverage": "explained",
+      "chapters": [
+        "cost-optimization",
+        "aws-overview",
+        "auto-scaling",
+        "networking-fundamentals",
+        "vpc",
+        "serverless",
+        "observability",
+        "iam"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "iac",
+      "area": "iac",
+      "domain": "terraform",
+      "title": "Infrastructure as Code",
+      "titleAr": "Infrastructure as Code",
+      "coverage": "explained",
+      "chapters": [
+        "terraform",
+        "aws-overview",
+        "iam",
+        "glossary"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "terraform-providers",
+      "area": "iac",
+      "domain": "terraform",
+      "title": "Providers",
+      "titleAr": "الـ Providers",
+      "coverage": "explained",
+      "chapters": [
+        "terraform",
+        "aws-overview",
+        "cost-optimization"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "terraform-modules",
+      "area": "iac",
+      "domain": "terraform",
+      "title": "Modules",
+      "titleAr": "الـ Modules",
+      "coverage": "explained",
+      "chapters": [
+        "terraform",
+        "networking-fundamentals",
+        "vpc",
+        "ansible",
+        "auto-scaling",
+        "iam",
+        "load-balancers",
+        "rds"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "terraform-state",
+      "area": "iac",
+      "domain": "terraform",
+      "title": "State & Backends",
+      "titleAr": "State و Backends",
+      "coverage": "explained",
+      "chapters": [
+        "terraform",
+        "aws-overview",
+        "git-and-github",
+        "rds",
+        "troubleshooting",
+        "requirements"
+      ],
+      "labs": [
+        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
+        "lab-03-amazon-ecr-container-registry-s3-storage-buckets"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "terraform-variables",
+      "area": "iac",
+      "domain": "terraform",
+      "title": "Variables & Outputs",
+      "titleAr": "المتغيرات والمخرجات",
+      "coverage": "explained",
+      "chapters": [
+        "terraform",
+        "git-and-github",
+        "rds",
+        "hands-on-labs",
+        "troubleshooting",
+        "start-here",
+        "requirements"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "terraform-plan",
+      "area": "iac",
+      "domain": "terraform",
+      "title": "Plan & Apply",
+      "titleAr": "Plan و Apply",
+      "coverage": "explained",
+      "chapters": [
+        "terraform",
+        "aws-overview",
+        "networking-fundamentals",
+        "rds",
+        "hands-on-labs",
+        "troubleshooting",
+        "interview-prep",
+        "conclusion"
+      ],
+      "labs": [
+        "lab-01-aws-vpc-subnets-gateways-route-tables",
+        "lab-02-iam-roles-irsa-policies-security-groups",
+        "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
+        "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "ansible-playbooks",
+      "area": "iac",
+      "domain": "ansible",
+      "title": "Playbooks",
+      "titleAr": "الـ Playbooks",
+      "coverage": "explained",
+      "chapters": [
+        "ansible",
+        "kubeadm",
+        "troubleshooting",
+        "hands-on-labs",
+        "glossary",
+        "architecture-summary",
+        "start-here",
+        "repository-structure"
+      ],
+      "labs": [
+        "lab-08-automated-jenkins-server-toolchain-provisioning",
+        "lab-07-ansible-architecture-configuration-automated-inventory"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "ansible-roles",
+      "area": "iac",
+      "domain": "ansible",
+      "title": "Roles & Inventory",
+      "titleAr": "الأدوار والـ Inventory",
+      "coverage": "explained",
+      "chapters": [
+        "ansible",
+        "rds",
+        "nexus-and-artifacts",
+        "observability",
+        "kubeadm",
+        "glossary",
+        "troubleshooting",
+        "start-here"
+      ],
+      "labs": [
+        "lab-07-ansible-architecture-configuration-automated-inventory",
+        "lab-08-automated-jenkins-server-toolchain-provisioning"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "idempotency",
+      "area": "iac",
+      "domain": "ansible",
+      "title": "Idempotency",
+      "titleAr": "الـ Idempotency",
+      "coverage": "explained",
+      "chapters": [
+        "ansible",
+        "terraform",
+        "kubeadm",
+        "glossary",
+        "architecture-summary"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "k8s-architecture",
+      "area": "kubernetes",
+      "domain": "kubernetes",
+      "title": "Cluster Architecture",
+      "titleAr": "بنية الكلاستر",
+      "coverage": "explained",
+      "chapters": [
+        "kubernetes",
+        "kubeadm",
+        "service-mesh",
+        "aws-overview",
+        "docker",
+        "auto-scaling",
+        "disaster-recovery",
+        "linux-foundations"
+      ],
+      "labs": [
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-08-automated-jenkins-server-toolchain-provisioning",
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "k8s-pods",
+      "area": "kubernetes",
+      "domain": "kubernetes",
+      "title": "Pods",
+      "titleAr": "الـ Pods",
+      "coverage": "explained",
+      "chapters": [
+        "kubernetes",
+        "secrets-manager",
+        "service-mesh",
+        "kubeadm",
+        "networking-fundamentals",
+        "linux-foundations",
+        "git-and-github",
+        "logging"
+      ],
+      "labs": [
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+        "lab-11-core-kubernetes-workloads-configmaps-secrets",
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+        "lab-02-iam-roles-irsa-policies-security-groups",
+        "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "k8s-deployments",
+      "area": "kubernetes",
+      "domain": "kubernetes",
+      "title": "Deployments & ReplicaSets",
+      "titleAr": "الـ Deployments",
+      "coverage": "explained",
+      "chapters": [
+        "kubernetes",
+        "kustomize",
+        "kubeadm",
+        "git-and-github",
+        "docker",
+        "helm",
+        "gitops",
+        "serverless"
+      ],
+      "labs": [
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
+        "lab-11-core-kubernetes-workloads-configmaps-secrets",
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices",
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
+        "lab-19-full-platform-operations-security-troubleshooting-guide"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "k8s-services",
+      "area": "kubernetes",
+      "domain": "kubernetes",
+      "title": "Services",
+      "titleAr": "الـ Services",
+      "coverage": "explained",
+      "chapters": [
+        "kubernetes",
+        "aws-overview",
+        "service-mesh",
+        "docker",
+        "git-and-github",
+        "linux-foundations",
+        "ansible",
+        "iam"
+      ],
+      "labs": [
+        "lab-11-core-kubernetes-workloads-configmaps-secrets",
+        "lab-02-iam-roles-irsa-policies-security-groups",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
+        "lab-18-custom-prometheus-alert-rules-grafana-dashboards"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "k8s-ingress",
+      "area": "kubernetes",
+      "domain": "kubernetes",
+      "title": "Ingress",
+      "titleAr": "الـ Ingress",
+      "coverage": "explained",
+      "chapters": [
+        "kubernetes",
+        "network-policies",
+        "networking-fundamentals",
+        "load-balancers",
+        "helm",
+        "kustomize",
+        "ansible",
+        "vpc"
+      ],
+      "labs": [
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+        "lab-02-iam-roles-irsa-policies-security-groups",
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "k8s-config",
+      "area": "kubernetes",
+      "domain": "kubernetes",
+      "title": "ConfigMaps & Secrets",
+      "titleAr": "ConfigMaps و Secrets",
+      "coverage": "explained",
+      "chapters": [
+        "kubernetes",
+        "kustomize",
+        "secrets-manager",
+        "grafana",
+        "helm",
+        "ecr",
+        "architecture-summary",
+        "troubleshooting"
+      ],
+      "labs": [
+        "lab-11-core-kubernetes-workloads-configmaps-secrets"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "k8s-storage",
+      "area": "kubernetes",
+      "domain": "kubernetes",
+      "title": "Storage & Volumes",
+      "titleAr": "التخزين والـ Volumes",
+      "coverage": "explained",
+      "chapters": [
+        "kubernetes",
+        "container-security",
+        "disaster-recovery",
+        "troubleshooting",
+        "glossary"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "k8s-networking",
+      "area": "kubernetes",
+      "domain": "kubernetes",
+      "title": "Cluster Networking",
+      "titleAr": "شبكة الكلاستر",
+      "coverage": "explained",
+      "chapters": [
+        "kubernetes",
+        "networking-fundamentals",
+        "network-policies",
+        "git-and-github",
+        "load-balancers",
+        "troubleshooting",
+        "glossary",
+        "architecture-summary"
+      ],
+      "labs": [
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "kubeadm",
+      "area": "kubernetes",
+      "domain": "kubernetes",
+      "title": "kubeadm",
+      "titleAr": "kubeadm",
+      "coverage": "explained",
+      "chapters": [
+        "kubeadm",
+        "kubernetes",
+        "aws-overview",
+        "docker",
+        "ansible",
+        "auto-scaling",
+        "iam",
+        "load-balancers"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "k8s-rbac",
+      "area": "security",
+      "domain": "kubernetes",
+      "title": "RBAC",
+      "titleAr": "RBAC",
+      "coverage": "explained",
+      "chapters": [
+        "kubernetes",
+        "grafana",
+        "kubeadm",
+        "helm",
+        "secrets-manager",
+        "container-security",
+        "glossary",
+        "hands-on-labs"
+      ],
+      "labs": [
+        "lab-11-core-kubernetes-workloads-configmaps-secrets",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "k8s-probes",
+      "area": "kubernetes",
+      "domain": "kubernetes",
+      "title": "Health Probes",
+      "titleAr": "فحوصات الصحة",
+      "coverage": "explained",
+      "chapters": [
+        "kubernetes",
+        "load-balancers",
+        "service-mesh",
+        "git-and-github",
+        "networking-fundamentals",
+        "auto-scaling",
+        "disaster-recovery",
+        "troubleshooting"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "ivolve-cloud-devops-internship",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "helm-charts",
+      "area": "delivery",
+      "domain": "helm",
+      "title": "Helm Charts",
+      "titleAr": "Helm Charts",
+      "coverage": "explained",
+      "chapters": [
+        "helm",
+        "nexus-and-artifacts",
+        "glossary",
+        "interview-prep"
+      ],
+      "labs": [
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices"
+      ],
+      "roadmaps": [
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-capstone",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "helm-templating",
+      "area": "delivery",
+      "domain": "helm",
+      "title": "Templating & Values",
+      "titleAr": "القوالب والقيم",
+      "coverage": "explained",
+      "chapters": [
+        "helm",
+        "kustomize",
+        "platform-engineering"
+      ],
+      "labs": [
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa"
+      ],
+      "roadmaps": [
+        "cloud-devops-engineer",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "ivolve-cloud-devops-capstone",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "kustomize-overlays",
+      "area": "delivery",
+      "domain": "kustomize",
+      "title": "Kustomize Overlays",
+      "titleAr": "Kustomize Overlays",
+      "coverage": "explained",
+      "chapters": [
+        "kustomize",
+        "helm",
+        "git-and-github",
+        "argocd",
+        "troubleshooting",
+        "hands-on-labs",
+        "start-here",
+        "system-architecture"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "gitops-principles",
+      "area": "delivery",
+      "domain": "gitops",
+      "title": "GitOps Principles",
+      "titleAr": "مبادئ GitOps",
+      "coverage": "explained",
+      "chapters": [
+        "gitops",
+        "git-and-github",
+        "helm",
+        "grafana",
+        "kustomize",
+        "disaster-recovery",
+        "nexus-and-artifacts",
+        "ansible"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "argocd-apps",
+      "area": "delivery",
+      "domain": "argocd",
+      "title": "Argo CD Applications",
+      "titleAr": "تطبيقات Argo CD",
+      "coverage": "explained",
+      "chapters": [
+        "argocd",
+        "helm",
+        "kustomize",
+        "git-and-github",
+        "gitops",
+        "ansible",
+        "ecr",
+        "serverless"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone"
+      ]
+    },
+    {
+      "id": "drift-detection",
+      "area": "delivery",
+      "domain": "gitops",
+      "title": "Drift & Self-heal",
+      "titleAr": "الانحراف والإصلاح الذاتي",
+      "coverage": "explained",
+      "chapters": [
+        "argocd",
+        "gitops",
+        "git-and-github",
+        "terraform",
+        "helm",
+        "jenkins",
+        "kustomize",
+        "troubleshooting"
+      ],
+      "labs": [
+        "lab-11-core-kubernetes-workloads-configmaps-secrets",
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "ci-pipelines",
+      "area": "cicd",
+      "domain": "jenkins",
+      "title": "Pipelines",
+      "titleAr": "الـ Pipelines",
+      "coverage": "explained",
+      "chapters": [
+        "jenkins",
+        "build-tools",
+        "logging",
+        "container-security",
+        "git-and-github",
+        "linux-foundations",
+        "docker",
+        "aws-overview"
+      ],
+      "labs": [
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
+        "lab-08-automated-jenkins-server-toolchain-provisioning"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "jenkins-shared-libraries",
+      "area": "cicd",
+      "domain": "jenkins",
+      "title": "Shared Libraries",
+      "titleAr": "المكتبات المشتركة",
+      "coverage": "explained",
+      "chapters": [
+        "jenkins",
+        "git-and-github",
+        "ansible",
+        "troubleshooting"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "quality-gates",
+      "area": "cicd",
+      "domain": "jenkins",
+      "title": "Quality Gates",
+      "titleAr": "بوابات الجودة",
+      "coverage": "explained",
+      "chapters": [
+        "jenkins",
+        "build-tools",
+        "troubleshooting",
+        "hands-on-labs",
+        "glossary",
+        "start-here"
+      ],
+      "labs": [
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy"
+      ],
+      "roadmaps": [
+        "cloud-devops-engineer",
+        "devsecops"
+      ],
+      "projects": [
+        "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "artifact-management",
+      "area": "cicd",
+      "domain": "nexus",
+      "title": "Artifacts",
+      "titleAr": "المخرجات",
+      "coverage": "explained",
+      "chapters": [
+        "nexus-and-artifacts",
+        "build-tools",
+        "docker",
+        "git-and-github",
+        "linux-foundations",
+        "ecr",
+        "jenkins",
+        "terraform"
+      ],
+      "labs": [
+        "lab-11-core-kubernetes-workloads-configmaps-secrets",
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "github-actions-workflows",
+      "area": "cicd",
+      "domain": "github-actions",
+      "title": "GitHub Actions",
+      "titleAr": "GitHub Actions",
+      "coverage": "explained",
+      "chapters": [
+        "github-actions",
+        "git-and-github",
+        "helm",
+        "terraform",
+        "ansible",
+        "ecr",
+        "iam",
+        "serverless"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "metrics",
+      "area": "observability",
+      "domain": "prometheus",
+      "title": "Metrics",
+      "titleAr": "المقاييس",
+      "coverage": "explained",
+      "chapters": [
+        "prometheus",
+        "observability",
+        "aws-overview",
+        "git-and-github",
+        "grafana",
+        "auto-scaling",
+        "helm",
+        "load-balancers"
+      ],
+      "labs": [
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
+        "lab-18-custom-prometheus-alert-rules-grafana-dashboards",
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+        "lab-08-automated-jenkins-server-toolchain-provisioning"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform"
+      ]
+    },
+    {
+      "id": "alerting",
+      "area": "observability",
+      "domain": "prometheus",
+      "title": "Alerting",
+      "titleAr": "التنبيهات",
+      "coverage": "explained",
+      "chapters": [
+        "prometheus",
+        "observability",
+        "platform-engineering",
+        "troubleshooting",
+        "glossary",
+        "project-overview"
+      ],
+      "labs": [
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
+        "lab-18-custom-prometheus-alert-rules-grafana-dashboards"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform"
+      ]
+    },
+    {
+      "id": "dashboards",
+      "area": "observability",
+      "domain": "grafana",
+      "title": "Dashboards",
+      "titleAr": "لوحات المراقبة",
+      "coverage": "explained",
+      "chapters": [
+        "grafana",
+        "observability",
+        "logging",
+        "helm",
+        "jenkins",
+        "prometheus",
+        "platform-engineering",
+        "cost-optimization"
+      ],
+      "labs": [
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
+        "lab-18-custom-prometheus-alert-rules-grafana-dashboards"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "cloud-native-devops-platform"
+      ]
+    },
+    {
+      "id": "log-aggregation",
+      "area": "observability",
+      "domain": "logging",
+      "title": "Log Aggregation",
+      "titleAr": "تجميع السجلات",
+      "coverage": "explained",
+      "chapters": [
+        "logging",
+        "observability",
+        "grafana",
+        "platform-engineering",
+        "architecture-summary",
+        "interview-prep",
+        "start-here"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "golden-signals",
+      "area": "observability",
+      "domain": "observability",
+      "title": "Golden Signals & SLOs",
+      "titleAr": "الإشارات الذهبية و SLOs",
+      "coverage": "explained",
+      "chapters": [
+        "observability",
+        "grafana",
+        "serverless",
+        "service-mesh",
+        "prometheus",
+        "glossary",
+        "interview-prep",
+        "project-overview"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": [
+        "nti-final-project"
+      ]
+    },
+    {
+      "id": "incident-response",
+      "area": "sre",
+      "domain": "sre",
+      "title": "Incident Response",
+      "titleAr": "الاستجابة للحوادث",
+      "coverage": "explained",
+      "chapters": [
+        "disaster-recovery",
+        "aws-overview",
+        "observability",
+        "kubernetes",
+        "terraform",
+        "platform-engineering",
+        "prometheus",
+        "argocd"
+      ],
+      "labs": [
+        "lab-19-full-platform-operations-security-troubleshooting-guide"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "disaster-recovery",
+      "area": "sre",
+      "domain": "sre",
+      "title": "Backup & DR",
+      "titleAr": "النسخ الاحتياطي والتعافي",
+      "coverage": "explained",
+      "chapters": [
+        "disaster-recovery",
+        "aws-overview",
+        "kubeadm",
+        "chaos-engineering",
+        "git-and-github",
+        "rds",
+        "gitops",
+        "kubernetes"
+      ],
+      "labs": [
+        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
+        "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
+        "lab-07-ansible-architecture-configuration-automated-inventory",
+        "lab-19-full-platform-operations-security-troubleshooting-guide"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "chaos-engineering",
+      "area": "sre",
+      "domain": "sre",
+      "title": "Chaos Engineering",
+      "titleAr": "هندسة الفوضى",
+      "coverage": "explained",
+      "chapters": [
+        "chaos-engineering",
+        "serverless",
+        "glossary",
+        "start-here"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops"
+      ],
+      "projects": []
+    },
+    {
+      "id": "high-availability",
+      "area": "sre",
+      "domain": "sre",
+      "title": "High Availability",
+      "titleAr": "الإتاحة العالية",
+      "coverage": "explained",
+      "chapters": [
+        "disaster-recovery",
+        "kubernetes",
+        "load-balancers",
+        "kubeadm",
+        "prometheus",
+        "chaos-engineering",
+        "networking-fundamentals",
+        "rds"
+      ],
+      "labs": [
+        "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "image-scanning",
+      "area": "security",
+      "domain": "security",
+      "title": "Image Scanning",
+      "titleAr": "فحص الصور",
+      "coverage": "explained",
+      "chapters": [
+        "container-security",
+        "docker",
+        "build-tools",
+        "ecr",
+        "linux-foundations",
+        "jenkins",
+        "nexus-and-artifacts",
+        "github-actions"
+      ],
+      "labs": [
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
+        "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
+        "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn",
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "network-policies",
+      "area": "security",
+      "domain": "security",
+      "title": "Network Policies",
+      "titleAr": "سياسات الشبكة",
+      "coverage": "explained",
+      "chapters": [
+        "network-policies",
+        "networking-fundamentals",
+        "kubernetes",
+        "git-and-github",
+        "service-mesh",
+        "glossary",
+        "hands-on-labs",
+        "project-overview"
+      ],
+      "labs": [
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    },
+    {
+      "id": "supply-chain",
+      "area": "security",
+      "domain": "security",
+      "title": "Supply Chain",
+      "titleAr": "سلسلة التوريد",
+      "coverage": "explained",
+      "chapters": [
+        "container-security",
+        "build-tools",
+        "github-actions",
+        "nexus-and-artifacts",
+        "jenkins",
+        "glossary",
+        "architecture-summary",
+        "start-here"
+      ],
+      "labs": [],
+      "roadmaps": [
+        "cloud-devops-engineer",
+        "devsecops"
+      ],
+      "projects": []
+    },
+    {
+      "id": "least-privilege",
+      "area": "security",
+      "domain": "security",
+      "title": "Least Privilege",
+      "titleAr": "أقل صلاحية",
+      "coverage": "explained",
+      "chapters": [
+        "container-security",
+        "docker",
+        "iam",
+        "linux-foundations",
+        "aws-overview",
+        "gitops",
+        "glossary",
+        "interview-prep"
+      ],
+      "labs": [
+        "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn"
+      ],
+      "roadmaps": [
+        "aws-cloud-engineer",
+        "cloud-devops-engineer",
+        "devsecops",
+        "kubernetes-specialist"
+      ],
+      "projects": []
+    }
+  ]
+}
