@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src=".github/assets/logo.svg" alt="EgyKode" width="96" height="106">
+<img src="apps/web/public/brand/mark.svg" alt="EgyKode" width="96" height="106">
 
 # EgyKode
 
