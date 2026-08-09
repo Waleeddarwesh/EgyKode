@@ -37,35 +37,41 @@ export function ExpandableGrid({
   }
 
   return (
-    <details className="group mt-3">
-      <ul className={grid}>{shown.map(cell)}</ul>
+    <>
+      {/* Outside the disclosure: a closed <details> hides every child except
+          its summary, so the preview cards must not live inside it. */}
+      <ul className={`mt-3 ${grid}`}>{shown.map(cell)}</ul>
 
-      {/* Rendered inside <details> so it is revealed by the native toggle. */}
-      <ul className={`mt-3 hidden ${grid} group-open:grid`}>{rest.map(cell)}</ul>
+      {/* Column-reversed so the toggle reads below the cards it reveals. */}
+      <details className="group mt-3 flex flex-col">
+        <ul className={`order-1 ${grid}`}>{rest.map(cell)}</ul>
 
-      <summary
-        className="mt-3 inline-flex cursor-pointer list-none items-center gap-1.5 text-sm
-          text-primary transition-colors hover:underline
-          [&::-webkit-details-marker]:hidden"
-      >
-        <span className="group-open:hidden">{labels.more.replace("{count}", String(hidden))}</span>
-        <span className="hidden group-open:inline">{labels.less}</span>
-        <svg
-          viewBox="0 0 24 24"
-          width="16"
-          height="16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-          className="transition-transform duration-200 group-open:rotate-180"
+        <summary
+          className="order-2 mt-3 inline-flex cursor-pointer list-none items-center gap-1.5
+            self-start text-sm text-primary transition-colors hover:underline
+            [&::-webkit-details-marker]:hidden"
         >
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </summary>
-    </details>
+          <span className="group-open:hidden">
+            {labels.more.replace("{count}", String(hidden))}
+          </span>
+          <span className="hidden group-open:inline">{labels.less}</span>
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+            className="transition-transform duration-200 group-open:rotate-180"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </summary>
+      </details>
+    </>
   );
 }
 

@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+import { PUBLIC_LOCALES } from "../../apps/web/lib/locales";
+
 /**
  * Automated accessibility audit (MASTER_PROMPT §12.3).
  *
@@ -8,9 +10,11 @@ import { expect, test, type Page } from "@playwright/test";
  * roughly a third of real barriers, so this is a floor, not a certificate —
  * the screen-reader smoke tests in §12.3 remain a manual step.
  *
- * Every page is audited in BOTH locales: an RTL layout can reorder the
- * accessibility tree, and an Arabic page with an `en` lang attribute makes a
- * screen reader read Arabic with English phonemes.
+ * Every page is audited in every PUBLISHED locale. RTL is where this breaks —
+ * an RTL layout can reorder the accessibility tree, and an Arabic page with an
+ * `en` lang attribute makes a screen reader read Arabic with English phonemes —
+ * so the Arabic audits return automatically when "ar" returns to
+ * PUBLIC_LOCALES (see apps/web/lib/locales.ts).
  */
 const PAGES = [
   { name: "home", path: "" },
@@ -45,7 +49,7 @@ async function audit(page: Page, path: string) {
     .analyze();
 }
 
-for (const locale of ["en", "ar"] as const) {
+for (const locale of PUBLIC_LOCALES) {
   test.describe(`a11y (${locale})`, () => {
     for (const { name, path } of PAGES) {
       test(`${name} has no serious or critical violations`, async ({ page }) => {

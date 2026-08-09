@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="133" viewBox="0 0 100 110.96" role="img" aria-label="EgyKode">
+  <title>EgyKode</title>
+  <!--
+    The README mark, in brand colour.
+
+    A gradient rather than a flat fill, matching the brand artwork, and an
+    explicit fill rather than `currentColor` — GitHub does not resolve
+    currentColor in a README image, so the app's mark.svg renders invisible
+    there. Same geometry, so the two never drift apart.
+
+    Colour reads correctly on GitHub's light and dark themes alike, which is
+    why there is one file rather than a light/dark pair.
+  -->
+  <defs>
+    <linearGradient id="egykode-mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3fe98c"/>
+      <stop offset="55%" stop-color="#1fe881"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#egykode-mark)" d="M50.14 0.0 L80.27 29.86 L73.7 36.44 L55.89 18.63 L55.34 18.9 L55.34 64.66 L55.89 65.75 L86.85 33.97 L100.0 33.97 L69.04 65.75 L99.45 96.99 L100.0 97.81 L100.0 110.68 L62.47 72.88 L46.3 89.04 L46.03 17.53 L9.32 54.52 L9.59 67.95 L10.14 68.22 L27.4 50.14 L38.63 39.45 L38.63 52.05 L9.59 81.64 L9.86 98.9 L38.36 69.86 L38.63 82.74 L10.96 110.96 L0.0 110.68 L0.0 50.41 L49.86 0.27 Z"/>
+</svg>

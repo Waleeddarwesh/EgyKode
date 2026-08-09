@@ -1,0 +1,291 @@
+---
+contentId: linux-foundations
+title: "أساسيات Linux"
+description: "اقرأ وحدة systemd، وتابع سجلًا، وشخّص خدمة فشلت"
+domain: linux
+level: beginner
+type: concept
+phase: foundations
+order: 5
+readingTime: 45
+prerequisites: []
+relatedChapters: []
+objectives:
+  - "اقرأ وحدة systemd، وتابع سجلًا، وشخّص خدمة فشلت"
+status: complete
+translationStatus: machine-draft
+sourceFile: "Cloud-Native-DevOps-Handbook/05_Linux.md"
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## Introduction to Linux
+
+عندما يبني Terraform خادمًا في AWS، أي نظام تشغيل يستخدمه؟ إنه لا يستخدم Windows، بل يستخدم **Linux** (وتحديدًا Ubuntu).
+وعندما يشغّل Docker حاوية، ما الذي يعمل بداخلها؟ Linux.
+وعندما يدير Kubernetes الكلاستر، مع أي kernel يتخاطب؟ Linux.
+
+Linux هو الأساس الذي تقوم عليه منظومة الـ Cloud و DevOps بأكملها. ولا يمكن أن تكون مهندس DevOps دون أن تفهم Linux.
+
+---
+
+## Level 1 — Beginner
+
+### What is Linux?
+تخيّل نظام تشغيل الحاسوب كأنه مطعم.
+- **Windows / macOS:** مطعم فاخر. تجلس، وتنظر في قائمة أنيقة (واجهة المستخدم الرسومية / GUI)، وتشير إلى صورة برجر، فيحضره لك النادل. الأمر سهل، لكنك لا تستطيع دخول المطبخ.
+- **Linux:** مطبخ صناعي ضخم. لا توجد قائمة ولا صور. تقف أمام terminal خام (سطر الأوامر) وتكتب تعليمات دقيقة للطاهي: *«خذ 200 جرام من اللحم، واطهُها على 400 درجة لمدة 4 دقائق.»* تعلُّمه أصعب، لكنك تملك تحكّمًا مطلقًا لا حدود له في الحاسوب.
+
+### Why do servers use Linux?
+1. **مجاني:** ترخيص Windows Server يكلّف آلاف الدولارات، أما Linux فمجاني ومفتوح المصدر.
+2. **خفيف:** واجهة Windows الرسومية تستهلك 2 جيجابايت من الـ RAM لمجرد عرض خلفية سطح المكتب. أما خادم Linux فلا واجهة رسومية له؛ يستهلك 150 ميجابايت فقط، ويترك الباقي لتطبيقك.
+3. **قابل للأتمتة:** لأن كل شيء يُتحكَّم فيه عبر أوامر نصية، تستطيع الأدوات الآلية (مثل Ansible) التحكم فيه بسهولة.
+
+---
+
+## Level 2 — Intermediate
+
+### Core Linux Concepts for DevOps
+
+#### 1. The File System
+في Windows لديك `C:\` و `D:\`. أما في Linux فلا توجد أحرف أقراص إطلاقًا. هناك شجرة واحدة، وكل شيء يبدأ من الجذر **Root** (`/`) — بما في ذلك قرصك الصلب الثاني، وذاكرة الـ USB، ومجلّد الشبكة المشترك. فكلها تُركَّب (mount) داخل مجلّد ما في تلك الشجرة الواحدة.
+
+وهذه هي المجلدات التي ستتعامل معها فعليًا كمهندس DevOps:
+
+| المسار | ما يقع فيه | لماذا ستفتحه |
+| --- | --- | --- |
+| `/etc/` | ملفات الإعدادات | `/etc/kubernetes/manifests/` و `/etc/nginx/nginx.conf` |
+| `/var/log/` | ملفات السجلات | أساء الخادم التصرف وتريد معرفة السبب |
+| `/home/<user>/` | ملفات المستخدم الخاصة | مفاتيح SSH لديك تقع في `/home/ubuntu/.ssh/` |
+| `/proc/` | الـ kernel، متظاهرًا بأنه ملفات | `cat /proc/meminfo` لرؤية الاستهلاك الحقيقي للذاكرة |
+| `/usr/bin/` و `/usr/local/bin/` | البرامج المثبَّتة | حيث ينتهي المطاف بـ `kubectl` و `terraform` |
+| `/tmp/` | مساحة مؤقتة تُمسح عند إعادة التشغيل | مخرجات بناء لا تريد الاحتفاظ بها |
+
+وأمران يجيبان عن السؤال الذي ستطرحه أكثر من غيره — *لماذا امتلأ هذا القرص؟*
+
+```bash
+df -h                    # how full is each mounted filesystem?
+du -sh /var/log/*        # which thing inside /var/log is the fat one?
+```
+
+القرص الممتلئ من أكثر أسباب «تعطّل الخادم الغامض» شيوعًا: فلا يستطيع Docker سحب الصور، ويطرد Kubernetes الـ Pods، وترفض قاعدة البيانات الكتابة — وكل ذلك برسائل خطأ يبدو ظاهرها غير ذي صلة.
+
+#### 2. Permissions (chmod)
+Linux آمن إلى حدّ بعيد بفضل نظام الصلاحيات فيه. فلكل ملف مالك (Owner)، ومجموعة (Group)، و«الآخرون» (Others).
+وعندما تولّد مفتاح SSH لتسجيل الدخول إلى AWS، تنفّذ هذا الأمر:
+```bash
+chmod 400 ~/.ssh/ivolve-key.pem
+```
+**ماذا يعني `400`؟**
+- `4` (المالك): صلاحية القراءة فقط.
+- `0` (المجموعة): لا صلاحية.
+- `0` (الآخرون): لا صلاحية.
+وإذا لم تنفّذ هذا الأمر، سترفض AWS اتصالك لأن المفتاح «مكشوف أكثر من اللازم»، وقد يسرقه شخص آخر يستخدم الجهاز نفسه.
+
+**من أين تأتي هذه الأرقام.** كل رقم هو حاصل جمع ثلاث صلاحيات:
+
+| الرقم | الصلاحية | على ملف | على مجلّد |
+| --- | --- | --- | --- |
+| `4` | قراءة (`r`) | قراءة المحتوى | سرد الأسماء بداخله |
+| `2` | كتابة (`w`) | تعديل المحتوى | إنشاء أو حذف ملفات بداخله |
+| `1` | تنفيذ (`x`) | تشغيله كبرنامج | الدخول إليه بـ `cd` |
+
+اجمعها لكل فئة من الفئات الثلاث — المالك، والمجموعة، والآخرون:
+
+```bash
+chmod 644 config.yaml     # owner reads+writes (6), everyone else reads (4)
+chmod 755 deploy.sh       # owner does everything (7), everyone else reads+runs (5)
+chmod 400 key.pem         # owner reads (4), nobody else touches it at all
+chmod +x deploy.sh        # the shorthand: "make this runnable"
+```
+
+أما الأمر `ls -l` فيعرضها بالشكل المعاكس، على هيئة حروف:
+
+```text
+-rwxr-xr-x  1 ubuntu ubuntu  482 Aug  9 11:20 deploy.sh
+ ^^^                                            = owner:  read, write, execute
+    ^^^                                         = group:  read, execute
+       ^^^                                      = others: read, execute
+```
+
+**والملكية هي النصف الآخر.** فالصلاحيات تحدّد *ما* يحقّ لكل فئة فعله؛ أما الملكية فتحدّد *من* هي تلك الفئات.
+
+```bash
+chown ubuntu:ubuntu /var/www        # this file now belongs to user ubuntu, group ubuntu
+chown -R ivolve:ivolve /opt/app     # -R = the whole directory tree
+```
+
+وهي الفكرة نفسها التي ستلقاها مجددًا في Kubernetes باسم `runAsUser` و `fsGroup`، وفي Docker باسم تعليمة `USER`. فالحاوية التي تكتب إلى volume مركَّب بهوية UID 1000 بينما المجلّد مملوك لـ UID 0 ستفشل برسالة `Permission denied` — والحل هو `chown`، لا منح صلاحيات أكثر.
+
+**أي صلاحية تختار.** الإغراء تحت ضغط الوقت هو دائمًا `chmod 777`، وهو دائمًا الجواب الخاطئ — فهو يمنح صلاحية الكتابة لكل عملية على الجهاز، بما فيها العملية المخترَقة:
+
+| بدلًا من | استخدم | لأن |
+| --- | --- | --- |
+| `777` على مجلّد | `775` مع مجموعة مشتركة | المجموعة هي ما أردته فعلًا |
+| `666` على ملف إعدادات | `644`، أو `640` إن حوى شيئًا حسّاسًا | لا شيء يحتاج أن يكون قابلًا للكتابة من الجميع |
+| فتح الملف للجميع | نفّذ `chown` لصالح المستخدم الصحيح | الملكية تعبّر عن النية، والصلاحيات هي البديل الاحتياطي |
+
+وفضّل **المجموعات على الصلاحيات الفردية**: أضف المستخدمين الذين يحتاجون الوصول إلى مجموعة، ثم نفّذ `chown` للمجلّد لصالح تلك المجموعة، واضبطه على `775`. فتصير إضافة شخص جديد مجرد إضافته إلى مجموعة، بدلًا من إعادة المرور على شجرة المجلدات كلها.
+
+وتنفد الصلاحيات القياسية حين تحتاج مجموعتان إلى وصول *مختلف* للملف نفسه — ولهذا وُجدت قوائم التحكم POSIX ACLs (الأمر `setfacl`). وهي أندر مما تبدو، واللجوء إليها مبكرًا يعني عادةً أن تنظيم المجلدات نفسه خاطئ.
+
+#### 3. Processes and Daemons
+كل برنامج قيد التشغيل هو **process**، ولكل process رقم معرّف **process ID (PID)**. أما الـ **daemon** فهو ببساطة عملية تعمل بصمت في الخلفية دون طرفية مرتبطة بها — أي خدمة. فالـ `kubelet` في Kubernetes، و `dockerd` في Docker، وقاعدة بياناتك، كلها daemons.
+
+```bash
+ps aux                   # every process on the machine, with its PID and memory
+ps aux | grep kubelet    # just the one you care about
+top                      # the same thing, live, sorted by CPU
+kill 4821                # ask process 4821 to shut down cleanly (SIGTERM)
+kill -9 4821             # force it to die (SIGKILL) — it gets no chance to clean up
+```
+
+والفرق بين الأمرين الأخيرين أهم مما يبدو. فالإشارة `SIGTERM` هي ما يرسله Kubernetes إلى Pod حين يريد إنهاءه؛ ويُفترض بالتطبيق أن ينهي الطلب الحالي ثم يخرج. فإذا تجاهلها، انتظر Kubernetes 30 ثانية ثم أرسل `SIGKILL`. والتطبيق الذي لا يتعامل مع `SIGTERM` يُسقط طلبات مستخدمين حقيقية مع كل عملية نشر.
+
+#### 4. systemd — the service manager
+لا أحد يشغّل daemon بكتابة اسمه والدعاء بالتوفيق. ففي كل توزيعة Linux حديثة، يتولى **systemd** تشغيل الخدمات عند الإقلاع، وإعادة تشغيلها عند انهيارها، والاحتفاظ بسجلاتها.
+
+```bash
+systemctl status kubelet     # is it running? did it fail? show me the last few log lines
+systemctl restart kubelet    # stop it and start it again
+systemctl enable kubelet     # start automatically on every boot — the one people forget
+journalctl -u kubelet -f     # follow this service's logs live (Ctrl-C to stop)
+journalctl -u kubelet --since "10 min ago"
+```
+
+والأمران `enable` و `start` مختلفان، والخلط بينهما يسبب نوعًا محددًا من الأعطال: تعمل الخدمة بلا مشكلات لأشهر، ثم يُعاد تشغيل الخادم في الثالثة فجرًا، فلا تعود الخدمة أبدًا — لأنها شُغِّلت ولم تُفعَّل قط.
+
+**قراءة ملف الوحدة (unit file).** تُعرَّف الخدمة بملف نصي بسيط. وهذه نسخة مختصرة من أحدها:
+
+```ini
+[Unit]
+Description=ivolve API
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/ivolve-api --port 8080
+Restart=on-failure
+RestartSec=5s
+User=ivolve
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- `After=network.target` — لا تبدأ هذه الخدمة قبل أن تعمل الشبكة.
+- `ExecStart=` — الأمر الدقيق المطلوب تنفيذه. ولا يوجد shell هنا، ولذلك لن تعمل الـ pipes ولا متغيرات `$VARIABLES` بالشكل الذي تتوقعه.
+- `Restart=on-failure` — إذا خرجت العملية بقيمة غير صفرية، أعِد تشغيلها. وهذا هو systemd يؤدي على خادم واحد ما يؤديه Kubernetes على مستوى كلاستر كامل.
+- `User=ivolve` — شغّلها بمستخدم غير مميّز، لا بـ `root`. وهو المبدأ نفسه وراء الحاوية التي لا تعمل بصلاحيات الجذر.
+
+**تشخيص خدمة فشلت.** عندما يُظهر `systemctl status` الحالة `failed`، يكون التسلسل واحدًا دائمًا:
+
+```bash
+systemctl status ivolve-api      # 1. what does systemd think happened? note the exit code
+journalctl -u ivolve-api -n 50   # 2. what did the application itself say before dying?
+systemctl cat ivolve-api         # 3. is the unit file actually what you think it is?
+```
+
+والخطوة الثانية هي التي يتخطّاها المبتدئون. فالأمر `systemctl status` يخبرك *أنها* فشلت؛ ووحده الـ journal يخبرك *لماذا*.
+
+**والخيار `Restart=` قرار حقيقي لا إجراء شكلي:**
+
+| القيمة | السلوك | متى تستخدمها |
+| --- | --- | --- |
+| `no` | لا تعيد التشغيل إطلاقًا | مهمة تُنفَّذ مرة واحدة ويجب أن تبقى فاشلة |
+| `on-failure` | أعد التشغيل عند خروج بقيمة غير صفرية | في الغالب دائمًا — الخيار المعقول |
+| `always` | أعد التشغيل حتى بعد خروج سليم | daemon يجب ألّا يتوقف أبدًا |
+
+والقيمة `always` تبدو أكثر أمانًا وكثيرًا ما لا تكون كذلك: فالخدمة التي تخرج خروجًا سليمًا لأن إعداداتها غير صالحة ستُعاد إلى العمل بلا نهاية، فتُخفي المشكلة خلف عملية تبدو حيّة. واقرن أي إعداد منهما بالخيار `RestartSec` حتى لا تستنزف حلقة الانهيار موارد الجهاز.
+
+**ومتى يكون systemd الأداة الخاطئة؟** إنه يدير العمليات على جهاز *واحد*. أما للمهام المجدولة، فإن مؤقّت systemd والأمر `cron` يؤديان العمل نفسه — إذ تمنحك المؤقّتات السجلات والاعتماديات وخيار `Persistent=true` للتشغيلات الفائتة، مقابل صياغة أطول؛ بينما `cron` ثلاثة حقول يفهمها الجميع. وحين يصبح مطلوبًا من الحِمل أن ينجو من عطل الجهاز نفسه، لا يكفي أي مدير عمليات — وتلك هي المشكلة التي يحلّها Kubernetes، والخيار `Restart=on-failure` هو سلفه على مستوى الخادم الواحد.
+
+---
+
+## Level 3 — Advanced
+
+### How Linux Powers Containers (Docker & Kubernetes)
+
+الحاويات ليست سحرًا، وهي لا تحتوي على نظام تشغيل خاص بها. إنها مجرد حيلة يؤديها الـ Linux Kernel.
+
+يعتمد Docker و Kubernetes على خاصيتين أساسيتين في Linux:
+1. **cgroups (Control Groups):** تحدّ من *مقدار* ما تستطيع العملية استهلاكه. فإذا أخبرنا Kubernetes أن الـ Pod المسمّى `ivolve-api` لا يستطيع استخدام أكثر من 500 ميجابايت من الـ RAM، فإن Kubernetes ببساطة يطلب من الـ Linux Kernel وضع حدّ `cgroup` على تلك العملية. وإذا حاولت الـ API استخدام 501 ميجابايت، يقتلها الـ Linux Kernel فورًا (وهذا هو OOMKilled — Out of Memory).
+2. **Namespaces:** تحدّ من *ما تستطيع* العملية رؤيته. فعندما تبدأ الحاوية `ivolve-api`، ينشئ Linux لها Network Namespace خاصًا بها. فتظن الـ API أن لها عنوان IP خاصًا وقرصًا صلبًا خاصًا، ولا تستطيع رؤية حاوية قاعدة البيانات التي تعمل بجوارها على الخادم الفعلي نفسه.
+
+### Deep Dive: Shell Scripting in CI/CD
+في DevOps نؤتمت المهام باستخدام سكربتات Bash. فكل مرحلة في خط الـ pipeline، وكل entrypoint لحاوية، وكل كتلة `user_data` على EC2 instance، هي في النهاية سكربت shell.
+
+**والأسطر التي يجب أن تتصدّر كل واحد منها:**
+
+```bash
+#!/bin/bash
+set -euo pipefail
+```
+
+- `#!/bin/bash` — الـ *shebang*. يخبر Linux بأي مفسّر يشغّل هذا الملف.
+- `-e` — اخرج فورًا إذا فشل أي أمر. فبدونه، السكربت الذي فشل فيه `docker build` يمضي مطمئنًا إلى `docker push` فينشر الصورة السابقة.
+- `-u` — عامِل المتغيّر غير المعرَّف كخطأ. وهذا ما يمنع `rm -rf "$APP_DIR/"` من أن يصير `rm -rf /` حين لا تكون `APP_DIR` معرّفة أصلًا.
+- `-o pipefail` — في `a | b`، افشل إذا فشلت *أي* مرحلة، لا الأخيرة وحدها. فبدونه، يبلّغ `trivy image myapp | tee scan.log` بالنجاح مهما وجد Trivy، لأن `tee` نجح.
+
+هذه الخيارات الثلاثة هي الفرق بين سكربت يتوقف عند المشكلة وسكربت يمضي فيُحدث ضررًا.
+
+**المتغيرات والاستبدال:**
+
+```bash
+IMAGE_TAG="${GIT_COMMIT:0:7}"          # first 7 characters — a short SHA
+REGISTRY="${REGISTRY:-ghcr.io/ivolve}" # use $REGISTRY if set, otherwise this default
+docker build -t "${REGISTRY}/api:${IMAGE_TAG}" .
+```
+
+ضع متغيراتك دائمًا بين علامتَي اقتباس (`"$VAR"` لا `$VAR`). فالمتغيّر غير المقتبَس الذي يحتوي على مسافة يُقسَم إلى وسيطين، وهكذا يحذف سكربتٌ قُصد به حذف ملف واحد مجلّدين اثنين.
+
+انظر كيف ينفّذ خط Jenkins أمرًا:
+```bash
+sh 'trivy fs --exit-code 1 --severity CRITICAL .'
+```
+لماذا يُفشل هذا الخط بأكمله؟ بسبب **Exit Codes** في Linux.
+ففي Linux، عندما ينتهي برنامج ما، يرسل رقمًا خفيًا إلى الـ kernel.
+- `0`: نجاح.
+- `1 - 255`: خطأ.
+و Jenkins مبرمَج ليقرأ الـ Exit Code في Linux. فإذا رأى `1`، حوّل الخط إلى اللون الأحمر.
+
+---
+
+## Level 4 — Enterprise
+
+### Kernel Tuning (Sysctl)
+في بيئة مؤسسية عالية القابلية للتوسّع، لا تكفي إعدادات Linux الافتراضية.
+فإذا كان كلاستر Kubernetes لدينا يعالج 100,000 طلب HTTP في الثانية، سينفد من خادم Linux عدد المنافذ الشبكية، أو سيُسقط حزمًا لأن الـ TCP buffer أصغر من اللازم.
+
+يستخدم مهندسو المنصات الأمر `sysctl` لضبط الـ Linux Kernel في بيئة الإنتاج.
+فمثلًا، في كلاستر Kubernetes عالي الحِمل، قد نطبّق التالي:
+```bash
+sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+sysctl -w net.ipv4.tcp_tw_reuse=1
+```
+هذا يخبر الـ Linux kernel بإعادة تدوير اتصالات TCP بوتيرة أسرع، حتى لا ينهار الخادم تحت الحِمل الضخم.
+
+### SELinux and AppArmor
+لمتطلبات الجهات الحكومية أو الامتثال لـ SOC2، لا تكفي صلاحيات الملفات القياسية (`chmod`). فماذا لو اختُرق المستخدم `root` نفسه؟
+تستخدم توزيعات Linux المؤسسية (Red Hat و Ubuntu) أنظمة **Mandatory Access Control (MAC)** مثل SELinux أو AppArmor.
+فحتى لو حصل مخترِق على صلاحية `root` داخل حاوية Docker، سيعترض AppArmor استدعاءات الـ kernel ويمنعه من قراءة الملفات الحسّاسة على الجهاز المضيف.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: ما هو الأمر `sudo`؟**
+A: `sudo` اختصار لـ "SuperUser Do". وهو يتيح لمستخدم عادي تنفيذ أمر واحد بصلاحيات المستخدم الجذر root (المدير).
+
+### Intermediate
+**Q: تنفّذ `cat /var/log/syslog` فيطبع 10,000 سطر دفعة واحدة. كيف تعرض الملف بحيث يظهر لك آخر 20 سطرًا فقط، متجددة لحظيًا؟**
+A: تستخدم الأمر `tail` مع خيار المتابعة: `tail -n 20 -f /var/log/syslog`.
+
+### Senior
+**Q: اشرح معنى `OOMKilled` في Kubernetes وعلاقته بالـ Linux Kernel.**
+A: `OOMKilled` اختصار لـ Out Of Memory Killed. فعندما تتجاوز حاوية حدّ الذاكرة المحدّد لها، تتدخّل عملية Out-Of-Memory Killer في الـ Linux Kernel لحماية الـ node المضيف من الانهيار، فتنهي العملية المخالفة داخل الـ `cgroup`. ويكتشف Kubernetes الـ exit code فيحدّث حالة الـ Pod إلى `OOMKilled`.
+
+### Principal/Architect
+**Q: ما الفرق بين الآلة الافتراضية (Virtual Machine — VM) والحاوية على مستوى الـ OS kernel؟**
+A: الآلة الافتراضية تستعين بـ Hypervisor (مثل ESXi أو KVM) لمحاكاة العتاد الفعلي، وكل VM تشغّل نظام تشغيل كاملًا ومستقلًا وثقيلًا بـ kernel خاص به. أما الحاوية (مثل Docker) فلا تحاكي العتاد إطلاقًا، بل تستخدم الـ Linux Kernel الموجود أصلًا على المضيف، معتمدةً على `Namespaces` للعزل و `cgroups` لتحديد الموارد. ولأن الحاويات تتشارك kernel واحدًا، فهي تُقلع في أجزاء من الثانية وتكلفتها الإضافية أقل بكثير من الآلات الافتراضية.
+[Contents](/learn) | [06 — Networking Fundamentals](/learn/networking/networking-fundamentals) |

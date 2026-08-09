@@ -43,7 +43,9 @@ export function MarkComplete({
         }
       >
         {complete ? (
-          <Check className="h-4 w-4" aria-hidden />
+          // Keyed so the animation replays each time it is marked complete,
+          // rather than only on first mount.
+          <Check key="done" className="animate-check h-4 w-4" aria-hidden />
         ) : (
           <Circle className="h-4 w-4" aria-hidden />
         )}

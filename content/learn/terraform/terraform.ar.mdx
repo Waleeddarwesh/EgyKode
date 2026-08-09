@@ -1,0 +1,385 @@
+---
+contentId: terraform
+title: "البنية التحتية ككود — Terraform"
+description: "الـ Providers والـ Modules والـ State، والفرق بين plan و apply."
+domain: terraform
+level: intermediate
+type: concept
+phase: iac
+order: 13
+readingTime: 60
+prerequisites: ["aws-overview"]
+relatedChapters: []
+objectives:
+  - "اكتب module، واقرأ خطة plan، واشرح لماذا يُقفَل الـ State"
+status: complete
+translationStatus: machine-draft
+sourceFile: "Cloud-Native-DevOps-Handbook/13_Terraform.md"
+authors: [waleed]
+updated: 2026-08-09
+---
+
+## Introduction to Terraform
+
+في الفصل 10 عرفنا أن AWS مستودع ضخم من الأجهزة يمكن استئجارها. لكن كيف نستأجرها فعليًا؟
+لو استخدمت الماوس للضغط على أزرار موقع AWS لبناء 50 خادمًا، ستقع في خطأ حتمًا. ستنسى فتح منفذ في الـ firewall على الخادم رقم 37.
+
+ولحل هذه المشكلة نستخدم **Infrastructure as Code (IaC)**: نكتب ملفًا نصيًا يصف بدقة ما نريده، ثم يقوم برنامج ببنائه بالشكل نفسه في كل مرة. و**Terraform** هو ذلك البرنامج.
+
+---
+
+## Level 1 — Beginner
+
+### What is Terraform?
+
+تخيّل أنك تبني قلعة من مكعبات LEGO.
+
+- **الطريقة القديمة:** تنظر إلى صورة القلعة وتحاول بناءها من الذاكرة، وقد تنسى قطعة.
+- **طريقة Terraform:** تكتب دليل تعليمات: «ضع 10 مكعبات زرقاء هنا، ومكعبين أحمرين هناك»، ثم تسلّم الدليل للبرنامج فيبني القلعة كما هو مكتوب تمامًا.
+
+وإذا كسر أحدهم برجًا من القلعة، لا داعي للقلق. تسلّم الدليل مرة أخرى، فيقارن البرنامج القلعة الحالية بالدليل ويقول: *«ينقصك برج»*، ثم يعيد بناء البرج الناقص **وحده** دون المساس بالباقي.
+
+### What Infrastructure as Code actually means
+
+الـ Infrastructure as Code ليست «سكربتًا يبني خوادم». إنها فكرة أضيق وأكثر فائدة:
+**تعريف بنيتك التحتية ملفٌّ في Git، والنظام العامل مشتقٌّ من ذلك الملف.**
+
+وتترتب على ذلك ثلاث خصائص، وهي مجمل سبب وجود هذه الممارسة أصلًا:
+
+1. **Declarative لا Imperative.** أنت تصف الحالة النهائية — ثلاثة خوادم في منطقتَي إتاحة — وتتولى الأداة تحديد استدعاءات الـ API التي تحققها. أما سكربت Bash فيصف *الرحلة*، ولذلك فتشغيله مرتين ينفّذها مرتين.
+2. **Idempotent.** تطبيق التعريف نفسه على نظام يوجد في تلك الحالة بالفعل لا يغيّر شيئًا. وهذا ما يجعل تشغيله المستمر آمنًا.
+3. **قابلة للمراجعة والتراجع.** تصل تغييرات البنية التحتية على هيئة pull requests. يمكنك أن ترى من وسّع قاعدة الـ firewall، ومتى، ولماذا — و `git revert` هنا تراجُع حقيقي، لا إعادة بناء من الذاكرة.
+
+أما البديل — الضغط على أزرار الـ console — فينتج بنية تحتية لا يستطيع أحد إعادة إنتاجها. وهي تعمل إلى أن يترك الشخص الذي بناها العمل، أو تتعطّل المنطقة فتحتاج إلى المثيل نفسه في مكان آخر قبل الصباح.
+
+### ASCII Diagram: The Terraform Workflow
+
+```text
+[ Your Code (main.tf) ]
+         |
+    (terraform apply)
+         v
+[ Terraform Engine ] ---> Looks at AWS ---> "You asked for 3 servers. You have 0."
+         |
+         v
+[ Creates 3 Servers in AWS ]
+```
+
+---
+
+## Level 2 — Intermediate
+
+### How it Works Internally (The State File)
+
+يحتاج Terraform إلى ذاكرة. فعندما ينشئ خادمًا في AWS، عليه أن يتذكّر المعرّف الدقيق لذلك الخادم، ويحفظ هذه الذاكرة في ملف اسمه `terraform.tfstate`.
+
+**دورة الحياة:**
+
+1. `terraform init`: يُنزّل الـ plugins الخاصة بـ AWS.
+2. `terraform plan`: التشغيل التجريبي. يقارن Terraform الكود بذاكرة `terraform.tfstate`، ويخبرك بدقة بما **سيغيّره**، دون أن يغيّر شيئًا فعليًا.
+3. `terraform apply`: ينفّذ الخطة ويحدّث ذاكرة `terraform.tfstate`.
+4. `terraform destroy`: يقرأ الذاكرة ويحذف كل ما أنشأه.
+
+### Providers — how Terraform talks to a cloud
+
+Terraform نفسه لا يعرف شيئًا عن AWS. إنه محرّك صغير يقرأ ملفاتك، ويبني رسمًا بيانيًا للاعتماديات، ثم يستدعي **Providers** — وهي plugins تترجم كتل `resource` إلى استدعاءات API. وهناك providers لـ AWS و Kubernetes و GitHub و Cloudflare وآلاف الأشياء الأخرى.
+
+```hcl
+terraform {
+  required_version = ">= 1.6"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.40"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+```
+
+- **`required_providers`** يسمّي الـ plugin ويثبّت إصداره. فالقيد `~> 5.40` يعني «أي إصدار 5.x بدءًا من 5.40، لكن أبدًا 6.0» — أي أن تحديثات الـ patch والـ minor مسموح بها، والـ major الكاسر ممنوع.
+- **`provider "aws"`** يضبط إعداداته. ولاحظ غياب بيانات الاعتماد عمدًا: فهي تأتي من متغيرات البيئة، أو من ملف AWS CLI profile، أو من الـ IAM role الخاص بالخادم. ومفاتيح الوصول لا مكان لها إطلاقًا في ملف `.tf`.
+
+والأمر `terraform init` هو ما يُنزّل هذه الـ plugins، ولهذا يجب تشغيله مجددًا كلما أضفت provider أو غيّرت قيد إصدار. وهو يكتب أيضًا ملف `.terraform.lock.hcl` الذي يسجّل الإصدارات الدقيقة للـ providers وبصماتها — ضع هذا الملف في Git، ليبني كل مهندس وكذلك خادم الـ CI بالـ plugins نفسها تمامًا.
+
+**ومدى صرامة التثبيت قرار حقيقي**، وكلا الطرفين خطأ:
+
+| القيد | السلوك | متى تستخدمه |
+| --- | --- | --- |
+| بلا قيد | أي إصدار، بما في ذلك الكاسر | أبدًا |
+| `~> 5.40` | الإصدار 5.40 وما بعده من 5.x | في الغالب دائمًا — الخيار المعقول |
+| `= 5.40.1` | هذا الإصدار بالضبط | حين تعالج خللًا في الـ provider نفسه |
+
+القيد `~> 5.40` مع ملف lock مرفوع إلى Git يمنحك النصفين معًا: بناء قابل لإعادة الإنتاج اليوم بفضل ملف الـ lock، وإمكانية تبنّي الإصلاحات عن قصد بتشغيل `terraform init -upgrade` ومراجعة الفرق. أما التثبيت الدقيق دون ملف lock فهو أسوأ الخيارين — يبدو آمنًا بينما يتركك متأخرًا بسنوات، إلى أن تحتاج فعلًا إلى نوع مورد جديد.
+
+### The plan and apply workflow
+
+خمسة أوامر تؤدي معظم العمل، وترتيبها مهم:
+
+```bash
+terraform init          # download providers and configure the backend
+terraform fmt -recursive # normalise formatting, so diffs show real changes only
+terraform validate      # is the configuration internally valid?
+terraform plan          # what WOULD change? changes nothing
+terraform apply         # make it so
+```
+
+**قراءة الـ plan هي المهارة الحقيقية.** يضع Terraform رمزًا أمام كل مورد، والرمز هو الرسالة كلها:
+
+| الرمز | المعنى | مقدار القلق المطلوب |
+| --- | --- | --- |
+| `+` | إنشاء | طبيعي لبنية تحتية جديدة |
+| `~` | تعديل في مكانه | آمن عادةً |
+| `-` | حذف | اقرأ بتمعّن |
+| `-/+` | **حذف ثم إعادة إنشاء** | توقّف واقرأ كل سطر |
+
+والرمز `-/+` هو الذي يتسبب في الحوادث. وهو يظهر عندما تغيّر خاصية لا يمكن تعديلها في مكانها — مثل الـ subnet الخاص بـ EC2 instance، أو المعرّف الخاص بـ RDS instance — فلا يجد Terraform طريقًا إلى حالتك المطلوبة سوى حذف المورد وبناء آخر جديد. وعلى قاعدة بيانات، فذلك يعني بياناتك. والخطة تقول ذلك صراحةً؛ والعطل يقع حين يُطبَّق دون قراءة.
+
+والسطر الختامي هو ما تتحقق منه قبل كتابة `yes`:
+
+```text
+Plan: 2 to add, 1 to change, 0 to destroy.
+```
+
+وفي الـ CI لا تعيد توليد الخطة وقت التطبيق إطلاقًا — بل تحفظ الخطة وتطبّق ما رُوجِع بالضبط، فلا يمكن أن ينحرف شيء بين المراجعة والتغيير:
+
+```bash
+terraform plan -out=tfplan       # review this artifact
+terraform apply tfplan           # apply exactly it, no new decisions
+```
+
+### Variables and outputs
+
+كتابة `us-east-1` و `t3.micro` كقيم ثابتة داخل كل ملف هي الطريق إلى تباعد بيئتَي dev و prod. والـ **Variables** هي مدخلات الإعداد:
+
+```hcl
+variable "environment" {
+  description = "Which environment this stack belongs to"
+  type        = string
+}
+
+variable "instance_type" {
+  description = "EC2 size for the application nodes"
+  type        = string
+  default     = "t3.micro"
+
+  validation {
+    condition     = can(regex("^t3\\.", var.instance_type))
+    error_message = "Only t3 instances are approved for this account."
+  }
+}
+```
+
+المتغيّر الذي لا `default` له متغيّر إلزامي، وسيرفض Terraform العمل بدونه — وهذا هو المطلوب تمامًا في حالة `environment`. وتأتي القيم من ملف `.tfvars`:
+
+```hcl
+# environments/prod/prod.tfvars
+environment   = "prod"
+instance_type = "t3.large"
+```
+
+```bash
+terraform apply -var-file=environments/prod/prod.tfvars
+```
+
+**لا تضع الأسرار في `.tfvars` إطلاقًا.** فهي نص واضح وتُرفع إلى Git عادةً. والأسرار تأتي من AWS Secrets Manager أو من متغيرات البيئة وقت التشغيل.
+
+**متغيّر، أم local، أم قيمة ثابتة؟** الثلاثة ليست بدائل متكافئة:
+
+| | تستخدمه لـ | قابل للتجاوز |
+| --- | --- | --- |
+| `variable` | أي شيء يختلف بين البيئات | نعم — من المستدعي |
+| `locals` | قيمة تُحسب مرة من قيم أخرى | لا |
+| قيمة ثابتة | شيء يجب ألّا يتغيّر إطلاقًا | لا |
+
+والعطل هنا هو الإفراط في جعل كل شيء متغيّرًا: فالـ module الذي يحمل أربعين متغيّرًا، ثمانية وثلاثون منها لم يغيّرها أحد قط، أصعب في الاستخدام من واحد بمتغيّرين. فكل متغيّر وعدٌ بأن قيمته يُسمح لها فعلًا بالاختلاف. ابدأ بالقيم الثابتة، ورقِّ القيمة إلى متغيّر حين تحتاج بيئة ثانية فعلًا إلى قيمة مختلفة.
+
+أما الـ **Locals** فهي للقيم التي تحسبها مرة وتعيد استخدامها — وهي ليست مدخلات، ولذلك لا يمكن تجاوزها من الخارج:
+
+```hcl
+locals {
+  name_prefix = "ivolve-${var.environment}"
+  common_tags = {
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+```
+
+والـ **Outputs** هي ما ينشره الإعداد — لك، وللـ modules الأخرى:
+
+```hcl
+output "alb_dns_name" {
+  description = "Public hostname of the load balancer"
+  value       = aws_lb.main.dns_name
+}
+
+output "db_password" {
+  value     = aws_db_instance.main.password
+  sensitive = true   # redacted from CLI output — but still in the state file
+}
+```
+
+وذلك التعليق الأخير مهم: فالخيار `sensitive = true` يُخفي القيمة عن الطرفية، لكنه **لا يشفّرها**. فملف الـ state ما زال يحتفظ بها كنص واضح، وهذا هو سبب وجوب تشفير الـ backend أدناه وتقييد الوصول إليه.
+
+### Modules — writing infrastructure once
+
+الـ **Module** مجلّد من ملفات `.tf` يمكنك استدعاؤه بمدخلات مختلفة. فشبكة VPC تُعرَّف مرة واحدة ثم تُستنسخ ثلاث مرات لا يمكن أن تتباعد بين البيئات، لأن التعريف واحد لا غير.
+
+```hcl
+module "network" {
+  source = "../../modules/vpc"
+
+  environment        = var.environment
+  cidr_block         = "10.20.0.0/16"
+  availability_zones = ["us-east-1a", "us-east-1b"]
+}
+
+# Reach into what the module published
+resource "aws_db_subnet_group" "main" {
+  subnet_ids = module.network.private_subnet_ids
+}
+```
+
+والعقد ثلاثة أشياء لا رابع لها: **متغيرات المدخلات**، و**الموارد**، و**المخرجات**. فأي شيء يحتاجه المستدعي يجب أن يكون `output` صريحًا — ولا يمكن الوصول إلى داخل module لالتقاط مورد مباشرةً، وهذا القيد هو ما يجعل تعديل الـ modules آمنًا.
+
+```text
+modules/vpc/
+  main.tf         the resources
+  variables.tf    the inputs  — the module's public API
+  outputs.tf      the outputs — what callers may depend on
+  README.md       what it does, and an example call
+```
+
+وثبّت الـ `source` عندما يكون بعيدًا (`source = "git::https://…?ref=v1.4.0"`). فالـ module غير المثبَّت يعني أن commit من زميلك سيغيّر بنيتك التحتية في المرة التالية التي تشغّل فيها `init`.
+
+**ولا تحوّل كل شيء إلى module.** فالـ module يستحق تكلفته حين يُبنى الشكل نفسه أكثر من مرة، أو حين يُخفي تعقيدًا حقيقيًا خلف واجهة صغيرة. أما تغليف مورد `aws_s3_bucket` واحد داخل module فيضيف مجلّدًا وملف متغيرات وملف مخرجات وطبقة وساطة، مقابل لا شيء — ويصبح على المهندس التالي قراءة ملفين ليعرف ما يفعله مورد واحد.
+
+والاختبار المفيد: **هل سيوجد مستدعٍ ثانٍ؟** فإذا كان الجواب لا، اكتب المورد مباشرةً، واستخرجه لاحقًا حين يظهر المستدعي الثاني فعلًا.
+
+| | module محلي (`../../modules/vpc`) | module من Git أو Registry |
+| --- | --- | --- |
+| إصداره | مع المستودع نفسه | مستقل، بوسم tag |
+| تغييره | commit واحد يحدّث كل شيء | يرقّي كل مستدعٍ حين يجهز |
+| مناسب لـ | لبِنات هذه المنصة نفسها | شيء تتشاركه عدة فرق |
+
+فضّل الـ modules المحلية داخل مستودع واحد — فتحصل على تغييرات ذرّية دون تباعد في الإصدارات. ولا تلجأ إلى module مُصدَّر بشكل منفصل إلا حين يحتاج مستهلكوه إلى الترقية وفق جدولهم الخاص.
+
+### What Existed Before? (Bash Scripts)
+
+قبل Terraform، كان المهندسون يكتبون سكربتات Bash أو Python معقّدة للتخاطب مع الـ AWS API.
+
+*لماذا لم يكن ذلك كافيًا؟* لأن السكربتات **Imperative** (نفّذ هذا ثم هذا). فإذا توقّف السكربت في منتصف التنفيذ، قد يؤدي تشغيله مرة أخرى إلى إنشاء خوادم مكرّرة.
+
+أما Terraform فهو **Declarative** (أريد 3 خوادم). يمكنك تشغيل `terraform apply` مئة مرة، وإذا كانت الخوادم الثلاثة موجودة بالفعل فلن يفعل شيئًا على الإطلاق. وهذا ما يُسمّى **Idempotency**.
+
+---
+
+## Level 3 — Advanced
+
+### Analyzing the Actual Code (Line-by-Line Breakdown)
+
+لننظر إلى طريقة تنظيم الكود في `infrastructure/terraform`.
+
+#### 1. The Resource Dependency Graph
+
+Terraform ذكي إلى حدّ بعيد؛ لست مضطرًا لإخباره بترتيب البناء. فهو يبني في الذاكرة رسمًا بيانيًا موجّهًا غير دوري (Directed Acyclic Graph — DAG).
+
+وإذا نظرت إلى `infrastructure/terraform/environments/prod/main.tf` ستجد التالي:
+
+```hcl
+module "network" {
+  source = "../../modules/vpc"
+  flow_logs_bucket_arn = module.storage.logs_bucket_arn
+}
+```
+
+**شرح سطرًا بسطر:**
+
+- لأن الـ module المسمّى `network` يشير إلى `module.storage.logs_bucket_arn`، يتعرّف الـ DAG فورًا على وجود اعتمادية. فهو يعلم أنه **يجب** إنشاء الـ S3 bucket داخل الـ module المسمّى `storage` قبل أن يحاول بناء الشبكة أصلًا، ويتولّى ترتيب العمليات تلقائيًا.
+
+#### 2. The Remote Backend (State Management)
+
+إذا شغّلت Terraform على جهازك، فسيُحفَظ ملف `terraform.tfstate` على جهازك أنت. وعندما يحاول زميلك تحديث البنية التحتية، لن يكون لديه ملف الذاكرة هذا، وقد يحذف خوادمك دون قصد.
+
+انظر إلى `infrastructure/terraform/environments/prod/backend.tf`:
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "ivolve-terraform-state"
+    key            = "environments/prod/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "ivolve-terraform-locks"
+    encrypt        = true
+  }
+}
+```
+
+**شرح سطرًا بسطر:**
+
+- **`backend "s3"`**: ننقل «الذاكرة» من جهازك إلى S3 bucket على AWS، فتصبح أنت وزميلك تشتركان في الذاكرة نفسها.
+- **`dynamodb_table = "ivolve-terraform-locks"`**: ماذا لو كتبت أنت وزميلك `terraform apply` في اللحظة نفسها؟ سيتلف ملف الـ state. هنا يعمل DynamoDB بوصفه **State Lock**: من يضغط Enter أولًا يقفل قاعدة البيانات، ويحصل الثاني على رسالة خطأ تخبره أن مهندسًا آخر يشغّل Terraform حاليًا.
+
+**وكيفية تقسيم الـ state هي القرار الذي يبقى بعد الكود.** فملف state لكل بيئة هو الحد الأدنى؛ وما بعد ذلك تختار مدى دقة التقسيم:
+
+| | Workspaces | مجلدات منفصلة |
+| --- | --- | --- |
+| تختلف البيئات بـ | متغيّر | ملفاتها الخاصة |
+| نطاق الانفجار | backend واحد بحالات متعددة | منفصل تمامًا |
+| الخطر | التطبيق على الـ workspace الخاطئ | يجب تكرار البنية |
+
+**فضّل المجلدات المنفصلة** لبيئات dev و staging و prod، كما تفعل هذه المنصة. فالـ workspaces تتشارك إعدادًا واحدًا، ولا يفصل بين تطبيق على staging وتطبيق على production سوى الـ workspace الذي تصادف وجودك فيه — وهو أمر `terraform workspace select` قد تنساه. أما المجلدات فتجعل البيئة صريحة في المسار، وتتيح لبيئة الإنتاج أن تختلف عن staging اختلافًا مشروعًا.
+
+ولا تمعن في التقسيم إلا حين يؤلمك الوضع: ملف state كبير إلى حدّ يستغرق فيه `plan` دقائق، أو حدٌّ تنظيمي يجب عنده ألّا يستطيع فريق تدمير موارد فريق آخر. فالحالات شديدة التجزئة تستبدل بذلك الأمان مشكلةً جديدة — تمرير القيم بينها عبر `terraform_remote_state`، وهو ما يعيد إنتاج الترابط الذي قسّمتها من أجل تجنّبه.
+
+---
+
+## Level 4 — Enterprise
+
+### Enterprise Patterns: Modules and Blast Radius
+
+في شركة كبيرة، لا تضع كل موارد AWS في ملف `main.tf` واحد. فخطأ إملائي واحد قد يدمّر البنية التحتية للشركة بأكملها.
+
+1. **Modules (مبدأ DRY — Don't Repeat Yourself):**
+   أنشأنا modules قابلة لإعادة الاستخدام داخل `infrastructure/terraform/modules/`. والـ module المسمّى `compute` يحدّد مواصفات الأمان الدقيقة لـ EC2 Auto Scaling Group.
+   فعندما يحتاج فريق Dev إلى cluster يستدعي `module "compute"`، وكذلك فريق Prod. وهذا يضمن أن البيئتين متطابقتان تمامًا، بما يحقق متطلبات الاتساق في SOC2.
+
+2. **Blast Radius Isolation:**
+   نفصل الشبكة (`vpc`) عن الخوادم (`compute`). فإذا أفسد مهندس مبتدئ كود `compute` دون قصد، فقد يحذف Terraform الخوادم، لكنه **لا يستطيع** حذف الشبكة. وبعزل الـ state بصرامة، نحصر «نطاق الانفجار» الناتج عن الأخطاء البشرية.
+
+### The Alternatives (Pulumi & CDK)
+
+- **Terraform:** يستخدم HCL، وهي لغة إعدادات خاصة به.
+- **Pulumi / AWS CDK:** تتيحان كتابة البنية التحتية بلغات برمجة حقيقية مثل Python و TypeScript.
+- **القرار:** اخترنا Terraform لأن HCL تُجبر المهندسين على البقاء ضمن النمط الـ Declarative. أما استخدام لغة برمجة كاملة للبنية التحتية فكثيرًا ما يؤدي إلى منطق `if/else` وحلقات تكرار معقّدة تجعل الـ state غير قابل للتنبؤ وقت التعافي من الكوارث.
+
+---
+
+## Interview Questions
+
+### Beginner
+
+**Q: ما الفرق بين `terraform plan` و `terraform apply`؟**
+A: الأمر `plan` تشغيل تجريبي آمن يخبرك بما سيحدث. أما `apply` فينفّذ تلك التغييرات فعليًا على الـ cloud provider.
+
+### Intermediate
+
+**Q: ما هو `terraform.tfstate` ولماذا يجب ألّا ترفعه إلى GitHub أبدًا؟**
+A: هو ملف ذاكرة Terraform الذي يربط الكود بمعرّفات موارد AWS الحقيقية. ويجب ألّا يُرفع إلى Git لأنه كثيرًا ما يحتوي على أسرار بنص واضح — مثل كلمات مرور قواعد البيانات الأولية — أعادها الـ AWS API أثناء الإنشاء. ومكانه الصحيح هو S3 bucket مشفّر.
+
+### Senior
+
+**Q: كيف تتعامل مع موقف حذف فيه أحدهم EC2 instance يدويًا من AWS console بينما لا يزال Terraform يعتقد أنه موجود؟**
+A: تشغّل `terraform plan`. سيتواصل Terraform مع الـ AWS API ويكتشف أن الـ instance مفقود (وهذا هو Configuration Drift)، وستُظهر الخطة أنه ينوي إعادة إنشائه ليطابق الكود الـ declarative. وتشغيل `terraform apply` يصلح الأمر تلقائيًا.
+
+### Principal/Architect
+
+**Q: اشرح كيف تعيد هيكلة terraform state أحادي ضخم إلى micro-states بأمان، دون تدمير البنية التحتية وإعادة إنشائها.**
+A: يجب فصل ملف الـ state باستخدام الأمر `terraform state mv`. تعرّف إعدادات الـ backend الجديدة، ثم تنقل عناوين الموارد بدقة من ملف الـ state الأحادي إلى ملفات الـ micro-state الجديدة. هذا يحدّث خريطة الذاكرة دون المساس بـ AWS APIs فعليًا، بما يضمن عدم توقف موارد الإنتاج إطلاقًا.
+
+[Contents](/learn) | [14 — Configuration Management (Ansible)](/learn/ansible/ansible) |

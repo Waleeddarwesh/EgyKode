@@ -194,8 +194,11 @@ test.describe("progress and disclosure", () => {
     await page.goto("/en/topics");
 
     // Native <details>, so this works before hydration and ships no JavaScript.
+    // The preview cards sit outside the disclosure — a closed <details> hides
+    // everything but its summary — so count within the whole area block.
     const disclosure = page.locator("details").first();
-    const cards = disclosure.locator("li:visible");
+    const area = disclosure.locator("xpath=..");
+    const cards = area.locator("li:visible");
     const summary = disclosure.locator("summary");
 
     const collapsed = await cards.count();

@@ -242,9 +242,86 @@ samp,
 .prose :is(h1, h2, h3, h4):hover > a[href^="#"],
 .prose :is(h1, h2, h3, h4) > a[href^="#"]:focus-visible { opacity: 1; }
 
-/* ── Motion ──────────────────────────────────────────────────────────────── */
+/* ── Motion & interaction ────────────────────────────────────────────────────
+
+   Three levels, so the site cannot become chaotic one component at a time:
+
+     Level 1 — micro     (--dur-micro)     hover, focus, active, icons
+     Level 2 — interface (--dur-base/large) reveals, dialogs, disclosure
+     Level 3 — learning  (--dur-learning)   progress, completion, diagrams
+
+   Rules that keep it purposeful rather than decorative:
+     · Motion communicates state or hierarchy. Nothing loops, nothing floats.
+     · Animate sections, not paragraphs, and never body text.
+     · Only compositor-friendly properties — transform and opacity. Animating
+       width/top/height forces layout on every frame and is what actually makes
+       a page feel slow.
+     · CSS and native APIs first. A JavaScript animation library is warranted
+       only for an interaction these cannot express cleanly.
+     · Every rule below degrades to "no motion, content still visible" under
+       prefers-reduced-motion — see the block at the end of this section.
+   ─────────────────────────────────────────────────────────────────────────── */
+
 @keyframes pageFade { from { opacity: 0 } to { opacity: 1 } }
 .animate-page { animation: pageFade 0.2s var(--ease-out); }
+
+/* Level 2 — section reveal.
+
+   Scroll-driven, so it costs no JavaScript and no scroll listener: the
+   animation is bound to the element's own view timeline and the browser runs
+   it off the main thread. Where `animation-timeline` is unsupported the
+   @supports guard means the rule never applies, and content is simply visible
+   — the correct fallback for a reading site. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: revealIn var(--dur-large) var(--ease-out) both;
+      animation-timeline: view();
+      /* Runs as the section enters, and is finished well before it is centred. */
+      animation-range: entry 0% cover 22%;
+    }
+  }
+}
+
+@keyframes revealIn {
+  from { opacity: 0; transform: translateY(var(--reveal-shift)); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Stagger for a row of cards. `--i` is set per item at render time; the delay
+   is capped so a long list never leaves the last item waiting. */
+.stagger > * {
+  animation-delay: calc(min(var(--i, 0) * var(--stagger-step), 300ms));
+}
+
+/* Level 3 — progress. Transform, not width: animating width relayouts the bar
+   and everything beside it on every frame. */
+.progress-fill {
+  transform-origin: left;
+  transition: transform var(--dur-learning) var(--ease-out);
+}
+[dir="rtl"] .progress-fill { transform-origin: right; }
+
+/* Level 3 — completion. A short, flat confirmation: a learning platform
+   should feel professional, so this is a check settling into place rather
+   than a celebration. */
+@keyframes checkPop {
+  0%   { transform: scale(0.6); opacity: 0 }
+  60%  { transform: scale(1.08); opacity: 1 }
+  100% { transform: scale(1); opacity: 1 }
+}
+.animate-check { animation: checkPop var(--dur-large) var(--ease-spring) both; }
+
+/* Level 2 — dialogs. Enter only: an exit animation would need the element kept
+   in the tree after it is dismissed, and a palette that lingers is worse than
+   one that closes instantly. */
+@keyframes dialogIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98) }
+  to   { opacity: 1; transform: none }
+}
+@keyframes scrimIn { from { opacity: 0 } to { opacity: 1 } }
+.animate-dialog { animation: dialogIn var(--dur-base) var(--ease-out); }
+.animate-scrim { animation: scrimIn var(--dur-micro) linear; }
 
 /* The one permitted logo animation (§2.4): the chevron draws itself upward,
    once, on the landing page. */
@@ -253,11 +330,21 @@ samp,
   to   { stroke-dashoffset: 0; opacity: 1 }
 }
 
+/* The global override is a safety net for anything added later that forgets to
+   ask. The rules above ask explicitly — the reveal is wrapped in a
+   `no-preference` query rather than relying on being flattened here — because
+   a suppressed animation with `both` fill can leave an element stuck at its
+   `from` state, which for a reveal means invisible content. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+  /* Belt and braces: never leave revealed content hidden. */
+  .reveal, .stagger > * {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
