@@ -189,3 +189,62 @@ export function getResolvedPath(): { phase: LabPhase; labs: LabMeta[] }[] {
       .filter((lab): lab is LabMeta => Boolean(lab)),
   }));
 }
+
+export interface PathNeighbours {
+  previous?: { lab: LabMeta; phase: LabPhase };
+  next?: { lab: LabMeta; phase: LabPhase };
+  /** The phase the *current* lab sits in, so a page can say where you are. */
+  phase: LabPhase;
+  /** 1-based position across the whole path, for "12 of 58". */
+  position: number;
+  total: number;
+  /** True when `next` opens a phase the current lab is not in. */
+  entersNewPhase: boolean;
+  /** Set when this is the last lab of its phase — the phase's milestone. */
+  completesPhase?: LabPhase;
+}
+
+/**
+ * Where a lab sits in the Project Path, and what comes next.
+ *
+ * The path is the sequence, not the `order` frontmatter — `order` had
+ * accumulated collisions and describes a lab's slot within its domain, which is
+ * a different question from what a learner should open next.
+ *
+ * Challenge labs are not listed in the path; they resolve through their guided
+ * counterpart, so someone working only in challenge mode still moves forward
+ * rather than hitting a dead end at the bottom of every page.
+ */
+export function getPathNeighbours(labId: string): PathNeighbours | null {
+  const resolved = getResolvedPath();
+  if (!resolved.length) return null;
+
+  const flat = resolved.flatMap(({ phase, labs }) => labs.map((lab) => ({ lab, phase })));
+
+  let index = flat.findIndex((entry) => entry.lab.labId === labId);
+  let viaCounterpart = false;
+
+  if (index === -1) {
+    const guided = getLabMeta(labId)?.guidedLabId;
+    if (!guided) return null;
+    index = flat.findIndex((entry) => entry.lab.labId === guided);
+    if (index === -1) return null;
+    viaCounterpart = true;
+  }
+
+  const current = flat[index]!;
+  const previous = index > 0 ? flat[index - 1] : undefined;
+  const next = index < flat.length - 1 ? flat[index + 1] : undefined;
+
+  return {
+    // A challenge sits *at* its guided lab's position, so its own guided
+    // counterpart is not a useful "previous" — that link already exists above.
+    previous: viaCounterpart ? undefined : previous,
+    next,
+    phase: current.phase,
+    position: index + 1,
+    total: flat.length,
+    entersNewPhase: Boolean(next && next.phase.id !== current.phase.id),
+    completesPhase: next && next.phase.id !== current.phase.id ? current.phase : undefined,
+  };
+}

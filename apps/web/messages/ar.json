@@ -292,5 +292,14 @@
   "labs.objectivesCount": "{count} أهداف",
   "labs.incident": "حادثة",
   "labs.destructiveBadge": "مدمِّر",
-  "labs.viewGuided": "اعرض المعمل الموجَّه"
+  "labs.viewGuided": "اعرض المعمل الموجَّه",
+  "labs.nextUp": "التالي",
+  "labs.nextPhase": "المرحلة التالية",
+  "labs.continueTheProject": "أكمل المشروع",
+  "labs.phaseComplete": "اكتملت المرحلة",
+  "labs.pathPosition": "المعمل {position} من {total} في مسار المشروع",
+  "labs.previousLab": "السابق",
+  "labs.pathEnd": "لقد وصلت إلى نهاية مسار المشروع.",
+  "labs.pathEndBody": "كل ما بعد ذلك هو المكتبة — اختر ما تحتاجه، أو ارجع ونفِّذ نسخ التحدي بدون الخطوات.",
+  "labs.browseLibrary": "تصفّح مكتبة المعامل"
 }

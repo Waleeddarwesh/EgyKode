@@ -11,13 +11,14 @@ import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 
 import { LabHeader, BeforeYouStart } from "@/components/labs/lab-header";
+import { NextLab } from "@/components/labs/next-lab";
 import { SuccessCriteria } from "@/components/labs/success-criteria";
 import { mdxComponents } from "@/components/content/mdx";
 import { domainColor,
   localizedTitle,
 } from "@/lib/content";
 import { getTopic } from "@/lib/domains";
-import { getAllLabs, getLab, getLabMeta } from "@/lib/labs";
+import { getAllLabs, getLab, getLabMeta, getPathNeighbours } from "@/lib/labs";
 import { PUBLIC_LOCALES, formatNumber, getTranslations, isLocale, type Locale, languageAlternates } from "@/lib/i18n";
 
 export function generateStaticParams() {
@@ -74,6 +75,9 @@ export default async function LabPage({
   const counterpart = isChallenge ? lab.guidedLabId : lab.challengeId;
   // The concept behind the lab — practice without the explanation is a recipe.
   const relatedChapters = getTopic(lab.domain).chapters.slice(0, 3);
+  // Where this sits in the Project Path, so a lab does not dead-end at its
+  // cleanup block and send the reader back to the index to find their place.
+  const neighbours = getPathNeighbours(lab.labId);
   const contentDir = lab.fellBackToEnglish ? "ltr" : undefined;
   const contentLang = lab.fellBackToEnglish ? "en" : typed;
 
@@ -189,6 +193,32 @@ export default async function LabPage({
             <ArrowRight size={16} aria-hidden className="icon-directional shrink-0 text-content-muted transition-transform group-hover:translate-x-0.5" />
           </Link>
         </section>
+      )}
+
+      {neighbours && (
+        <NextLab
+          neighbours={neighbours}
+          locale={typed}
+          colour={neighbours.next ? domainColor(neighbours.next.lab.domain) : colour}
+          labels={{
+            nextUp: t("labs.nextUp"),
+            nextPhase: t("labs.nextPhase"),
+            phaseComplete: t("labs.phaseComplete"),
+            milestone: t("labs.pathMilestone"),
+            position: t("labs.pathPosition", {
+              position: formatNumber(neighbours.position, typed),
+              total: formatNumber(neighbours.total, typed),
+            }),
+            previous: t("labs.previousLab"),
+            minutes: (n) => t("chapter.minutes", { minutes: formatNumber(n, typed) }),
+            level: (level) => t(`level.${level}`),
+            billable: t("labs.pathBillable"),
+            pathEnd: t("labs.pathEnd"),
+            pathEndBody: t("labs.pathEndBody"),
+            browseLibrary: t("labs.browseLibrary"),
+            labsHref: `/${typed}/labs`,
+          }}
+        />
       )}
     </div>
   );

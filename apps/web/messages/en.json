@@ -292,5 +292,14 @@
   "labs.objectivesCount": "{count} objectives",
   "labs.incident": "Incident",
   "labs.destructiveBadge": "Destructive",
-  "labs.viewGuided": "View the guided lab"
+  "labs.viewGuided": "View the guided lab",
+  "labs.nextUp": "Next up",
+  "labs.nextPhase": "Next phase",
+  "labs.continueTheProject": "Continue the project",
+  "labs.phaseComplete": "Phase complete",
+  "labs.pathPosition": "Lab {position} of {total} on the project path",
+  "labs.previousLab": "Previous",
+  "labs.pathEnd": "You have reached the end of the project path.",
+  "labs.pathEndBody": "Everything after this is the library — pick what you need, or go back and do the challenge versions without the steps.",
+  "labs.browseLibrary": "Browse the lab library"
 }
