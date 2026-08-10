@@ -16,96 +16,251 @@ cleanup:
   - "terraform destroy -auto-approve"
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
 successCriteria:
-  - "Structure 8 modular Ansible roles under roles/."
-  - "Execute master playbook playbooks/site.yml to provision full toolchain."
-  - "Verify running daemons and CLI binary versions using validation playbook playbooks/verify.yml."
+  - "One playbook takes a bare instance to a working Jenkins with its toolchain."
+  - "The second run reports `changed=0`."
+  - "A verify playbook asserts each service and binary, and fails loudly when one is missing."
+  - "Secrets come from Vault, not from a variable in the repository."
 challengeId: lab-08-automated-jenkins-server-toolchain-provisioning-challenge
-sourceFile: "NTI Final Project/02-Configuration-Management-Ansible/Lab08-Jenkins-Server-Automation/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+Setting up the build server is a wiki page with nineteen steps. It was last accurate in March. The person who wrote it has left, and the server is one disk failure from being unbuildable.
 
 ## What you are building
 
-### What are Ansible Roles and Playbooks?
-An **Ansible Role** is an enterprise structural convention that organizes playbooks into modular, reusable directories containing tasks, handlers, templates, variables, and defaults. Rather than writing one unmaintainable 1,000-line playbook, Ansible Roles break host provisioning into 8 specialized micro-packages:
-
-1. **`java`**: Installs OpenJDK 17 (mandatory runtime for Jenkins LTS 2.555+).
-2. **`git`**: Installs Git CLI version control for automated code checkouts.
-3. **`docker`**: Installs Docker CE Engine, `docker-compose-plugin`, enables systemd daemon, and attaches `jenkins` user to `docker` socket group.
-4. **`jenkins`**: Registers official Jenkins GPG repository key, installs Jenkins LTS daemon, and enables systemd service on Port 8080.
-5. **`awscli`**: Installs AWS CLI v2 binary for Amazon ECR and EKS API interaction.
-6. **`kubectl`**: Installs `kubectl` v1.34 binary matching EKS control plane version.
-7. **`helm`**: Installs Helm 3 binary for Kubernetes application package management.
-8. **`cloudwatch`**: Installs Amazon CloudWatch Unified Agent daemon to stream host metrics and logs to AWS CloudWatch.
+A role per concern, composed by one playbook:
 
 ```text
-                                ANSIBLE ROLE ORCHESTRATION PIPELINE
-                                
-  +-----------------------------------------------------------------------------------+
-  |                             MAIN PLAYBOOK (playbooks/site.yml)                    |
-  +-----------------------------------------------------------------------------------+
-        |               |             |              |             |            |
-        v               v             v              v             v            v
-  +-----------+   +-----------+ +-----------+  +-----------+ +-----------+ +----------+
-  | OpenJDK 17|   | Git CLI   | | Docker CE |  |  Jenkins  | |  AWS CLI  | |  kubectl |
-  | Role      |   | Role      | | Daemon    |  |  LTS Role | |  v2 Role  | |  v1.34   |
-  +-----------+   +-----------+ +-----------+  +-----------+ +-----------+ +----------+
+  playbooks/site.yml
+      |
+      +-- common      packages, timezone, users, hardening
+      +-- java        OpenJDK 17 (Jenkins will not start without it)
+      +-- docker      engine, the jenkins user in the docker group
+      +-- jenkins     repository, package, plugins, service
+      +-- aws_cli     v2 from the official installer
+      +-- kubectl     pinned to the cluster's minor version
+      +-- helm        via the official script
+      +-- trivy       scanner used by the pipeline
+      +-- sonarqube   quality gate, in a container
 ```
+
+**A role is a directory layout Ansible understands.** Putting a file in
+`roles/java/tasks/main.yml` *is* the wiring — there is no registration step.
+The alternative is one 1,000-line playbook where nothing can be reused and any
+change risks everything.
 
 ---
 
-## Steps
+## Build it
 
-### Step 1: Execute Toolchain Installation Playbook
-```bash
-cd 02-Configuration-Management-Ansible/Lab08-Jenkins-Server-Automation
-ansible-playbook -i ../Lab07-Ansible-Inventory-Setup/inventory/hosts.ini playbooks/site.yml
+### 1. The composition
+
+```yaml
+# playbooks/site.yml
+- name: Provision the build host
+  hosts: tag_Role_jenkins
+  become: true
+
+  pre_tasks:
+    - name: Refresh the package cache
+      ansible.builtin.package:
+        update_cache: true
+      changed_when: false          # a cache refresh is not a change
+
+  roles:
+    - common
+    - java
+    - docker
+    - { role: jenkins, tags: ["jenkins"] }
+    - aws_cli
+    - kubectl
+    - helm
+    - trivy
+    - { role: sonarqube, tags: ["quality"] }
 ```
 
-### Step 2: Execute Post-Installation Verification Playbook
-```bash
-ansible-playbook -i ../Lab07-Ansible-Inventory-Setup/inventory/hosts.ini playbooks/verify.yml
+`changed_when: false` on the cache refresh matters more than it looks. A task
+that reports `changed` on every run makes `changed=0` unreachable, and once the
+number is never zero nobody looks at it again.
+
+### 2. A role, in full
+
+```yaml
+# roles/jenkins/tasks/main.yml
+- name: Add the Jenkins repository key
+  ansible.builtin.get_url:
+    url: https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+    dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins
+    mode: "0644"
+
+- name: Add the Jenkins repository
+  ansible.builtin.yum_repository:
+    name: jenkins
+    description: Jenkins stable
+    baseurl: https://pkg.jenkins.io/redhat-stable
+    gpgkey: file:///etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins
+    gpgcheck: true
+
+- name: Install Jenkins
+  ansible.builtin.package:
+    name: "jenkins-{{ jenkins_version }}"     # pinned, not "latest"
+    state: present
+  notify: Restart jenkins
+
+- name: Ensure the config directory exists
+  ansible.builtin.file:
+    path: /var/lib/jenkins/init.groovy.d
+    state: directory
+    owner: jenkins
+    mode: "0755"
+
+- name: Wait for Jenkins to answer
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8080/login"
+    status_code: [200, 403]
+    timeout: 5
+  register: jenkins_up
+  until: jenkins_up.status in [200, 403]
+  retries: 30
+  delay: 5
 ```
+
+```yaml
+# roles/jenkins/defaults/main.yml
+jenkins_version: "2.462.3"
+jenkins_port: 8080
+```
+
+```yaml
+# roles/jenkins/handlers/main.yml
+- name: Restart jenkins
+  ansible.builtin.service:
+    name: jenkins
+    state: restarted
+    enabled: true
+```
+
+**`defaults/`, not `vars/`.** Both define variables; `defaults` sits low in
+precedence so inventory and `--extra-vars` can override it, `vars` sits high
+and effectively cannot be overridden. Anything a caller might reasonably change
+belongs in `defaults`, or you have written a role only you can use.
+
+**Pin the version.** `state: latest` makes the same playbook produce a
+different server next week, which is the opposite of what configuration
+management is for.
+
+### 3. Secrets from Vault
+
+```bash
+ansible-vault create group_vars/all/vault.yml
+```
+
+```yaml
+vault_sonarqube_admin_password: "..."
+vault_jenkins_admin_password: "..."
+```
+
+```yaml
+# group_vars/all/main.yml — the indirection is deliberate
+sonarqube_admin_password: "{{ vault_sonarqube_admin_password }}"
+```
+
+Referencing `vault_*` variables through plain names keeps every playbook
+readable — you can see which values are secret from the mapping file without
+decrypting anything.
+
+```bash
+ansible-playbook playbooks/site.yml --vault-password-file .vault_pass
+```
+
+### 4. A verify playbook that asserts
+
+```yaml
+# playbooks/verify.yml
+- hosts: tag_Role_jenkins
+  become: true
+  tasks:
+    - name: Services are running
+      ansible.builtin.service_facts:
+
+    - name: Assert each service is active
+      ansible.builtin.assert:
+        that: ansible_facts.services[item ~ '.service'].state == 'running'
+        fail_msg: "{{ item }} is not running"
+      loop: [jenkins, docker]
+
+    - name: Binaries answer
+      ansible.builtin.command: "{{ item }} --version"
+      changed_when: false
+      loop:
+        - /usr/local/bin/aws
+        - /usr/local/bin/kubectl
+        - /usr/local/bin/helm
+        - /usr/local/bin/trivy
+```
+
+`assert` is what makes this a test rather than a report. A `command` that
+prints a version and is never checked passes whatever it prints.
 
 ---
 
 ## Verify it worked
 
 ```bash
-ansible-playbook -i ../Lab07-Ansible-Inventory-Setup/inventory/hosts.ini playbooks/verify.yml
+ansible-playbook playbooks/site.yml
+# PLAY RECAP: changed=23
+
+ansible-playbook playbooks/site.yml
+# PLAY RECAP: changed=0          <- the point of the whole lab
+
+ansible-playbook playbooks/verify.yml
+ansible-playbook playbooks/site.yml --check --diff       # what would change
+ansible-playbook playbooks/site.yml --tags jenkins       # one role only
 ```
 
-**Expected Output:**
-```yaml
-PLAY [Verify Toolchain Installations] ******************************************
-
-TASK [verify : Check Docker Version] *******************************************
-ok: [jenkins_host] => {
-    "msg": "Docker version 26.1.3, build b72abbf installed successfully"
-}
-
-TASK [verify : Check Jenkins Daemon Status] ************************************
-ok: [jenkins_host] => {
-    "msg": "Jenkins service is active (running) on port 8080"
-}
-
-PLAY RECAP *********************************************************************
-jenkins_host               : ok=8    changed=0    unreachable=0    failed=0
-```
+`changed=0` on the second run is the definition of idempotent, and it is what
+lets this playbook run on a schedule to correct drift rather than being a
+one-shot installer.
 
 ---
+
+## When it goes wrong
+
+**The second run still reports changes**
+
+`--check --diff` names the task. Almost always a `command`/`shell` with no
+`creates:` guard, or a template rendering a timestamp.
+
+**Jenkins installs but does not start**
+
+Java is missing or the wrong major version. `journalctl -u jenkins -n 50` says
+so directly.
+
+**`Interactive vault password prompt` in CI**
+
+Pass `--vault-password-file`, and keep that file out of the repository.
+
+**A handler never fires**
+
+Handlers run at the end of a play and are skipped entirely if the notifying
+task did not change. `--force-handlers` while debugging.
+
+**The docker group does not take effect**
+
+Group membership applies at next login. `reset_connection` in the play, or
+`become` for the tasks that need it.
 
 ---
 
 ## Clean up
 
-Run this even if you did not finish. Everything above is destroyable, and an
-account full of half-built experiments is how a surprise bill starts.
-
 ```bash
-terraform destroy -auto-approve
-aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'
+# Nothing to destroy here — the instance belongs to the Terraform lab.
+ansible -m command -a "systemctl status jenkins --no-pager" tag_Role_jenkins
 ```
 
-**Cost of this lab:** Free tier — one `t3.micro` for Jenkins. Note that Jenkins wants more memory than a micro provides for real builds; a `t3.small` is ~$15/month.
+**Cost of this lab:** **Low.** You pay for the instance being configured, not
+for Ansible.

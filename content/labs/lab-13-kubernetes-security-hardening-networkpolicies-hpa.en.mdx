@@ -17,140 +17,235 @@ cleanup:
   - "kubectl delete hpa --all -A"
   - "kubectl get nodes  # confirm the HPA did not leave extra nodes running"
 successCriteria:
-  - "Implement zero-trust network isolation using Kubernetes NetworkPolicy (networkpolicy.yaml)."
-  - "Enforce strict default-deny rules while selectively allowing ingress traffic on Port 8000 and egress database connections on Port 5432."
-  - "Configure HorizontalPodAutoscaler (horizontalpodautoscaler.yaml) to automatically scale pod replicas between 2 and 6 when CPU or Memory utilization exceeds 80%."
-  - "Perform a simulated load test to verify real-time HPA pod scaling."
+  - "With default-deny applied, an unrelated Pod cannot reach the application — demonstrated."
+  - "The application still reaches the database and DNS."
+  - "The HPA scales up under load and back down afterwards."
+  - "You can explain why a NetworkPolicy sometimes does nothing at all."
 challengeId: lab-13-kubernetes-security-hardening-networkpolicies-hpa-challenge
-sourceFile: "NTI Final Project/04-Kubernetes-Orchestration/Lab13-K8s-Security-Autoscaling/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+Every Pod can reach every other Pod, in every namespace. A compromise of the public-facing service is a port scan away from the database.
+
+The application is also fixed at two replicas, so traffic either wastes money or drops requests.
 
 ## What you are building
 
-### What is a Kubernetes NetworkPolicy?
-By default in Kubernetes, pod networking is an open flat network model: **every pod can communicate with every other pod across all namespaces**. In production enterprise environments, this presents a severe security vulnerability. If an attacker compromises a single public-facing pod, they can pivot laterally across the cluster network to access database pods or internal APIs.
-
-A **NetworkPolicy** acts as an in-cluster zero-trust firewall operating at Layers 3 and 4 (IP address and TCP/UDP port). It enforces packet filtering directly on pod virtual network interfaces (veth) using the underlying Container Network Interface (CNI) plugin (e.g. AWS VPC CNI / Calico).
-
-### What is HorizontalPodAutoscaler (HPA)?
-The **HorizontalPodAutoscaler (HPA)** automatically scales the number of running pod replicas in a `Deployment`, `StatefulSet`, or `ReplicaSet` up or down based on real-time resource metrics (CPU and Memory utilization) collected from worker node Kubelets by the **Metrics Server**.
+Two independent controls that are often taught together and solve different
+problems: **NetworkPolicy** decides what a Pod may talk to; **HPA** decides how
+many of it there are.
 
 ```text
-                                ZERO-TRUST POD SECURITY & AUTOSCALING
-                                
-  [ Public Internet ]
-           |
-           | HTTP / Port 80
-           v
-  +-----------------------------------------------------------------------------------+
-  |  AWS Application Load Balancer (ALB Ingress)                                      |
-  +----------------------------------------+------------------------------------------+
-                                           |
-                                           | ALLOW Ingress Port 8000
-                                           v
-  +-----------------------------------------------------------------------------------+
-  |  KUBERNETES NAMESPACE: nti-devops                                                 |
-  |                                                                                   |
-  |  +-----------------------------------------------------------------------------+  |
-  |  |  DJANGO APPLICATION PODS (Deployment: 2 to 6 Replicas via HPA)              |  |
-  |  |  +------------------------+             +------------------------+          |  |
-  |  |  | Pod 1 (IP: 10.0.1.42)   |             | Pod 2 (IP: 10.0.2.89)   |        |  |
-  |  |  +------------------------+             +------------------------+          |  |
-  |  +-------------------------------------+---------------------------------------+  |
-  |                                        |                                          |
-  |                                        | ALLOW Egress Port 5432                   |
-  |                                        v                                          |
-  |  +-----------------------------------------------------------------------------+  |
-  |  |  DATABASE POD / AWS RDS POSTGRESQL (Port 5432)                              |  |
-  |  +-----------------------------------------------------------------------------+  |
-  |                                        ^                                          |
-  |                                        | BLOCKED by NetworkPolicy                 |
-  |  +-------------------------------------+---------------------------------------+  |
-  |  |  UNAUTHORIZED / COMPROMISED POD (In any Namespace)                          |  |
-  |  +-----------------------------------------------------------------------------+  |
-  +-----------------------------------------------------------------------------------+
+   ingress controller ---> api  ---> postgres
+                            |
+                            +------> kube-dns :53   (easy to forget)
+
+   everything else --X--> api        default deny
 ```
 
 ---
 
-## Steps
+## Build it
 
-### Step 1: Connect to EKS Cluster & Change Directory
-```bash
-aws eks update-kubeconfig --name nti-devops-eks --region us-east-1
-cd 04-Kubernetes-Orchestration/Lab13-K8s-Security-Autoscaling
+### 1. Default deny — start by breaking it
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: platform
+spec:
+  podSelector: {}                 # every Pod in the namespace
+  policyTypes: ["Ingress", "Egress"]
 ```
 
-### Step 2: Apply NetworkPolicy & HPA Manifests
-```bash
-kubectl apply -f networkpolicy.yaml
-kubectl apply -f horizontalpodautoscaler.yaml
+An empty `podSelector` selects everything; no rules means nothing is allowed.
+Apply this first and confirm the application breaks — a default-deny you cannot
+prove is doing anything is indistinguishable from one that is silently ignored.
+
+### 2. Allow exactly what is needed
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-allow
+  namespace: platform
+spec:
+  podSelector:
+    matchLabels: { app: api }
+  policyTypes: ["Ingress", "Egress"]
+
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: ingress-nginx }
+      ports:
+        - protocol: TCP
+          port: 8000
+
+  egress:
+    # DNS first. Without it nothing resolves and every symptom is misleading.
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+    - to:
+        - podSelector:
+            matchLabels: { app: postgres }
+      ports:
+        - protocol: TCP
+          port: 5432
 ```
 
-### Step 3: Monitor Live HPA Metrics
-```bash
-kubectl get hpa -n nti-devops -w
+**Forgetting DNS egress is the classic self-inflicted outage.** Everything
+still works by IP, so the application looks reachable, while every hostname
+lookup times out — and the symptom is slow failures rather than refusals, which
+sends people to look at the database.
+
+Two more things worth holding onto:
+
+- **Policies are additive, and there is no deny rule.** A Pod's allowed traffic
+  is the union of every policy selecting it. You restrict by not allowing.
+- **A Pod selected by no policy at all is unrestricted.** That is why the
+  default-deny exists; without it, adding a policy to one Pod leaves every
+  other Pod wide open.
+
+### 3. The HPA
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api
+  namespace: platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0        # react quickly
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300      # leave slowly
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
 ```
 
-### Step 4: Simulate Heavy CPU Load to Test HPA Scaling
-In a separate terminal, launch a temporary generator pod to send concurrent HTTP requests:
-```bash
-kubectl run -i --tty load-generator --rm --image=busybox --namespace=nti-devops -- /bin/sh -c "while true; do wget -q -O- http://nti-django-svc:8000/; done"
-```
+**`averageUtilization: 70` is a percentage of the CPU *request*, not of the
+node.** A Pod requesting `100m` and using `70m` is at 100% by this measure. An
+HPA on a Deployment with no CPU request cannot compute a ratio and does
+nothing, reporting `<unknown>` — which is the most common reason an HPA appears
+inert.
+
+The asymmetric `behavior` is deliberate: scale up fast because the alternative
+is dropped requests, scale down slowly because flapping is worse than a few
+minutes of extra capacity.
+
+`metrics-server` must be installed, or there is no CPU reading at all.
 
 ---
 
 ## Verify it worked
 
-### 1. Verify NetworkPolicy Status
 ```bash
-kubectl get networkpolicy -n nti-devops
-```
-**Expected Output:**
-```text
-NAME                        POD-SELECTOR          AGE
-nti-django-network-policy   app=nti-django-app    1m
+# The negative test — this is the actual security claim
+kubectl run intruder --rm -it --image=curlimages/curl --restart=Never -n platform -- \
+  curl -s --max-time 5 http://api:80/          # must time out
+
+# The positive test, from a Pod the policy allows
+kubectl run probe --rm -it --image=curlimages/curl --restart=Never \
+  -n ingress-nginx -- curl -s -o /dev/null -w '%{http_code}\n' http://api.platform/
+
+# DNS still resolves from the app
+kubectl exec -n platform deploy/api -- nslookup postgres.platform.svc.cluster.local
+
+# HPA has a reading, not <unknown>
+kubectl get hpa -n platform
+kubectl top pods -n platform
+
+# Generate load and watch it scale
+kubectl run load --rm -it --image=busybox:1.36 --restart=Never -n platform -- \
+  sh -c 'while true; do wget -q -O- http://api:80/ >/dev/null; done'
+kubectl get hpa api -n platform -w
+kubectl get deploy api -n platform -w
 ```
 
-### 2. Verify HPA Auto-Scaling Response Under Load
-```bash
-kubectl get hpa -n nti-devops
-```
-**Expected Output:**
-```text
-NAME             REFERENCE                   TARGETS           MINPODS   MAXPODS   REPLICAS   AGE
-nti-django-hpa   Deployment/nti-django-app   145%/80%, 60%/80%   2         6         5          3m
-```
-
-### 3. Verify Deployment Pod Count Scaling
-```bash
-kubectl get pods -n nti-devops -l app=nti-django-app
-```
-**Expected Output:**
-```text
-NAME                              READY   STATUS    RESTARTS   AGE
-nti-django-app-6d8b9f7c4d-a1b2c   1/1     Running   0          4m
-nti-django-app-6d8b9f7c4d-d5e6f   1/1     Running   0          4m
-nti-django-app-6d8b9f7c4d-g7h8i   1/1     Running   0          90s
-nti-django-app-6d8b9f7c4d-j9k0l   1/1     Running   0          90s
-nti-django-app-6d8b9f7c4d-m1n2o   1/1     Running   0          45s
-```
+Both the timeout and the success matter. Proving traffic flows is easy; proving
+that traffic which should not flow does not is the claim you are actually
+making.
 
 ---
+
+## When it goes wrong
+
+**The policy has no effect and everything still connects**
+
+**The CNI must enforce NetworkPolicy, and not all do.** kind's default CNI
+accepts the objects and ignores them entirely — no error, no warning. Calico,
+Cilium and the AWS VPC CNI (with policy enforcement enabled) do enforce. Check
+what the cluster runs before concluding the policy is wrong.
+
+**Everything broke and the errors mention timeouts**
+
+DNS egress. Add UDP and TCP 53 to `kube-system`.
+
+**A policy in another namespace does not apply**
+
+NetworkPolicies are namespaced and select Pods in their own namespace only. The
+`namespaceSelector` matches the *other* end of the connection.
+
+**`namespaceSelector` matches nothing**
+
+It matches namespace **labels**, not names. Kubernetes 1.22+ sets
+`kubernetes.io/metadata.name` automatically; older clusters need a label added.
+
+**HPA shows `<unknown>` for the metric**
+
+`metrics-server` is not installed, or the Deployment has no CPU request. Both
+are required.
+
+**It scales up and immediately back down**
+
+Add a `scaleDown` stabilization window. Without one, a brief dip removes the
+capacity you just added.
 
 ---
 
 ## Clean up
 
-Run this even if you did not finish. Everything above is destroyable, and an
-account full of half-built experiments is how a surprise bill starts.
-
 ```bash
-kubectl delete networkpolicy --all -A
-kubectl delete hpa --all -A
-kubectl get nodes  # confirm the HPA did not leave extra nodes running
+kubectl delete networkpolicy --all -n platform
+kubectl delete hpa --all -n platform
+kubectl delete namespace platform
 ```
 
-**Cost of this lab:** **Depends on an existing cluster.** NetworkPolicies and HPA objects are free; the cluster and any nodes the HPA scales up are not.
+**Cost of this lab:** Free on kind or minikube with a CNI that enforces policy.
+On EKS the cluster bills either way; these objects add nothing.

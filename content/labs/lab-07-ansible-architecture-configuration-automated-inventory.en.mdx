@@ -16,101 +16,196 @@ cleanup:
   - "terraform destroy -auto-approve"
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
 successCriteria:
-  - "Configure master Ansible settings in ansible.cfg (SSH keys, host key checking, privilege escalation)."
-  - "Build automated inventory updater script scripts/update-inventory.sh to dynamically populate inventory/hosts.ini with Terraform IP outputs."
-  - "Test SSH connectivity and Python module execution using Ansible ad-hoc modules (ansible -m ping)."
+  - "`ansible -m ping all` succeeds against hosts nobody typed into a file."
+  - "The inventory is generated from AWS tags, so a new instance is managed without an edit."
+  - "`ansible-inventory --graph` shows hosts grouped by tag."
+  - "You can explain why Ansible needs no agent on the target."
 challengeId: lab-07-ansible-architecture-configuration-automated-inventory-challenge
-sourceFile: "NTI Final Project/02-Configuration-Management-Ansible/Lab07-Ansible-Inventory-Setup/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+The inventory is a text file with IP addresses in it. Instances are replaced weekly, so it is wrong most of the time, and the way you find out is a playbook that reports success against a host that no longer exists.
 
 ## What you are building
 
-### What is Ansible Configuration & Dynamic Inventory?
-**Ansible** is an open-source, agentless configuration management and automation platform. Unlike legacy agent-based systems (such as Chef, Puppet, or SaltStack) that require a background daemon agent installed on every target node, Ansible operates over standard **SSH (TCP Port 22)** on Linux or **WinRM** on Windows.
-
-- **Control Node**: The central workstation or CI server running Ansible binaries. It reads playbooks, parses dynamic inventory inputs, compiles Python module payloads, opens SSH sessions, and executes modules in-memory on remote target hosts.
-- **Target Managed Node**: The target server (our Jenkins EC2 host deployed in Lab 06). It requires zero custom agent software — only an SSH daemon (`sshd`) and a standard Python 3 runtime environment.
-- **Dynamic Inventory**: In modern elastic cloud infrastructure (AWS), EC2 instance IP addresses change dynamically whenever instances are recreated. A **dynamic inventory script** queries infrastructure outputs (e.g. `terraform output -raw jenkins_public_ip`) and dynamically generates Ansible's inventory file (`inventory/hosts.ini`), completely eliminating manual IP editing.
-
 ```text
-                                ANSILE AGENTLESS INVENTORY ARCHITECTURE
-                                
-  +-------------------------------------+                 +-------------------------------------+
-  |         ANSIBLE CONTROL NODE        |                 |      AWS EC2 TARGET MANAGED NODE    |
-  |                                     |                 |  (Jenkins Server — Public Subnet A) |
-  |  [ master config: ansible.cfg ]     |                 |                                     |
-  |  [ script: update-inventory.sh ]    |   SSH Port 22   |  - Standard OpenSSH Daemon (sshd)   |
-  |        | (Fetches TF Output IP)     | ==============> |  - Python 3 Runtime Environment     |
-  |        v                            |  Pushes Python  |  - Zero Agent Software Installed    |
-  |  [ inventory: hosts.ini ]           |  Module Payload |  - Systemd Service Manager          |
-  +-------------------------------------+                 +-------------------------------------+
+  control node (your laptop)
+       |  SSH :22 -- no agent on the far end
+       v
+  +---------------------------------------------+
+  |  inventory: generated from AWS tags          |
+  |    tag_Role_jenkins  -> i-0abc (10.0.1.12)   |
+  |    tag_Role_worker   -> i-0def, i-0ghi       |
+  +---------------------------------------------+
 ```
+
+**Ansible is agentless**, and that is the design decision everything else
+follows from. Puppet, Chef and Salt run a daemon on every target that you have
+to install, upgrade and monitor — a second fleet to operate. Ansible connects
+over SSH, copies a Python module to a temporary directory, runs it, collects
+JSON and deletes it.
+
+The cost of that choice is real: execution is serial-ish and slower at
+thousands of hosts, and the target needs Python and SSH. The benefit is that
+there is nothing to keep running.
 
 ---
 
-## Steps
+## Build it
 
-### Step 1: Make Script Executable
-```bash
-cd 02-Configuration-Management-Ansible/Lab07-Ansible-Inventory-Setup
-chmod +x scripts/update-inventory.sh
+### 1. `ansible.cfg` — the settings you will otherwise repeat forever
+
+```ini
+[defaults]
+inventory            = inventory/aws_ec2.yml
+remote_user          = ec2-user
+private_key_file     = ~/.ssh/platform.pem
+host_key_checking    = False
+interpreter_python   = auto_silent
+stdout_callback      = yaml
+callbacks_enabled    = timer, profile_tasks
+retry_files_enabled  = False
+forks                = 20
+
+[privilege_escalation]
+become        = True
+become_method = sudo
+become_user   = root
+become_ask_pass = False
+
+[ssh_connection]
+pipelining = True
+ssh_args   = -o ControlMaster=auto -o ControlPersist=300s
 ```
 
-### Step 2: Extract Public IP from Lab 06 & Generate Inventory
-```bash
-JENKINS_IP=$(terraform -chdir=../../01-Infrastructure-Terraform/Lab06-Jenkins-EC2-AWSBackup output -raw jenkins_public_ip)
-./scripts/update-inventory.sh $JENKINS_IP
+Three of these are worth understanding rather than copying:
+
+- **`pipelining = True`** removes a file transfer per task. On a playbook with
+  forty tasks it is a large speed-up, and it requires `requiretty` to be off in
+  `/etc/sudoers` — which it is on modern distributions.
+- **`ControlPersist`** reuses one SSH connection instead of reconnecting per
+  task.
+- **`host_key_checking = False`** is right for ephemeral cloud instances whose
+  keys change on every rebuild, and wrong for long-lived servers, where it
+  removes your protection against a man-in-the-middle.
+
+### 2. Inventory generated from AWS, not typed
+
+```yaml
+# inventory/aws_ec2.yml
+plugin: amazon.aws.aws_ec2
+regions:
+  - us-east-1
+filters:
+  instance-state-name: running
+  tag:Project: platform
+keyed_groups:
+  - key: tags.Role
+    prefix: tag_Role
+  - key: placement.availability_zone
+    prefix: az
+hostnames:
+  - private-ip-address        # private: you reach them through the VPC
+compose:
+  ansible_host: private_ip_address
 ```
 
-### Step 3: Test Ad-Hoc Ping Connectivity
 ```bash
-ansible jenkins_servers -m ping -i inventory/hosts.ini
+ansible-galaxy collection install amazon.aws
+ansible-inventory --graph
 ```
+
+```text
+@all:
+  |--@tag_Role_jenkins:
+  |  |--10.0.1.12
+  |--@tag_Role_worker:
+  |  |--10.0.10.4
+  |  |--10.0.11.9
+```
+
+**This is the whole point of the lab.** A new instance carrying
+`Role=worker` is in the `tag_Role_worker` group the moment it boots. Nobody
+edits anything, and the inventory cannot drift from reality because it *is*
+reality, queried on each run.
+
+### 3. Prove the connection before writing a playbook
+
+```bash
+ansible -m ping all
+ansible -m ping tag_Role_jenkins
+ansible -a "uptime" tag_Role_worker
+ansible -m setup --tree /tmp/facts all      # everything Ansible knows
+```
+
+`ping` here is not ICMP. It connects over SSH, runs a Python module and expects
+`pong` back — so a success proves SSH, the user, `become` and Python all work
+before any real task depends on them.
 
 ---
 
 ## Verify it worked
 
 ```bash
-ansible jenkins_servers -m ping -i inventory/hosts.ini
-```
+# Hosts appear with no file listing them
+ansible-inventory --graph
+ansible-inventory --host 10.0.1.12 | jq '.tags'
 
-**Expected Terminal Output:**
-```yaml
-jenkins_host:
-  changed: false
-  ping: pong
-```
+# Connectivity, privilege escalation and Python all work
+ansible -m ping all
+ansible -m command -a "id" --become all      # uid=0(root)
 
-Verify `inventory/hosts.ini` contents:
-```bash
-cat inventory/hosts.ini
-```
-
-**Expected File Output:**
-```ini
-[jenkins_servers]
-jenkins_host ansible_host=54.210.142.88 ansible_user=ubuntu
-
-[all:vars]
-ansible_python_interpreter=/usr/bin/python3
-ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+# The proof: launch another tagged instance and re-run with no edits
+aws ec2 run-instances ... --tag-specifications \
+  'ResourceType=instance,Tags=[{Key=Project,Value=platform},{Key=Role,Value=worker}]'
+ansible -m ping tag_Role_worker              # the new host is simply there
 ```
 
 ---
+
+## When it goes wrong
+
+**`Failed to connect to the host via ssh: Permission denied (publickey)`**
+
+Wrong `remote_user` for the AMI — `ec2-user` on Amazon Linux, `ubuntu` on
+Ubuntu — or the wrong key. `ansible -vvv` prints the exact SSH command; run it
+by hand.
+
+**The inventory is empty**
+
+The plugin is not enabled, the filters match nothing, or the credentials have
+no `ec2:DescribeInstances`. `ansible-inventory --list -vvv` shows the API call
+and its result.
+
+**`Missing sudo password`**
+
+`become_ask_pass` is false and the user needs a password. Use a NOPASSWD rule
+scoped to what automation actually runs, not a blanket one.
+
+**`/usr/bin/python: not found`**
+
+The target has no Python at the expected path. `interpreter_python =
+auto_silent` handles almost every case; `raw` is the escape hatch for
+bootstrapping a host that has none at all.
+
+**Ansible reports success against a host that is gone**
+
+That is the static-inventory failure this lab removes. A generated inventory
+cannot list an instance that is not running.
 
 ---
 
 ## Clean up
 
-Run this even if you did not finish. Everything above is destroyable, and an
-account full of half-built experiments is how a surprise bill starts.
-
 ```bash
-terraform destroy -auto-approve
-aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'
+# Nothing to destroy — this lab only reads AWS.
+aws ec2 describe-instances --filters "Name=tag:Project,Values=platform" \
+  "Name=instance-state-name,Values=running" \
+  --query 'Reservations[].Instances[].InstanceId'
 ```
 
-**Cost of this lab:** Free tier — Ansible itself is free; the cost is whichever EC2 instances it configures. A `t3.micro` control node is inside the free tier.
+**Cost of this lab:** **Low.** Ansible itself is free; you are billed only for
+whatever instances you are managing.

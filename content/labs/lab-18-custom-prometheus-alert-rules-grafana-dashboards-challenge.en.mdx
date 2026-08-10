@@ -16,7 +16,10 @@ cleanup:
   - "kubectl delete prometheusrule --all -n monitoring"
   - "kubectl delete configmap -l grafana_dashboard -n monitoring"
 successCriteria:
-  - "Step 1: Apply Alert Rules & ServiceMonitor"
+  - "An alert you wrote moves from inactive to pending to firing, and you caused it."
+  - "The alert carries a runbook link and enough context to act on without opening a dashboard."
+  - "A dashboard shows request rate, error rate and latency for your service."
+  - "You can explain what `for:` does and why removing it produces pager noise."
 guidedLabId: lab-18-custom-prometheus-alert-rules-grafana-dashboards
 authors: [waleed]
 updated: 2026-08-09

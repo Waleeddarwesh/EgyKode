@@ -18,9 +18,10 @@ cleanup:
   - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].[LoadBalancerName,State.Code]' --output table"
   - "# An orphaned ALB keeps billing after the cluster is destroyed."
 successCriteria:
-  - "Create Kubernetes Ingress manifest ingress.yaml with AWS ALB annotations."
-  - "Configure path-based routing rules and target-type IP mode (alb.ingress.kubernetes.io/target-type: ip)."
-  - "Verify automatic provision of AWS Application Load Balancer."
+  - "A real ALB is provisioned from a Kubernetes manifest, and you can find it in the AWS console."
+  - "Path-based routing sends two paths to two different Services."
+  - "You can explain what `target-type: ip` changes, and why it matters here."
+  - "Deleting the Ingress removes the ALB — verified, not assumed."
 guidedLabId: lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr
 authors: [waleed]
 updated: 2026-08-09

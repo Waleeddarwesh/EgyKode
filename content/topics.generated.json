@@ -83,11 +83,11 @@
         "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
         "lab-20-linux-server-administration",
         "lab-k8s-storage",
+        "lab-08-automated-jenkins-server-toolchain-provisioning",
         "lab-aws-ec2-cloudwatch-ssm",
         "lab-k8s-services",
         "lab-linux-processes-services-logs",
-        "lab-loki-centralized-logging",
-        "lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack"
+        "lab-loki-centralized-logging"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -118,11 +118,11 @@
       ],
       "labs": [
         "lab-linux-processes-services-logs",
-        "lab-08-automated-jenkins-server-toolchain-provisioning",
         "lab-20-linux-server-administration",
-        "lab-07-ansible-architecture-configuration-automated-inventory",
         "lab-22-bash-automation-backup-healthcheck",
         "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
+        "lab-07-ansible-architecture-configuration-automated-inventory",
+        "lab-08-automated-jenkins-server-toolchain-provisioning",
         "lab-jenkins-docker-pipeline",
         "lab-linux-ssh-hardening"
       ],
@@ -158,10 +158,10 @@
         "lab-aws-iam-least-privilege",
         "lab-linux-ssh-hardening",
         "lab-02-iam-roles-irsa-policies-security-groups",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
         "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn",
         "lab-github-actions-ecr-eks",
-        "lab-jenkins-fundamentals",
-        "lab-k8s-rbac-service-accounts"
+        "lab-jenkins-fundamentals"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -194,10 +194,10 @@
         "lab-linux-processes-services-logs",
         "lab-22-bash-automation-backup-healthcheck",
         "lab-20-linux-server-administration",
-        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
         "lab-08-automated-jenkins-server-toolchain-provisioning",
+        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
         "lab-ansible-roles-idempotency",
-        "lab-07-ansible-architecture-configuration-automated-inventory",
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices",
         "lab-linux-ssh-hardening"
       ],
       "roadmaps": [
@@ -263,9 +263,8 @@
         "lab-terraform-modules",
         "lab-02-iam-roles-irsa-policies-security-groups",
         "lab-aws-vpc-console",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
         "lab-07-ansible-architecture-configuration-automated-inventory",
-        "lab-11-core-kubernetes-workloads-configmaps-secrets",
-        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
         "lab-terraform-state-recovery"
       ],
       "roadmaps": [
@@ -297,11 +296,11 @@
         "lab-01-aws-vpc-subnets-gateways-route-tables",
         "lab-aws-vpc-console",
         "lab-terraform-modules",
-        "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
         "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+        "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
         "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
-        "lab-07-ansible-architecture-configuration-automated-inventory",
-        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr"
+        "lab-02-iam-roles-irsa-policies-security-groups"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -330,13 +329,13 @@
       ],
       "labs": [
         "lab-aws-route53-acm-dns",
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
         "lab-http-tls-troubleshooting",
         "lab-k8s-services",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
         "lab-docker-networking-volumes-healthchecks",
-        "lab-01-aws-vpc-subnets-gateways-route-tables",
-        "lab-11-core-kubernetes-workloads-configmaps-secrets",
-        "lab-21-linux-networking-troubleshooting"
+        "lab-01-aws-vpc-subnets-gateways-route-tables"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -367,8 +366,10 @@
         "lab-01-aws-vpc-subnets-gateways-route-tables",
         "lab-aws-vpc-console",
         "lab-k8s-gateway-api",
-        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
-        "lab-21-linux-networking-troubleshooting"
+        "lab-21-linux-networking-troubleshooting",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
+        "lab-18-custom-prometheus-alert-rules-grafana-dashboards"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -398,10 +399,12 @@
       "labs": [
         "lab-http-tls-troubleshooting",
         "lab-aws-route53-acm-dns",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
         "lab-k8s-gateway-api",
         "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
         "lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack",
-        "lab-reverse-proxy-load-balancing"
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -430,13 +433,13 @@
       ],
       "labs": [
         "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
         "lab-02-iam-roles-irsa-policies-security-groups",
         "lab-01-aws-vpc-subnets-gateways-route-tables",
-        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
         "lab-k8s-services",
-        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
         "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
-        "lab-05-amazon-eks-cluster-managed-node-group-provisioning"
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -529,7 +532,8 @@
       ],
       "labs": [
         "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn",
-        "lab-jenkins-docker-pipeline"
+        "lab-jenkins-docker-pipeline",
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -563,6 +567,7 @@
       ],
       "labs": [
         "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn",
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
         "lab-jenkins-docker-pipeline"
       ],
       "roadmaps": [
@@ -591,8 +596,7 @@
         "interview-prep"
       ],
       "labs": [
-        "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn",
-        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy"
+        "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn"
       ],
       "roadmaps": [
         "cloud-devops-engineer",
@@ -622,8 +626,7 @@
         "lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack",
         "lab-sre-backup-disaster-recovery",
         "lab-reverse-proxy-load-balancing",
-        "lab-jenkins-fundamentals",
-        "lab-08-automated-jenkins-server-toolchain-provisioning"
+        "lab-jenkins-fundamentals"
       ],
       "roadmaps": [
         "cloud-devops-engineer",
@@ -656,13 +659,13 @@
       ],
       "labs": [
         "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
         "lab-github-actions-ecr-eks",
         "lab-jenkins-docker-pipeline",
-        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
         "lab-helm-upgrade-rollback",
         "lab-02-iam-roles-irsa-policies-security-groups",
         "lab-14-creating-a-custom-helm-chart-for-django-microservices",
-        "lab-08-automated-jenkins-server-toolchain-provisioning"
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -695,7 +698,7 @@
         "hands-on-labs"
       ],
       "labs": [
-        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices",
         "lab-22-bash-automation-backup-healthcheck",
         "lab-linux-processes-services-logs",
         "lab-sre-backup-disaster-recovery"
@@ -732,12 +735,12 @@
       "labs": [
         "lab-aws-vpc-console",
         "lab-01-aws-vpc-subnets-gateways-route-tables",
-        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
         "lab-02-iam-roles-irsa-policies-security-groups",
         "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
-        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
-        "lab-13-kubernetes-security-hardening-networkpolicies-hpa"
+        "lab-07-ansible-architecture-configuration-automated-inventory"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -772,12 +775,12 @@
       "labs": [
         "lab-aws-vpc-console",
         "lab-aws-ec2-cloudwatch-ssm",
-        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
         "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
-        "lab-07-ansible-architecture-configuration-automated-inventory",
+        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
         "lab-01-aws-vpc-subnets-gateways-route-tables",
-        "lab-08-automated-jenkins-server-toolchain-provisioning",
-        "lab-aws-rds-backup-restore"
+        "lab-07-ansible-architecture-configuration-automated-inventory",
+        "lab-aws-rds-backup-restore",
+        "lab-terraform-fundamentals"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -811,12 +814,12 @@
       "labs": [
         "lab-02-iam-roles-irsa-policies-security-groups",
         "lab-aws-iam-least-privilege",
-        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
-        "lab-aws-ec2-cloudwatch-ssm",
-        "lab-github-actions-ecr-eks",
         "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
-        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
-        "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration"
+        "lab-aws-ec2-cloudwatch-ssm",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
+        "lab-github-actions-ecr-eks",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -852,10 +855,10 @@
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
         "lab-21-linux-networking-troubleshooting",
         "lab-aws-vpc-console",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
         "lab-aws-ec2-cloudwatch-ssm",
         "lab-aws-rds-backup-restore",
-        "lab-http-tls-troubleshooting",
-        "lab-terraform-state-recovery"
+        "lab-http-tls-troubleshooting"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -926,8 +929,8 @@
       "labs": [
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
         "lab-01-aws-vpc-subnets-gateways-route-tables",
-        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
         "lab-terraform-modules",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
         "lab-aws-vpc-console",
         "lab-terraform-state-recovery"
       ],
@@ -966,7 +969,6 @@
         "lab-aws-rds-backup-restore",
         "lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack",
         "lab-02-iam-roles-irsa-policies-security-groups",
-        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
         "lab-docker-networking-volumes-healthchecks",
         "lab-sre-backup-disaster-recovery",
         "lab-terraform-fundamentals"
@@ -1009,7 +1011,7 @@
         "lab-aws-iam-least-privilege",
         "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
         "lab-terraform-fundamentals",
-        "lab-02-iam-roles-irsa-policies-security-groups"
+        "lab-18-custom-prometheus-alert-rules-grafana-dashboards"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -1043,11 +1045,12 @@
       "labs": [
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
         "lab-11-core-kubernetes-workloads-configmaps-secrets",
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
         "lab-23-git-branching-collaboration",
         "lab-git-recovery-history",
-        "lab-14-creating-a-custom-helm-chart-for-django-microservices",
-        "lab-aws-rds-backup-restore",
-        "lab-helm-upgrade-rollback"
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-08-automated-jenkins-server-toolchain-provisioning",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -1081,6 +1084,8 @@
       ],
       "labs": [
         "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
         "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
         "lab-k8s-workloads"
@@ -1116,14 +1121,14 @@
         "observability"
       ],
       "labs": [
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
         "lab-01-aws-vpc-subnets-gateways-route-tables",
         "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
-        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
         "lab-k8s-storage",
         "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
-        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
-        "lab-aws-route53-acm-dns"
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -1244,8 +1249,7 @@
         "lab-terraform-remote-state",
         "lab-terraform-fundamentals",
         "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
-        "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
-        "lab-05-amazon-eks-cluster-managed-node-group-provisioning"
+        "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -1320,7 +1324,7 @@
         "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
         "lab-terraform-testing-ci",
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
-        "lab-terraform-modules"
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -1423,6 +1427,7 @@
       ],
       "labs": [
         "lab-ansible-roles-idempotency",
+        "lab-08-automated-jenkins-server-toolchain-provisioning",
         "lab-terraform-fundamentals"
       ],
       "roadmaps": [
@@ -1458,10 +1463,10 @@
       ],
       "labs": [
         "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-11-core-kubernetes-workloads-configmaps-secrets",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
+        "lab-18-custom-prometheus-alert-rules-grafana-dashboards",
         "lab-k8s-node-drain-upgrade",
-        "lab-08-automated-jenkins-server-toolchain-provisioning",
-        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
-        "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
         "lab-sre-chaos-failure-injection"
       ],
       "roadmaps": [
@@ -1498,12 +1503,12 @@
       "labs": [
         "lab-k8s-workloads",
         "lab-k8s-services",
-        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+        "lab-11-core-kubernetes-workloads-configmaps-secrets",
         "lab-k8s-rbac-service-accounts",
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
         "lab-k8s-node-drain-upgrade",
-        "lab-k8s-storage",
-        "lab-sre-chaos-failure-injection",
-        "lab-11-core-kubernetes-workloads-configmaps-secrets"
+        "lab-k8s-storage"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -1539,8 +1544,8 @@
       "labs": [
         "lab-k8s-workloads",
         "lab-sre-chaos-failure-injection",
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices",
         "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
-        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
         "lab-11-core-kubernetes-workloads-configmaps-secrets",
         "lab-k8s-node-drain-upgrade",
         "lab-k8s-storage",
@@ -1577,13 +1582,13 @@
       ],
       "labs": [
         "lab-k8s-services",
-        "lab-11-core-kubernetes-workloads-configmaps-secrets",
         "lab-02-iam-roles-irsa-policies-security-groups",
+        "lab-08-automated-jenkins-server-toolchain-provisioning",
+        "lab-11-core-kubernetes-workloads-configmaps-secrets",
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
         "lab-docker-networking-volumes-healthchecks",
         "lab-k8s-rbac-service-accounts",
-        "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
-        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
-        "lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack"
+        "lab-03-amazon-ecr-container-registry-s3-storage-buckets"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -1617,14 +1622,14 @@
         "kustomize"
       ],
       "labs": [
-        "lab-k8s-gateway-api",
         "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+        "lab-k8s-gateway-api",
         "lab-02-iam-roles-irsa-policies-security-groups",
-        "lab-01-aws-vpc-subnets-gateways-route-tables",
         "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
-        "lab-terraform-state-recovery",
         "lab-14-creating-a-custom-helm-chart-for-django-microservices",
-        "lab-aws-ec2-cloudwatch-ssm"
+        "lab-01-aws-vpc-subnets-gateways-route-tables",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-terraform-state-recovery"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -1659,7 +1664,9 @@
       ],
       "labs": [
         "lab-11-core-kubernetes-workloads-configmaps-secrets",
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices",
         "lab-18-custom-prometheus-alert-rules-grafana-dashboards",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
         "lab-github-actions-ecr-eks"
       ],
       "roadmaps": [
@@ -1695,8 +1702,10 @@
       ],
       "labs": [
         "lab-k8s-storage",
-        "lab-loki-centralized-logging",
         "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
+        "lab-loki-centralized-logging",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-18-custom-prometheus-alert-rules-grafana-dashboards",
         "lab-docker-networking-volumes-healthchecks"
       ],
       "roadmaps": [
@@ -1767,6 +1776,7 @@
         "iam"
       ],
       "labs": [
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
         "lab-k8s-node-drain-upgrade"
       ],
       "roadmaps": [
@@ -1802,9 +1812,11 @@
       ],
       "labs": [
         "lab-k8s-rbac-service-accounts",
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
         "lab-02-iam-roles-irsa-policies-security-groups",
         "lab-11-core-kubernetes-workloads-configmaps-secrets",
-        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa"
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -1838,13 +1850,14 @@
         "networking-fundamentals"
       ],
       "labs": [
+        "lab-11-core-kubernetes-workloads-configmaps-secrets",
+        "lab-14-creating-a-custom-helm-chart-for-django-microservices",
         "lab-docker-networking-volumes-healthchecks",
+        "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
         "lab-k8s-node-drain-upgrade",
         "lab-sre-chaos-failure-injection",
         "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn",
-        "lab-k8s-services",
-        "lab-reverse-proxy-load-balancing",
-        "lab-02-iam-roles-irsa-policies-security-groups"
+        "lab-k8s-services"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -1902,7 +1915,7 @@
       ],
       "labs": [
         "lab-14-creating-a-custom-helm-chart-for-django-microservices",
-        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa"
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks"
       ],
       "roadmaps": [
         "cloud-devops-engineer",
@@ -2018,8 +2031,8 @@
         "lab-terraform-testing-ci",
         "lab-terraform-modules",
         "lab-01-aws-vpc-subnets-gateways-route-tables",
-        "lab-11-core-kubernetes-workloads-configmaps-secrets",
-        "lab-14-creating-a-custom-helm-chart-for-django-microservices",
+        "lab-07-ansible-architecture-configuration-automated-inventory",
+        "lab-08-automated-jenkins-server-toolchain-provisioning",
         "lab-terraform-fundamentals"
       ],
       "roadmaps": [
@@ -2048,8 +2061,8 @@
         "aws-overview"
       ],
       "labs": [
-        "lab-jenkins-docker-pipeline",
         "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
+        "lab-jenkins-docker-pipeline",
         "lab-jenkins-fundamentals",
         "lab-github-actions-ecr-eks",
         "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
@@ -2115,7 +2128,8 @@
         "start-here"
       ],
       "labs": [
-        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy"
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
+        "lab-08-automated-jenkins-server-toolchain-provisioning"
       ],
       "roadmaps": [
         "cloud-devops-engineer",
@@ -2146,9 +2160,7 @@
         "jenkins"
       ],
       "labs": [
-        "lab-terraform-testing-ci",
-        "lab-11-core-kubernetes-workloads-configmaps-secrets",
-        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy"
+        "lab-terraform-testing-ci"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -2209,11 +2221,11 @@
         "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
         "lab-aws-ec2-cloudwatch-ssm",
         "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
+        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
         "lab-18-custom-prometheus-alert-rules-grafana-dashboards",
         "lab-loki-centralized-logging",
-        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
         "lab-k8s-node-drain-upgrade",
-        "lab-08-automated-jenkins-server-toolchain-provisioning"
+        "lab-git-recovery-history"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -2281,9 +2293,10 @@
         "cost-optimization"
       ],
       "labs": [
-        "lab-loki-centralized-logging",
+        "lab-18-custom-prometheus-alert-rules-grafana-dashboards",
         "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
-        "lab-18-custom-prometheus-alert-rules-grafana-dashboards"
+        "lab-loki-centralized-logging",
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -2372,14 +2385,14 @@
         "platform-engineering"
       ],
       "labs": [
+        "lab-18-custom-prometheus-alert-rules-grafana-dashboards",
         "lab-terraform-state-recovery",
         "lab-aws-rds-backup-restore",
         "lab-sre-backup-disaster-recovery",
         "lab-helm-upgrade-rollback",
         "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
-        "lab-aws-ec2-cloudwatch-ssm",
-        "lab-git-professional-collaboration",
-        "lab-terraform-modules"
+        "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+        "lab-17-deploying-kube-prometheus-stack-on-aws-eks"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -2496,9 +2509,9 @@
       ],
       "labs": [
         "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
+        "lab-08-automated-jenkins-server-toolchain-provisioning",
         "lab-jenkins-docker-pipeline",
         "lab-terraform-testing-ci",
-        "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
         "lab-github-actions-ecr-eks"
       ],
       "roadmaps": [

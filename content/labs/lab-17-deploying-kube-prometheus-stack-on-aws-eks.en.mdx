@@ -17,94 +17,220 @@ cleanup:
   - "kubectl delete pvc --all -n monitoring   # PVCs are NOT removed by uninstall"
   - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
 successCriteria:
-  - "Deploy kube-prometheus-stack on EKS using Helm and custom values (kube-prometheus-stack-values.yaml)."
-  - "Configure automated monitoring installation script (install/install.sh)."
-  - "Access Grafana visualization web UI."
+  - "Prometheus is scraping the cluster and your application, verified in Targets."
+  - "A ServiceMonitor picks up the application without editing Prometheus configuration."
+  - "Grafana shows CPU and memory for your workload."
+  - "Metrics survive a Prometheus Pod restart."
 challengeId: lab-17-deploying-kube-prometheus-stack-on-aws-eks-challenge
-sourceFile: "NTI Final Project/07-Monitoring-Observability/Lab17-Prometheus-Grafana-Monitoring-Stack/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+"Is it healthy?" is answered by `kubectl get pods` and a guess. There is no history, so nobody can say whether last night was unusual, and the first sign of a problem is a person noticing.
 
 ## What you are building
 
-### What is Kube-Prometheus-Stack?
-**Kube-Prometheus-Stack** is a comprehensive, production-ready Kubernetes observability suite. It packages:
-- **Prometheus Operator**: Manages Prometheus and Alertmanager instances using custom Kubernetes CRDs (`ServiceMonitor`, `PrometheusRule`).
-- **Prometheus**: High-performance time-series database scraping metrics from nodes, pods, and services via Kubernetes API discovery.
-- **Alertmanager**: Deduplicates, groups, and routes alert notifications.
-- **Grafana**: Real-time metrics visualization platform.
-- **kube-state-metrics & node-exporter**: Generates host-level and cluster object metrics.
-
 ```text
-                                OBSERVALITY & MONITORING STACK
-                                
-  +-----------------------------------------------------------------------------------+
-  |  AWS EKS WORKER NODES & PODS                                                      |
-  |  [ Pod 1 Metrics ]        [ Pod 2 Metrics ]        [ Kubelet Node Exporter ]      |
-  +-----------------------------------+-----------------------------------------------+
-                                      |
-                                      | Scrapes Metrics via ServiceMonitor (30s)
-                                      v
-  +-----------------------------------------------------------------------------------+
-  |  PROMETHEUS TIME-SERIES DATABASE (prometheus-0)                                   |
-  |  Stores CPU, Memory, Network, Disk & Custom App Metrics                           |
-  +-----------------------------------+-----------------------------------------------+
-                                      |
-                                      | PromQL Queries
-                                      v
-  +-----------------------------------------------------------------------------------+
-  |  GRAFANA DASHBOARDS (Port 3000)                                                   |
-  |  Real-time RED Metrics & Infrastructure Dashboards                                |
-  +-----------------------------------------------------------------------------------+
+  ServiceMonitor  (a CRD: "scrape any Service with these labels")
+        |  the Operator reads it and rewrites the Prometheus config
+        v
+  Prometheus  --scrapes-->  /metrics on node-exporter, kube-state-metrics, your app
+        |
+        +--> Alertmanager   routing and silencing
+        +--> Grafana        dashboards
 ```
+
+**The Operator is the part worth understanding.** Plain Prometheus has one
+configuration file listing every scrape target — in a cluster where Pods come
+and go, that file is wrong immediately. The Operator watches `ServiceMonitor`
+and `PrometheusRule` objects and regenerates the configuration, so adding
+monitoring to a new service is creating an object, not editing a central file
+and reloading it.
 
 ---
 
-## Steps
+## Build it
 
-### Step 1: Execute Automated Monitoring Deployment Script
-```bash
-cd 07-Monitoring-Observability/Lab17-Prometheus-Grafana-Monitoring-Stack
-chmod +x install/install.sh
-./install/install.sh
+### 1. Install, with values that matter
+
+```yaml
+# values.yaml
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    # Without this, ONLY ServiceMonitors carrying the release label are picked
+    # up — the most common reason a new one is ignored in silence.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+    resources:
+      requests: { cpu: 200m, memory: 2Gi }
+      limits:   { memory: 4Gi }
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+
+grafana:
+  adminPassword: ""            # set it, or read the generated Secret
+  persistence:
+    enabled: true
+    size: 5Gi
+  defaultDashboardsTimezone: browser
+
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources: { requests: { storage: 5Gi } }
 ```
 
-### Step 2: Access Grafana Web UI
 ```bash
-kubectl port-forward svc/prometheus-grafana 3000:80 -n monitoring
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+  -n monitoring --create-namespace -f values.yaml --atomic --wait --timeout 10m
 ```
-Open web browser to `http://localhost:3000` (Default Credentials: `admin` / `prom-operator`).
+
+**`storageSpec` is not optional in any cluster you care about.** The default is
+`emptyDir`, so every Prometheus restart loses all history — and you discover
+that during the first incident, which is exactly when history was the point.
+
+The three `...NilUsesHelmValues: false` lines are the single most useful thing
+in this file. Left at their default, Prometheus only discovers ServiceMonitors
+labelled with this Helm release, so a ServiceMonitor you create later is
+ignored with no error anywhere.
+
+### 2. Scrape your own application
+
+Your app needs a `/metrics` endpoint and a Service with a **named** port:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: platform
+  labels: { app: api }
+spec:
+  selector: { app: api }
+  ports:
+    - name: http          # the name is what the ServiceMonitor references
+      port: 80
+      targetPort: 8000
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: api
+  namespace: platform
+  labels: { release: monitoring }
+spec:
+  selector:
+    matchLabels: { app: api }
+  namespaceSelector:
+    matchNames: ["platform"]
+  endpoints:
+    - port: http          # the PORT NAME, not the number
+      path: /metrics
+      interval: 30s
+```
+
+`port` here is the Service's port **name**. Putting `8000` there is the most
+common ServiceMonitor mistake, and it fails by simply never appearing in
+Targets.
+
+### 3. Look at it
+
+```bash
+kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80
+kubectl get secret -n monitoring monitoring-grafana \
+  -o jsonpath='{.data.admin-password}' | base64 -d; echo
+
+kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-prometheus 9090:9090
+```
 
 ---
 
 ## Verify it worked
 
 ```bash
+# Everything is up
 kubectl get pods -n monitoring
+
+# Your target is being scraped and is UP — the actual test
+curl -s localhost:9090/api/v1/targets \
+  | jq -r '.data.activeTargets[] | select(.labels.job=="api") | "\(.health) \(.scrapeUrl) \(.lastError)"'
+
+# A query returns data for your workload
+curl -sG localhost:9090/api/v1/query \
+  --data-urlencode 'query=sum(rate(container_cpu_usage_seconds_total{namespace="platform"}[5m])) by (pod)' \
+  | jq '.data.result | length'
+
+# History survives a restart — this is what storageSpec buys
+kubectl delete pod -n monitoring prometheus-monitoring-kube-prometheus-prometheus-0
+kubectl wait --for=condition=Ready pod/prometheus-monitoring-kube-prometheus-prometheus-0 -n monitoring --timeout=300s
+# re-run the query and confirm the older data is still there
 ```
 
-**Expected Output:**
-```text
-NAME                                                        READY   STATUS    RESTARTS   AGE
-prometheus-kube-prometheus-prometheus-0                     2/2     Running   0          2m
-prometheus-grafana-7d8b9f7c4d-x9y8z                        1/1     Running   0          2m
-prometheus-kube-state-metrics-6d8b9f7c4d-v1w2u             1/1     Running   0          2m
-```
+`kubectl get pods` showing `Running` proves the stack installed. The Targets
+query proves it is *monitoring something*, which is a different claim.
 
 ---
+
+## When it goes wrong
+
+**A ServiceMonitor exists and the target never appears**
+
+In order: the `...NilUsesHelmValues: false` settings, then the `release` label,
+then `port` naming a port **name** rather than a number, then the
+`namespaceSelector`.
+
+**Prometheus is OOM killed**
+
+Memory scales with active series. Raise the limit, shorten `retention`, or drop
+high-cardinality labels — a label containing a request id or a pod name in a
+metric that already has one is the usual cause.
+
+**All history disappeared**
+
+No `storageSpec`, so it was `emptyDir`.
+
+**PVCs stay `Pending`**
+
+No default StorageClass, or the EBS CSI driver is not installed.
+
+**Grafana shows "No data" while Prometheus has the metric**
+
+The dashboard's datasource, or a variable that resolves to nothing. Run the
+panel's query in Prometheus directly to find out which side is wrong.
+
+**The install times out**
+
+Three PVCs must bind first. `kubectl get pvc -n monitoring` shows whether they
+did.
 
 ---
 
 ## Clean up
 
-Run this even if you did not finish. Everything above is destroyable, and an
-account full of half-built experiments is how a surprise bill starts.
-
 ```bash
-helm uninstall kube-prometheus-stack -n monitoring
-kubectl delete pvc --all -n monitoring   # PVCs are NOT removed by uninstall
-aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table
+helm uninstall monitoring -n monitoring
+kubectl delete pvc --all -n monitoring          # PVCs SURVIVE uninstall
+kubectl delete namespace monitoring
+kubectl get crd | grep coreos                   # CRDs also survive
 ```
 
-**Cost of this lab:** **Depends on an existing cluster.** kube-prometheus-stack requests persistent volumes — EBS at ~$0.08/GB-month — which survive `helm uninstall` because the PVCs are retained deliberately.
+**Cost of this lab:** **Low on top of the cluster.** Three EBS volumes totalling
+30 GB is about $2.40/month, and they keep billing after `helm uninstall` unless
+you delete the PVCs.

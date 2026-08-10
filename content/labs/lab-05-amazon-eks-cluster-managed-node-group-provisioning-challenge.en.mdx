@@ -21,9 +21,10 @@ cleanup:
   - "# And load balancers created by Kubernetes Services are not in Terraform state:"
   - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerArn'"
 successCriteria:
-  - "Provision Amazon EKS Cluster v1.34 (modules/eks/main.tf)."
-  - "Deploy EKS Managed Node Group with 2 worker nodes (t3.medium) scaling up to 6."
-  - "Enable AWS IAM OpenID Connect (OIDC) provider for IRSA authentication."
+  - "`kubectl get nodes` shows Ready nodes in private subnets."
+  - "The OIDC provider exists and a ServiceAccount can assume an IAM role through it."
+  - "You can explain why `update-kubeconfig` succeeding does not mean `kubectl` will work."
+  - "The node group scales without recreating the cluster."
 guidedLabId: lab-05-amazon-eks-cluster-managed-node-group-provisioning
 authors: [waleed]
 updated: 2026-08-09

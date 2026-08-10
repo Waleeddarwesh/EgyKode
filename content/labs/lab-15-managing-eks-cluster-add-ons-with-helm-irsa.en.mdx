@@ -19,99 +19,191 @@ cleanup:
   - "# Unattached EBS volumes are billed per GB-month:"
   - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
 successCriteria:
-  - "Provision IAM Role for AWS Load Balancer Controller using Terraform IRSA module (irsa/lbc-irsa.tf)."
-  - "Deploy Metrics Server add-on via Helm (releases/metrics-server-values.yaml)."
-  - "Deploy AWS Load Balancer Controller add-on via Helm (releases/aws-load-balancer-controller-values.yaml)."
+  - "A controller calls the AWS API using its own IAM role, not the node's."
+  - "`aws sts get-caller-identity` from inside the Pod returns the IRSA role."
+  - "A Pod without the annotation is refused the same action — demonstrated."
+  - "metrics-server works, so `kubectl top` and HPAs have a metric."
 challengeId: lab-15-managing-eks-cluster-add-ons-with-helm-irsa-challenge
-sourceFile: "NTI Final Project/05-Helm-Package-Management/Lab15-Helm-Cluster-Addons/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+The Load Balancer Controller works because someone attached its policy to the node role. Every Pod on every node now has permission to create and delete load balancers, and nothing in the cluster shows that.
 
 ## What you are building
 
-### What are EKS Cluster Add-ons and IRSA?
-- **EKS Add-ons**: Core system services running inside the EKS cluster required for infrastructure functionality (such as load balancer automation and pod autoscaling).
-- **IRSA (IAM Roles for Service Accounts)**: IAM Roles for Service Accounts allows Kubernetes pods to securely assume AWS IAM roles using OpenID Connect (OIDC) federation. Pods obtain short-lived AWS credentials automatically without embedding AWS access keys inside container environments.
+An empty EKS cluster cannot do much: it cannot provision a load balancer from
+an Ingress, cannot report CPU for an HPA, and cannot attach a volume. Those
+come from controllers you install — and the interesting part is how they get
+AWS permissions.
 
 ```text
-                                IRSA OIDC AUTHENTICATION FLOW
-                                
-  +-----------------------------------------------------------------------------------+
-  |  EKS SERVICE ACCOUNT (aws-load-balancer-controller)                               |
-  |  Annotation: eks.amazonaws.com/role-arn = arn:aws:iam::123456789:role/lbc-role    |
-  +----------------------------------------+------------------------------------------+
-                                           |
-                                           | Requests OIDC Token
-                                           v
-  +-----------------------------------------------------------------------------------+
-  |  AWS IAM & OIDC PROVIDER                                                          |
-  |  Validates ServiceAccount Token -> Issues Short-Lived AWS STS Credentials         |
-  +----------------------------------------+------------------------------------------+
-                                           |
-                                           | Authorizes AWS API Calls
-                                           v
-  +-----------------------------------------------------------------------------------+
-  |  AWS EC2 / Elastic Load Balancing API                                             |
-  |  Provisions / Modifies AWS Application Load Balancer                              |
-  +-----------------------------------------------------------------------------------+
+  Pod
+   |  projected token: "I am system:serviceaccount:kube-system:alb-controller"
+   v
+  EKS OIDC provider  ->  AWS STS  ->  temporary credentials for ONE role
 ```
+
+**Without IRSA there are two options and both are bad**: an access key in a
+Secret, which never rotates, or a policy on the node role, which grants it to
+every Pod on the node. IRSA gives one workload one role, with credentials that
+expire.
 
 ---
 
-## Steps
+## Build it
 
-### Step 1: Deploy IRSA IAM Role with Terraform
-```bash
-cd 05-Helm-Package-Management/Lab15-Helm-Cluster-Addons/irsa
-terraform init
-terraform apply -auto-approve
+### 1. The role, trusted by one ServiceAccount
+
+```hcl
+data "aws_iam_policy_document" "lbc_trust" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [var.oidc_provider_arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${var.oidc_host}:sub"
+      values   = ["system:serviceaccount:kube-system:aws-load-balancer-controller"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${var.oidc_host}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "lbc" {
+  name               = "alb-controller"
+  assume_role_policy = data.aws_iam_policy_document.lbc_trust.json
+}
 ```
 
-### Step 2: Add Official Helm Repositories
+**Both conditions are required.** Without `sub`, any ServiceAccount in the
+cluster can assume the role — which is worse than the node-role problem it was
+meant to fix, because it now looks like it was done properly. Without `aud`, a
+token minted for another audience is accepted.
+
+`oidc_host` is the issuer URL with `https://` stripped.
+
+### 2. The ServiceAccount carries the ARN
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aws-load-balancer-controller
+  namespace: kube-system
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/alb-controller
+```
+
+The EKS Pod Identity Webhook sees this annotation and injects
+`AWS_ROLE_ARN`, `AWS_WEB_IDENTITY_TOKEN_FILE` and a projected token into every
+Pod using the ServiceAccount. Every AWS SDK finds them with no configuration.
+
+**The injection happens at Pod creation.** Annotating a ServiceAccount does not
+affect Pods that already exist — they must be restarted, and this is the reason
+IRSA "does not work" more often than any misconfigured trust policy.
+
+### 3. Install the add-ons
+
 ```bash
-helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
 helm repo add eks https://aws.github.io/eks-charts
-helm repo update
+helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+
+helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=platform \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  --set region=us-east-1 \
+  --set vpcId=vpc-0abc \
+  --atomic --wait
+
+helm upgrade --install metrics-server metrics-server/metrics-server \
+  -n kube-system --atomic --wait
 ```
 
-### Step 3: Deploy Metrics Server & AWS LBC Add-ons
-```bash
-cd ..
-helm upgrade --install metrics-server metrics-server/metrics-server -n kube-system -f releases/metrics-server-values.yaml
-helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system -f releases/aws-load-balancer-controller-values.yaml
-```
+`serviceAccount.create=false` matters: letting the chart create the
+ServiceAccount produces one without your annotation, and the controller falls
+back to the node role — which usually *works*, so nothing looks wrong.
+
+Pin chart versions with `--version` for the same reason you pin images.
 
 ---
 
 ## Verify it worked
 
 ```bash
-kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
+# The Pod has an identity of its own
+kubectl exec -n kube-system deploy/aws-load-balancer-controller -- env | grep AWS_ROLE_ARN
+kubectl exec -n kube-system deploy/aws-load-balancer-controller -- \
+  ls /var/run/secrets/eks.amazonaws.com/serviceaccount/
+
+# It IS that role, not the node role
+kubectl run awscli --rm -it --image=amazon/aws-cli --restart=Never \
+  -n kube-system --overrides='{"spec":{"serviceAccountName":"aws-load-balancer-controller"}}' \
+  -- sts get-caller-identity
+# Arn: .../alb-controller/botocore-session-...
+
+# The negative test — a Pod WITHOUT the annotation
+kubectl run awscli-plain --rm -it --image=amazon/aws-cli --restart=Never \
+  -- sts get-caller-identity
+# returns the NODE role — proves the scoping is real
+
+# metrics-server actually serves metrics
+kubectl top nodes
+kubectl top pods -A | head
+
+# The controller can do its job
+kubectl logs -n kube-system deploy/aws-load-balancer-controller --tail=20
 ```
 
-**Expected Output:**
-```text
-NAME                                            READY   STATUS    RESTARTS   AGE
-aws-load-balancer-controller-7b89c6d4f5-x9z8y   1/1     Running   0          2m
-aws-load-balancer-controller-7b89c6d4f5-v1w2u   1/1     Running   0          2m
-```
+The negative test is the one that proves the point. Showing the controller
+works does not distinguish IRSA from a policy on the node role — showing that
+an unannotated Pod gets something different does.
 
 ---
+
+## When it goes wrong
+
+**`WebIdentityErr: failed to retrieve credentials`**
+
+The trust policy's `sub` does not match. It must be exactly
+`system:serviceaccount:<namespace>:<name>`.
+
+**The Pod gets the node role instead**
+
+The annotation is missing, the Pod does not name the ServiceAccount, or it was
+running before the annotation was added. Restart it.
+
+**`no such host: oidc.eks...`**
+
+No OIDC provider is registered for the cluster, or its thumbprint is stale.
+
+**`kubectl top` returns `Metrics API not available`**
+
+metrics-server is not running, or it cannot reach the kubelets. On some
+clusters it needs `--kubelet-insecure-tls`; understand why before adding it.
+
+**Everything works, and you cannot tell whether IRSA is being used**
+
+That is the failure this lab is about. Run the negative test.
 
 ---
 
 ## Clean up
 
-Run this even if you did not finish. Everything above is destroyable, and an
-account full of half-built experiments is how a surprise bill starts.
-
 ```bash
-helm list -A
-helm uninstall <release> -n <namespace>
-aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName'
-# Unattached EBS volumes are billed per GB-month:
-aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table
+helm uninstall aws-load-balancer-controller metrics-server -n kube-system
+terraform destroy -target=aws_iam_role.lbc
 ```
 
-**Cost of this lab:** **Billable.** Cluster add-ons commonly provision real infrastructure — a load balancer, EBS volumes for persistent storage — that outlives `helm uninstall` if a finalizer fails.
+**Cost of this lab:** **Low.** IAM roles are free. The controllers run on nodes
+you are already paying for; anything they provision is not.

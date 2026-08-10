@@ -21,95 +21,272 @@ cleanup:
   - "# And load balancers created by Kubernetes Services are not in Terraform state:"
   - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerArn'"
 successCriteria:
-  - "Provision Amazon EKS Cluster v1.34 (modules/eks/main.tf)."
-  - "Deploy EKS Managed Node Group with 2 worker nodes (t3.medium) scaling up to 6."
-  - "Enable AWS IAM OpenID Connect (OIDC) provider for IRSA authentication."
+  - "`kubectl get nodes` shows Ready nodes in private subnets."
+  - "The OIDC provider exists and a ServiceAccount can assume an IAM role through it."
+  - "You can explain why `update-kubeconfig` succeeding does not mean `kubectl` will work."
+  - "The node group scales without recreating the cluster."
 challengeId: lab-05-amazon-eks-cluster-managed-node-group-provisioning-challenge
-sourceFile: "NTI Final Project/01-Infrastructure-Terraform/Lab05-EKS-Cluster-Provisioning/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+You have a network, roles and a registry. Nothing is running on any of it.
+
+This is the cluster — and the two permission systems that catch everybody the first time, because they look like one.
 
 ## What you are building
 
-### What is Amazon EKS?
-**Amazon EKS (Elastic Kubernetes Service)** is a managed Kubernetes service that eliminates the operational burden of deploying and maintaining the Kubernetes Control Plane (API Server, `etcd`, Controller Manager, Scheduler) across multi-AZ availability zones.
-
-- **Managed Node Groups**: AWS handles provisioning, updating, and auto-repairing EC2 instances acting as Kubernetes worker nodes.
-- **OIDC Provider**: Enables IRSA (IAM Roles for Service Accounts) so Kubernetes pods can assume IAM roles natively.
-
 ```text
-                                AMAZON EKS CLUSTER ARCHITECTURE
-                                
-  +-----------------------------------------------------------------------------------+
-  |  AWS MANAGED KUBERNETES CONTROL PLANE (Managed by AWS)                            |
-  |  - API Server (kube-apiserver)                                                    |
-  |  - High-Availability etcd Key-Value Store                                         |
-  |  - Controller Manager & Scheduler                                                 |
-  +----------------------------------------+------------------------------------------+
-                                           |
-                                           | Secure Control Plane Communication
-                                           v
-  +-----------------------------------------------------------------------------------+
-  |  PRIVATE SUBNETS (VPC) — EKS MANAGED NODE GROUP                                   |
-  |                                                                                   |
-  |  +-------------------------------+     +---------------------------------+        |
-  |  | Worker Node 1 (us-east-1a)    |     | Worker Node 2 (us-east-1b)      |        |
-  |  | Type: t3.medium               |     | Type: t3.medium                 |        |
-  |  | - Kubelet & Containerd        |     | - Kubelet & Containerd          |        |
-  |  | - AWS VPC CNI Plugin          |     | - AWS VPC CNI Plugin            |        |
-  |  +-------------------------------+     +---------------------------------+        |
-  +-----------------------------------------------------------------------------------+
+   AWS manages this                     You manage this
+  +-------------------------+          +--------------------------+
+  |  EKS control plane      |          |  managed node group      |
+  |  apiserver, etcd,       | <------> |  2 x t3.medium, private  |
+  |  scheduler, controllers |          |  subnets, autoscaling    |
+  |  across 3 AZs           |          |  to 6                    |
+  +-------------------------+          +--------------------------+
+        $0.10/hour                          EC2 pricing
+```
+
+EKS runs the control plane you built by hand in the kubeadm lab: the API
+server, etcd and the controllers, replicated across availability zones and
+patched by AWS. You do not get a node to log into, and you do not get to break
+etcd.
+
+**A managed node group is still EC2.** AWS handles the launch template, the
+draining on upgrade and the replacement of an unhealthy instance, but the nodes
+are yours, they sit in your subnets, and they bill at normal EC2 rates.
+
+---
+
+## Build it
+
+### 1. The cluster
+
+```hcl
+resource "aws_eks_cluster" "main" {
+  name     = "platform"
+  role_arn = aws_iam_role.cluster.arn
+  version  = "1.31"
+
+  vpc_config {
+    subnet_ids              = concat(var.private_subnet_ids, var.public_subnet_ids)
+    endpoint_private_access = true
+    endpoint_public_access  = true
+    public_access_cidrs     = ["203.0.113.4/32"]   # your address, not 0.0.0.0/0
+  }
+
+  encryption_config {
+    provider { key_arn = aws_kms_key.eks.arn }
+    resources = ["secrets"]
+  }
+
+  enabled_cluster_log_types = ["api", "audit", "authenticator"]
+
+  access_config {
+    authentication_mode                         = "API"
+    bootstrap_cluster_creator_admin_permissions = true
+  }
+}
+```
+
+`encryption_config` is envelope encryption of Secrets in etcd with your KMS
+key. Without it, a Secret is base64 in etcd and AWS holds the only key. It can
+only be enabled **at creation** — there is no adding it later.
+
+`enabled_cluster_log_types` is the only way to see the control plane. `audit`
+in particular answers "who did this", and turning it on after an incident is
+too late.
+
+### 2. The node group
+
+```hcl
+resource "aws_eks_node_group" "main" {
+  cluster_name    = aws_eks_cluster.main.name
+  node_group_name = "workers"
+  node_role_arn   = aws_iam_role.node.arn
+  subnet_ids      = var.private_subnet_ids     # private, always
+
+  instance_types = ["t3.medium"]
+  capacity_type  = "ON_DEMAND"                 # or SPOT — see below
+
+  scaling_config {
+    desired_size = 2
+    min_size     = 2
+    max_size     = 6
+  }
+
+  update_config {
+    max_unavailable = 1                        # one node at a time
+  }
+
+  lifecycle {
+    ignore_changes = [scaling_config[0].desired_size]
+  }
+}
+```
+
+**`ignore_changes` on `desired_size` matters once autoscaling is real.** The
+Cluster Autoscaler changes the desired count; without this, the next
+`terraform apply` sets it back to 2 and evicts whatever had scaled up.
+
+Nodes go in **private** subnets. They reach the internet through the NAT
+Gateway to pull images; nothing on the internet reaches them.
+
+`capacity_type = "SPOT"` is up to 90% cheaper and gives two minutes' notice
+before reclamation — a good fit for stateless workloads, a bad one for the
+database.
+
+### 3. OIDC, so a Pod can have its own IAM role
+
+```hcl
+data "tls_certificate" "eks" {
+  url = aws_eks_cluster.main.identity[0].oidc[0].issuer
+}
+
+resource "aws_iam_openid_connect_provider" "eks" {
+  url             = aws_eks_cluster.main.identity[0].oidc[0].issuer
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.eks.certificates[0].sha1_fingerprint]
+}
+```
+
+Without this, the only way to give a Pod AWS permissions is to attach them to
+the **node role** — which grants them to every Pod on that node. The IRSA lab
+builds on this.
+
+### 4. Add-ons
+
+```hcl
+resource "aws_eks_addon" "this" {
+  for_each      = toset(["vpc-cni", "coredns", "kube-proxy", "aws-ebs-csi-driver"])
+  cluster_name  = aws_eks_cluster.main.name
+  addon_name    = each.value
+  resolve_conflicts_on_update = "OVERWRITE"
+}
+```
+
+A cluster without `aws-ebs-csi-driver` cannot bind a PersistentVolumeClaim, and
+the failure is a PVC that stays `Pending` with nothing obviously wrong.
+
+### 5. Connect
+
+```bash
+aws eks update-kubeconfig --name platform --region us-east-1
+kubectl get nodes
 ```
 
 ---
 
-## Steps
+## Two permission systems, not one
 
-### Step 1: Deploy EKS Cluster (~15-20 Minutes Creation Time)
-```bash
-cd 01-Infrastructure-Terraform/Lab05-EKS-Cluster-Provisioning
-terraform init
-terraform apply -auto-approve
+This is the part worth slowing down for, because the error message is
+unhelpful.
+
+```text
+IAM          ->  may you call the EKS API? (DescribeCluster, ListClusters)
+EKS access   ->  may you call the KUBERNETES API? (get pods, create deploy)
 ```
 
-### Step 2: Configure Local `kubectl` Context
-```bash
-aws eks update-kubeconfig --name nti-devops-eks --region us-east-1
+`update-kubeconfig` only needs the first. It writes a file. Getting a
+kubeconfig therefore tells you **nothing** about whether `kubectl` will work,
+and the failure appears one command later as:
+
+```text
+error: You must be logged in to the server (Unauthorized)
 ```
+
+Grant the second explicitly:
+
+```bash
+aws eks create-access-entry --cluster-name platform \
+  --principal-arn arn:aws:iam::111122223333:role/deployer \
+  --type STANDARD
+
+aws eks associate-access-policy --cluster-name platform \
+  --principal-arn arn:aws:iam::111122223333:role/deployer \
+  --access-scope type=namespace,namespaces=production \
+  --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy
+```
+
+On clusters older than 1.23 this is the `aws-auth` ConfigMap instead — the same
+idea with a much worse failure mode, since a malformed edit locks everyone out
+including you.
 
 ---
 
 ## Verify it worked
 
 ```bash
-kubectl get nodes
+# Nodes are Ready, and in private subnets
+kubectl get nodes -o wide
+aws ec2 describe-instances --filters "Name=tag:eks:cluster-name,Values=platform" \
+  --query 'Reservations[].Instances[].[InstanceId,PrivateIpAddress,PublicIpAddress]' --output table
+# the PublicIpAddress column must be empty
+
+# The OIDC provider exists and matches the cluster issuer
+aws eks describe-cluster --name platform --query 'cluster.identity.oidc.issuer'
+aws iam list-open-id-connect-providers
+
+# Secrets are encrypted with your key
+aws eks describe-cluster --name platform --query 'cluster.encryptionConfig'
+
+# Something actually schedules
+kubectl run smoke --image=nginx:alpine --restart=Never
+kubectl wait --for=condition=Ready pod/smoke --timeout=90s && kubectl delete pod smoke
 ```
 
-**Expected Output:**
-```text
-NAME                             STATUS   ROLES    AGE     VERSION
-ip-10-0-10-42.ec2.internal       Ready    <none>   3m20s   v1.34.0
-ip-10-0-11-89.ec2.internal       Ready    <none>   3m18s   v1.34.0
-```
+That last one is the real test. Nodes reporting `Ready` and a Pod actually
+running are different claims — a broken CNI gives you the first without the
+second.
 
 ---
+
+## When it goes wrong
+
+**`You must be logged in to the server (Unauthorized)`**
+
+IAM let you describe the cluster; Kubernetes has not authorised you. Add an
+access entry, or check `aws sts get-caller-identity` matches the principal you
+granted — assuming a role changes who you are.
+
+**Nodes never reach Ready**
+
+They cannot reach the control plane endpoint or pull the CNI image. In private
+subnets that means the NAT Gateway or the route table.
+`kubectl describe node` and the EC2 system log say which.
+
+**Pods stay `Pending` with `no nodes available`**
+
+The node group scaled to zero, or a taint you did not add is present. Managed
+node groups taint nodes during an upgrade.
+
+**PVCs stay `Pending`**
+
+`aws-ebs-csi-driver` is not installed, or its ServiceAccount has no IRSA role.
+
+**`terraform apply` shrinks the cluster after autoscaling**
+
+`desired_size` is being managed by both Terraform and the autoscaler. Add
+`ignore_changes`.
+
+**Destroy hangs on the VPC**
+
+Kubernetes created load balancers and ENIs that Terraform does not know about.
+Delete Services of type LoadBalancer and Ingresses first.
 
 ---
 
 ## Clean up
 
-Run this even if you did not finish. Everything above is destroyable, and an
-account full of half-built experiments is how a surprise bill starts.
-
 ```bash
+kubectl delete svc --all-namespaces --field-selector spec.type=LoadBalancer
+kubectl delete ingress --all -A
 terraform destroy -auto-approve
-# The control plane is the expensive part. Confirm no cluster survives:
-aws eks list-clusters --query 'clusters'
-# Node groups can outlive a failed destroy:
-aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].[InstanceId,InstanceType]' --output table
-# And load balancers created by Kubernetes Services are not in Terraform state:
-aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerArn'
+aws eks list-clusters
 ```
 
-**Cost of this lab:** **Billable, and never free.** An EKS control plane is $0.10/hour (~$73/month) from the moment it exists, with no free tier — plus the node group's EC2 instances and any NAT Gateway. Budget a few dollars for an afternoon, and destroy the cluster the same day.
+**Cost of this lab:** **Billable.** The EKS control plane is $0.10/hour
+(~$73/month) whether or not anything runs on it, plus two `t3.medium` nodes at
+about $0.08/hour together. Destroy it the moment you finish.

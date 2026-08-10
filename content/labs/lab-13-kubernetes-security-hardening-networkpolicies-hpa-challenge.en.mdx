@@ -17,10 +17,10 @@ cleanup:
   - "kubectl delete hpa --all -A"
   - "kubectl get nodes  # confirm the HPA did not leave extra nodes running"
 successCriteria:
-  - "Implement zero-trust network isolation using Kubernetes NetworkPolicy (networkpolicy.yaml)."
-  - "Enforce strict default-deny rules while selectively allowing ingress traffic on Port 8000 and egress database connections on Port 5432."
-  - "Configure HorizontalPodAutoscaler (horizontalpodautoscaler.yaml) to automatically scale pod replicas between 2 and 6 when CPU or Memory utilization exceeds 80%."
-  - "Perform a simulated load test to verify real-time HPA pod scaling."
+  - "With default-deny applied, an unrelated Pod cannot reach the application — demonstrated."
+  - "The application still reaches the database and DNS."
+  - "The HPA scales up under load and back down afterwards."
+  - "You can explain why a NetworkPolicy sometimes does nothing at all."
 guidedLabId: lab-13-kubernetes-security-hardening-networkpolicies-hpa
 authors: [waleed]
 updated: 2026-08-09

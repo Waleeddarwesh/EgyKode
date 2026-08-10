@@ -17,99 +17,237 @@ cleanup:
   - "aws ecr list-images --repository-name <repo> --query 'imageIds[].imageTag'"
   - "aws ecr batch-delete-image --repository-name <repo> --image-ids imageTag=<tag>"
 successCriteria:
-  - "Write declarative Jenkinsfile multibranch pipeline script with 6 automated stages."
-  - "Integrate SonarQube static code quality analysis and quality gate checks (sonar-project.properties)."
-  - "Integrate Trivy container security scanner (trivy.yaml, .trivyignore) to block images with HIGH or CRITICAL vulnerabilities."
-  - "Automate Amazon ECR login, image tagging, and zero-downtime Helm rolling deployments on EKS."
+  - "A commit builds, tests, scans and deploys with no manual step."
+  - "A deliberately vulnerable image fails the build and is never pushed."
+  - "A quality gate failure fails the pipeline — demonstrated, not assumed."
+  - "The pipeline fails when the rollout does not complete."
 challengeId: lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy-challenge
-sourceFile: "NTI Final Project/06-CICD-Jenkins-Pipeline/Lab16-Jenkins-Pipeline-Sonar-Trivy/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+The pipeline is green. It is also building `latest`, pushing before it scans, and finishing the moment `kubectl set image` returns — so a deploy that never becomes ready reports success.
+
+A gate that reports instead of blocking is a dashboard, not a gate.
 
 ## What you are building
 
-### What is an Automated Enterprise CI/CD Pipeline?
-Continuous Integration and Continuous Delivery (CI/CD) automates software delivery stages from initial developer code check-in to production deployment on EKS:
-
-1. **Checkout & Unit Testing**: Fetches code from GitHub and runs Pytest unit tests.
-2. **SonarQube Quality Gate**: Executes static code analysis to detect bugs, code smells, and security vulnerabilities. Blocks deployment if quality thresholds fail.
-3. **Docker Multi-Stage Build**: Compiles application image.
-4. **Trivy Vulnerability Scan**: Scans container layers for OS and dependency CVE vulnerabilities. Fails build if `CRITICAL` issues exist.
-5. **Amazon ECR Push**: Tags image with Git SHA and `latest`, pushing artifact to ECR.
-6. **Helm EKS Deployment**: Triggers rolling update on EKS via Helm.
-
 ```text
-                                AUTOMATED MULTIBRANCH CI/CD PIPELINE
-                                
-  Developer (git push)
-         |
-         | GitHub Webhook Trigger
-         v
-  +-----------------------------------------------------------------------------------+
-  |  JENKINS MULTIBRANCH PIPELINE (Jenkinsfile)                                       |
-  |                                                                                   |
-  |  [ Stage 1: Checkout Code ]                                                       |
-  |           |                                                                       |
-  |           v                                                                       |
-  |  [ Stage 2: Pytest Unit Tests ]                                                   |
-  |           |                                                                       |
-  |           v                                                                       |
-  |  [ Stage 3: SonarQube Static Analysis & Quality Gate ]                            |
-  |           | (Quality Gate Passed )                                                |
-  |           v                                                                       |
-  |  [ Stage 4: Multi-Stage Docker Build & Trivy CVE Security Scan ]                  |
-  |           | (Zero CRITICAL CVEs )                                                 |
-  |           v                                                                       |
-  |  [ Stage 5: Tag & Push Container Image to Amazon ECR ]                            |
-  |           |                                                                       |
-  |           v                                                                       |
-  |  [ Stage 6: Helm Upgrade Rolling Deployment to Amazon EKS ]                       |
-  +-----------------------------------------------------------------------------------+
+  checkout -> unit tests -> SonarQube gate -> build image -> Trivy scan
+                                                                |
+                                        CRITICAL+fixable? ------+--> FAIL, no push
+                                                                |
+                                                                v
+                                                    push to ECR -> deploy -> wait
 ```
+
+**Order is the design.** Scan **before** the push, because scanning afterwards
+means the vulnerable image is already in the registry and someone can pull it.
+Cheap checks first, so an expensive scan only runs on code that compiles.
 
 ---
 
-## Steps
+## Build it
 
-### Step 1: Push Code to GitHub Repository
-```bash
-git add .
-git commit -m "feat: trigger enterprise multibranch CI/CD pipeline"
-git push origin main
+### 1. The Jenkinsfile
+
+```groovy
+pipeline {
+  agent any
+
+  environment {
+    REGISTRY = "111122223333.dkr.ecr.us-east-1.amazonaws.com"
+    IMAGE    = "platform/api"
+    TAG      = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
+  }
+
+  options {
+    timeout(time: 30, unit: 'MINUTES')
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '30'))
+  }
+
+  stages {
+    stage('Unit tests') {
+      steps {
+        sh 'docker run --rm -v "$PWD":/src -w /src python:3.12-slim sh -c "pip install -q -r requirements.txt && pytest -q --junitxml=report.xml"'
+      }
+      post { always { junit 'report.xml' } }
+    }
+
+    stage('SonarQube') {
+      steps {
+        withSonarQubeEnv('sonarqube') {
+          sh 'sonar-scanner -Dsonar.projectKey=platform-api'
+        }
+      }
+    }
+
+    stage('Quality gate') {
+      steps {
+        timeout(time: 10, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: true      // <- the gate
+        }
+      }
+    }
+
+    stage('Build') {
+      steps { sh 'docker build -t "$REGISTRY/$IMAGE:$TAG" .' }
+    }
+
+    stage('Scan') {
+      steps {
+        sh '''
+          trivy image             --severity HIGH,CRITICAL             --ignore-unfixed             --exit-code 1             --format table             "$REGISTRY/$IMAGE:$TAG"
+        '''
+      }
+    }
+
+    stage('Push') {
+      steps {
+        sh '''
+          aws ecr get-login-password --region us-east-1             | docker login --username AWS --password-stdin "$REGISTRY"
+          docker push "$REGISTRY/$IMAGE:$TAG"
+        '''
+      }
+    }
+
+    stage('Deploy') {
+      steps {
+        sh '''
+          aws eks update-kubeconfig --name platform --region us-east-1
+          helm upgrade --install api ./chart -n platform             --set image.tag="$TAG" --atomic --wait --timeout 5m
+          kubectl rollout status deploy/api -n platform --timeout=5m
+        '''
+      }
+    }
+  }
+
+  post {
+    always  { sh 'docker rmi "$REGISTRY/$IMAGE:$TAG" || true' }
+    failure { echo "Build ${env.BUILD_NUMBER} failed at ${env.STAGE_NAME}" }
+  }
+}
 ```
 
-### Step 2: Verify EKS Deployment Rollout Status
-```bash
-kubectl rollout status deployment/nti-django-app -n nti-devops
+Four details that separate this from a pipeline that only looks finished:
+
+- **`abortPipeline: true`** is what makes the quality gate a gate. Without it,
+  Sonar reports and the build continues.
+- **`--exit-code 1`** is the same idea for Trivy. Without it the scan prints a
+  table nobody reads.
+- **`--ignore-unfixed`** keeps the gate actionable. Failing on a CVE with no
+  available patch gives the team no move except to disable the check, which is
+  how gates die.
+- **`--atomic --wait` plus `rollout status --timeout`** is what makes the
+  pipeline fail when the deploy fails. `helm upgrade` alone returns as soon as
+  the API accepts the manifest.
+
+### 2. Credentials the pipeline never stores
+
+```groovy
+// Avoid this:
+withCredentials([string(credentialsId: 'aws-key', variable: 'AWS_SECRET')]) { ... }
 ```
+
+The Jenkins host runs with an **IAM instance profile**, so `aws` and `docker
+login` work with no stored key at all. A credential that does not exist cannot
+leak from the credential store.
+
+### 3. Multibranch: the same file, different behaviour
+
+```groovy
+    stage('Deploy') {
+      when { branch 'main' }
+      steps { ... }
+    }
+```
+
+A multibranch job discovers every branch and runs its `Jenkinsfile`. Feature
+branches get tests, Sonar and a scan; only `main` deploys. One file, and the
+policy is visible in it rather than living in job configuration nobody can
+review.
 
 ---
 
 ## Verify it worked
 
 ```bash
-kubectl rollout status deployment/nti-django-app -n nti-devops
+# The image was tagged by commit, never latest
+aws ecr describe-images --repository-name platform/api \
+  --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags'
+
+# The running image matches what the pipeline pushed
+kubectl get deploy api -n platform \
+  -o jsonpath='{.spec.template.spec.containers[0].image}'
 ```
 
-**Expected Output:**
-```text
-deployment "nti-django-app" successfully rolled out
+**Prove each gate blocks, rather than trusting it:**
+
+```bash
+# 1. A knowingly vulnerable base — the build must FAIL at Scan, with no push
+echo "FROM debian:10" > Dockerfile.vuln
+docker build -f Dockerfile.vuln -t probe:vuln .
+trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 probe:vuln
+echo "exit=$?"     # 1
+
+# 2. The image must NOT be in the registry after a failed build
+aws ecr describe-images --repository-name platform/api \
+  --query 'imageDetails[].imageTags' | grep vuln || echo "never pushed — correct"
+
+# 3. Break the quality gate deliberately and confirm the pipeline stops
+#    (add a blocker-level issue, or lower the gate threshold in SonarQube)
 ```
+
+A gate you have never seen fail is a gate you cannot claim works.
 
 ---
+
+## When it goes wrong
+
+**`waitForQualityGate` hangs until the timeout**
+
+SonarQube cannot reach Jenkins to post the webhook. Configure the webhook in
+SonarQube, pointing at `<jenkins>/sonarqube-webhook/`.
+
+**Trivy fails every build after a while**
+
+New CVEs are published against a base image that has not moved. Pin and update
+the base deliberately, and keep `--ignore-unfixed` so the gate stays
+actionable.
+
+**`no basic auth credentials` on push**
+
+The ECR token expired — they last 12 hours. `get-login-password` must be a
+pipeline step, not something a human ran once.
+
+**The pipeline is green and nothing deployed**
+
+`kubectl set image` or `helm upgrade` returned immediately. Add
+`rollout status --timeout` and `--atomic --wait`.
+
+**`You must be logged in to the server`**
+
+IAM let you fetch a kubeconfig; EKS has not authorised the principal. Add an
+access entry for the Jenkins instance role.
+
+**Two builds of the same branch corrupt each other**
+
+`disableConcurrentBuilds()`.
 
 ---
 
 ## Clean up
 
-Run this even if you did not finish. Everything above is destroyable, and an
-account full of half-built experiments is how a surprise bill starts.
-
 ```bash
-terraform destroy -auto-approve
-aws ecr list-images --repository-name <repo> --query 'imageIds[].imageTag'
-aws ecr batch-delete-image --repository-name <repo> --image-ids imageTag=<tag>
+docker image prune -af
+aws ecr list-images --repository-name platform/api --filter tagStatus=UNTAGGED \
+  --query 'imageIds[]' --output json > /tmp/untagged.json
+aws ecr batch-delete-image --repository-name platform/api --image-ids file:///tmp/untagged.json
 ```
 
-**Cost of this lab:** Free tier for the Jenkins instance itself; SonarQube wants ~2 GB of RAM, so a `t3.small` (~$15/month) is realistic. ECR storage for the images the pipeline pushes is inside the free tier at this scale.
+**Cost of this lab:** **Low.** The Jenkins host and the cluster bill anyway.
+ECR storage is $0.10/GB-month, which is why the lifecycle policy from the ECR
+lab matters.

@@ -18,81 +18,200 @@ cleanup:
   - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].[LoadBalancerName,State.Code]' --output table"
   - "# An orphaned ALB keeps billing after the cluster is destroyed."
 successCriteria:
-  - "Create Kubernetes Ingress manifest ingress.yaml with AWS ALB annotations."
-  - "Configure path-based routing rules and target-type IP mode (alb.ingress.kubernetes.io/target-type: ip)."
-  - "Verify automatic provision of AWS Application Load Balancer."
+  - "A real ALB is provisioned from a Kubernetes manifest, and you can find it in the AWS console."
+  - "Path-based routing sends two paths to two different Services."
+  - "You can explain what `target-type: ip` changes, and why it matters here."
+  - "Deleting the Ingress removes the ALB — verified, not assumed."
 challengeId: lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr-challenge
-sourceFile: "NTI Final Project/04-Kubernetes-Orchestration/Lab12-K8s-Ingress-ALB-Controller/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+Each service was exposed with `type: LoadBalancer`, so there are six load balancers, six DNS names and six monthly charges for one application.
+
+One entry point, routed by path, is the fix — and the mechanism that creates it is worth understanding, because when it silently does nothing there is no error anywhere.
 
 ## What you are building
 
-### What is Kubernetes Ingress & AWS Load Balancer Controller?
-- **Kubernetes Ingress**: An API object managing external HTTP/HTTPS access to services within a cluster.
-- **AWS Load Balancer Controller (LBC)**: An operator running inside EKS that monitors Ingress resources and automatically provisions AWS Application Load Balancers (ALB), Target Groups, and Listener rules on AWS.
-
 ```text
-                                INGRESS ROUTING ARCHITECTURE
-                                
-  Client Request (HTTP / Port 80)
-         |
-         v
-  +-----------------------------------------------------------------------------------+
-  |  AWS APPLICATION LOAD BALANCER (Provisioned automatically by AWS LBC)             |
-  +----------------------------------------+------------------------------------------+
-                                           |
-                                           | Direct Target Group Routing (target-type: ip)
-                                           v
-  +-----------------------------------------------------------------------------------+
-  |  AWS EKS CLUSTER (Private Subnets)                                                |
-  |  Pods receive incoming traffic directly via Amazon VPC CNI                        |
-  |                                                                                   |
-  |  +-------------------------------+     +---------------------------------+        |
-  |  | Pod 1 (IP: 10.0.10.42:8000)   |     | Pod 2 (IP: 10.0.11.89:8000)     |        |
-  |  +-------------------------------+     +---------------------------------+        |
-  +-----------------------------------------------------------------------------------+
+   Internet
+      |  one DNS name, one certificate
+      v
+   Application Load Balancer          <- created BY the controller, from your manifest
+      |  /api -> target group 1
+      |  /    -> target group 2
+      v
+   Pod IPs directly (target-type: ip)
 ```
+
+**The Ingress object does nothing on its own.** It is configuration waiting for
+a controller. Without one, `kubectl apply` succeeds, `kubectl get ingress`
+shows the object, `ADDRESS` stays empty forever and nothing anywhere reports an
+error. That silence is the single most confusing failure in Kubernetes
+networking, and knowing to check for the controller first saves hours.
 
 ---
 
-## Steps
+## Build it
 
-### Step 1: Apply Ingress Resource
+### 1. The controller, and its AWS identity
+
 ```bash
-cd 04-Kubernetes-Orchestration/Lab12-K8s-Ingress-ALB-Controller
-kubectl apply -f ingress.yaml
+helm repo add eks https://aws.github.io/eks-charts
+helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=platform \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller
 ```
+
+The controller creates ALBs, target groups and listener rules in **your AWS
+account**, so it needs IAM permissions — through IRSA, not the node role:
+
+```bash
+kubectl annotate serviceaccount aws-load-balancer-controller -n kube-system \
+  eks.amazonaws.com/role-arn=arn:aws:iam::111122223333:role/alb-controller
+```
+
+### 2. Subnets must be tagged, or nothing happens
+
+```bash
+aws ec2 create-tags --resources subnet-0abc subnet-0def \
+  --tags Key=kubernetes.io/role/elb,Value=1                 # public: internet-facing
+
+aws ec2 create-tags --resources subnet-0ghi subnet-0jkl \
+  --tags Key=kubernetes.io/role/internal-elb,Value=1        # private: internal
+```
+
+This is how the controller discovers where to place the load balancer. Missing
+tags produce `unable to discover at least one subnet` in the controller log and
+nothing at all on the Ingress — which is why the controller log is the first
+place to look, not the last.
+
+### 3. The Ingress
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: platform
+  namespace: platform
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:111122223333:certificate/abc
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/group.name: platform      # share ONE ALB
+spec:
+  ingressClassName: alb
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service: { name: api, port: { number: 80 } }
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: web, port: { number: 80 } }
+```
+
+Three annotations that change behaviour rather than decorate it:
+
+- **`target-type: ip`** registers **Pod IPs** in the target group. The
+  alternative, `instance`, registers nodes and relies on a NodePort, adding a
+  kube-proxy hop and losing the client IP. With the VPC CNI giving Pods real
+  VPC addresses, `ip` is the better default — and it is required for Fargate.
+- **`group.name`** lets several Ingress objects share one ALB. Without it every
+  Ingress gets its own, and you have recreated the problem this lab exists to
+  solve.
+- **`ssl-redirect`** is enforced at the load balancer, so no request reaches
+  your application over plain HTTP.
+
+**Rules are evaluated in order and the first match wins.** Putting `/` before
+`/api` swallows everything, and the symptom is the wrong service answering
+rather than an error.
 
 ---
 
 ## Verify it worked
 
 ```bash
-kubectl get ingress -n nti-devops
+# The ALB was created, and Kubernetes knows its address
+kubectl get ingress -n platform
+aws elbv2 describe-load-balancers \
+  --query 'LoadBalancers[?contains(LoadBalancerName,`platform`)].[DNSName,Scheme,State.Code]' --output table
+
+# Targets are Pod IPs, and they are healthy
+aws elbv2 describe-target-health --target-group-arn <arn> \
+  --query 'TargetHealthDescriptions[].[Target.Id,TargetHealth.State]' --output table
+kubectl get pods -n platform -o wide      # the same addresses
+
+# Both paths route where you intended
+curl -s -o /dev/null -w '%{http_code} ' https://app.example.com/api/health
+curl -s -o /dev/null -w '%{http_code}\n' https://app.example.com/
+
+# HTTP is redirected, not served
+curl -sI http://app.example.com/ | head -2      # 301 to https
+
+# Deleting the Ingress removes the ALB
+kubectl delete ingress platform -n platform
+aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName'
 ```
 
-**Expected Output:**
-```text
-NAME                 CLASS   HOSTS   ADDRESS                                                                  PORTS   AGE
-nti-django-ingress   alb     *       k8s-ntidevops-ntidjang-a1b2c3d4e5-123456789.us-east-1.elb.amazonaws.com   80      2m
-```
+That last check is not ceremony. An ALB that outlives its Ingress keeps billing
+and its ENIs block the VPC from being destroyed later.
 
 ---
+
+## When it goes wrong
+
+**`ADDRESS` stays empty**
+
+Read the controller: `kubectl logs -n kube-system deploy/aws-load-balancer-controller`.
+Almost always missing subnet tags, missing IRSA permissions, or a
+`ingressClassName` no controller is watching.
+
+**`unable to discover at least one subnet`**
+
+The `kubernetes.io/role/elb` tags. Both the tag and a subnet in at least two
+AZs are required.
+
+**Targets are `unhealthy` but the Pods are Ready**
+
+The ALB health check path differs from the readiness probe path, or the
+security group does not allow the ALB to reach the Pod port. These are separate
+health checks and they can disagree.
+
+**502 from the ALB**
+
+There are healthy targets and the application refused the connection — usually
+the container listening on `127.0.0.1` rather than `0.0.0.0`, or the wrong
+`targetPort`.
+
+**404 from the ALB**
+
+No rule matched. Check the `Host` header and rule order.
+
+**`terraform destroy` hangs on the VPC**
+
+The ALB still exists because the Ingress was never deleted. Its ENIs hold the
+subnets.
 
 ---
 
 ## Clean up
 
-Run this even if you did not finish. Everything above is destroyable, and an
-account full of half-built experiments is how a surprise bill starts.
-
 ```bash
-kubectl delete ingress --all -A
-# The ALB is deleted by the controller, asynchronously. Confirm it is gone:
+kubectl delete ingress --all -n platform
 aws elbv2 describe-load-balancers --query 'LoadBalancers[].[LoadBalancerName,State.Code]' --output table
-# An orphaned ALB keeps billing after the cluster is destroyed.
 ```
 
-**Cost of this lab:** **Billable.** An Ingress backed by the AWS Load Balancer Controller creates a real ALB at ~$0.0225/hour (~$16/month) plus LCU charges — and it is created by Kubernetes, so `terraform destroy` will not remove it.
+**Cost of this lab:** **Billable.** An ALB is about $0.0225/hour (~$17/month)
+plus capacity units, and it keeps billing until the Ingress is deleted.

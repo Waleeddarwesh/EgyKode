@@ -19,9 +19,10 @@ cleanup:
   - "# Unattached EBS volumes are billed per GB-month:"
   - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
 successCriteria:
-  - "Provision IAM Role for AWS Load Balancer Controller using Terraform IRSA module (irsa/lbc-irsa.tf)."
-  - "Deploy Metrics Server add-on via Helm (releases/metrics-server-values.yaml)."
-  - "Deploy AWS Load Balancer Controller add-on via Helm (releases/aws-load-balancer-controller-values.yaml)."
+  - "A controller calls the AWS API using its own IAM role, not the node's."
+  - "`aws sts get-caller-identity` from inside the Pod returns the IRSA role."
+  - "A Pod without the annotation is refused the same action — demonstrated."
+  - "metrics-server works, so `kubectl top` and HPAs have a metric."
 guidedLabId: lab-15-managing-eks-cluster-add-ons-with-helm-irsa
 authors: [waleed]
 updated: 2026-08-09

@@ -17,10 +17,10 @@ cleanup:
   - "aws ecr list-images --repository-name <repo> --query 'imageIds[].imageTag'"
   - "aws ecr batch-delete-image --repository-name <repo> --image-ids imageTag=<tag>"
 successCriteria:
-  - "Write declarative Jenkinsfile multibranch pipeline script with 6 automated stages."
-  - "Integrate SonarQube static code quality analysis and quality gate checks (sonar-project.properties)."
-  - "Integrate Trivy container security scanner (trivy.yaml, .trivyignore) to block images with HIGH or CRITICAL vulnerabilities."
-  - "Automate Amazon ECR login, image tagging, and zero-downtime Helm rolling deployments on EKS."
+  - "A commit builds, tests, scans and deploys with no manual step."
+  - "A deliberately vulnerable image fails the build and is never pushed."
+  - "A quality gate failure fails the pipeline — demonstrated, not assumed."
+  - "The pipeline fails when the rollout does not complete."
 guidedLabId: lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy
 authors: [waleed]
 updated: 2026-08-09

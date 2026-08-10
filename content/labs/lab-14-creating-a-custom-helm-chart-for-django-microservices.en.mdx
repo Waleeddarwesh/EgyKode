@@ -16,98 +16,257 @@ cleanup:
   - "helm uninstall <release> -n <namespace>"
   - "kubectl get all -n <namespace>"
 successCriteria:
-  - "Build a production-grade custom Helm Chart directory structure under myapp/."
-  - "Parameterize deployment.yaml, service.yaml, ingress.yaml, configmap.yaml, secret.yaml, networkpolicy.yaml, and hpa.yaml."
-  - "Define template helper functions in templates/_helpers.tpl."
-  - "Perform chart linting (helm lint), dry-run rendering (helm template), installation (helm install), and release upgrades (helm upgrade)."
+  - "One chart installs into two environments with different values and no edited templates."
+  - "`helm template` renders correct YAML before anything touches the cluster."
+  - "A config change causes a rollout, rather than mutating Pods that never restart."
+  - "`helm lint` and a rendered dry run both pass in CI."
 challengeId: lab-14-creating-a-custom-helm-chart-for-django-microservices-challenge
-sourceFile: "NTI Final Project/05-Helm-Package-Management/Lab14-Custom-Helm-Chart-App/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+There are three directories of manifests — dev, staging and prod — that started identical and are not any more. Nobody can say what differs except by diffing them, and the diff is 400 lines because the namespaces and image tags are on every file.
 
 ## What you are building
 
-### What is Helm & Helm Charts?
-**Helm** is the official package manager for Kubernetes (equivalent to `apt` on Ubuntu or `pip` on Python). Managing dozens of raw static Kubernetes YAML manifests across different environments (Development, Staging, Production) leads to code duplication and configuration drift.
-
-A **Helm Chart** is a structured directory package containing Go-template files parameterized by a single configuration file: `values.yaml`.
-
-- **Chart.yaml**: Contains metadata (Chart Name, Version, AppVersion, Description).
-- **values.yaml**: Default configuration variables (image repository, tag, replica count, ingress host, secret keys).
-- **templates/**: Go-templated Kubernetes manifests rendered dynamically at release time.
-- **_helpers.tpl**: Reusable partial template functions (naming conventions, common labels).
-
 ```text
-                                  HELM CHART ARCHITECTURE
-                                  
-  +----------------------------------+          +----------------------------------+
-  |    VALUES FILE (values.yaml)     |          |   TEMPLATES (templates/*.yaml)   |
-  |  replicaCount: 2                 |          |  replicas: {{ .Values.replica }} |
-  |  image:                          | +======> |  image: {{ .Values.image.repo }} |
-  |    repository: ecr-repo-url      |          |  ...                             |
-  |    tag: "1.0.0"                  |          +-----------------+----------------+
-  +----------------------------------+                            |
-                                                                  | Render Engine
-                                                                  v
-                                                +----------------------------------+
-                                                |  DYNAMIC MANIFESTS APPLIED TO    |
-                                                |  AWS EKS CLUSTER (RELEASE)       |
-                                                +----------------------------------+
+  myapp/
+    Chart.yaml            name, version, appVersion
+    values.yaml           the defaults, and the documented interface
+    values-prod.yaml      only what production differs by
+    templates/
+      _helpers.tpl        names and labels, defined once
+      deployment.yaml
+      service.yaml
+      ingress.yaml
+      configmap.yaml
+      hpa.yaml
+      NOTES.txt           printed after install
 ```
+
+A chart is a package plus a **template engine plus a release**. The last part
+is what people underuse: Helm remembers what it installed, so upgrade, rollback
+and diff are possible. `kubectl apply -f` has no memory of what it applied.
 
 ---
 
-## Steps
+## Build it
 
-### Step 1: Lint Helm Chart Syntax
-```bash
-cd 05-Helm-Package-Management/Lab14-Custom-Helm-Chart-App
-helm lint myapp/
-```
-*Expected Output:* `1 chart(s) linted, 0 chart(s) failed`
+### 1. `Chart.yaml`
 
-### Step 2: Dry-Run Template Rendering
-```bash
-helm template myapp myapp/ --debug
-```
-
-### Step 3: Install Helm Release to EKS
-```bash
-helm install myapp myapp/ -n nti-devops
+```yaml
+apiVersion: v2
+name: myapp
+description: The platform application
+type: application
+version: 0.3.0            # the CHART version — bump on template changes
+appVersion: "1.4.2"       # the APPLICATION version — the image tag
 ```
 
-### Step 4: Upgrade Release with Custom Image Tag
-```bash
-helm upgrade myapp myapp/ -n nti-devops --set image.tag="v2.0.0"
+Two versions because they change for different reasons. Editing a template
+without bumping `version` means two different charts share a number, and
+`helm history` stops being able to tell you what ran.
+
+### 2. Helpers, so names are defined once
+
+```yaml
+{{/* templates/_helpers.tpl */}}
+{{- define "myapp.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "myapp.fullname" -}}
+{{- printf "%s-%s" .Release.Name (include "myapp.name" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "myapp.labels" -}}
+helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
+app.kubernetes.io/name: {{ include "myapp.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+
+{{- define "myapp.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "myapp.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
 ```
+
+**Selector labels are a separate helper on purpose.** A Deployment's
+`spec.selector` is immutable after creation, so it must not include
+`app.kubernetes.io/version` or the chart version — the next `appVersion` bump
+would try to change an immutable field and the upgrade fails with a message
+that does not mention labels.
+
+`trunc 63` is not decoration either: Kubernetes label values are limited to 63
+characters, and a long release name silently produces an invalid object.
+
+### 3. A template
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "myapp.fullname" . }}
+  labels: {{- include "myapp.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "myapp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        # Roll the Pods when the config changes. Without this the ConfigMap is
+        # updated and the running Pods keep the old values indefinitely.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels: {{- include "myapp.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "myapp.fullname" . }}-config
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.probes }}
+          readinessProbe: {{- toYaml .readiness | nindent 12 }}
+          livenessProbe: {{- toYaml .liveness | nindent 12 }}
+          {{- end }}
+```
+
+The `checksum/config` annotation is the idiom worth memorising. Editing a
+ConfigMap through Helm changes the object and **does not restart anything** —
+so a config change appears to deploy and takes effect at some unpredictable
+future restart. Hashing the rendered ConfigMap into the Pod template makes the
+Pod spec change, which makes it a rollout.
+
+`{{- if not .Values.autoscaling.enabled }}` around `replicas` matters once an
+HPA exists: leaving `replicas` in the manifest makes Helm and the HPA fight,
+and each `helm upgrade` resets the count.
+
+### 4. `values.yaml` is the interface
+
+```yaml
+replicaCount: 2
+
+image:
+  repository: registry.example.com/api
+  tag: ""                       # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits:   { cpu: 500m, memory: 256Mi }
+
+probes:
+  readiness:
+    httpGet: { path: /healthz, port: 8000 }
+    periodSeconds: 5
+  liveness:
+    httpGet: { path: /healthz, port: 8000 }
+    periodSeconds: 10
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+ingress:
+  enabled: false
+  className: alb
+  hosts: []
+```
+
+```yaml
+# values-prod.yaml — only the differences
+replicaCount: 4
+autoscaling: { enabled: true, maxReplicas: 12 }
+ingress:
+  enabled: true
+  hosts: ["app.example.com"]
+resources:
+  requests: { cpu: 500m, memory: 512Mi }
+  limits:   { cpu: "2", memory: 1Gi }
+```
+
+### 5. Render before you install
+
+```bash
+helm lint ./myapp
+helm template rel ./myapp -f myapp/values-prod.yaml | kubectl apply --dry-run=server -f -
+helm install rel ./myapp -n platform --create-namespace -f myapp/values-prod.yaml --atomic --wait
+```
+
+`helm template` renders locally with no cluster involved, so it is the fast
+check; piping it to `--dry-run=server` adds validation against the real API,
+including admission webhooks. Both belong in CI.
 
 ---
 
 ## Verify it worked
 
 ```bash
-helm list -n nti-devops
-```
+# Same chart, different environments, no edited templates
+helm template rel ./myapp | grep -c "replicas: 2"
+helm template rel ./myapp -f myapp/values-prod.yaml | grep -c "replicas: 4"
 
-**Expected Output:**
-```text
-NAME    NAMESPACE   REVISION    UPDATED                                 STATUS      CHART       APP VERSION
-myapp   nti-devops  2           2026-07-27 00:00:00.000000000 +0000 UTC deployed    myapp-0.1.0 1.0.0
+# What the release is ACTUALLY running, not what the file says
+helm get values rel -n platform
+helm get manifest rel -n platform | head -30
+
+# A config change produces a rollout
+kubectl get pods -n platform -o name > /tmp/before
+helm upgrade rel ./myapp -n platform --set config.LOG_LEVEL=debug --atomic --wait
+kubectl get pods -n platform -o name > /tmp/after
+diff /tmp/before /tmp/after && echo "NO ROLLOUT — checksum annotation missing" || echo "rolled — correct"
+
+helm history rel -n platform
 ```
 
 ---
+
+## When it goes wrong
+
+**`field is immutable` on upgrade**
+
+The Deployment selector changed, usually because a version label leaked into
+`selectorLabels`. Selectors cannot be edited; the release must be uninstalled
+and reinstalled.
+
+**A ConfigMap change did nothing**
+
+The `checksum/config` annotation is missing. The object updated; no Pod
+restarted.
+
+**`nindent` produces broken YAML**
+
+Indentation is counted from column zero. `nindent 4` adds a newline then
+indents by 4 — `indent` does not add the newline. Rendering with
+`helm template` shows it immediately.
+
+**Values from a previous release reappear**
+
+`--reuse-values` carries them forward. Use an explicit values file every time.
+
+**`helm lint` passes and the install fails**
+
+`lint` checks the chart, not the cluster. Add `--dry-run=server`, which runs
+admission control.
 
 ---
 
 ## Clean up
 
-Run this even if you did not finish. Everything above is destroyable, and an
-account full of half-built experiments is how a surprise bill starts.
-
 ```bash
-helm uninstall <release> -n <namespace>
-kubectl get all -n <namespace>
+helm uninstall rel -n platform
+kubectl delete namespace platform
 ```
 
-**Cost of this lab:** **Depends on an existing cluster.** Helm itself is free; the workloads it installs consume cluster capacity.
+**Cost of this lab:** Free on kind or minikube.

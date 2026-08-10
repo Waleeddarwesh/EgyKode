@@ -16,28 +16,179 @@ cleanup:
   - "kubectl delete prometheusrule --all -n monitoring"
   - "kubectl delete configmap -l grafana_dashboard -n monitoring"
 successCriteria:
-  - "Step 1: Apply Alert Rules & ServiceMonitor"
+  - "An alert you wrote moves from inactive to pending to firing, and you caused it."
+  - "The alert carries a runbook link and enough context to act on without opening a dashboard."
+  - "A dashboard shows request rate, error rate and latency for your service."
+  - "You can explain what `for:` does and why removing it produces pager noise."
 challengeId: lab-18-custom-prometheus-alert-rules-grafana-dashboards-challenge
-sourceFile: "NTI Final Project/07-Monitoring-Observability/Lab18-Alerts-Grafana-Dashboards/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+Prometheus is collecting metrics nobody looks at. There are no alerts, so problems are found by users; the one dashboard shows CPU, which has never once explained an outage.
+
+Collecting metrics and being able to answer a question with them are different things.
 
 ## What you are building
 
-### What are PrometheusRules & ServiceMonitors?
-- **PrometheusRule**: Custom Kubernetes CRD defining alert threshold expressions evaluated dynamically against scraped time-series metrics.
-- **ServiceMonitor**: CRD telling Prometheus which Kubernetes services to discover and scrape for metrics.
-- **Grafana Dashboard JSON**: Declarative visualization layout displaying RED metrics (Request Rate, Error Rate, Duration/Latency).
+Alerts on **symptoms users feel**, not on causes you guessed:
+
+```text
+  RED, for a request-driven service
+    Rate       requests per second
+    Errors     the proportion that failed
+    Duration   how long they took (p95, p99)
+```
+
+High CPU is not an incident. Users cannot feel CPU. They feel errors and
+latency — so alert on those, and use CPU to explain them once you are already
+looking.
 
 ---
 
-## Steps
+## Build it
 
-### Step 1: Apply Alert Rules & ServiceMonitor
-```bash
-cd 07-Monitoring-Observability/Lab18-Alerts-Grafana-Dashboards
-kubectl apply -f alerts/nti-devops-rules.yaml -f alerts/servicemonitor.yaml
+### 1. A PrometheusRule
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platform-alerts
+  namespace: monitoring
+  labels: { release: monitoring }      # or the Operator ignores it
+spec:
+  groups:
+    - name: platform.rules
+      interval: 30s
+      rules:
+        - alert: HighErrorRate
+          expr: |
+            sum(rate(http_requests_total{namespace="platform",status=~"5.."}[5m]))
+              /
+            sum(rate(http_requests_total{namespace="platform"}[5m]))
+              > 0.05
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "5xx rate is {{ $value | humanizePercentage }} in platform"
+            description: >-
+              More than 5% of requests have failed for 5 minutes.
+              Current rate {{ $value | humanizePercentage }}.
+            runbook_url: "https://runbooks.example.com/high-error-rate"
+
+        - alert: HighLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(http_request_duration_seconds_bucket{namespace="platform"}[5m])) by (le)
+            ) > 1
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: "p95 latency is {{ $value | humanizeDuration }}"
+            runbook_url: "https://runbooks.example.com/high-latency"
+
+        - alert: PodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="platform"}[15m]) > 3
+          for: 5m
+          labels: { severity: critical }
+          annotations:
+            summary: "{{ $labels.pod }} restarted {{ $value }} times in 15 minutes"
+            runbook_url: "https://runbooks.example.com/crashloop"
+
+        - alert: PersistentVolumeFillingUp
+          expr: |
+            kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes < 0.10
+          for: 15m
+          labels: { severity: warning }
+          annotations:
+            summary: "{{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} free"
+```
+
+**`for:` is the difference between an alert and pager noise.** The expression
+becomes true, the alert goes `Pending`, and only if it is *still* true after
+the `for:` duration does it fire. A five-second blip during a rollout resolves
+itself; without `for:`, it wakes someone up.
+
+**A ratio, not a count.** `sum(rate(...5xx)) > 10` fires on a busy Tuesday and
+stays silent during an outage at 3am when traffic is low. The proportion is
+what users experience.
+
+**Every alert has a `runbook_url`.** Someone woken at 3am should not have to
+reconstruct what the alert means. If you cannot write the runbook, the alert is
+probably not actionable — which is itself a useful signal.
+
+### 2. Route it
+
+```yaml
+alertmanager:
+  config:
+    route:
+      group_by: ["alertname", "namespace"]
+      group_wait: 30s          # collect related alerts before the first send
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: default
+      routes:
+        - matchers: ['severity="critical"']
+          receiver: pager
+          repeat_interval: 1h
+    receivers:
+      - name: default
+        slack_configs:
+          - channel: "#alerts"
+            title: '{{ .CommonAnnotations.summary }}'
+            text: '{{ .CommonAnnotations.description }}\n{{ .CommonAnnotations.runbook_url }}'
+      - name: pager
+        pagerduty_configs:
+          - service_key: "..."
+    inhibit_rules:
+      # A node being down explains every Pod on it. Say it once.
+      - source_matchers: ['alertname="NodeDown"']
+        target_matchers: ['severity="warning"']
+        equal: ["node"]
+```
+
+`group_wait` and `inhibit_rules` are what stop one failure producing forty
+notifications. A node failing should page once, not once per Pod.
+
+### 3. A dashboard, kept in Git
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"        # the sidecar imports it
+data:
+  platform.json: |
+    { "title": "Platform — RED", "panels": [ ... ] }
+```
+
+The Grafana sidecar watches for ConfigMaps carrying `grafana_dashboard: "1"`
+and imports them. **A dashboard edited in the UI is lost when the Pod is
+replaced**; one in a ConfigMap is version-controlled, reviewable and
+reproducible.
+
+The three panels worth having before any others:
+
+```promql
+# Rate
+sum(rate(http_requests_total{namespace="platform"}[5m])) by (service)
+
+# Errors
+sum(rate(http_requests_total{namespace="platform",status=~"5.."}[5m])) by (service)
+  / sum(rate(http_requests_total{namespace="platform"}[5m])) by (service)
+
+# Duration
+histogram_quantile(0.95,
+  sum(rate(http_request_duration_seconds_bucket{namespace="platform"}[5m])) by (le, service))
 ```
 
 ---
@@ -45,27 +196,79 @@ kubectl apply -f alerts/nti-devops-rules.yaml -f alerts/servicemonitor.yaml
 ## Verify it worked
 
 ```bash
+# The Operator loaded your rules
 kubectl get prometheusrule -n monitoring
+curl -s localhost:9090/api/v1/rules | jq -r '.data.groups[].name'
+
+# The expression returns something. An alert on a metric that does not exist
+# is silent forever and looks identical to an alert that is not firing.
+curl -sG localhost:9090/api/v1/query \
+  --data-urlencode 'query=sum(rate(http_requests_total{namespace="platform"}[5m]))' \
+  | jq '.data.result | length'      # must be > 0
 ```
 
-**Expected Output:**
-```text
-NAME                     AGE
-nti-devops-alert-rules   1m
+**Now make one fire — this is the lab.**
+
+```bash
+# Cause real restarts
+kubectl set image deploy/api api=nginx:does-not-exist -n platform
+
+# Watch it move through the states
+watch -n5 'curl -s localhost:9090/api/v1/alerts | jq -r ".data.alerts[] | \"\(.labels.alertname) \(.state)\""'
+# inactive -> pending (during `for:`) -> firing
+
+# It reached Alertmanager
+kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-alertmanager 9093:9093
+curl -s localhost:9093/api/v2/alerts | jq -r '.[].labels.alertname'
+
+# Restore, and confirm it resolves
+kubectl rollout undo deploy/api -n platform
 ```
+
+An alert that has never fired is a hypothesis. Watching it go
+`pending → firing` and then resolve is the only way to know the expression, the
+`for:`, the labels and the routing all work together.
 
 ---
+
+## When it goes wrong
+
+**The rule does not appear in Prometheus**
+
+The `release` label is missing, or `ruleSelectorNilUsesHelmValues` was left
+true. `kubectl logs -n monitoring prometheus-operator` shows what it loaded.
+
+**An alert never fires even though the condition is true**
+
+Run the expression in the Prometheus UI. Almost always it returns no data —
+the metric name is wrong, or the label selector matches nothing. No data is not
+`false`; it is silence.
+
+**Everything fires at once after a deploy**
+
+`for:` is too short, or missing. Rollouts produce brief spikes by design.
+
+**One node failure produces forty pages**
+
+No `inhibit_rules` and no `group_by`.
+
+**The dashboard disappeared**
+
+It was created in the UI on a Pod with no persistence. Put it in a ConfigMap.
+
+**`{{ $value }}` renders as a long float**
+
+Use `humanize`, `humanizePercentage` or `humanizeDuration`.
 
 ---
 
 ## Clean up
 
-Run this even if you did not finish. Everything above is destroyable, and an
-account full of half-built experiments is how a surprise bill starts.
-
 ```bash
-kubectl delete prometheusrule --all -n monitoring
-kubectl delete configmap -l grafana_dashboard -n monitoring
+kubectl delete prometheusrule platform-alerts -n monitoring
+kubectl delete configmap -l grafana_dashboard=1 -n monitoring
 ```
 
-**Cost of this lab:** **Depends on an existing cluster.** Alert rules and dashboards are configuration and cost nothing; the Prometheus stack under them holds EBS volumes.
+**Cost of this lab:** Free on top of the monitoring stack. Rules and dashboards
+are configuration; the Prometheus and Grafana volumes underneath them are what
+bills.

@@ -17,9 +17,10 @@ cleanup:
   - "kubectl delete pvc --all -n monitoring   # PVCs are NOT removed by uninstall"
   - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
 successCriteria:
-  - "Deploy kube-prometheus-stack on EKS using Helm and custom values (kube-prometheus-stack-values.yaml)."
-  - "Configure automated monitoring installation script (install/install.sh)."
-  - "Access Grafana visualization web UI."
+  - "Prometheus is scraping the cluster and your application, verified in Targets."
+  - "A ServiceMonitor picks up the application without editing Prometheus configuration."
+  - "Grafana shows CPU and memory for your workload."
+  - "Metrics survive a Prometheus Pod restart."
 guidedLabId: lab-17-deploying-kube-prometheus-stack-on-aws-eks
 authors: [waleed]
 updated: 2026-08-09
