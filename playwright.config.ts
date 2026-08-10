@@ -9,6 +9,10 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./tests/e2e",
+  // Refuses to run against a build older than the sources it is meant to
+  // exercise. Without it, editing content and running the suite passes happily
+  // against the previous build.
+  globalSetup: "./tests/e2e/assert-fresh-build.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

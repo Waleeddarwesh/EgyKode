@@ -167,6 +167,32 @@ test.describe("projects and roadmaps", () => {
       await expect(roadmaps.nth(i).getByText(/Ends with/i)).toBeVisible();
     }
   });
+
+  /**
+   * The card that names the production project must open the project it names.
+   *
+   * Two ways this broke at once, and neither was visible to a test that only
+   * asserted the text was present: the home page hardcoded a project id while
+   * rendering the roadmap's title, so it linked somewhere else entirely; and
+   * the Learn page rendered the same card with no link at all — a dead end at
+   * exactly the point the path is meant to pay off.
+   *
+   * Following the link and comparing headings is what catches both.
+   */
+  for (const path of ["/en", "/en/learn"]) {
+    test(`the production project card on ${path} opens the project it names`, async ({ page }) => {
+      await page.goto(path);
+      const link = page.locator('a[href^="/en/projects/"]').first();
+      await expect(link).toBeVisible();
+
+      const named = (await link.locator("h2, .font-medium").first().textContent())?.trim();
+      expect(named).toBeTruthy();
+
+      await link.click();
+      await expect(page).toHaveURL(/\/en\/projects\/[a-z0-9-]+/);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(named!);
+    });
+  }
 });
 
 test.describe("progress and disclosure", () => {

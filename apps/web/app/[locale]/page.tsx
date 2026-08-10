@@ -211,7 +211,11 @@ export default async function HomePage({
           {/* The promise, made structural: the path ends in a real project. */}
           <li>
             <Link
-              href={`/${locale}/projects/cloud-native-devops-platform`}
+              // From the roadmap, never hardcoded: the card already renders
+              // `productionProject.title`, so a literal id here sends you to a
+              // different project than the one named on the card the moment a
+              // roadmap's endpoint changes. It did.
+              href={`/${locale}/projects/${roadmap.productionProject.id}`}
               className="card card-lift group flex h-full items-start gap-4 border-primary/40 p-5"
               style={{ background: "var(--clr-success-bg)" }}
             >

@@ -1,3 +1,4 @@
+import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -104,23 +105,34 @@ export default async function LearnPage({
         ))}
       </div>
 
-      {/* Production project — the end of the path (§6.0). */}
-      <section
-        className="card mt-10 border-primary/40 p-7"
-        style={{ background: "var(--clr-success-bg)" }}
-      >
-        <p
-          className="text-xs font-semibold uppercase tracking-wide"
-          style={{ color: "var(--clr-primary-dark)" }}
+      {/* Production project — the end of the path (§6.0). The whole card is the
+          link: it names a project and describes it, so every part of it reads
+          as something you can open, and a heading that is not clickable is a
+          dead end at exactly the point the path is meant to pay off. */}
+      <section className="mt-10">
+        <Link
+          href={`/${typed}/projects/${roadmap.productionProject.id}`}
+          className="card card-lift group block border-primary/40 p-7"
+          style={{ background: "var(--clr-success-bg)" }}
         >
-          {t("learn.productionProject")}
-        </p>
-        <h2 className="mt-2 font-display text-2xl font-bold text-content">
-          {isAr ? roadmap.productionProject.titleAr : roadmap.productionProject.title}
-        </h2>
-        <p className="mt-3 max-w-2xl text-content-secondary">
-          {roadmap.productionProject.summary}
-        </p>
+          <p
+            className="text-xs font-semibold uppercase tracking-wide"
+            style={{ color: "var(--clr-primary-dark)" }}
+          >
+            {t("learn.productionProject")}
+          </p>
+          <h2 className="mt-2 flex items-center gap-2 font-display text-2xl font-bold text-content">
+            {isAr ? roadmap.productionProject.titleAr : roadmap.productionProject.title}
+            <ArrowRight
+              size={20}
+              aria-hidden
+              className="icon-directional shrink-0 text-content-muted transition-transform group-hover:translate-x-1"
+            />
+          </h2>
+          <p className="mt-3 max-w-2xl text-content-secondary">
+            {roadmap.productionProject.summary}
+          </p>
+        </Link>
       </section>
 
       {/* Reference chapters — deliberately outside the ordered path. */}
