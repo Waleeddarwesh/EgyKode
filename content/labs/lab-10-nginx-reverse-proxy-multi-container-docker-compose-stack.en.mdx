@@ -32,14 +32,14 @@ There is also no TLS, no static caching, and the application crashes on boot rou
 ```text
   Browser
      │ :80
-     ▼
+     v
   ┌──────────────────────── compose network ────────────────────────┐
-  │  nginx        /static/  → served from a shared volume, on disk  │
-  │               /         → proxy_pass to gunicorn                │
+  │  nginx        /static/  > served from a shared volume, on disk  │
+  │               /         > proxy_pass to gunicorn                │
   │     │                                                           │
-  │     ▼                                                           │
-  │  web (gunicorn)  ──▶  db (postgres)   ──▶  named volume         │
-  │                  ──▶  cache (redis)                             │
+  │     v                                                           │
+  │  web (gunicorn)  ──>  db (postgres)   ──>  named volume         │
+  │                  ──>  cache (redis)                             │
   └─────────────────────────────────────────────────────────────────┘
 ```
 

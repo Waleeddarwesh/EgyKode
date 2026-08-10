@@ -133,10 +133,10 @@ failover automatic.
 
 ```text
         ┌──────────── ALB (spans AZs) ────────────┐
-        ▼                                          ▼
+        v                                          v
    AZ us-east-1a                             AZ us-east-1b
    ├─ 2 app nodes                            ├─ 2 app nodes
-   └─ RDS primary        ── sync replica ──▶ └─ RDS standby
+   └─ RDS primary        ── sync replica ──> └─ RDS standby
 ```
 
 Lose `us-east-1a` entirely and the ALB stops routing to it, RDS promotes the

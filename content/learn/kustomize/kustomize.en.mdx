@@ -51,13 +51,13 @@ Keep **one real, valid** set of manifests (the *base*), then describe the
 
 ```
 kubernetes/
-├── base/                          ← real YAML. Applies as-is.
+├── base/                          < real YAML. Applies as-is.
 │   ├── api-deployment.yaml
 │   └── kustomization.yaml
 └── overlays/
-    ├── dev/kustomization.yaml     ← "same as base, but 1 replica"
+    ├── dev/kustomization.yaml     < "same as base, but 1 replica"
     ├── staging/kustomization.yaml
-    └── prod/kustomization.yaml    ← "same as base, but 4 replicas and ECR images"
+    └── prod/kustomization.yaml    < "same as base, but 4 replicas and ECR images"
 ```
 
 **The base is valid YAML you can `kubectl apply -f` directly.** That is the

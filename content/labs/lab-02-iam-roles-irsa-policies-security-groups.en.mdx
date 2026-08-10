@@ -44,12 +44,12 @@ all but can delete your account. You need both, and neither substitutes for
 the other.
 
 ```text
-  Internet ──▶ sg-alb  (:443 from 0.0.0.0/0)
+  Internet ──> sg-alb  (:443 from 0.0.0.0/0)
                   │  referenced by
-                  ▼
+                  v
               sg-nodes (:30000-32767 from sg-alb only)
                   │  referenced by
-                  ▼
+                  v
                sg-rds  (:5432 from sg-nodes only)
 ```
 

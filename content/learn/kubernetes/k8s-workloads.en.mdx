@@ -80,7 +80,7 @@ ReplicaSet creates Pods.
 ```text
 Deployment  "I want 3 of version v2, updated gradually"
     │
-    ├── ReplicaSet (v1)  desired: 0      ← kept for rollback
+    ├── ReplicaSet (v1)  desired: 0      < kept for rollback
     └── ReplicaSet (v2)  desired: 3
              ├── Pod api-7d4f-a1b2
              ├── Pod api-7d4f-c3d4

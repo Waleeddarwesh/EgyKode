@@ -211,9 +211,9 @@ keeps the bucket entirely private and puts CloudFront in front with **Origin
 Access Control**:
 
 ```text
-Browser → CloudFront (TLS, caching, edge locations)
+Browser > CloudFront (TLS, caching, edge locations)
               │  signed with OAC
-              ▼
+              v
           S3 bucket — Block Public Access ON, no public policy
 ```
 

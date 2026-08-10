@@ -68,6 +68,16 @@ for (const domain of readdirSync(learnDir, { withFileTypes: true })) {
     if (fm.domain && fm.domain !== domain.name) {
       fail(file, 1, `domain "${fm.domain}" does not match directory "${domain.name}"`);
     }
+    // `getChapter(domain, slug)` builds the path from the slug, and the slug is
+    // the contentId. A file whose stem differs still appears in the index and
+    // in generateStaticParams, so the route is created — and then renders
+    // notFound() because the body cannot be found. Under static export that
+    // becomes a "Page not found" page served with HTTP 200, which no
+    // status-code check can catch. Five chapters shipped that way once.
+    const stem = name.replace(/\.[a-z]{2}\.mdx$/, "");
+    if (fm.contentId && fm.contentId !== stem) {
+      fail(file, 1, `contentId "${fm.contentId}" must match the filename "${stem}.<locale>.mdx"`);
+    }
     chapters.push({ file, fm, raw });
 
     // ── 2. Body rules ───────────────────────────────────────────────────────

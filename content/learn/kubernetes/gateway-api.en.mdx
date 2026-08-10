@@ -46,11 +46,11 @@ clusters will not.
 ### Three objects instead of one
 
 ```text
-GatewayClass     "this controller implements Gateways"     ← infrastructure
-      ▲
-   Gateway        "listeners, ports, certificates"          ← platform team
-      ▲
-  HTTPRoute       "this host and path go to my Service"     ← application team
+GatewayClass     "this controller implements Gateways"     < infrastructure
+      ^
+   Gateway        "listeners, ports, certificates"          < platform team
+      ^
+  HTTPRoute       "this host and path go to my Service"     < application team
       │
    Service
 ```

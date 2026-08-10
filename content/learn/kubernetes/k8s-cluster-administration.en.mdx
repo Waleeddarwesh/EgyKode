@@ -41,7 +41,7 @@ This chapter is about the half of Kubernetes that has no `kubectl` verb.
 ```text
 ┌──────────────────── control-plane node ────────────────────┐
 │                                                            │
-│   kube-apiserver ◄──── the only thing that talks to etcd   │
+│   kube-apiserver <──── the only thing that talks to etcd   │
 │        │                                                   │
 │        ├── etcd                 the entire cluster state   │
 │        ├── kube-scheduler       assigns Pods to nodes      │
@@ -49,7 +49,7 @@ This chapter is about the half of Kubernetes that has no `kubectl` verb.
 │                                                            │
 └────────────────────────────┬───────────────────────────────┘
                              │
-┌────────────────────────────▼───────────────────────────────┐
+┌────────────────────────────v───────────────────────────────┐
 │  worker node                                               │
 │    kubelet          starts containers, reports status      │
 │    kube-proxy       Service rules on this node             │
@@ -127,10 +127,10 @@ the first one's IP. HA requires a single address in front of them:
                   k8s-api.example.com:6443
                             │
               ┌─────────────┼─────────────┐
-              ▼             ▼             ▼
+              v             v             v
            cp-1          cp-2          cp-3
        apiserver     apiserver     apiserver
-         etcd          etcd          etcd        ← stacked
+         etcd          etcd          etcd        < stacked
 ```
 
 ```yaml
@@ -194,9 +194,9 @@ rollout restart` forces it.
 ### Upgrades
 
 ```text
-control plane (one at a time)  →  workers (one at a time)
+control plane (one at a time)  >  workers (one at a time)
         │
-   cordon → drain → upgrade kubeadm/kubelet → uncordon → verify
+   cordon > drain > upgrade kubeadm/kubelet > uncordon > verify
 ```
 
 ```bash

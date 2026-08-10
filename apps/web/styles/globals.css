@@ -197,8 +197,14 @@ samp,
      `api.production.svc.cluster.local`, an image digest, a long flag. A single
      one of them is wider than a 320px viewport and pushes the whole page into
      horizontal scroll (§12.6). Inside a `pre` the block scrolls on its own, so
-     this applies only to inline code. */
-  overflow-wrap: anywhere;
+     this applies only to inline code.
+
+     `break-word` rather than `anywhere`, and the difference is not cosmetic:
+     `anywhere` counts toward min-content width, so a table column containing
+     `staging` could shrink to one character and render it "stag / ing". Both
+     break a word that would otherwise overflow; only `anywhere` lets the
+     layout algorithm treat that as the column's minimum. */
+  overflow-wrap: break-word;
 }
 .prose pre {
   background: var(--clr-bg-secondary) !important;
@@ -224,21 +230,32 @@ samp,
   min-width: 100%;
 }
 
-/* Long unbroken tokens — URLs, image digests, base64 — must not push either. */
-.prose { overflow-wrap: anywhere; }
+/* Long unbroken tokens — URLs, image digests, base64 — must not push either.
+   `break-word` for the same reason as inline code above: it prevents overflow
+   without letting a table column collapse to one character. */
+.prose { overflow-wrap: break-word; }
 .prose :is(pre, code, kbd, samp) { overflow-wrap: normal; }
 .prose hr { border-color: var(--clr-surface-border); margin-block: 2.5em; }
+/* Tables are wrapped in a scrolling container by `mdxComponents` (§12.6). The
+   table must therefore size to its *content* and let that container scroll —
+   `width: 100%` made it shrink to the wrapper instead, so overflow-x never had
+   anything to scroll and the column algorithm compressed cells until a header
+   read one letter per line ("M / on / thl / y") on a phone.
+
+   `min-width: 100%` keeps a narrow table filling the column on desktop. The
+   cell `max-width` stops a table whose cells contain sentences from becoming
+   one enormous line. */
 .prose table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
-  display: block;
-  overflow-x: auto;
 }
 .prose :is(th, td) {
   border: 1px solid var(--clr-surface-border);
   padding: 0.55em 0.8em;
   text-align: start;
+  max-width: 22rem;
 }
 .prose th { background: var(--clr-bg-secondary); color: var(--clr-text); font-weight: 600; }
 .prose img { max-width: 100%; height: auto; border-radius: var(--radius-lg); }

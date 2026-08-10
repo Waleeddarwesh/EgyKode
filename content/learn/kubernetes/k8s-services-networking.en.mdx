@@ -212,20 +212,20 @@ provisions an actual Application Load Balancer from the annotations.
 
 ```text
    Client
-     │  DNS: app.example.com → 52.x.x.x
-     ▼
-   Cloud Load Balancer          ← provisioned by the Ingress controller
+     │  DNS: app.example.com > 52.x.x.x
+     v
+   Cloud Load Balancer          < provisioned by the Ingress controller
      │  :443, TLS terminated here
-     ▼
-   Ingress controller Pod       ← reads Ingress rules, picks a backend
+     v
+   Ingress controller Pod       < reads Ingress rules, picks a backend
      │  host + path match
-     ▼
-   Service (ClusterIP)          ← a virtual IP, no process
+     v
+   Service (ClusterIP)          < a virtual IP, no process
      │  kube-proxy rewrites the destination
-     ▼
-   Pod IP : container port      ← must be in the EndpointSlice
+     v
+   Pod IP : container port      < must be in the EndpointSlice
      │
-     ▼
+     v
    Your process
 ```
 

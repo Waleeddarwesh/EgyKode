@@ -260,13 +260,13 @@ SG-based rules do not.**
 in one place — it is resolved one label at a time, right to left:
 
 ```text
-  your machine  ──▶  resolver (systemd-resolved, or 8.8.8.8)
+  your machine  ──>  resolver (systemd-resolved, or 8.8.8.8)
                         │  cached? return it and stop.
-                        ▼
+                        v
                      root servers      "who handles .com?"
-                        ▼
+                        v
                      .com TLD servers  "who handles example.com?"
-                        ▼
+                        v
                      authoritative     "ivolve.example.com is 54.23.1.90"
                      (Route 53)
 ```

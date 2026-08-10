@@ -74,11 +74,11 @@ An image is not one file. It is a **stack of read-only layers**, one per build
 instruction, and each layer records only what changed from the layer beneath it.
 
 ```text
-  ┌─────────────────────────────┐  ← writable container layer (dies with the container)
+  ┌─────────────────────────────┐  < writable container layer (dies with the container)
   ├─────────────────────────────┤
-  │ ENTRYPOINT ["java","-jar"]  │  ← metadata only, 0 bytes
-  │ COPY target/ivolve-api.jar  │  ← 40 MB   your application
-  │ FROM openjdk:17-slim        │  ← 220 MB  the base image
+  │ ENTRYPOINT ["java","-jar"]  │  < metadata only, 0 bytes
+  │ COPY target/ivolve-api.jar  │  < 40 MB   your application
+  │ FROM openjdk:17-slim        │  < 220 MB  the base image
   └─────────────────────────────┘
 ```
 

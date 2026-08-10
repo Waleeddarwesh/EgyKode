@@ -154,13 +154,13 @@ Vault — and let Kubernetes hold only a short-lived copy.
 ```text
         StorageClass          "how to make disks"      (cluster-wide)
              │  dynamic provisioning
-             ▼
+             v
        PersistentVolume       "an actual disk"         (cluster-wide)
              │  bound 1:1
-             ▼
+             v
    PersistentVolumeClaim      "I need 20Gi, RWO"       (namespaced)
              │  mounted
-             ▼
+             v
             Pod
 ```
 

@@ -40,9 +40,40 @@ const ASSET = /(?:src|href)="(\/[^"#?]+\.(?:png|jpe?g|gif|svg|webp|avif|ico|css|
 /** Any reference to a route that only exists with a server behind it. */
 const SERVER_ROUTE = /(?:src|href)="(\/_next\/image[^"]*)"/g;
 
+/**
+ * A page that called `notFound()` at build time is still written to disk as a
+ * normal HTML file, and a CDN serves it with HTTP 200. So a status-code check
+ * — the obvious way to verify a deployment — cannot see it, and the page looks
+ * live while showing "Page not found" to every visitor.
+ *
+ * This happened to five chapters whose filename did not match their contentId:
+ * the route was generated, the body could not be loaded, and the deploy was
+ * reported as successful. `content:lint` now blocks the mismatch; this blocks
+ * every other way a page can reach the CDN empty.
+ */
+/* Detecting a not-found page by looking *for* the not-found markup does not
+   work: Next serialises that component into every page's flight payload as the
+   route's not-found boundary, so it is present in all 295 files.
+
+   What actually separates them is that a page which called `notFound()` renders
+   no `<h1>` into the HTML shell and falls back to the site's default title,
+   while every real page renders its own heading. The E2E suite already asserts
+   one `<h1>` per page; this applies the same invariant to the whole export. */
+const HAS_H1 = /<h1[\s>]/;
+
+/** Pages that legitimately have no heading of their own. */
+const NO_H1_EXPECTED = /(^|\/)(404|_not-found)([./]|$)/;
+
 for (const file of html) {
   const source = readFileSync(file, "utf8");
   const page = relative(DIR, file).replaceAll("\\", "/");
+
+  if (!HAS_H1.test(source) && !NO_H1_EXPECTED.test(page)) {
+    errors.push(
+      `${page}\n    renders no <h1> — this page called notFound() at build time, and a CDN` +
+        `\n    will serve it with HTTP 200, so no status check can see it`,
+    );
+  }
 
   for (const [, url] of source.matchAll(SERVER_ROUTE)) {
     errors.push(
