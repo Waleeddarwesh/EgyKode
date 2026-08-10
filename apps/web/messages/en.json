@@ -312,5 +312,18 @@
   "courses.arabicOnly": "Arabic",
   "courses.englishOnly": "English",
   "resources.more": "All courses",
-  "seo.coursesDescription": "Free Cloud and DevOps courses in Arabic and English — curated, verified, and mapped to the topics they teach. Linux, Docker, Kubernetes, AWS, Terraform, Ansible and more."
+  "seo.coursesDescription": "Free Cloud and DevOps courses in Arabic and English — curated, verified, and mapped to the topics they teach. Linux, Docker, Kubernetes, AWS, Terraform, Ansible and more.",
+  "courses.journeyHeading": "Your learning journey",
+  "courses.journeyBody": "Follow the Cloud DevOps Engineer roadmap in order — Linux first, production last. Pick a language and the recommended course for each step changes with it.",
+  "courses.allLanguages": "All",
+  "courses.coverage": "Course coverage",
+  "courses.covered": "{covered} of {total} steps",
+  "courses.recommended": "Start here",
+  "courses.start": "Watch",
+  "courses.moreOptions": "{n} more",
+  "courses.noneInLanguage": "No course in this language yet for this step.",
+  "courses.noneYet": "No course curated for this step yet.",
+  "courses.showAllLanguages": "Show every language",
+  "courses.browseHeading": "Browse everything",
+  "courses.browseBody": "The full catalogue, if you would rather search than follow the path."
 }

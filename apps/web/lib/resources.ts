@@ -91,3 +91,44 @@ export function getResources(domain: string): Resource[] {
 export function hasResources(domain: string): boolean {
   return (load()[domain]?.length ?? 0) > 0;
 }
+
+export interface PathStep {
+  domain: string;
+  resources: Resource[];
+}
+
+export interface PathPhase {
+  number: string;
+  title: string;
+  steps: PathStep[];
+}
+
+/**
+ * The course catalogue, ordered the way the curriculum is.
+ *
+ * Somebody who wants to learn the whole thing in Arabic should not have to
+ * work out that Linux comes before Kubernetes — the roadmap already encodes
+ * that, so the order is derived from it rather than restated here. Domains
+ * with no course yet are kept in the sequence deliberately: a visible gap is
+ * more useful than a tidy list that quietly skips a step.
+ */
+export function getCoursePath(
+  roadmap: { phases: { number: string; title: string; chapters?: string[] }[] },
+  domainOf: (contentId: string) => string | undefined,
+): PathPhase[] {
+  const all = load();
+  const seen = new Set<string>();
+  const phases: PathPhase[] = [];
+
+  for (const phase of roadmap.phases) {
+    const steps: PathStep[] = [];
+    for (const contentId of phase.chapters ?? []) {
+      const domain = domainOf(contentId);
+      if (!domain || seen.has(domain)) continue;
+      seen.add(domain);
+      steps.push({ domain, resources: all[domain] ?? [] });
+    }
+    if (steps.length) phases.push({ number: phase.number, title: phase.title, steps });
+  }
+  return phases;
+}

@@ -312,5 +312,18 @@
   "courses.arabicOnly": "العربية",
   "courses.englishOnly": "الإنجليزية",
   "resources.more": "كل الدورات",
-  "seo.coursesDescription": "دورات Cloud وDevOps مجانية بالعربية والإنجليزية — مختارة ومُتحقَّق منها ومرتبطة بالمواضيع التي تشرحها."
+  "seo.coursesDescription": "دورات Cloud وDevOps مجانية بالعربية والإنجليزية — مختارة ومُتحقَّق منها ومرتبطة بالمواضيع التي تشرحها.",
+  "courses.journeyHeading": "رحلة تعلّمك",
+  "courses.journeyBody": "اتبع مسار Cloud DevOps Engineer بالترتيب — Linux أولاً والإنتاج أخيراً. اختر اللغة وستتغيّر الدورة المقترحة لكل خطوة تبعاً لها.",
+  "courses.allLanguages": "الكل",
+  "courses.coverage": "تغطية الدورات",
+  "courses.covered": "{covered} من {total} خطوة",
+  "courses.recommended": "ابدأ من هنا",
+  "courses.start": "شاهد",
+  "courses.moreOptions": "{n} إضافية",
+  "courses.noneInLanguage": "لا توجد دورة بهذه اللغة لهذه الخطوة بعد.",
+  "courses.noneYet": "لم تُختَر دورة لهذه الخطوة بعد.",
+  "courses.showAllLanguages": "اعرض كل اللغات",
+  "courses.browseHeading": "تصفّح كل شيء",
+  "courses.browseBody": "الفهرس الكامل، إن كنت تفضّل البحث على اتّباع المسار."
 }

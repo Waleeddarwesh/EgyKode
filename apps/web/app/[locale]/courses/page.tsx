@@ -4,7 +4,11 @@ import { CourseCard } from "@/components/content/course-card";
 import { FilterBar } from "@/components/filters/filter-bar";
 import { notFound } from "next/navigation";
 
-import { domainsFor, getAllResources } from "@/lib/resources";
+import { CourseJourney } from "@/components/courses/course-journey";
+import { getChapterMeta } from "@/lib/content";
+import { getDomainMeta } from "@/lib/domains";
+import { getRoadmaps } from "@/lib/projects";
+import { domainsFor, getAllResources, getCoursePath } from "@/lib/resources";
 import {
   PUBLIC_LOCALES,
   formatNumber,
@@ -65,6 +69,21 @@ export default async function CoursesPage({
 
   const domains = [...new Set(resources.map((r) => r.domain))].sort();
 
+  // The path's order is the roadmap's, derived rather than restated, so it
+  // cannot drift from the curriculum it is meant to mirror.
+  const roadmap = getRoadmaps().find((r) => r.id === "cloud-devops-engineer");
+  const journey = roadmap
+    ? getCoursePath(roadmap, (contentId) => getChapterMeta(contentId)?.domain).map((phase) => ({
+        number: phase.number,
+        title: phase.title,
+        steps: phase.steps.map((step) => ({
+          domain: step.domain,
+          label: getDomainMeta(step.domain)?.title ?? step.domain,
+          resources: step.resources,
+        })),
+      }))
+    : [];
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
       <header className="max-w-2xl">
@@ -80,7 +99,36 @@ export default async function CoursesPage({
         </p>
       </header>
 
-      <div className="mt-10">
+      {journey.length > 0 && (
+        <CourseJourney
+          phases={journey}
+          labels={{
+            heading: t("courses.journeyHeading"),
+            body: t("courses.journeyBody"),
+            language: t("courses.language"),
+            all: t("courses.allLanguages"),
+            arabic: t("courses.arabicOnly"),
+            english: t("courses.englishOnly"),
+            coverage: t("courses.coverage"),
+            covered: t("courses.covered"),
+            none: t("courses.noneInLanguage"),
+            noneBody: t("courses.noneYet"),
+            showOther: t("courses.showAllLanguages"),
+            more: t("courses.moreOptions"),
+            recommended: t("courses.recommended"),
+            start: t("courses.start"),
+          }}
+        />
+      )}
+
+      <section className="mt-16">
+        <h2 className="font-display text-2xl font-bold text-content">
+          {t("courses.browseHeading")}
+        </h2>
+        <p className="mt-2 max-w-2xl text-content-secondary">{t("courses.browseBody")}</p>
+      </section>
+
+      <div className="mt-6">
         <FilterBar
           className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
           items={resources.map((resource) => ({
