@@ -153,8 +153,8 @@
   ],
   "productionProject": {
     "id": "ivolve-cloud-devops-capstone",
-    "title": "Cloud DevOps Capstone — iVolve",
-    "titleAr": "مشروع التخرج — iVolve",
+    "title": "Cloud DevOps Capstone",
+    "titleAr": "مشروع Cloud DevOps الختامي",
     "summary": "Three microservices in three languages, taken from source to a monitored, GitOps-managed deployment on AWS EKS: Terraform builds the account, Ansible configures the build host, Jenkins builds and scans, Argo CD reconciles, Prometheus watches.",
     "repo": "CloudDevOpsProject"
   },

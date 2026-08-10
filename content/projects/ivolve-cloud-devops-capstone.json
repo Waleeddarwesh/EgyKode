@@ -1,7 +1,7 @@
 {
   "id": "ivolve-cloud-devops-capstone",
-  "title": "Cloud DevOps Capstone — iVolve",
-  "titleAr": "مشروع التخرج — iVolve",
+  "title": "Cloud DevOps Capstone",
+  "titleAr": "مشروع Cloud DevOps الختامي",
   "summary": "Three microservices taken from raw source code to a running, monitored, GitOps-managed deployment on AWS EKS.",
   "summaryAr": "ثلاث microservices من الكود المصدري حتى نشر يعمل ويخضع للمراقبة ويُدار عبر GitOps على AWS EKS.",
   "why": "This is where the curriculum lands. Three services in three languages — Node 22, Python 3.12 and Java 21 — plus a stateful MySQL, carried through every layer of the path: Terraform builds the account, Ansible configures the build host, Jenkins builds and gates, Argo CD reconciles, Prometheus watches. Nothing in it is aspirational, and that is the part worth copying: the Terraform plans against a live AWS account at 81 resources with zero errors, all 37 Kubernetes objects pass `kubeconform --strict` against the real 1.31 schemas, and every phase directory carries its own README explaining the code line by line. A project that claims to work and a project that has been made to prove it are different artifacts.",
