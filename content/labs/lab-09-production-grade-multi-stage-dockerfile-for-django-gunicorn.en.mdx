@@ -12,52 +12,146 @@ estimatedMinutes: 31
 cloudCost: false
 costTier: free
 successCriteria:
-  - "Write a production multi-stage Dockerfile (python:3.13-slim)."
-  - "Configure entrypoint.sh wait loop for PostgreSQL database readiness (nc -z $DB_HOST $DB_PORT)."
-  - "Automate Django migrations (python manage.py migrate) and static collection (collectstatic)."
-  - "Build, optimize, and test container execution locally."
+  - "The final image is under 200 MB and contains no compiler."
+  - "The container runs as a non-root user — proven with `docker exec ... id`."
+  - "A build cache hit skips dependency installation when only application code changed."
+  - "The container refuses to start until the database is reachable, instead of crashing."
 challengeId: lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn-challenge
-sourceFile: "NTI Final Project/03-Containerization-Docker/Lab09-Django-MultiStage-Dockerfile/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+The image is 950 MB, ships `gcc` to production, and runs as root. It also takes four minutes to rebuild after a one-line code change, because every build reinstalls every dependency.
+
+All three problems have the same fix, and it is the order of the instructions rather than any single one of them.
 
 ## What you are building
 
-### What is a Multi-Stage Docker Build?
-A **Multi-Stage Docker Build** leverages multiple `FROM` instructions within a single `Dockerfile`. It separates the heavy build-time compilation environment from the minimal runtime execution environment.
-
-1. **Stage 1 (`builder`)**: Installs compilers (`gcc`, `build-essential`), C-header libraries (`libpq-dev`), and compiles Python wheel packages into a temporary directory.
-2. **Stage 2 (`runtime`)**: Starts from a clean, lightweight image (`python:3.13-slim`), copies ONLY the compiled Python binaries from Stage 1, drops root execution privileges, and runs the container as non-root `USER appuser`.
-
-### Why use Multi-Stage builds & Non-Root Execution?
-- **Extreme Size Reduction**: Reduces final image footprint from ~950MB down to ~160MB.
-- **Vulnerability Surface Reduction**: Omitting compilers (`gcc`, `make`) prevents attackers from compiling malicious exploit code inside compromised containers.
-- **Non-Root Security**: Running as `USER appuser` prevents container breakout exploits from obtaining root access to the host kernel.
+A **multi-stage build** uses several `FROM` instructions in one Dockerfile.
+Only the last stage becomes the image; the earlier ones are scratch space that
+is discarded.
 
 ```text
-  +-------------------------------------+      +-------------------------------------+
-  | STAGE 1: Builder (python:3.13-slim) |      | STAGE 2: Runtime (python:3.13-slim) |
-  | - Installs gcc, make, libpq-dev     |      | - Copies compiled site-packages     |
-  | - Compiles wheel dependencies       | ===> | - Non-root execution (USER appuser) |
-  | - Image Footprint: ~950MB           |      | - Runs entrypoint.sh wait loop      |
-  |                                     |      | - Image Footprint: ~160MB           |
-  +-------------------------------------+      +-------------------------------------+
+  STAGE 1 — builder                    STAGE 2 — runtime
+  python:3.13-slim                     python:3.13-slim
+  + gcc, make, libpq-dev               copies ONLY the compiled wheels
+  + compiles wheels        ══════▶     no compiler, no headers
+  ~950 MB, thrown away                 runs as UID 10001
+                                       ~160 MB, shipped
 ```
+
+Three things this buys you, and the second is the one that matters most:
+
+- **Size.** ~950 MB to ~160 MB, so pulls are faster on every node.
+- **Attack surface.** An attacker who reaches a container with `gcc` in it can
+  compile an exploit there. One without cannot.
+- **Honesty.** If the runtime stage is missing a library, the build fails on
+  your machine rather than the container failing in production.
 
 ---
 
-## Steps
+## Build it
 
-### Step 1: Build Docker Image
-```bash
-cd 03-Containerization-Docker/Lab09-Django-MultiStage-Dockerfile
-docker build -t nti-django-app:1.0 .
+### 1. The Dockerfile
+
+```dockerfile
+# ---------- Stage 1: build ----------
+FROM python:3.13-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential libpq-dev && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+COPY requirements.txt .
+RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+
+# ---------- Stage 2: runtime ----------
+FROM python:3.13-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libpq5 && rm -rf /var/lib/apt/lists/* \
+ && useradd --uid 10001 --create-home --shell /usr/sbin/nologin appuser
+
+WORKDIR /app
+
+# Dependencies first, and in their own layer — see step 2.
+COPY --from=builder /wheels /wheels
+COPY requirements.txt .
+RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
+ && rm -rf /wheels
+
+# Application code last, because it changes on every commit.
+COPY --chown=appuser:appuser . .
+
+USER appuser
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s \
+  CMD python -c "import urllib.request,sys; \
+      sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz').status==200 else 1)"
+
+ENTRYPOINT ["./entrypoint.sh"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "app.wsgi:application"]
 ```
 
-### Step 2: Inspect Image Footprint & Layers
+`libpq-dev` is in the builder and `libpq5` in the runtime. The `-dev` package
+carries headers needed to *compile* the driver; the runtime needs only the
+shared library. Copying that distinction wholesale is what keeps the second
+stage small.
+
+### 2. Layer order is the build-time win
+
+```dockerfile
+COPY requirements.txt .        # changes rarely
+RUN pip install ...            # cached until requirements.txt changes
+COPY . .                       # changes every commit
+```
+
+Docker caches each layer and invalidates everything after the first change. Put
+`COPY . .` before the install and every code change reinstalls every
+dependency — the four-minute rebuild. In this order, a code change reuses the
+dependency layer and rebuilds in seconds.
+
+Verify the cache is working:
+
 ```bash
-docker images nti-django-app:1.0
+docker build -t app:1.0 .
+echo "# touch" >> app/views.py
+docker build -t app:1.1 .          # look for "CACHED" on the pip layer
+```
+
+### 3. An entrypoint that waits instead of crashing
+
+```bash
+#!/bin/sh
+set -e
+
+echo "waiting for ${DB_HOST}:${DB_PORT:-5432}"
+until nc -z "${DB_HOST}" "${DB_PORT:-5432}"; do
+  sleep 1
+done
+
+python manage.py migrate --noinput
+exec "$@"
+```
+
+`exec "$@"` is the important line. Without `exec`, the shell stays as PID 1 and
+Gunicorn runs as its child — so `docker stop` sends `SIGTERM` to the shell,
+which does not forward it, and the container is killed 10 seconds later after
+dropping in-flight requests. With `exec`, Gunicorn *becomes* PID 1 and shuts
+down gracefully.
+
+### 4. Build and measure
+
+```bash
+docker build -t app:1.0 .
+docker images app:1.0 --format '{{.Size}}'
+docker history app:1.0 | head
 ```
 
 ---
@@ -65,13 +159,66 @@ docker images nti-django-app:1.0
 ## Verify it worked
 
 ```bash
-docker images nti-django-app:1.0
+# Non-root, with the UID you chose
+docker run --rm app:1.0 id
+# uid=10001(appuser) gid=10001(appuser)
+
+# No compiler in the shipped image
+docker run --rm app:1.0 sh -c 'which gcc || echo "no compiler — correct"'
+
+# Under 200 MB
+docker images app:1.0 --format '{{.Size}}'
+
+# The health check is wired up
+docker run -d --name app -p 8000:8000 app:1.0
+docker inspect --format '{{.State.Health.Status}}' app
 ```
 
-**Expected Output:**
-```text
-REPOSITORY       TAG       IMAGE ID       CREATED         SIZE
-nti-django-app   1.0       a1b2c3d4e5f6   2 minutes ago   162MB
-```
+Each of those checks an *outcome*. `docker images` showing the tag exists would
+prove only that a build ran.
 
 ---
+
+## When it goes wrong
+
+**`pip install` fails in the runtime stage with a missing header**
+
+You installed a `-dev` package only in the builder and the wheel is being
+compiled again. That means it was not built in stage 1 — check the
+`--find-links` path and that `--no-index` is set, so pip cannot silently reach
+the internet and rebuild.
+
+**Permission denied writing a file at runtime**
+
+`USER appuser` cannot write to directories owned by root. `COPY --chown` fixes
+the application directory; anything else the app writes needs an explicit
+`RUN mkdir -p /app/media && chown appuser /app/media`.
+
+**Every build reinstalls dependencies**
+
+`COPY . .` appears before the install. Move it after, and check `.dockerignore`
+excludes `.git` — a changing `.git` directory invalidates the cache on every
+build even when no source file changed.
+
+**`docker stop` takes exactly 10 seconds**
+
+The entrypoint is missing `exec`, so `SIGTERM` reaches a shell that ignores it
+and Docker falls back to `SIGKILL` after the grace period.
+
+**Health check never turns healthy**
+
+The command runs *inside* the container, so anything it calls must exist there.
+`docker inspect --format '{{json .State.Health}}' app | jq` shows the actual
+output of the last few probes.
+
+---
+
+## Clean up
+
+```bash
+docker rm -f app
+docker rmi app:1.0 app:1.1
+docker builder prune -f
+```
+
+**Cost of this lab:** Free — everything runs locally.

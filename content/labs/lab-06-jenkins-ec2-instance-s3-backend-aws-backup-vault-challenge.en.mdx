@@ -17,9 +17,10 @@ cleanup:
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
   - "aws backup list-recovery-points-by-backup-vault --backup-vault-name <vault> --query 'RecoveryPoints[].RecoveryPointArn'"
 successCriteria:
-  - "Configure S3 remote state backend (backend.tf) with DynamoDB lock table."
-  - "Provision Jenkins EC2 host (modules/ec2-jenkins/main.tf) with Elastic IP."
-  - "Configure AWS Backup Vault and daily Backup Plan (modules/backup/main.tf)."
+  - "State lives in S3 with DynamoDB locking, and a second concurrent apply is refused."
+  - "The state bucket has versioning, so a deleted state file is recoverable."
+  - "The Jenkins host has a stable address that survives a stop and start."
+  - "A backup plan exists and you verified a recovery point was actually created."
 guidedLabId: lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault
 authors: [waleed]
 updated: 2026-08-09

@@ -16,87 +16,260 @@ cleanup:
   - "terraform destroy -auto-approve"
   - "aws iam list-roles --query 'Roles[?starts_with(RoleName, `ivolve`)].RoleName'"
 successCriteria:
-  - "Create least-privilege IAM Roles for EKS Cluster, EKS Node Group, and Jenkins EC2."
-  - "Configure Security Group chaining: ALB \u2794 EKS Worker Nodes \u2794 RDS PostgreSQL."
+  - "Each role's trust policy names exactly one service, and its permissions policy names exactly the actions it needs."
+  - "Security groups reference each other rather than CIDR ranges, so no rule contains a hardcoded IP."
+  - "The database accepts connections only from the worker node security group — verified by trying from elsewhere."
+  - "A pod assumes an IAM role through IRSA without any credential file existing."
 challengeId: lab-02-iam-roles-irsa-policies-security-groups-challenge
-sourceFile: "NTI Final Project/01-Infrastructure-Terraform/Lab02-IAM-Security-Groups/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+The cluster works because the node role has `AdministratorAccess`. Every pod on every node inherits it, so a compromise of any container is a compromise of the whole account.
+
+The security groups allow `0.0.0.0/0` on the database port, with a comment saying it is temporary.
 
 ## What you are building
 
-### What are IAM Roles & Security Groups?
-- **AWS IAM Roles**: Identity permissions granting temporary security credentials to AWS services (such as EKS Worker Nodes or EC2 instances) without embedding static credentials.
-- **IRSA (IAM Roles for Service Accounts)**: OIDC integration allowing individual Kubernetes pods to assume specific IAM roles.
-- **Security Groups**: Stateful virtual firewalls controlling inbound and outbound traffic at the instance/ENI level.
+Two independent systems that people conflate:
+
+- **IAM** answers *what may this identity call in the AWS API?*
+- **Security groups** answer *what may reach this network interface?*
+
+An instance with no IAM permissions can still be reached on port 22. An
+instance with `AdministratorAccess` and no inbound rules cannot be reached at
+all but can delete your account. You need both, and neither substitutes for
+the other.
 
 ```text
-                                SECURITY GROUP CHAINING TOPOLOGY
-                                
-  [ Internet Traffic ]
-           |
-           | HTTP / Port 80
-           v
-  +-----------------------------------------------------------------------------------+
-  |  ALB SECURITY GROUP (sg-alb)                                                      |
-  |  - Ingress: 0.0.0.0/0 on Port 80 / 443                                            |
-  +----------------------------------------+------------------------------------------+
-                                           |
-                                           | Ingress: ALLOW sg-alb on Port 8000
-                                           v
-  +-----------------------------------------------------------------------------------+
-  |  EKS WORKER NODES SECURITY GROUP (sg-eks-nodes)                                   |
-  |  - Ingress: Allow Port 8000 from sg-alb                                           |
-  |  - Ingress: Allow Port 22 from Jenkins SG (sg-jenkins)                            |
-  +----------------------------------------+------------------------------------------+
-                                           |
-                                           | Ingress: ALLOW sg-eks-nodes on Port 5432
-                                           v
-  +-----------------------------------------------------------------------------------+
-  |  RDS DATABASE SECURITY GROUP (sg-rds)                                             |
-  |  - Ingress: Allow Port 5432 ONLY from sg-eks-nodes                                |
-  +-----------------------------------------------------------------------------------+
+  Internet ──▶ sg-alb  (:443 from 0.0.0.0/0)
+                  │  referenced by
+                  ▼
+              sg-nodes (:30000-32767 from sg-alb only)
+                  │  referenced by
+                  ▼
+               sg-rds  (:5432 from sg-nodes only)
 ```
+
+**Security groups reference other security groups, not CIDRs.** That is the
+single most useful thing in this lab. A rule that says "from `sg-nodes`" keeps
+working when nodes are replaced, scaled or move subnet — a rule that says
+"from `10.0.10.0/24`" needs editing every time the network changes, and
+somebody will widen it instead.
 
 ---
 
-## Steps
+## Build it
 
-### Step 1: Deploy IAM & Security Groups
-```bash
-cd 01-Infrastructure-Terraform/Lab02-IAM-Security-Groups
-terraform init
-terraform apply -auto-approve
+### 1. A role is two policies
+
+```hcl
+# WHO may assume this role
+data "aws_iam_policy_document" "node_trust" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "node" {
+  name               = "eks-node"
+  assume_role_policy = data.aws_iam_policy_document.node_trust.json
+}
+
+# WHAT it may then do
+resource "aws_iam_role_policy_attachment" "node" {
+  for_each = toset([
+    "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+    "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
+    "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+  ])
+  role       = aws_iam_role.node.name
+  policy_arn = each.value
+}
 ```
+
+Two policies, two questions. The **trust policy** says who may assume the role;
+the **permissions policy** says what they may do afterwards. Getting a
+`AccessDenied` on `sts:AssumeRole` means the first is wrong; getting it on the
+API call itself means the second is.
+
+Note `ContainerRegistryReadOnly`, not full ECR access. Nodes pull images; they
+have no business pushing them.
+
+### 2. IRSA — a role per workload, not per node
+
+Attaching a policy to the node role gives it to **every pod on that node**. IRSA
+scopes it to one Kubernetes ServiceAccount:
+
+```hcl
+data "aws_iam_policy_document" "irsa_trust" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_host}:sub"
+      values   = ["system:serviceaccount:production:api"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_host}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+  }
+}
+```
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api
+  namespace: production
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/api-s3-access
+```
+
+**Both conditions are required.** Without the `sub` condition, any
+ServiceAccount in the cluster can assume the role. Without `aud`, a token
+issued for a different audience is accepted. Omitting either turns a
+per-workload grant back into a cluster-wide one, silently.
+
+### 3. Security group chaining
+
+```hcl
+resource "aws_security_group" "alb" {
+  vpc_id = var.vpc_id
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]     # the ONLY place this appears
+  }
+  egress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "nodes" {
+  vpc_id = var.vpc_id
+  egress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Separate resources, not inline blocks — see below.
+resource "aws_vpc_security_group_ingress_rule" "nodes_from_alb" {
+  security_group_id            = aws_security_group.nodes.id
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = 30000
+  to_port                      = 32767
+  ip_protocol                  = "tcp"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "rds_from_nodes" {
+  security_group_id            = aws_security_group.rds.id
+  referenced_security_group_id = aws_security_group.nodes.id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+}
+```
+
+Use **separate rule resources** rather than inline `ingress` blocks whenever
+two groups reference each other. Inline blocks on both sides create a circular
+dependency Terraform cannot resolve, and the error message does not say so.
+
+**Security groups are stateful.** A permitted inbound connection's replies are
+allowed out automatically — you never write a matching egress rule. Network
+ACLs are stateless and do need both, which is why people who learned NACLs
+first write twice the rules they need here.
 
 ---
 
 ## Verify it worked
 
 ```bash
-terraform output
+# No role has a wildcard action
+aws iam list-attached-role-policies --role-name eks-node
+aws iam get-role --role-name eks-node --query 'Role.AssumeRolePolicyDocument'
+
+# No security group allows the database port from the world
+aws ec2 describe-security-groups \
+  --filters "Name=vpc-id,Values=$(terraform output -raw vpc_id)" \
+  --query 'SecurityGroups[].IpPermissions[?contains(IpRanges[].CidrIp, `0.0.0.0/0`)].[FromPort,ToPort]' \
+  --output table
+# only 443 should appear
+
+# IRSA works, and there is no credential file anywhere
+kubectl exec -n production deploy/api -- env | grep AWS_ROLE_ARN
+kubectl exec -n production deploy/api -- aws sts get-caller-identity
+# the ARN is the IRSA role, not the node role
+
+# The negative test — from a pod WITHOUT the annotation
+kubectl run probe --rm -it --image=amazon/aws-cli --restart=Never -- sts get-caller-identity
+# returns the node role, and should be denied on your scoped actions
 ```
 
-**Expected Terminal Output:**
-```text
-alb_security_group_id       = "sg-0a1b2c3d4e5f67890"
-eks_nodes_security_group_id = "sg-01111111111111111"
-rds_security_group_id       = "sg-02222222222222222"
-```
+That last check is the one worth doing. Proving a permission works is easy;
+proving the absence of one is the actual security claim.
 
 ---
+
+## When it goes wrong
+
+**`AccessDenied` on `sts:AssumeRoleWithWebIdentity`**
+
+The `sub` condition does not match. The value must be exactly
+`system:serviceaccount:<namespace>:<serviceaccount-name>` — a namespace typo
+fails with no hint about which half is wrong.
+
+**The pod gets the node role instead of the IRSA role**
+
+The ServiceAccount annotation is missing, the pod does not name the
+ServiceAccount, or the pod was running before the annotation was added. Pods
+receive the projected token at creation; restart them.
+
+**Terraform cycle error between two security groups**
+
+Both use inline `ingress` blocks referencing each other. Move at least one to a
+separate `aws_vpc_security_group_ingress_rule`.
+
+**The database is unreachable from a node**
+
+Security groups reference by group ID, so confirm the node is actually in
+`sg-nodes` — an instance can carry several groups and the rule names one
+specifically.
+
+**`DependencyViolation` when destroying a security group**
+
+An ENI still uses it, usually one created by the AWS Load Balancer Controller
+rather than by Terraform. Delete the Kubernetes Services and Ingresses first.
 
 ---
 
 ## Clean up
 
-Run this even if you did not finish. Everything above is destroyable, and an
-account full of half-built experiments is how a surprise bill starts.
-
 ```bash
 terraform destroy -auto-approve
-aws iam list-roles --query 'Roles[?starts_with(RoleName, `ivolve`)].RoleName'
+aws iam list-roles --query 'Roles[?starts_with(RoleName, `eks-`)].RoleName'
 ```
 
-**Cost of this lab:** Free — IAM roles, policies and security groups cost nothing. Only the resources they are attached to do.
+**Cost of this lab:** Free — IAM roles, policies and security groups cost
+nothing. The resources they are attached to do.

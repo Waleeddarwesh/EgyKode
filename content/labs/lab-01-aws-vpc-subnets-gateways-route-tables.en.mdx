@@ -19,79 +19,172 @@ cleanup:
   - "# Release any Elastic IP left behind (an unattached EIP is billed hourly):"
   - "aws ec2 describe-addresses --query 'Addresses[?AssociationId==`null`].[PublicIp,AllocationId]' --output table"
 successCriteria:
-  - "Write modular Infrastructure as Code (IaC) using Terraform (>= 1.6)."
-  - "Provision a custom AWS VPC (10.0.0.0/16) across 2 Availability Zones (us-east-1a, us-east-1b)."
-  - "Create 2 Public Subnets (10.0.1.0/24, 10.0.2.0/24) and 2 Private Subnets (10.0.10.0/24, 10.0.11.0/24)."
-  - "Attach an Internet Gateway (aws_internet_gateway), allocate an Elastic IP (aws_eip), and configure a NAT Gateway (aws_nat_gateway)."
-  - "Establish distinct Public and Private Route Tables (aws_route_table) with automatic subnet associations."
+  - "A VPC spans two availability zones with a public and a private subnet in each."
+  - "An instance in a private subnet reaches the internet outbound and cannot be reached inbound."
+  - "The difference between the two subnet types is visible in the route tables, not in their names."
+  - "`terraform plan` reports no changes after `apply`."
+  - "`terraform destroy` removes the NAT Gateway and releases its Elastic IP."
 challengeId: lab-01-aws-vpc-subnets-gateways-route-tables-challenge
-sourceFile: "NTI Final Project/01-Infrastructure-Terraform/Lab01-AWS-VPC-Networking/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+You built this network by hand in the console lab. Doing it again in another region would take the same forty minutes and produce something subtly different.
+
+This is the same network as code — and the first `plan` you can read line by line before anything is created.
 
 ## What you are building
 
-### What is an AWS Virtual Private Cloud (VPC)?
-An **AWS Virtual Private Cloud (VPC)** is a logically isolated virtual network dedicated to your AWS account. It gives you complete control over your virtual networking environment, including selection of your own IP address range, creation of subnets, and configuration of route tables and network gateways.
-
-### Public vs. Private Subnet Topology Architecture
-Production enterprise cloud architecture mandates strict network boundary isolation:
-- **Public Subnets**: Connected directly to an **Internet Gateway (IGW)**. Resources placed here (such as Application Load Balancers or Bastion Hosts) have public IP addresses and can receive inbound internet traffic.
-- **Private Subnets**: Isolated from direct public internet access. Compute workloads (such as EKS Worker Nodes and RDS PostgreSQL databases) reside here. Outbound internet access for software patching or container pulls is routed securely through a **NAT Gateway** located in a Public Subnet.
-
 ```text
-                                  AWS REGION (us-east-1)
-                                  
-  +-----------------------------------------------------------------------------------+
-  |  VPC: nti-devops-vpc (CIDR: 10.0.0.0/16)                                          |
-  |                                                                                   |
-  |  +-----------------------------------------------------------------------------+  |
-  |  |  PUBLIC SUBNETS (Connected to Internet Gateway)                             |  |
-  |  |  +-------------------------------+     +---------------------------------+  |  |
-  |  |  | Public Subnet A (us-east-1a)  |     | Public Subnet B (us-east-1b)    |  |  |
-  |  |  | CIDR: 10.0.1.0/24             |     | CIDR: 10.0.2.0/24               |  |  |
-  |  |  | - AWS Application LB (ALB)    |     | - NAT Gateway (Elastic IP)      |  |  |
-  |  |  | - Jenkins EC2 (Public IP)     |     |                                 |  |  |
-  |  |  +---------------+---------------+     +----------------+----------------+  |  |
-  |  +------------------|--------------------------------------|-------------------+  |
-  |                     | Routing                              | Outbound Egress      |
-  |                     v                                      v                      |
-  |  +-----------------------------------------------------------------------------+  |
-  |  |  PRIVATE SUBNETS (No Public IPs — Routed via NAT Gateway)                   |  |
-  |  |  +-------------------------------+     +---------------------------------+  |  |
-  |  |  | Private Subnet A (us-east-1a) |     | Private Subnet B (us-east-1b)   |  |  |
-  |  |  | CIDR: 10.0.10.0/24            |     | CIDR: 10.0.11.0/24              |  |  |
-  |  |  | - EKS Managed Worker Nodes    |     | - RDS PostgreSQL Database       |  |  |
-  |  |  +-------------------------------+     +---------------------------------+  |  |
-  |  +-----------------------------------------------------------------------------+  |
-  +-----------------------------------------------------------------------------------+
+                        VPC 10.0.0.0/16
+  ┌──────────────────────────────┬──────────────────────────────┐
+  │        us-east-1a            │         us-east-1b           │
+  │  public  10.0.1.0/24         │   public  10.0.2.0/24        │
+  │    └─ NAT Gateway + EIP      │                              │
+  │  private 10.0.10.0/24        │   private 10.0.11.0/24       │
+  └──────────────┬───────────────┴──────────────┬───────────────┘
+                 │                              │
+        Internet Gateway                route 0.0.0.0/0 → NAT
 ```
+
+**A subnet is not public or private as a property.** Both are identical
+objects. What makes one public is a route table entry sending `0.0.0.0/0` to
+an Internet Gateway; what makes the other private is that its route sends
+`0.0.0.0/0` to a NAT Gateway instead. Nothing else distinguishes them, and
+naming a subnet "public" while pointing it at a NAT is a mistake Terraform
+will happily make for you.
+
+**Two availability zones, because one is not high availability.** An AZ is a
+distinct set of buildings. Losing one is rare and does happen, and an
+architecture with everything in `us-east-1a` goes down with it.
 
 ---
 
-## Steps
+## Build it
 
-### Step 1: Initialize Terraform Working Directory
+### 1. The network
+
+```hcl
+variable "azs" {
+  type    = list(string)
+  default = ["us-east-1a", "us-east-1b"]
+}
+
+resource "aws_vpc" "main" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true      # required for private DNS and for EKS
+  tags = { Name = "platform" }
+}
+
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+}
+
+resource "aws_subnet" "public" {
+  count                   = length(var.azs)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index + 1)
+  availability_zone       = var.azs[count.index]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name                     = "public-${var.azs[count.index]}"
+    "kubernetes.io/role/elb" = "1"          # ALBs go here
+  }
+}
+
+resource "aws_subnet" "private" {
+  count             = length(var.azs)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index + 10)
+  availability_zone = var.azs[count.index]
+
+  tags = {
+    Name                              = "private-${var.azs[count.index]}"
+    "kubernetes.io/role/internal-elb" = "1"
+  }
+}
+```
+
+`cidrsubnet("10.0.0.0/16", 8, 1)` produces `10.0.1.0/24` — it adds 8 bits to
+the prefix and takes block 1. Computing the blocks beats writing them out,
+because a hardcoded list is where overlapping CIDRs come from.
+
+The `kubernetes.io/role/*` tags are how the AWS Load Balancer Controller
+discovers which subnets to place load balancers in. Without them, the
+Kubernetes ingress lab fails with an error that says nothing about tags.
+
+### 2. The NAT Gateway, and what it costs
+
+```hcl
+resource "aws_eip" "nat" {
+  domain = "vpc"
+}
+
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public[0].id     # lives in a PUBLIC subnet
+  depends_on    = [aws_internet_gateway.main]
+}
+```
+
+A NAT Gateway is about **$32/month plus per-GB processing**, and in a
+private-subnet architecture it is usually the largest non-compute line on the
+bill.
+
+One NAT for both AZs is cheaper and means an AZ failure takes out egress for
+the surviving one. One per AZ doubles the cost and removes that dependency.
+For learning, one. For production, decide deliberately — this is a real
+trade-off, not an oversight.
+
+The `depends_on` is required: a NAT Gateway created before the IGW is attached
+comes up unable to route, and the failure appears later as a timeout.
+
+### 3. Route tables — where public and private are actually decided
+
+```hcl
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+}
+
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main.id
+  }
+}
+
+resource "aws_route_table_association" "public" {
+  count          = length(aws_subnet.public)
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "private" {
+  count          = length(aws_subnet.private)
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private.id
+}
+```
+
+**A subnet with no explicit association silently uses the VPC's main route
+table**, which has no internet route. Nothing errors; instances simply cannot
+reach anything, and the cause is an association you forgot rather than a rule
+you got wrong.
+
+### 4. Apply
+
 ```bash
-cd 01-Infrastructure-Terraform/Lab01-AWS-VPC-Networking
 terraform init
-```
-*What happens under the hood?* Downloads the AWS Provider plugin (`~> 5.0`) into `.terraform/` and initializes local backend state.
-
-### Step 2: Validate Syntax and Format
-```bash
-terraform fmt -check
-terraform validate
-```
-
-### Step 3: Generate Execution Plan
-```bash
-terraform plan -out=tfplan
-```
-
-### Step 4: Apply Infrastructure Plan
-```bash
+terraform plan -out=tfplan       # read it before you accept it
 terraform apply tfplan
 ```
 
@@ -100,38 +193,66 @@ terraform apply tfplan
 ## Verify it worked
 
 ```bash
-terraform output
-```
+# Every private subnet routes 0.0.0.0/0 at a NAT, never at an IGW
+aws ec2 describe-route-tables \
+  --filters "Name=vpc-id,Values=$(terraform output -raw vpc_id)" \
+  --query 'RouteTables[].{rt:RouteTableId,routes:Routes[?DestinationCidrBlock==`0.0.0.0/0`].[GatewayId,NatGatewayId]}' \
+  --output table
 
-**Expected Terminal Output:**
-```text
-vpc_id              = "vpc-0a1b2c3d4e5f67890"
-public_subnet_ids   = [
-  "subnet-01111111111111111",
-  "subnet-02222222222222222"
-]
-private_subnet_ids  = [
-  "subnet-03333333333333333",
-  "subnet-04444444444444444"
-]
-nat_gateway_ip      = "54.210.100.50"
+# Both AZs are represented
+aws ec2 describe-subnets --filters "Name=vpc-id,Values=$(terraform output -raw vpc_id)" \
+  --query 'Subnets[].[Tags[?Key==`Name`]|[0].Value,AvailabilityZone,CidrBlock]' --output table
+
+# The real test: outbound works, inbound does not
+aws ssm start-session --target <private-instance-id>
+#   curl -sI https://example.com | head -1     → 200, via NAT
+#   (nothing on the internet can open a connection to this instance)
+
+terraform plan -detailed-exitcode; echo "exit $?"    # 0 = no drift
 ```
 
 ---
+
+## When it goes wrong
+
+**A private instance cannot reach the internet**
+
+Work outward: does the private route table have `0.0.0.0/0 → nat-…`, is the
+subnet actually associated with that table, is the NAT in a **public** subnet,
+and does the public route table point at the IGW? A NAT in a private subnet is
+the classic version of this and produces a silent timeout.
+
+**`Error: InvalidSubnet.Conflict`**
+
+Two subnets overlap. `cidrsubnet` with distinct indexes prevents it; hand-written
+blocks do not.
+
+**Apply hangs on `aws_nat_gateway`**
+
+NAT Gateways take a few minutes to provision. Ten minutes without progress
+means it cannot reach the IGW — check the `depends_on`.
+
+**`destroy` fails on the VPC**
+
+Something Terraform did not create is still inside it — usually an ENI from a
+load balancer that Kubernetes provisioned. Delete the Ingress objects first,
+then destroy.
+
+**A charge after destroying everything**
+
+An Elastic IP that was released from the NAT but not deallocated.
+`aws ec2 describe-addresses --query 'Addresses[?AssociationId==null]'`.
 
 ---
 
 ## Clean up
 
-Run this even if you did not finish. Everything above is destroyable, and an
-account full of half-built experiments is how a surprise bill starts.
-
 ```bash
 terraform destroy -auto-approve
-# Verify the NAT Gateway is really gone — it is the only costly resource here:
 aws ec2 describe-nat-gateways --filter Name=state,Values=available --query 'NatGateways[].NatGatewayId'
-# Release any Elastic IP left behind (an unattached EIP is billed hourly):
-aws ec2 describe-addresses --query 'Addresses[?AssociationId==`null`].[PublicIp,AllocationId]' --output table
+aws ec2 describe-addresses --query 'Addresses[?AssociationId==null].[PublicIp,AllocationId]'
 ```
 
-**Cost of this lab:** **Billable.** The NAT Gateway is ~$0.045/hour (~$32/month) plus $0.045/GB processed, and it bills whether or not traffic flows. The VPC, subnets and route tables are free. Destroy the NAT Gateway the moment you are done.
+**Cost of this lab:** **Billable.** The NAT Gateway is roughly $0.045/hour plus
+per-GB processing — about $32/month if left running. Everything else here is
+free. Destroy it when you finish.

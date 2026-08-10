@@ -16,8 +16,10 @@ cleanup:
   - "terraform destroy -auto-approve"
   - "aws iam list-roles --query 'Roles[?starts_with(RoleName, `ivolve`)].RoleName'"
 successCriteria:
-  - "Create least-privilege IAM Roles for EKS Cluster, EKS Node Group, and Jenkins EC2."
-  - "Configure Security Group chaining: ALB \u2794 EKS Worker Nodes \u2794 RDS PostgreSQL."
+  - "Each role's trust policy names exactly one service, and its permissions policy names exactly the actions it needs."
+  - "Security groups reference each other rather than CIDR ranges, so no rule contains a hardcoded IP."
+  - "The database accepts connections only from the worker node security group — verified by trying from elsewhere."
+  - "A pod assumes an IAM role through IRSA without any credential file existing."
 guidedLabId: lab-02-iam-roles-irsa-policies-security-groups
 authors: [waleed]
 updated: 2026-08-09

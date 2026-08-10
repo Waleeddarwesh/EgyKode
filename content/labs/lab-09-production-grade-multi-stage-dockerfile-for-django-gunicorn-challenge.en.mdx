@@ -12,10 +12,10 @@ estimatedMinutes: 15
 cloudCost: false
 costTier: free
 successCriteria:
-  - "Write a production multi-stage Dockerfile (python:3.13-slim)."
-  - "Configure entrypoint.sh wait loop for PostgreSQL database readiness (nc -z $DB_HOST $DB_PORT)."
-  - "Automate Django migrations (python manage.py migrate) and static collection (collectstatic)."
-  - "Build, optimize, and test container execution locally."
+  - "The final image is under 200 MB and contains no compiler."
+  - "The container runs as a non-root user — proven with `docker exec ... id`."
+  - "A build cache hit skips dependency installation when only application code changed."
+  - "The container refuses to start until the database is reachable, instead of crashing."
 guidedLabId: lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn
 authors: [waleed]
 updated: 2026-08-09

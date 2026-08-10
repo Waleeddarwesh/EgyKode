@@ -19,11 +19,11 @@ cleanup:
   - "# Release any Elastic IP left behind (an unattached EIP is billed hourly):"
   - "aws ec2 describe-addresses --query 'Addresses[?AssociationId==`null`].[PublicIp,AllocationId]' --output table"
 successCriteria:
-  - "Write modular Infrastructure as Code (IaC) using Terraform (>= 1.6)."
-  - "Provision a custom AWS VPC (10.0.0.0/16) across 2 Availability Zones (us-east-1a, us-east-1b)."
-  - "Create 2 Public Subnets (10.0.1.0/24, 10.0.2.0/24) and 2 Private Subnets (10.0.10.0/24, 10.0.11.0/24)."
-  - "Attach an Internet Gateway (aws_internet_gateway), allocate an Elastic IP (aws_eip), and configure a NAT Gateway (aws_nat_gateway)."
-  - "Establish distinct Public and Private Route Tables (aws_route_table) with automatic subnet associations."
+  - "A VPC spans two availability zones with a public and a private subnet in each."
+  - "An instance in a private subnet reaches the internet outbound and cannot be reached inbound."
+  - "The difference between the two subnet types is visible in the route tables, not in their names."
+  - "`terraform plan` reports no changes after `apply`."
+  - "`terraform destroy` removes the NAT Gateway and releases its Elastic IP."
 guidedLabId: lab-01-aws-vpc-subnets-gateways-route-tables
 authors: [waleed]
 updated: 2026-08-09

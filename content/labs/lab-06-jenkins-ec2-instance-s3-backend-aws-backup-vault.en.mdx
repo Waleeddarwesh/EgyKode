@@ -17,80 +17,251 @@ cleanup:
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
   - "aws backup list-recovery-points-by-backup-vault --backup-vault-name <vault> --query 'RecoveryPoints[].RecoveryPointArn'"
 successCriteria:
-  - "Configure S3 remote state backend (backend.tf) with DynamoDB lock table."
-  - "Provision Jenkins EC2 host (modules/ec2-jenkins/main.tf) with Elastic IP."
-  - "Configure AWS Backup Vault and daily Backup Plan (modules/backup/main.tf)."
+  - "State lives in S3 with DynamoDB locking, and a second concurrent apply is refused."
+  - "The state bucket has versioning, so a deleted state file is recoverable."
+  - "The Jenkins host has a stable address that survives a stop and start."
+  - "A backup plan exists and you verified a recovery point was actually created."
 challengeId: lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault-challenge
-sourceFile: "NTI Final Project/01-Infrastructure-Terraform/Lab06-Jenkins-EC2-AWSBackup/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+Terraform state is a file on one laptop. Two people ran `apply` at the same time last week and the state now disagrees with reality in ways nobody has fully mapped.
+
+The Jenkins server has no backups and its public IP changes every time it is stopped, which breaks every webhook.
 
 ## What you are building
 
-### What is the Jenkins Host & AWS Backup Architecture?
-- **Jenkins Host**: Dedicated EC2 host in Public Subnet A running Jenkins LTS, Docker CE, and CI/CD tools. Attached to a persistent Elastic IP (EIP).
-- **AWS Backup Vault**: Fully managed enterprise backup service. Executes automated daily snapshots of the Jenkins EC2 EBS volume at 05:00 UTC with 30-day retention policies.
-- **Remote State Backend**: S3 bucket with DynamoDB state locking to prevent concurrent state corruption during multi-developer terraform runs.
+The bootstrap problem first: **the backend that stores state cannot itself be
+created by the configuration that uses it.** So this is two stages, and that is
+not an accident of tooling.
 
 ```text
-                                JENKINS EC2 & DISASTER RECOVERY
-                                
-  +-----------------------------------------------------------------------------------+
-  |  PUBLIC SUBNET A (VPC)                                                            |
-  |  - Jenkins EC2 Instance (Elastic IP Attached)                                     |
-  |  - EBS Root Volume (gp3, 30GB Encrypted)                                          |
-  +----------------------------------------+------------------------------------------+
-                                           |
-                                           | Daily Automated Snapshot at 05:00 UTC
-                                           v
-  +-----------------------------------------------------------------------------------+
-  |  AWS BACKUP VAULT (nti-devops-backup-vault)                                       |
-  |  - Rule: Daily Snapshots                                                          |
-  |  - Retention: 30 Days                                                             |
-  |  - Encryption: KMS Key                                                            |
-  +-----------------------------------------------------------------------------------+
+  stage 1  →  create the bucket + lock table with LOCAL state
+  stage 2  →  every other stack uses them as a remote backend
 ```
 
----
+### 1. The backend, created locally
 
-## Steps
+```hcl
+resource "aws_s3_bucket" "state" {
+  bucket = "platform-tfstate-${data.aws_caller_identity.current.account_id}"
+}
 
-### Step 1: Initialize S3 Remote Backend & Apply Master Infrastructure
+resource "aws_s3_bucket_versioning" "state" {
+  bucket = aws_s3_bucket.state.id
+  versioning_configuration { status = "Enabled" }
+}
+
+resource "aws_dynamodb_table" "lock" {
+  name         = "platform-tfstate-lock"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "LockID"
+  attribute {
+    name = "LockID"
+    type = "S"
+  }
+}
+```
+
+Two properties doing two different jobs:
+
+- **Versioning** protects against a bad write or a deletion. Every previous
+  state is retrievable.
+- **The lock table** protects against two people applying at once. Terraform
+  writes a lock item before touching state and removes it afterwards; a second
+  run sees the item and refuses.
+
+`PAY_PER_REQUEST` costs effectively nothing at this volume — a few writes per
+apply.
+
+### 2. Point the other stacks at it
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "platform-tfstate-111122223333"
+    key            = "production/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "platform-tfstate-lock"
+    encrypt        = true
+  }
+}
+```
+
 ```bash
-cd 01-Infrastructure-Terraform/Lab06-Jenkins-EC2-AWSBackup
-terraform init
-terraform apply -auto-approve
+terraform init -migrate-state
 ```
+
+The `key` is a path inside the bucket. One bucket holding
+`production/…`, `staging/…` and `network/…` keeps each stack's state separate
+while sharing one lock table — which is what you want, because a lock is per
+state file.
+
+**The backend block cannot use variables.** It is read before Terraform
+evaluates anything, so these values are literals or come from
+`-backend-config` flags. This surprises everyone once.
+
+### 3. A host with an address that does not move
+
+```hcl
+resource "aws_instance" "jenkins" {
+  ami                    = data.aws_ami.al2023.id
+  instance_type          = "t3.medium"
+  subnet_id              = var.public_subnet_id
+  vpc_security_group_ids = [aws_security_group.jenkins.id]
+  iam_instance_profile   = aws_iam_instance_profile.jenkins.name
+
+  metadata_options {
+    http_tokens = "required"        # IMDSv2
+  }
+
+  root_block_device {
+    volume_size = 30
+    volume_type = "gp3"
+    encrypted   = true
+  }
+
+  user_data = <<-EOF
+    #!/bin/bash
+    dnf install -y java-17-amazon-corretto docker git
+    systemctl enable --now docker
+    curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key       -o /etc/pki/rpm-gpg/jenkins.key
+    rpm --import /etc/pki/rpm-gpg/jenkins.key
+    dnf install -y jenkins
+    systemctl enable --now jenkins
+  EOF
+
+  tags = { Name = "jenkins", Backup = "daily" }
+}
+
+resource "aws_eip" "jenkins" {
+  instance = aws_instance.jenkins.id
+  domain   = "vpc"
+}
+```
+
+A public IP is released when an instance stops and a different one is assigned
+on start. An **Elastic IP** stays. That matters here because GitHub webhooks
+point at an address, and every stop would otherwise mean reconfiguring them.
+
+An EIP is free while attached and **billed while unattached**, which is the
+reverse of what people assume and a common small mystery charge.
+
+### 4. Backups, by tag
+
+```hcl
+resource "aws_backup_vault" "main" {
+  name = "platform"
+}
+
+resource "aws_backup_plan" "daily" {
+  name = "daily-30d"
+  rule {
+    rule_name         = "daily"
+    target_vault_name = aws_backup_vault.main.name
+    schedule          = "cron(0 5 * * ? *)"      # 05:00 UTC
+    start_window      = 60
+    completion_window = 180
+    lifecycle { delete_after = 30 }
+  }
+}
+
+resource "aws_backup_selection" "tagged" {
+  name         = "tagged-daily"
+  plan_id      = aws_backup_plan.daily.id
+  iam_role_arn = aws_iam_role.backup.arn
+
+  selection_tag {
+    type  = "STRINGEQUAL"
+    key   = "Backup"
+    value = "daily"
+  }
+}
+```
+
+Selecting **by tag** rather than by resource ID means a new instance carrying
+`Backup = daily` is protected the moment it exists. Selecting by ID means
+somebody has to remember, and eventually will not.
 
 ---
 
 ## Verify it worked
 
 ```bash
-terraform output
+# State is remote, and locking works
+terraform state list | head
+terraform plan &                       # hold a lock
+terraform plan                         # must report: Error acquiring the state lock
+wait
+
+# A deleted state file is recoverable
+aws s3api list-object-versions --bucket <state-bucket> --prefix production/terraform.tfstate \
+  --query 'Versions[].[VersionId,LastModified]' --output table
+
+# The address survives a stop/start
+aws ec2 stop-instances --instance-ids <id> && aws ec2 wait instance-stopped --instance-ids <id>
+aws ec2 start-instances --instance-ids <id> && aws ec2 wait instance-running --instance-ids <id>
+aws ec2 describe-addresses --query 'Addresses[].[PublicIp,InstanceId]' --output table
+
+# A recovery point actually exists — not just a plan that says it will
+aws backup list-recovery-points-by-backup-vault --backup-vault-name platform \
+  --query 'RecoveryPoints[].[CreationDate,Status,ResourceArn]' --output table
 ```
 
-**Expected Output:**
-```text
-jenkins_public_ip   = "54.210.142.88"
-eks_cluster_name    = "nti-devops-eks"
-rds_endpoint        = "nti-devops-postgres.c123456789.us-east-1.rds.amazonaws.com"
-```
+That last one is the difference between "backups are configured" and "backups
+happened". A plan with no recovery points is a plan that has never run, and you
+find that out either now or during a restore.
 
 ---
+
+## When it goes wrong
+
+**`Error acquiring the state lock`**
+
+Either someone is genuinely applying, or a previous run died holding it.
+`terraform force-unlock <lock-id>` — and confirm nobody is running first,
+because forcing a live lock is how state gets corrupted.
+
+**`NoSuchBucket` on `terraform init`**
+
+The bootstrap stage has not been applied, or the backend block names the wrong
+region. The backend cannot create its own bucket.
+
+**Variables not allowed in the backend block**
+
+Correct, and by design. Use `-backend-config=key=value` or a
+`backend.hcl` file.
+
+**Jenkins is not on port 8080 after boot**
+
+Read `/var/log/cloud-init-output.log`. A failed user-data script leaves a
+healthy-looking instance with nothing installed.
+
+**The Elastic IP shows a charge**
+
+It is unattached. `aws ec2 describe-addresses --query
+'Addresses[?AssociationId==null]'` and release it.
+
+**Backup plan exists, no recovery points**
+
+The tag does not match, or the IAM role lacks the AWS Backup service policy.
+`aws backup list-backup-jobs --by-state FAILED` gives the reason.
 
 ---
 
 ## Clean up
 
-Run this even if you did not finish. Everything above is destroyable, and an
-account full of half-built experiments is how a surprise bill starts.
-
 ```bash
+# Backups outlive the instance — delete recovery points first
+aws backup list-recovery-points-by-backup-vault --backup-vault-name platform \
+  --query 'RecoveryPoints[].RecoveryPointArn' --output text
 terraform destroy -auto-approve
-aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'
-aws backup list-recovery-points-by-backup-vault --backup-vault-name <vault> --query 'RecoveryPoints[].RecoveryPointArn'
+aws s3 rm s3://<state-bucket> --recursive        # only when finished for good
 ```
 
-**Cost of this lab:** Free tier — a `t3.micro` EC2 instance and S3 storage are inside the 12-month allowance. Outside it, expect ~$8/month for the instance if left running. AWS Backup charges for stored recovery points.
+**Cost of this lab:** **Billable.** A `t3.medium` is about $0.042/hour (~$30/month).
+S3, DynamoDB on-demand and the EIP while attached are cents. Recovery points bill
+until deleted and survive `terraform destroy`.

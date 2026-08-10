@@ -12,10 +12,10 @@ estimatedMinutes: 19
 cloudCost: false
 costTier: free
 successCriteria:
-  - "Write Nginx reverse proxy configuration (nginx/nginx.conf) to proxy dynamic requests to Gunicorn and serve static assets directly."
-  - "Define multi-container stack in docker-compose.yml linking Django, PostgreSQL 16, Redis 7, and Nginx."
-  - "Configure persistent Docker named volumes (postgres_data, static_volume) to prevent data loss."
-  - "Launch, test, and verify local stack execution (docker compose up -d --build)."
+  - "Nginx serves static files directly and proxies everything else to Gunicorn."
+  - "The stack starts in a working order — the app waits for a *ready* database, not a started one."
+  - "Database data survives `docker compose down` and returns after `up`."
+  - "The application sees the real client IP, not the proxy's."
 guidedLabId: lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack
 authors: [waleed]
 updated: 2026-08-09

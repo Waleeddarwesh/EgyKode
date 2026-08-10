@@ -12,72 +12,164 @@ estimatedMinutes: 39
 cloudCost: false
 costTier: free
 successCriteria:
-  - "Write Nginx reverse proxy configuration (nginx/nginx.conf) to proxy dynamic requests to Gunicorn and serve static assets directly."
-  - "Define multi-container stack in docker-compose.yml linking Django, PostgreSQL 16, Redis 7, and Nginx."
-  - "Configure persistent Docker named volumes (postgres_data, static_volume) to prevent data loss."
-  - "Launch, test, and verify local stack execution (docker compose up -d --build)."
+  - "Nginx serves static files directly and proxies everything else to Gunicorn."
+  - "The stack starts in a working order — the app waits for a *ready* database, not a started one."
+  - "Database data survives `docker compose down` and returns after `up`."
+  - "The application sees the real client IP, not the proxy's."
 challengeId: lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack-challenge
-sourceFile: "NTI Final Project/03-Containerization-Docker/Lab10-Nginx-DockerCompose-Stack/README.md"
 authors: [waleed]
-updated: 2026-08-09
+updated: 2026-08-10
 ---
+
+## The scenario
+
+Gunicorn is serving CSS. It is a Python process reading files off disk and writing them to a socket, and it is doing that instead of handling requests — so the site is slow under load for no good reason.
+
+There is also no TLS, no static caching, and the application crashes on boot roughly one time in three because PostgreSQL is not accepting connections yet.
 
 ## What you are building
 
-### What is Nginx Reverse Proxy and Docker Compose?
-- **Nginx Reverse Proxy**: An open-source, high-performance HTTP server that sits at the public boundary of your application network. It intercepts incoming client requests, serves static CSS/JS files directly from disk cache, and reverse-proxies dynamic web traffic to backend Gunicorn WSGI application servers.
-- **Docker Compose**: A tool for defining and running multi-container Docker applications using a single declarative YAML file (`docker-compose.yml`). It automates bridge network creation, service dependency ordering (`depends_on`), environment variable injection, and persistent volume management across multiple containers.
-
 ```text
-                                DOCKER COMPOSE MULTI-CONTAINER ARCHITECTURE
-                                
-  Client (Browser / Curl)
-         |
-         | HTTP Request (Port 80)
-         v
-  +-----------------------------------------------------------------------------------+
-  |  DOCKER COMPOSE BRIDGE NETWORK (nti_network)                                      |
-  |                                                                                   |
-  |  +--------------------+    Reverse Proxy Pass     +--------------------+          |
-  |  |  Nginx Container   | ========================> |  Django Container  |          |
-  |  |  (nti_nginx_proxy) |    http://app:8000        |  (nti_django_app)  |          |
-  |  |  Port 80:80        |                           |  Gunicorn WSGI     |          |
-  |  +---------+----------+                           +---------+----------+          |
-  |            | Serves Static Files directly                   |                     |
-  |            v                                                |                     |
-  |  +--------------------------------------------------+       |                     |
-  |  |  Shared Named Volume (static_volume)             |       |                     |
-  |  +--------------------------------------------------+       |                     |
-  |                                                             |                     |
-  |                                        +--------------------+------------------+  |
-  |                                        | Encrypted Database | Session Cache    |  |
-  |                                        v Connections        v Connections      |  |
-  |                             +--------------------+     +--------------------+  |  |
-  |                             | PostgreSQL 16 DB   |     | Redis 7 Cache      |  |  |
-  |                             | (nti_postgres_db)  |     | (nti_redis_cache)  |  |  |
-  |                             | Port 5432          |     | Port 6379          |  |  |
-  |                             +--------------------+     +--------------------+  |  |
-  +-----------------------------------------------------------------------------------+
+  Browser
+     │ :80
+     ▼
+  ┌──────────────────────── compose network ────────────────────────┐
+  │  nginx        /static/  → served from a shared volume, on disk  │
+  │               /         → proxy_pass to gunicorn                │
+  │     │                                                           │
+  │     ▼                                                           │
+  │  web (gunicorn)  ──▶  db (postgres)   ──▶  named volume         │
+  │                  ──▶  cache (redis)                             │
+  └─────────────────────────────────────────────────────────────────┘
 ```
+
+**Why not let Gunicorn serve static files?** It can, and every worker that is
+streaming a CSS file is a worker not handling a request. Nginx does that with
+`sendfile` in the kernel, at a cost close to zero, and adds caching headers
+while it is there. This is the division of labour every Python deployment ends
+up with.
 
 ---
 
-## Steps
+## Build it
 
-### Step 1: Launch Local Multi-Container Stack
+### 1. The Nginx configuration
+
+```nginx
+# nginx/default.conf
+upstream django {
+    server web:8000;
+}
+
+server {
+    listen 80;
+    server_name _;
+    client_max_body_size 20M;
+
+    # Served from disk. Never reaches Python.
+    location /static/ {
+        alias /app/static/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    location /media/ {
+        alias /app/media/;
+        expires 7d;
+    }
+
+    location / {
+        proxy_pass http://django;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_connect_timeout 5s;
+        proxy_read_timeout    60s;
+    }
+}
+```
+
+**The four `proxy_set_header` lines are not boilerplate.** Without them the
+application sees every request as coming from the Nginx container's IP, so
+rate limiting, audit logs and geolocation all break in a way that looks
+correct in testing — because in testing there is one client.
+
+### 2. The Compose file
+
+```yaml
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  cache:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+
+  web:
+    build: .
+    environment:
+      DB_HOST: db
+      REDIS_HOST: cache
+    volumes:
+      - static:/app/static
+    depends_on:
+      db:
+        condition: service_healthy      # ready, not merely started
+      cache:
+        condition: service_healthy
+    expose:
+      - "8000"                          # visible to nginx, not to the host
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - static:/app/static:ro           # the same volume web writes to
+    depends_on:
+      - web
+
+volumes:
+  pgdata:
+  static:
+```
+
+Three details worth pointing at:
+
+- **`expose` rather than `ports` on `web`.** Nginx reaches it on the compose
+  network; the host does not need to, and publishing it would let clients skip
+  the proxy entirely.
+- **`${DB_PASSWORD:?...}`** fails the `up` with a clear message rather than
+  silently starting PostgreSQL with an empty password.
+- **The `static` volume is mounted twice** — read-write by `web`, read-only by
+  `nginx`. That is how Nginx serves files a Python process collected.
+
+### 3. Start it
+
 ```bash
-cd 03-Containerization-Docker/Lab10-Nginx-DockerCompose-Stack
+export DB_PASSWORD=labonly
 docker compose up -d --build
-```
-
-### Step 2: Inspect Running Stack Status
-```bash
-docker compose ps
-```
-
-### Step 3: Test Web Proxy Connectivity
-```bash
-curl -I http://localhost
+docker compose ps            # db and cache show "healthy", not "running"
 ```
 
 ---
@@ -85,16 +177,67 @@ curl -I http://localhost
 ## Verify it worked
 
 ```bash
-docker compose ps
+# Static served by nginx, not Python
+curl -sI http://localhost/static/css/site.css | grep -i 'server\|cache-control'
+# Server: nginx/1.27.x   Cache-Control: public, immutable
+
+# Dynamic proxied through
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost/
+
+# The app sees the real client IP
+docker compose logs web --tail 5 | grep -o 'X-Forwarded-For[^ ]*'
+
+# Data survives a full stop
+docker compose exec db psql -U app -c "CREATE TABLE t(id int); INSERT INTO t VALUES (1);"
+docker compose down && docker compose up -d
+docker compose exec db psql -U app -c "SELECT * FROM t;"
 ```
 
-**Expected Output:**
-```text
-NAME               IMAGE                  COMMAND                  SERVICE   CREATED         STATUS         PORTS
-nti_django_app     lab09-app              "/app/entrypoint.sh …"   app       1 minute ago    Up 1 minute    8000/tcp
-nti_nginx_proxy    nginx:1.27-alpine      "/docker-entrypoint.…"   nginx     1 minute ago    Up 1 minute    0.0.0.0:80->80/tcp
-nti_postgres_db    postgres:16-alpine     "docker-entrypoint.s…"   db        1 minute ago    Up 1 minute    0.0.0.0:5432->5432/tcp
-nti_redis_cache    redis:7-alpine         "docker-entrypoint.s…"   redis     1 minute ago    Up 1 minute    0.0.0.0:6379->6379/tcp
-```
+That last sequence is the one people skip and the one that matters. `down`
+destroys containers and keeps named volumes; `down -v` destroys the volumes
+too, and it is one character away.
 
 ---
+
+## When it goes wrong
+
+**502 Bad Gateway from Nginx**
+
+Nginx started and the upstream did not answer. In order: is `web` running
+(`docker compose ps`), is it listening on `0.0.0.0:8000` rather than
+`127.0.0.1` inside its container, and does the `upstream` name match the
+service name exactly?
+
+**404 on static files, dynamic pages fine**
+
+The `static` volume is empty. Whatever collects static assets has not run, or
+it ran in a container that mounted a different volume. `docker compose exec
+nginx ls /app/static` settles it.
+
+**`host not found in upstream "web"`** and Nginx will not start
+
+Compose resolves service names on its own network. This is a typo, or Nginx is
+on a different network. Note that Nginx resolves upstreams **at startup** and
+then caches — if `web` was not up yet, Nginx fails permanently rather than
+retrying.
+
+**The app crashes on first boot, works on restart**
+
+`depends_on` without `condition: service_healthy` waits only for the container
+to start. PostgreSQL accepts connections several seconds after that.
+
+**Everything is gone after a restart**
+
+`docker compose down -v`, or the volume was anonymous. Named volumes in the
+top-level `volumes:` block persist.
+
+---
+
+## Clean up
+
+```bash
+docker compose down -v
+docker volume prune -f
+```
+
+**Cost of this lab:** Free — everything runs locally.

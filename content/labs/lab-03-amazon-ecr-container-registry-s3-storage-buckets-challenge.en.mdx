@@ -17,7 +17,10 @@ cleanup:
   - "aws s3 rm s3://<bucket> --recursive && aws s3api delete-bucket --bucket <bucket>"
   - "terraform destroy -auto-approve"
 successCriteria:
-  - "Step 1: Deploy ECR & S3 Infrastructure"
+  - "An image pushed to ECR is scanned automatically and you can read the findings."
+  - "A lifecycle policy expires untagged images, and you can state how many it will keep."
+  - "Every bucket blocks public access and rejects requests that are not over TLS."
+  - "The state bucket has versioning enabled, and you demonstrated recovering a deleted object."
 guidedLabId: lab-03-amazon-ecr-container-registry-s3-storage-buckets
 authors: [waleed]
 updated: 2026-08-09
