@@ -78,7 +78,11 @@ export default async function BuildPage({
                   {project.stack.map((tech) => (
                     <li
                       key={tech}
-                      className="badge border px-2 py-0.5 font-mono text-[11px]"
+                      // 12px is the floor for body-adjacent text. These badges
+                      // are the fastest way to see what a project is built
+                      // with, so they are content rather than decoration and
+                      // should not be the smallest thing on the page.
+                      className="badge border px-2 py-0.5 font-mono text-xs"
                       style={{ color: domainColor(tech) }}
                     >
                       {tech}

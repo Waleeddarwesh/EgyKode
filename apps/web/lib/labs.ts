@@ -69,6 +69,8 @@ export interface LabMeta {
   /** The incident variant of this lab, where one exists. */
   incidentId?: string;
   sourceFile?: string;
+  /** Every lab's frontmatter carries this; it feeds `dateModified` in JSON-LD. */
+  updated?: string;
 }
 
 export interface Lab extends LabMeta {

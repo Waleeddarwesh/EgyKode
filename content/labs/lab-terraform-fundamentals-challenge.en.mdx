@@ -30,6 +30,7 @@ cleanup:
   - "terraform destroy -auto-approve"
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
   - "aws s3 ls | grep tf-fundamentals   # must print nothing"
+guidedLabId: lab-terraform-fundamentals
 authors: [waleed]
 updated: 2026-08-10
 ---

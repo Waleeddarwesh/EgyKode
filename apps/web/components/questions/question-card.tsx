@@ -58,7 +58,7 @@ export function QuestionCard({
           ragged rows this grid is meant to avoid. */}
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-3 text-xs text-content-muted">
         <span
-          className="badge border px-2 py-0.5 font-mono text-[11px]"
+          className="badge border px-2 py-0.5 font-mono text-xs"
           style={{ color: meta.domainColour }}
         >
           {meta.domain}

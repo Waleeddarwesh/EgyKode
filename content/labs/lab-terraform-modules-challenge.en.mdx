@@ -28,6 +28,7 @@ successCriteria:
 cleanup:
   - "terraform destroy -auto-approve"
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
+guidedLabId: lab-terraform-modules
 authors: [waleed]
 updated: 2026-08-10
 ---

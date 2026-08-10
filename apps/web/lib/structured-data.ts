@@ -62,6 +62,8 @@ export function learningResource(chapter: {
   updated: string;
   locale: string;
   keywords: string[];
+  /** "Chapter" for reading, "Lab" for something you run. */
+  resourceType?: string;
 }) {
   return {
     "@type": "LearningResource",
@@ -70,7 +72,7 @@ export function learningResource(chapter: {
     description: chapter.description,
     url: url(chapter.path),
     inLanguage: chapter.locale,
-    learningResourceType: "Chapter",
+    learningResourceType: chapter.resourceType ?? "Chapter",
     educationalLevel: chapter.level,
     // ISO 8601 duration — "PT45M" for a 45-minute read.
     timeRequired: `PT${chapter.readingTime}M`,

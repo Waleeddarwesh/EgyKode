@@ -31,6 +31,7 @@ cleanup:
   - "kubectl get pv                    # confirm nothing is Released and lingering"
   - "# On a cloud cluster, unattached volumes keep billing:"
   - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
+guidedLabId: lab-k8s-storage
 authors: [waleed]
 updated: 2026-08-10
 ---

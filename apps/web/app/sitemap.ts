@@ -1,6 +1,8 @@
 import type { MetadataRoute } from "next";
 
 import { getAllChapters } from "@/lib/content";
+import { getAllDomains, getGeneratedTopics } from "@/lib/domains";
+import { getAllLabs } from "@/lib/labs";
 import { getProjects, getRoadmaps } from "@/lib/projects";
 import { PUBLIC_LOCALES } from "@/lib/i18n";
 
@@ -24,7 +26,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
   });
 
   for (const locale of PUBLIC_LOCALES) {
-    for (const path of ["", "/learn", "/roadmaps", "/projects"]) {
+    // Index pages. `/community` and `/jobs` are deliberately absent: they are
+    // placeholders, and advertising a page that says "planned" spends crawl
+    // budget to rank a promise. Account pages are excluded for the obvious
+    // reason.
+    for (const path of ["", "/learn", "/roadmaps", "/projects", "/labs", "/topics",
+                        "/prepare/questions"]) {
       entries.push({
         url: `${SITE}/${locale}${path}`,
         changeFrequency: "weekly",
@@ -55,9 +62,44 @@ export default function sitemap(): MetadataRoute.Sitemap {
         alternates: alternates(path),
       });
     }
+
+    // Roadmaps are the highest-intent landing pages on the site — somebody
+    // searching "cloud devops roadmap" wants one of these four, not the index.
+    for (const roadmap of getRoadmaps()) {
+      const path = `/roadmaps/${roadmap.id}`;
+      entries.push({
+        url: `${SITE}/${locale}${path}`,
+        changeFrequency: "monthly",
+        priority: 0.9,
+        alternates: alternates(path),
+      });
+    }
+
+    // 100+ pages that were advertised nowhere. A topic hub is the page that
+    // answers a query like "kubernetes networkpolicy" with everything the
+    // corpus has on it.
+    for (const id of [...getAllDomains(), ...getGeneratedTopics().map((t) => t.id)]) {
+      const path = `/topics/${id}`;
+      entries.push({
+        url: `${SITE}/${locale}${path}`,
+        changeFrequency: "weekly",
+        priority: 0.5,
+        alternates: alternates(path),
+      });
+    }
+
+    // Every lab, including challenges and incidents: each is distinct content
+    // with its own objective, not a variant of another page.
+    for (const lab of getAllLabs()) {
+      const path = `/labs/${lab.labId}`;
+      entries.push({
+        url: `${SITE}/${locale}${path}`,
+        changeFrequency: "monthly",
+        priority: lab.tier === "guided" ? 0.7 : 0.5,
+        alternates: alternates(path),
+      });
+    }
   }
 
-  // Referenced so the roadmap count is a build-time fact, not a guess.
-  void getRoadmaps();
   return entries;
 }

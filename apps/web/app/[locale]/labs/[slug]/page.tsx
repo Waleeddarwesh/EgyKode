@@ -10,6 +10,8 @@ import rehypePrettyCode from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 
+import { JsonLd } from "@/components/seo/json-ld";
+import { breadcrumbs, graph, learningResource } from "@/lib/structured-data";
 import { LabHeader, BeforeYouStart } from "@/components/labs/lab-header";
 import { NextLab } from "@/components/labs/next-lab";
 import { SuccessCriteria } from "@/components/labs/success-criteria";
@@ -83,6 +85,31 @@ export default async function LabPage({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      {/* Labs are 113 of the site's pages and had no structured data at all,
+          while chapters, roadmaps and the question bank did. They are the part
+          of the platform least like everyone else's, so they are the pages
+          most worth describing to a search engine. */}
+      <JsonLd
+        data={graph(
+          learningResource({
+            title: lab.title,
+            description: lab.description,
+            path: `/${typed}/labs/${slug}`,
+            level: lab.level,
+            readingTime: lab.estimatedMinutes,
+            updated: lab.updated ?? "",
+            locale: typed,
+            keywords: [lab.domain, ...(lab.skills ?? []), ...(lab.tools ?? [])],
+            resourceType: lab.tier === "guided" ? "Lab" : "Exercise",
+          }),
+          breadcrumbs([
+            { name: "EgyKode", path: `/${typed}` },
+            { name: t("labs.title"), path: `/${typed}/labs` },
+            { name: lab.title, path: `/${typed}/labs/${slug}` },
+          ]),
+        )}
+      />
+
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-content-muted">
         <BackLink href={`/${typed}/labs`} label={t("labs.title")} />
         <span className="mx-2" aria-hidden>/</span>

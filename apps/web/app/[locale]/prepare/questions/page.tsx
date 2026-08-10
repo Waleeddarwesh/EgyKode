@@ -6,7 +6,7 @@ import { FilterBar } from "@/components/filters/filter-bar";
 import { BackLink } from "@/components/layout/back-link";
 import { JsonLd } from "@/components/seo/json-ld";
 import { QuestionCard } from "@/components/questions/question-card";
-import { domainColor } from "@/lib/content";
+import { domainColor, getChapterMeta } from "@/lib/content";
 import { getDomainMeta } from "@/lib/domains";
 import { getQuestions } from "@/lib/questions";
 import { breadcrumbs, faqPage, graph } from "@/lib/structured-data";
@@ -107,7 +107,12 @@ export default async function QuestionsPage({
                 domainColour: domainColor(q.domain),
                 level: t(`level.${q.level}`),
                 kind: t(`questions.kind.${q.kind}`),
-                chapterHref: `/${typed}/learn/${q.domain}/${q.chapter}`,
+                // The chapter's own domain, not the question's. A question is
+                // tagged by subject area ("gitops", "observability") while the
+                // chapter lives in a directory named after the tool ("argocd",
+                // "prometheus"), and the two are allowed to differ — using the
+                // question's domain produced two dead links from this page.
+                chapterHref: `/${typed}/learn/${getChapterMeta(q.chapter)?.domain ?? q.domain}/${q.chapter}`,
                 chapterLabel: t("questions.readChapter"),
               }}
             />
