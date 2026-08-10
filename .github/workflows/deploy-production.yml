@@ -34,7 +34,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - run: npm ci
@@ -68,7 +68,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - run: npm ci
@@ -83,6 +83,18 @@ jobs:
           npm run topics
           npm run search
           npm run build --workspace=@egykode/web
+
+      # What GitHub will actually present. `Not authorized to perform
+      # sts:AssumeRoleWithWebIdentity` never tells you which claim failed, so
+      # this prints the subject the trust policy has to match.
+      - name: Show OIDC subject
+        env:
+          RUNNER_DEBUG_SUB: ${{ github.repository }}
+        run: |
+          echo "repository : ${{ github.repository }}"
+          echo "ref        : ${{ github.ref }}"
+          echo "event      : ${{ github.event_name }}"
+          echo "expected sub: repo:${{ github.repository }}:ref:${{ github.ref }}"
 
       # Short-lived credentials from the OIDC token. No AWS key is stored in
       # this repository, which is the property the Jenkins chapter claims.

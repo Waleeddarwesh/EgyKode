@@ -1,0 +1,116 @@
+# Incident 03 — service-to-service calls fail
+#
+# Both workloads are Running and Ready. The API still cannot reach the
+# database. Nothing reports an error, because from Kubernetes' point of view
+# nothing is wrong.
+#
+#   kubectl create namespace incident-03
+#   kubectl label namespace kube-system kubernetes.io/metadata.name=kube-system --overwrite
+#   kubectl apply -n incident-03 -f incident-03.yaml
+#
+# REQUIRES A CNI THAT ENFORCES NETWORKPOLICY.
+#
+# kind's default CNI (kindnet) does *not* — policies are accepted and silently
+# ignored, so this incident will not reproduce and you will conclude the lab is
+# broken. Use one of:
+#
+#   kind create cluster --config=- <<'EOF'
+#   kind: Cluster
+#   apiVersion: kind.x-k8s.io/v1alpha4
+#   networking:
+#     disableDefaultCNI: true
+#   EOF
+#   kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/calico.yaml
+#
+#   # or
+#   minikube start --cni=calico
+#
+# Verify enforcement is real before trusting the result:
+#   kubectl get pods -n kube-system -l k8s-app=calico-node
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  labels:
+    app: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: db
+          image: hashicorp/http-echo:1.0
+          args:
+            - "-listen=:5432"
+            - "-text=database reached"
+          ports:
+            - containerPort: 5432
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  type: ClusterIP
+  selector:
+    app: db
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels:
+    app: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: curlimages/curl:8.8.0
+          command: ["sh", "-c", "sleep 3600"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+---
+# A default-deny egress policy for the API, with what looks like a complete
+# allow-list. Read it carefully only after you have investigated the cluster.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: db
+      ports:
+        - protocol: TCP
+          port: 5432

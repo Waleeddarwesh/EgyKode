@@ -1,0 +1,57 @@
+---
+labId: lab-k8s-workloads-challenge
+title: "Kubernetes Workloads: Pod, ReplicaSet, Deployment — Challenge"
+description: "Watch a Deployment create a ReplicaSet create Pods, then delete each in turn and see which come back."
+domain: kubernetes
+level: beginner
+type: lab
+phase: kubernetes
+order: 19
+tier: challenge
+estimatedMinutes: 45
+cloudCost: false
+costEstimate: "Free — runs on kind, minikube or Docker Desktop. No cloud account needed."
+skills:
+  - "Explain the Deployment → ReplicaSet → Pod ownership chain"
+  - "Perform a rolling update and roll it back"
+  - "Match a selector to labels, and recognise when they do not"
+tools:
+  - "kind or minikube"
+  - "kubectl 1.28+"
+successCriteria:
+  - "A Deployment with 3 replicas is running, and you can name the ReplicaSet that owns the Pods."
+  - "Deleting a Pod causes a replacement to appear; deleting the Deployment does not."
+  - "A rolling update keeps the service available, and `rollout undo` returns to the previous image."
+  - "You can produce a Deployment that creates zero Pods, and explain why."
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Kubernetes Workloads: Pod, ReplicaSet, Deployment**, from an empty starting point,
+without the steps.
+
+Ingress, HPA and NetworkPolicy all assume you know what a Pod is and what owns it. This lab builds that, by creating each object and then deleting it to see what the cluster does about it.
+
+Deleting things on purpose is the fastest way to learn what is watching.
+
+## What must be true when you are done
+
+- A Deployment with 3 replicas is running, and you can name the ReplicaSet that owns the Pods.
+- Deleting a Pod causes a replacement to appear; deleting the Deployment does not.
+- A rolling update keeps the service available, and `rollout undo` returns to the previous image.
+- You can produce a Deployment that creates zero Pods, and explain why.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed. In the job it is the first thing you open.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

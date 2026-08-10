@@ -5,6 +5,7 @@
  * every check here is one that would otherwise rot silently.
  */
 import { readFileSync, readdirSync, existsSync } from "node:fs";
+import matter from "gray-matter";
 import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -151,6 +152,67 @@ if (existsSync(projectDir)) {
       fail(file, null, "featured project has no clear licence");
     }
   }
+}
+
+// ── 4b. A billable lab must state its cost and how to clean up ─────────────
+//
+// Seventeen labs once provisioned EKS control planes, NAT Gateways and RDS
+// instances while saying nothing about what they cost or how to destroy them.
+// A learner who leaves an EKS cluster running over a weekend has been failed by
+// the lab, not by AWS — so this is an error, not a warning.
+{
+  const labsDir = join(CONTENT, "labs");
+  if (existsSync(labsDir)) {
+    for (const file of readdirSync(labsDir).filter((f) => f.endsWith(".en.mdx"))) {
+      const raw = readFileSync(join(labsDir, file), "utf8");
+      const front = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      if (!front) continue;
+      const block = front[1];
+
+      const billable = /^cloudCost:\s*true\s*$/m.test(block);
+      if (!billable) continue;
+
+      const where = `content/labs/${file}`;
+      if (!/^costEstimate:/m.test(block)) {
+        fail(where, null, "cloudCost is true but there is no costEstimate — a reader cannot know what this will charge them");
+      }
+      if (/^tier:\s*guided\s*$/m.test(block)) {
+        if (!/^cleanup:/m.test(block)) {
+          fail(where, null, "cloudCost is true but there are no cleanup steps");
+        }
+        if (!raw.includes("## Clean up")) {
+          fail(where, null, "cloudCost is true but the body has no '## Clean up' section");
+        }
+      }
+    }
+  }
+}
+
+// ── 4c. Frontmatter must be valid YAML ─────────────────────────────────────
+//
+// Every other check here reads frontmatter with a regex, which is forgiving:
+// a lab whose cleanup step contained nested double quotes passed the linter and
+// then crashed the build with "bad indentation of a sequence entry". Parse it
+// the way the site does, so a malformed block fails here instead.
+for (const dir of ["learn", "labs"]) {
+  const full = join(CONTENT, dir);
+  if (!existsSync(full)) continue;
+
+  const walk = (d) => {
+    for (const entry of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, entry.name);
+      if (entry.isDirectory()) walk(p);
+      else if (entry.name.endsWith(".mdx")) {
+        try {
+          matter(readFileSync(p, "utf8"));
+        } catch (error) {
+          fail(relative(ROOT, p).replaceAll("\\", "/"), null,
+            `frontmatter must be valid YAML — ${error.reason ?? error.message}`);
+        }
+      }
+    }
+  };
+  walk(full);
 }
 
 // ── 5. Message catalogue parity (§4.4a) ─────────────────────────────────────

@@ -1,0 +1,67 @@
+---
+labId: lab-21-linux-networking-troubleshooting-challenge
+title: "Linux Networking & Troubleshooting — Challenge"
+description: "Work a connection failure from the outside in: DNS, route, port, firewall, application — and know which layer you are on."
+domain: networking
+level: beginner
+type: lab
+phase: foundations
+order: 21
+tier: challenge
+estimatedMinutes: 25
+cloudCost: false
+costEstimate: "Free — no cloud resources"
+skills:
+  - "Resolve a name and read the TTL that explains a stale answer"
+  - "Read a routing table and say where a packet would go"
+  - "Prove whether a port is open, listening, or filtered"
+  - "Work a failure in layers instead of guessing"
+tools:
+  - "Linux with `dig`, `ss`, `curl`, `ip`"
+  - "sudo access"
+successCriteria:
+  - "You can state the IP a hostname resolves to and the remaining TTL on that answer."
+  - "You can name the interface and gateway a packet to 1.1.1.1 would leave by."
+  - "You can distinguish 'connection refused' from 'timed out' and say what each implies."
+  - "Given a failing connection, you can name which layer is at fault before changing anything."
+guidedLabId: lab-21-linux-networking-troubleshooting
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Linux Networking & Troubleshooting**, from an empty starting point,
+without the steps.
+
+An application cannot reach its database. The developer says "the network is down". It almost never is.
+
+This lab builds the sequence that finds the real cause in under two minutes, instead of restarting things until something changes.
+
+## What must be true when you are done
+
+- You can state the IP a hostname resolves to and the remaining TTL on that answer.
+- You can name the interface and gateway a packet to 1.1.1.1 would leave by.
+- You can distinguish 'connection refused' from 'timed out' and say what each implies.
+- Given a failing connection, you can name which layer is at fault before changing anything.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until you have been
+  stuck on the same thing for 20 minutes. Being stuck is the exercise; staying
+  stuck is not.
+- Official documentation is allowed and encouraged. In the job it is the first
+  thing you open.
+- Verify every criterion yourself with a command whose output you can read. "It
+  looks right" is not a check.
+
+## If you get stuck
+
+Work in layers rather than restarting things:
+
+1. What did you expect to happen, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?
+
+That sequence is the skill this tier exists to build. The commands are
+lookup-able; the sequence is not.

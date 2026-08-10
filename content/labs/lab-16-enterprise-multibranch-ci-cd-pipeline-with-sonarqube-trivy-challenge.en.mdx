@@ -10,6 +10,11 @@ order: 16
 tier: challenge
 estimatedMinutes: 15
 cloudCost: true
+costEstimate: "Free tier for the Jenkins instance itself; SonarQube wants ~2 GB of RAM, so a `t3.small` (~$15/month) is realistic. ECR storage for the images the pipeline pushes is inside the free tier at this scale."
+cleanup:
+  - "terraform destroy -auto-approve"
+  - "aws ecr list-images --repository-name <repo> --query 'imageIds[].imageTag'"
+  - "aws ecr batch-delete-image --repository-name <repo> --image-ids imageTag=<tag>"
 successCriteria:
   - "Write declarative Jenkinsfile multibranch pipeline script with 6 automated stages."
   - "Integrate SonarQube static code quality analysis and quality gate checks (sonar-project.properties)."

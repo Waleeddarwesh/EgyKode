@@ -1,0 +1,174 @@
+---
+labId: lab-24-s3-cloudfront-static-site
+title: "Static Site on S3 + CloudFront"
+description: "Serve a site from a private bucket through a CDN with HTTPS, correct cache headers, and a cleanup you actually run."
+domain: aws
+level: beginner
+type: lab
+phase: cloud
+order: 24
+tier: guided
+estimatedMinutes: 55
+cloudCost: true
+costEstimate: "Free tier — CloudFront's always-free tier covers 1 TB egress and 10M requests per month, and a few MB in S3 costs well under $0.01. Nothing here provisions an hourly resource: no NAT Gateway, no load balancer."
+skills:
+  - "Serve a private S3 bucket through CloudFront with Origin Access Control"
+  - "Set cache headers that differ for immutable assets and HTML"
+  - "Confirm compression and caching from response headers, not assumptions"
+  - "Destroy everything you created"
+tools:
+  - "AWS CLI v2, configured"
+  - "An AWS account"
+successCriteria:
+  - "The site loads over HTTPS on the CloudFront domain."
+  - "The bucket is private — a direct S3 URL returns AccessDenied, and only CloudFront can read it."
+  - "Fingerprinted assets return `max-age=31536000, immutable`; HTML revalidates."
+  - "`Content-Encoding: br` is present on an HTML response."
+  - "Everything created is deleted at the end, verified by listing."
+cleanup:
+  - "aws cloudfront get-distribution-config --id $DIST_ID > dist.json  # note the ETag"
+  - "Disable the distribution (set Enabled=false) and wait for Deployed"
+  - "aws cloudfront delete-distribution --id $DIST_ID --if-match $ETAG"
+  - "aws s3 rm s3://$BUCKET --recursive"
+  - "aws s3api delete-bucket --bucket $BUCKET"
+  - "aws cloudfront delete-origin-access-control --id $OAC_ID --if-match $OAC_ETAG"
+  - "Verify: aws s3 ls | grep $BUCKET  # should print nothing"
+challengeId: lab-24-s3-cloudfront-static-site-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+You need to put a static site on the internet, on HTTPS, cheaply, and without leaving a bucket open to the world.
+
+This is the architecture EgyKode itself runs on — the page you are reading is served exactly this way, so the Terraform in `infrastructure/terraform/production/` is the finished version of what you are about to build by hand.
+## Why not just make the bucket public?
+
+S3 can serve a website directly. It is also the single most common cause of
+real-world data exposure, it cannot do HTTPS on your own domain, and it has no
+edge cache. The pattern below keeps the bucket **private** and lets exactly one
+CloudFront distribution read it.
+
+## 1. A private bucket
+
+```bash
+BUCKET="egykode-lab-$(date +%s)"
+aws s3api create-bucket --bucket "$BUCKET" --region us-east-1
+
+aws s3api put-public-access-block --bucket "$BUCKET" \
+  --public-access-block-configuration \
+  "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+
+printf '<!doctype html><h1>It works</h1>' > index.html
+printf '<!doctype html><h1>Not found</h1>' > 404.html
+aws s3 cp index.html "s3://$BUCKET/" --cache-control "public,max-age=0,must-revalidate"
+aws s3 cp 404.html   "s3://$BUCKET/" --cache-control "public,max-age=0,must-revalidate"
+```
+
+Note the `--cache-control` at upload time. S3 stores it as object metadata and
+CloudFront honours it, so the header is set once at the source rather than
+patched at the edge.
+
+## 2. Origin Access Control
+
+OAC is how CloudFront proves it is allowed to read a private bucket. It replaces
+the older Origin Access Identity.
+
+```bash
+OAC_ID=$(aws cloudfront create-origin-access-control \
+  --origin-access-control-config \
+  "Name=${BUCKET}-oac,OriginAccessControlOriginType=s3,SigningBehavior=always,SigningProtocol=sigv4" \
+  --query 'OriginAccessControl.Id' --output text)
+echo "$OAC_ID"
+```
+
+## 3. The distribution
+
+Create it in the console or with `aws cloudfront create-distribution`, with:
+
+- **Origin**: the bucket's *REST* endpoint (`$BUCKET.s3.us-east-1.amazonaws.com`),
+  **not** the website endpoint — the website endpoint is public and defeats the
+  whole design.
+- **Origin access**: the OAC created above.
+- **Viewer protocol policy**: Redirect HTTP to HTTPS.
+- **Compress objects automatically**: on.
+- **Default root object**: `index.html`.
+
+Then attach the bucket policy CloudFront prints for you, which allows
+`s3:GetObject` only for that distribution's ARN.
+
+## 4. Verify, rather than assume
+
+```bash
+DOMAIN=$(aws cloudfront get-distribution --id "$DIST_ID" \
+  --query 'Distribution.DomainName' --output text)
+
+curl -sI "https://$DOMAIN/" | grep -iE 'HTTP/|content-encoding|cache-control|x-cache'
+```
+
+You are looking for four things:
+
+| Header | Expected | If it is missing |
+| --- | --- | --- |
+| `HTTP/2 200` | The site is served | Check the default root object |
+| `Content-Encoding: br` | Compression is on | Enable "compress objects automatically" |
+| `Cache-Control` | What you set at upload | You forgot `--cache-control` on `s3 cp` |
+| `X-Cache: Hit from cloudfront` | The edge is caching | First request is always a Miss; ask twice |
+
+And confirm the bucket really is private:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' "https://$BUCKET.s3.amazonaws.com/index.html"
+# 403 — correct. A 200 here means the bucket is public.
+```
+
+That 403 is the lab's most important result.
+
+## 5. Cache headers that make sense
+
+Two kinds of file, two opposite requirements:
+
+```bash
+# Fingerprinted assets — the name changes when the content does
+aws s3 cp ./assets "s3://$BUCKET/assets" --recursive \
+  --cache-control "public,max-age=31536000,immutable"
+
+# HTML — the name never changes, so it must revalidate
+aws s3 cp index.html "s3://$BUCKET/" \
+  --cache-control "public,max-age=0,must-revalidate"
+```
+
+Getting this backwards is the classic mistake: cache HTML for a year and your
+next deploy is invisible for a year; revalidate assets on every request and you
+have paid for a CDN that does nothing.
+
+## When it goes wrong
+The failure is where the learning is. These are the ones that actually happen:
+
+**AccessDenied through CloudFront, not just S3**
+
+The bucket policy is missing or its `AWS:SourceArn` does not match this distribution. Re-copy the policy CloudFront generated.
+
+**The site loads but every path except / returns 403**
+
+S3 resolves no directory index through OAC. Either upload explicit `index.html` files per path, or add a CloudFront Function that rewrites `/dir/` to `/dir/index.html`.
+
+**Changes do not appear after re-uploading**
+
+The edge is still serving a cached copy. `aws cloudfront create-invalidation --paths '/*'` — and check that HTML was uploaded with a revalidating `Cache-Control`.
+
+**`Content-Encoding` is absent**
+
+Compression is off on the behaviour, or the object's content type is not in CloudFront's compressible list.
+
+## Clean up
+Run this even if the lab is unfinished. Everything above is inside the free tier, but an account full of half-built experiments is how a surprise bill starts.
+
+```bash
+aws cloudfront get-distribution-config --id $DIST_ID > dist.json  # note the ETag
+Disable the distribution (set Enabled=false) and wait for Deployed
+aws cloudfront delete-distribution --id $DIST_ID --if-match $ETAG
+aws s3 rm s3://$BUCKET --recursive
+aws s3api delete-bucket --bucket $BUCKET
+aws cloudfront delete-origin-access-control --id $OAC_ID --if-match $OAC_ETAG
+Verify: aws s3 ls | grep $BUCKET  # should print nothing
+```

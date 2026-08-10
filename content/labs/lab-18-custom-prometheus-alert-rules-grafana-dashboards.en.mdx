@@ -10,6 +10,10 @@ order: 18
 tier: guided
 estimatedMinutes: 23
 cloudCost: true
+costEstimate: "**Depends on an existing cluster.** Alert rules and dashboards are configuration and cost nothing; the Prometheus stack under them holds EBS volumes."
+cleanup:
+  - "kubectl delete prometheusrule --all -n monitoring"
+  - "kubectl delete configmap -l grafana_dashboard -n monitoring"
 successCriteria:
   - "Step 1: Apply Alert Rules & ServiceMonitor"
 challengeId: lab-18-custom-prometheus-alert-rules-grafana-dashboards-challenge
@@ -50,3 +54,17 @@ nti-devops-alert-rules   1m
 ```
 
 ---
+
+---
+
+## Clean up
+
+Run this even if you did not finish. Everything above is destroyable, and an
+account full of half-built experiments is how a surprise bill starts.
+
+```bash
+kubectl delete prometheusrule --all -n monitoring
+kubectl delete configmap -l grafana_dashboard -n monitoring
+```
+
+**Cost of this lab:** **Depends on an existing cluster.** Alert rules and dashboards are configuration and cost nothing; the Prometheus stack under them holds EBS volumes.

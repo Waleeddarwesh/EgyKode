@@ -10,6 +10,10 @@ order: 8
 tier: challenge
 estimatedMinutes: 15
 cloudCost: true
+costEstimate: "Free tier — one `t3.micro` for Jenkins. Note that Jenkins wants more memory than a micro provides for real builds; a `t3.small` is ~$15/month."
+cleanup:
+  - "terraform destroy -auto-approve"
+  - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
 successCriteria:
   - "Structure 8 modular Ansible roles under roles/."
   - "Execute master playbook playbooks/site.yml to provision full toolchain."

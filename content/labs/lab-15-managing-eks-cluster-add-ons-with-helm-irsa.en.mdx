@@ -10,6 +10,13 @@ order: 15
 tier: guided
 estimatedMinutes: 39
 cloudCost: true
+costEstimate: "**Billable.** Cluster add-ons commonly provision real infrastructure — a load balancer, EBS volumes for persistent storage — that outlives `helm uninstall` if a finalizer fails."
+cleanup:
+  - "helm list -A"
+  - "helm uninstall <release> -n <namespace>"
+  - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName'"
+  - "# Unattached EBS volumes are billed per GB-month:"
+  - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
 successCriteria:
   - "Provision IAM Role for AWS Load Balancer Controller using Terraform IRSA module (irsa/lbc-irsa.tf)."
   - "Deploy Metrics Server add-on via Helm (releases/metrics-server-values.yaml)."
@@ -90,3 +97,20 @@ aws-load-balancer-controller-7b89c6d4f5-v1w2u   1/1     Running   0          2m
 ```
 
 ---
+
+---
+
+## Clean up
+
+Run this even if you did not finish. Everything above is destroyable, and an
+account full of half-built experiments is how a surprise bill starts.
+
+```bash
+helm list -A
+helm uninstall <release> -n <namespace>
+aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName'
+# Unattached EBS volumes are billed per GB-month:
+aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table
+```
+
+**Cost of this lab:** **Billable.** Cluster add-ons commonly provision real infrastructure — a load balancer, EBS volumes for persistent storage — that outlives `helm uninstall` if a finalizer fails.

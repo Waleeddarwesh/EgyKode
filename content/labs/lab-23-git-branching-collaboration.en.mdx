@@ -1,0 +1,134 @@
+---
+labId: lab-23-git-branching-collaboration
+title: "Git Branching & Collaboration"
+description: "Work a change through a branch, a rebase and a conflict, and recover from the three mistakes everyone makes."
+domain: git
+level: beginner
+type: lab
+phase: foundations
+order: 23
+tier: guided
+estimatedMinutes: 45
+cloudCost: false
+costEstimate: "Free — a GitHub account is enough"
+skills:
+  - "Take a change from branch to merged pull request"
+  - "Rebase onto a moved main and resolve a conflict deliberately"
+  - "Recover a commit you thought you destroyed"
+  - "Remove a secret from history, and know why that is not enough"
+tools:
+  - "git 2.30+"
+  - "a GitHub account"
+successCriteria:
+  - "A feature branch is merged into main through a pull request, with a linear history."
+  - "You resolved a real conflict — not by taking one side wholesale, but by reading both."
+  - "You recovered a commit after a hard reset, using the reflog."
+  - "You can explain why removing a committed secret from history does not make it safe."
+challengeId: lab-23-git-branching-collaboration-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+You are contributing to a repository other people are also changing. Main has moved since you branched, your history has a conflict in it, and at some point you will reset something you did not mean to.
+
+All three are normal. None of them should cost you work.
+## The daily loop
+
+```bash
+git switch -c feat/add-healthcheck      # branch from main
+# ... edit, then ...
+git add -p                              # stage hunks, not whole files
+git commit -m "Add /healthz endpoint"
+git fetch origin
+git rebase origin/main                  # replay your work on current main
+git push -u origin feat/add-healthcheck
+```
+
+`git add -p` walks you through each hunk. It is slower than `git add .` and it
+is the reason your commits end up saying one thing each — which is what makes
+them reviewable and revertible.
+
+**Rebase daily, not at the end.** Replaying two commits onto a main that moved
+this morning is a small conflict you still remember the context for. Replaying
+three weeks of work is every conflict at once, in a hurry.
+
+## Resolving a conflict properly
+
+```bash
+git rebase origin/main
+# CONFLICT (content): Merge conflict in src/app.py
+```
+
+Open the file. You will see both sides:
+
+```text
+<<<<<<< HEAD              (what is on main)
+timeout = 30
+=======                   (what you wrote)
+timeout = 60
+>>>>>>> feat/add-healthcheck
+```
+
+The mistake is picking a side because it is quicker. Read both — someone raised
+that timeout on main for a reason, and your change may need to accommodate it
+rather than replace it.
+
+```bash
+# after editing to the correct combined result
+git add src/app.py
+git rebase --continue
+```
+
+`git rebase --abort` puts everything back exactly as it was. Nothing is lost by
+trying.
+
+## The recovery everybody needs eventually
+
+```bash
+git reset --hard HEAD~3      # three commits, apparently gone
+git reflog                   # every position HEAD has held
+# a1b2c3d HEAD@{1}: commit: Add /healthz endpoint
+git reset --hard HEAD@{1}    # back, intact
+```
+
+**`git reflog` is the undo history for the repository itself.** A commit is
+reachable for ~90 days even after every branch pointing at it is gone. Almost
+nothing done locally in git is actually destructive, and knowing that changes
+how confidently you work.
+
+## A secret in history
+
+```bash
+git rm --cached .env
+echo ".env" >> .gitignore
+git commit -m "Remove .env from tracking"
+```
+
+That stops tracking it going forward, and **the value is still in history and in
+every clone**. The order that matters:
+
+1. **Rotate the credential.** Assume it is compromised — this is the only step
+   that actually protects anything.
+2. Then rewrite history (`git filter-repo`, or the GitHub secret-scanning flow).
+3. Then force-push, and tell anyone with a clone.
+
+Doing step 2 without step 1 is theatre.
+
+## When it goes wrong
+The failure is where the learning is. These are the ones that actually happen:
+
+**`git push` is rejected as non-fast-forward**
+
+Main moved. `git fetch origin && git rebase origin/main`, then push. Do not `--force` onto a shared branch.
+
+**The rebase conflicts in files you never touched**
+
+You branched from an old main. Abort, fetch, and rebase onto the current one.
+
+**You reset and lost commits**
+
+`git reflog`, find the hash, `git reset --hard <hash>`. It is almost certainly still there.
+
+**A force-push erased a colleague's commits**
+
+Use `--force-with-lease` instead — it refuses when the remote has moved since you last fetched.

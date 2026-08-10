@@ -10,6 +10,15 @@ order: 5
 tier: challenge
 estimatedMinutes: 15
 cloudCost: true
+costEstimate: "**Billable, and never free.** An EKS control plane is $0.10/hour (~$73/month) from the moment it exists, with no free tier — plus the node group's EC2 instances and any NAT Gateway. Budget a few dollars for an afternoon, and destroy the cluster the same day."
+cleanup:
+  - "terraform destroy -auto-approve"
+  - "# The control plane is the expensive part. Confirm no cluster survives:"
+  - "aws eks list-clusters --query 'clusters'"
+  - "# Node groups can outlive a failed destroy:"
+  - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].[InstanceId,InstanceType]' --output table"
+  - "# And load balancers created by Kubernetes Services are not in Terraform state:"
+  - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerArn'"
 successCriteria:
   - "Provision Amazon EKS Cluster v1.34 (modules/eks/main.tf)."
   - "Deploy EKS Managed Node Group with 2 worker nodes (t3.medium) scaling up to 6."

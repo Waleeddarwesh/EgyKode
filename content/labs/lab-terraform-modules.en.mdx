@@ -1,0 +1,193 @@
+---
+labId: lab-terraform-modules
+title: "Terraform Modules"
+description: "Turn a working configuration into a network module and a compute module, called twice with different inputs."
+domain: terraform
+level: intermediate
+type: lab
+phase: iac
+order: 6
+tier: guided
+estimatedMinutes: 50
+cloudCost: true
+costEstimate: "Free tier — a VPC, subnets and one `t3.micro`. **No NAT Gateway** in this lab, deliberately: it is the one resource here that would bill hourly."
+skills:
+  - "Extract a module with a deliberate input/output contract"
+  - "Call one module from another and let the graph order the work"
+  - "Know when a module is not worth writing"
+tools:
+  - "Terraform >= 1.6"
+  - "AWS CLI v2, configured"
+successCriteria:
+  - "A `modules/network` module creates a VPC and subnets from inputs, exposing subnet ids as outputs."
+  - "A `modules/compute` module places an instance into a subnet it did not create."
+  - "The root module wires them together with no hardcoded ids anywhere."
+  - "Calling the network module twice with different CIDRs produces two independent networks."
+  - "You can explain why the compute module never references `aws_vpc` directly."
+cleanup:
+  - "terraform destroy -auto-approve"
+  - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
+challengeId: lab-terraform-modules-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+The configuration from the previous lab works, and now a second environment needs the same shape with different addresses. Copying the directory is the obvious move and the wrong one — two copies drift, and the drift is discovered during an incident.
+
+A module is how the same definition serves both.
+## The contract
+
+A module is a directory of `.tf` files with exactly three surfaces:
+
+```text
+modules/network/
+  main.tf         the resources it owns
+  variables.tf    the inputs  — its public API
+  outputs.tf      the outputs — what callers may depend on
+```
+
+Anything a caller needs must leave through an `output`. There is no reaching
+inside for a resource, and that restriction is precisely what makes a module
+safe to change later.
+
+## 1. The network module
+
+```hcl
+# modules/network/variables.tf
+variable "name"       { type = string }
+variable "cidr_block" { type = string }
+variable "azs"        { type = list(string) }
+```
+
+```hcl
+# modules/network/main.tf
+resource "aws_vpc" "this" {
+  cidr_block           = var.cidr_block
+  enable_dns_hostnames = true
+  tags                 = { Name = var.name }
+}
+
+resource "aws_subnet" "public" {
+  for_each = { for i, az in var.azs : az => i }
+
+  vpc_id            = aws_vpc.this.id
+  availability_zone = each.key
+  cidr_block        = cidrsubnet(var.cidr_block, 8, each.value)
+
+  tags = { Name = "${var.name}-public-${each.key}" }
+}
+```
+
+`cidrsubnet(var.cidr_block, 8, 0)` carves `10.0.0.0/24` out of `10.0.0.0/16`.
+Computing subnets rather than listing them means the module works for any CIDR
+it is given.
+
+```hcl
+# modules/network/outputs.tf
+output "vpc_id"     { value = aws_vpc.this.id }
+output "subnet_ids" { value = [for s in aws_subnet.public : s.id] }
+```
+
+## 2. The compute module
+
+```hcl
+# modules/compute/variables.tf
+variable "name"      { type = string }
+variable "subnet_id" { type = string }
+variable "instance_type" {
+  type    = string
+  default = "t3.micro"
+}
+```
+
+Note what is **not** here: no `vpc_id`, no reference to `aws_vpc`. The compute
+module is handed a subnet id and does not care where it came from. That is the
+whole point — it could be given a subnet from a different module, or one that
+already existed.
+
+## 3. Wiring them together
+
+```hcl
+# main.tf
+module "network" {
+  source     = "./modules/network"
+  name       = "demo"
+  cidr_block = "10.20.0.0/16"
+  azs        = ["us-east-1a", "us-east-1b"]
+}
+
+module "app" {
+  source    = "./modules/compute"
+  name      = "demo-app"
+  subnet_id = module.network.subnet_ids[0]
+}
+```
+
+Because `module.app` references `module.network.subnet_ids`, Terraform knows the
+network must exist first. Nobody wrote an ordering; the reference *is* the
+ordering.
+
+```bash
+terraform init      # required again — a new module must be installed
+terraform plan
+terraform apply
+```
+
+`terraform init` after adding a module trips everyone up once. A new or moved
+module source is not picked up until you re-init.
+
+## 4. Calling it twice
+
+```hcl
+module "network_staging" {
+  source     = "./modules/network"
+  name       = "staging"
+  cidr_block = "10.30.0.0/16"
+  azs        = ["us-east-1a"]
+}
+```
+
+One definition, two networks that cannot drift apart. That is the return on the
+directory structure.
+
+## When not to write a module
+
+A module costs a directory, two extra files and a layer of indirection. It earns
+that when the same shape is built more than once, or when it hides genuine
+complexity behind a small interface.
+
+Wrapping a single `aws_s3_bucket` in a module buys nothing and forces the next
+reader to open two files to understand one resource. The useful test:
+**would a second caller ever exist?** If not, write the resource directly and
+extract it the day the second caller appears.
+
+## When it goes wrong
+
+**`Module not installed` after adding a module block**
+
+Run `terraform init` again. A new module source is only fetched at init.
+
+**`Error: Unsupported attribute` on module.network.something**
+
+That value has no `output`. A module exposes nothing by default — add the output explicitly.
+
+**Both networks got the same CIDR**
+
+The second module call reused the default. Pass `cidr_block` explicitly to each.
+
+**`cidrsubnet` errors with 'prefix extension too large'**
+
+You asked for more subnet bits than the parent CIDR has room for. A /16 with `8` gives /24s; a /24 with `8` does not fit.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+terraform destroy -auto-approve
+aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'
+```
+
+**Cost of this lab:** Free tier — a VPC, subnets and one `t3.micro`. **No NAT Gateway** in this lab, deliberately: it is the one resource here that would bill hourly.

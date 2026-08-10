@@ -1,0 +1,77 @@
+---
+labId: lab-24-s3-cloudfront-static-site-challenge
+title: "Static Site on S3 + CloudFront — Challenge"
+description: "Serve a site from a private bucket through a CDN with HTTPS, correct cache headers, and a cleanup you actually run."
+domain: aws
+level: beginner
+type: lab
+phase: cloud
+order: 24
+tier: challenge
+estimatedMinutes: 27
+cloudCost: true
+costEstimate: "Free tier — CloudFront's always-free tier covers 1 TB egress and 10M requests per month, and a few MB in S3 costs well under $0.01. Nothing here provisions an hourly resource: no NAT Gateway, no load balancer."
+skills:
+  - "Serve a private S3 bucket through CloudFront with Origin Access Control"
+  - "Set cache headers that differ for immutable assets and HTML"
+  - "Confirm compression and caching from response headers, not assumptions"
+  - "Destroy everything you created"
+tools:
+  - "AWS CLI v2, configured"
+  - "An AWS account"
+successCriteria:
+  - "The site loads over HTTPS on the CloudFront domain."
+  - "The bucket is private — a direct S3 URL returns AccessDenied, and only CloudFront can read it."
+  - "Fingerprinted assets return `max-age=31536000, immutable`; HTML revalidates."
+  - "`Content-Encoding: br` is present on an HTML response."
+  - "Everything created is deleted at the end, verified by listing."
+cleanup:
+  - "aws cloudfront get-distribution-config --id $DIST_ID > dist.json  # note the ETag"
+  - "Disable the distribution (set Enabled=false) and wait for Deployed"
+  - "aws cloudfront delete-distribution --id $DIST_ID --if-match $ETAG"
+  - "aws s3 rm s3://$BUCKET --recursive"
+  - "aws s3api delete-bucket --bucket $BUCKET"
+  - "aws cloudfront delete-origin-access-control --id $OAC_ID --if-match $OAC_ETAG"
+  - "Verify: aws s3 ls | grep $BUCKET  # should print nothing"
+guidedLabId: lab-24-s3-cloudfront-static-site
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Static Site on S3 + CloudFront**, from an empty starting point,
+without the steps.
+
+You need to put a static site on the internet, on HTTPS, cheaply, and without leaving a bucket open to the world.
+
+This is the architecture EgyKode itself runs on — the page you are reading is served exactly this way, so the Terraform in `infrastructure/terraform/production/` is the finished version of what you are about to build by hand.
+
+## What must be true when you are done
+
+- The site loads over HTTPS on the CloudFront domain.
+- The bucket is private — a direct S3 URL returns AccessDenied, and only CloudFront can read it.
+- Fingerprinted assets return `max-age=31536000, immutable`; HTML revalidates.
+- `Content-Encoding: br` is present on an HTML response.
+- Everything created is deleted at the end, verified by listing.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until you have been
+  stuck on the same thing for 20 minutes. Being stuck is the exercise; staying
+  stuck is not.
+- Official documentation is allowed and encouraged. In the job it is the first
+  thing you open.
+- Verify every criterion yourself with a command whose output you can read. "It
+  looks right" is not a check.
+
+## If you get stuck
+
+Work in layers rather than restarting things:
+
+1. What did you expect to happen, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?
+
+That sequence is the skill this tier exists to build. The commands are
+lookup-able; the sequence is not.

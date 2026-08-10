@@ -1,0 +1,127 @@
+---
+labId: lab-21-linux-networking-troubleshooting
+title: "Linux Networking & Troubleshooting"
+description: "Work a connection failure from the outside in: DNS, route, port, firewall, application — and know which layer you are on."
+domain: networking
+level: beginner
+type: lab
+phase: foundations
+order: 21
+tier: guided
+estimatedMinutes: 50
+cloudCost: false
+costEstimate: "Free — no cloud resources"
+skills:
+  - "Resolve a name and read the TTL that explains a stale answer"
+  - "Read a routing table and say where a packet would go"
+  - "Prove whether a port is open, listening, or filtered"
+  - "Work a failure in layers instead of guessing"
+tools:
+  - "Linux with `dig`, `ss`, `curl`, `ip`"
+  - "sudo access"
+successCriteria:
+  - "You can state the IP a hostname resolves to and the remaining TTL on that answer."
+  - "You can name the interface and gateway a packet to 1.1.1.1 would leave by."
+  - "You can distinguish 'connection refused' from 'timed out' and say what each implies."
+  - "Given a failing connection, you can name which layer is at fault before changing anything."
+challengeId: lab-21-linux-networking-troubleshooting-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+An application cannot reach its database. The developer says "the network is down". It almost never is.
+
+This lab builds the sequence that finds the real cause in under two minutes, instead of restarting things until something changes.
+## The order matters
+
+Work outside-in. Each step rules out a layer, so you never guess:
+
+```text
+name resolves?  ->  route exists?  ->  port open?  ->  app answers?
+   dig               ip route           ss / curl       logs
+```
+
+### 1. Does the name resolve?
+
+```bash
+dig +short db.internal.example.com
+dig db.internal.example.com | grep -A2 "ANSWER SECTION"
+```
+
+The number before the record type is the remaining **TTL**. If the value is
+wrong and the TTL is large, you are looking at a cached answer, not at your
+configuration — and no amount of restarting will fix it. `dig @8.8.8.8 <name>`
+asks a resolver that has no local cache, which tells you whether the problem is
+yours or upstream.
+
+### 2. Where would the packet go?
+
+```bash
+ip route
+ip route get 10.20.5.10
+```
+
+`ip route get` is the direct answer: it names the interface and gateway the
+kernel would use for that exact destination. If it says the wrong interface, the
+problem is routing, and nothing downstream is worth checking yet.
+
+### 3. Is anything listening, and is the port reachable?
+
+Locally:
+
+```bash
+ss -ltnp | grep 5432
+```
+
+`ss -ltnp` — listening, TCP, numeric, with the process. If nothing is listening,
+the application is not running, and the network was never involved.
+
+Remotely:
+
+```bash
+curl -v --max-time 5 telnet://db.internal.example.com:5432
+```
+
+The two failures mean different things, and the distinction is the whole point:
+
+| Result | Meaning | Look at |
+| --- | --- | --- |
+| `Connection refused` | Something answered and said no | The service — it is down or bound to 127.0.0.1 |
+| `Connection timed out` | Nothing answered at all | A firewall or security group silently dropping it |
+| Connects, then hangs | Reached it; the app is not replying | Application logs, slow queries |
+
+A refused connection is *good news*: routing and firewalls are fine, and the
+problem is a process you control.
+
+### 4. Bound to the wrong address
+
+The most common false alarm:
+
+```bash
+ss -ltnp | grep 5432
+# LISTEN 0 244 127.0.0.1:5432   <- only localhost
+# LISTEN 0 244 0.0.0.0:5432     <- every interface
+```
+
+A service bound to `127.0.0.1` works perfectly from the machine itself and is
+unreachable from anywhere else. `curl` from the server succeeds, the developer
+says "it works here", and the connection still fails from the app.
+
+## When it goes wrong
+The failure is where the learning is. These are the ones that actually happen:
+
+**`dig` returns the old IP after a DNS change**
+
+The record is cached for its TTL. Check the TTL in the answer, and query `@8.8.8.8` to compare with an uncached resolver.
+
+**`curl` times out but the security group looks correct**
+
+Check the *outbound* rules on the source and the NACL on the subnet — a NACL is stateless and needs the return path allowed explicitly.
+
+**Works from the server, fails from anywhere else**
+
+The service is bound to 127.0.0.1. Look at the `ss -ltnp` output, not at the firewall.
+
+**`ss` shows nothing on the port**
+
+The process is not running. This is not a network problem — check the service and its logs.

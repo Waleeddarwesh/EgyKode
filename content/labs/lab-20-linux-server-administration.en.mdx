@@ -1,0 +1,124 @@
+---
+labId: lab-20-linux-server-administration
+title: "Linux Server Administration"
+description: "Create users and groups, set permissions that actually hold, and manage services and packages on a server you did not build."
+domain: linux
+level: beginner
+type: lab
+phase: foundations
+order: 20
+tier: guided
+estimatedMinutes: 45
+cloudCost: false
+costEstimate: "Free — runs on any Linux machine, a VM, or a container"
+skills:
+  - "Create users and groups with correct ownership and permissions"
+  - "Read and set permissions without reaching for chmod 777"
+  - "Manage packages and services, and make them survive a reboot"
+  - "Find what is consuming disk on a server that is full"
+tools:
+  - "Any Linux (Ubuntu 22.04+ or RHEL 9)"
+  - "sudo access"
+successCriteria:
+  - "A deploy user exists, belongs to a shared group, and can read the application directory without being root."
+  - "`/opt/app` is owned by that group and group-writable, and a second user in the group can write to it."
+  - "A service is installed, running, and comes back after `reboot` — proven by `systemctl is-enabled`."
+  - "You can state which directory is consuming the most disk, with the command that told you."
+challengeId: lab-20-linux-server-administration-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+You have been handed SSH access to a server somebody else built. A colleague needs to deploy to it, the application directory is owned by root, and the disk is at 91%. Nobody documented any of it.
+
+This is the most common first task in the job, and none of it is exotic — it is users, permissions, services and disk.
+## The work
+
+### 1. A user for the job, not for the person
+
+Create a group first, then a user in it. The group is what makes access
+survivable when a second person needs it.
+
+```bash
+sudo groupadd --system deployers
+sudo useradd --create-home --gid deployers --shell /bin/bash deploy
+sudo passwd -l deploy          # no password login; SSH keys only
+id deploy
+```
+
+`--gid deployers` puts the user in the group at creation. `passwd -l` locks the
+password so the account cannot be used for interactive password login — an SSH
+key is the only way in.
+
+### 2. Permissions that hold when a second person arrives
+
+```bash
+sudo mkdir -p /opt/app
+sudo chown -R root:deployers /opt/app
+sudo chmod -R 2775 /opt/app
+```
+
+The leading `2` is the setgid bit, and it is the part most guides omit. Without
+it, a file created in `/opt/app` belongs to whichever user made it, and the
+next deployer cannot overwrite it. With it, everything created inside inherits
+the `deployers` group.
+
+Prove it rather than assume it:
+
+```bash
+sudo -u deploy touch /opt/app/test.txt
+ls -l /opt/app/test.txt        # group must be "deployers"
+```
+
+### 3. A service that survives a reboot
+
+```bash
+sudo apt-get update && sudo apt-get install -y nginx   # or dnf on RHEL
+systemctl status nginx
+sudo systemctl enable --now nginx
+systemctl is-enabled nginx     # must print "enabled"
+```
+
+`enable` and `start` are different things. `--now` does both. A service that is
+started but not enabled works perfectly until the machine reboots at 3am and
+never comes back — and that failure looks like a mystery unless you know to
+check this.
+
+### 4. Find the disk
+
+```bash
+df -h                          # which filesystem is full?
+sudo du -sh /var/* 2>/dev/null | sort -h | tail -5
+sudo journalctl --disk-usage
+```
+
+Work top-down: `df` names the filesystem, `du` narrows it to a directory. The
+usual culprits are `/var/log` and unpruned container images. If the journal is
+the problem:
+
+```bash
+sudo journalctl --vacuum-time=7d
+```
+
+A full disk is worth recognising because it breaks things that look unrelated —
+Docker cannot pull, Kubernetes evicts Pods, the database refuses writes, and
+every error message points somewhere else.
+
+## When it goes wrong
+The failure is where the learning is. These are the ones that actually happen:
+
+**`sudo -u deploy touch` gives Permission denied**
+
+`/opt/app` is not group-writable. Check `ls -ld /opt/app` — you want `drwxrwsr-x` with the `s`, not `drwxr-xr-x`.
+
+**A new file has the wrong group**
+
+The setgid bit is missing. `chmod g+s /opt/app` and create the file again; existing files keep their old group.
+
+**The service is running but gone after reboot**
+
+It was started, never enabled. `systemctl is-enabled <service>` tells you which.
+
+**`df` says the disk is full but `du` finds nothing**
+
+A deleted file is still held open by a process. `sudo lsof +L1` lists them; restarting the holder releases the space.

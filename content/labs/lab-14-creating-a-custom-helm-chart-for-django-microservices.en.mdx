@@ -10,6 +10,10 @@ order: 14
 tier: guided
 estimatedMinutes: 47
 cloudCost: true
+costEstimate: "**Depends on an existing cluster.** Helm itself is free; the workloads it installs consume cluster capacity."
+cleanup:
+  - "helm uninstall <release> -n <namespace>"
+  - "kubectl get all -n <namespace>"
 successCriteria:
   - "Build a production-grade custom Helm Chart directory structure under myapp/."
   - "Parameterize deployment.yaml, service.yaml, ingress.yaml, configmap.yaml, secret.yaml, networkpolicy.yaml, and hpa.yaml."
@@ -92,3 +96,17 @@ myapp   nti-devops  2           2026-07-27 00:00:00.000000000 +0000 UTC deployed
 ```
 
 ---
+
+---
+
+## Clean up
+
+Run this even if you did not finish. Everything above is destroyable, and an
+account full of half-built experiments is how a surprise bill starts.
+
+```bash
+helm uninstall <release> -n <namespace>
+kubectl get all -n <namespace>
+```
+
+**Cost of this lab:** **Depends on an existing cluster.** Helm itself is free; the workloads it installs consume cluster capacity.

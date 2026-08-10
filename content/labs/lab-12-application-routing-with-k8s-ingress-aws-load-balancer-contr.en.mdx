@@ -10,6 +10,12 @@ order: 12
 tier: guided
 estimatedMinutes: 23
 cloudCost: true
+costEstimate: "**Billable.** An Ingress backed by the AWS Load Balancer Controller creates a real ALB at ~$0.0225/hour (~$16/month) plus LCU charges — and it is created by Kubernetes, so `terraform destroy` will not remove it."
+cleanup:
+  - "kubectl delete ingress --all -A"
+  - "# The ALB is deleted by the controller, asynchronously. Confirm it is gone:"
+  - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].[LoadBalancerName,State.Code]' --output table"
+  - "# An orphaned ALB keeps billing after the cluster is destroyed."
 successCriteria:
   - "Create Kubernetes Ingress manifest ingress.yaml with AWS ALB annotations."
   - "Configure path-based routing rules and target-type IP mode (alb.ingress.kubernetes.io/target-type: ip)."
@@ -73,3 +79,19 @@ nti-django-ingress   alb     *       k8s-ntidevops-ntidjang-a1b2c3d4e5-123456789
 ```
 
 ---
+
+---
+
+## Clean up
+
+Run this even if you did not finish. Everything above is destroyable, and an
+account full of half-built experiments is how a surprise bill starts.
+
+```bash
+kubectl delete ingress --all -A
+# The ALB is deleted by the controller, asynchronously. Confirm it is gone:
+aws elbv2 describe-load-balancers --query 'LoadBalancers[].[LoadBalancerName,State.Code]' --output table
+# An orphaned ALB keeps billing after the cluster is destroyed.
+```
+
+**Cost of this lab:** **Billable.** An Ingress backed by the AWS Load Balancer Controller creates a real ALB at ~$0.0225/hour (~$16/month) plus LCU charges — and it is created by Kubernetes, so `terraform destroy` will not remove it.

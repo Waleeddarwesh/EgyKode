@@ -1,0 +1,167 @@
+---
+labId: lab-incident-ingress-502
+title: "Incident: 502 Bad Gateway"
+description: "The site returns 502. You have cluster access and no explanation. Work the path from the edge inwards."
+domain: kubernetes
+level: advanced
+type: lab
+phase: kubernetes
+order: 31
+tier: incident
+estimatedMinutes: 40
+cloudCost: false
+costEstimate: "Free — runs on kind or minikube with an NGINX ingress controller."
+skills:
+  - "Work a request path in layers instead of guessing"
+  - "Use endpoints to separate a routing problem from an application problem"
+  - "State a root cause in one sentence before changing anything"
+tools:
+  - "kind or minikube with ingress-nginx"
+  - "kubectl 1.28+"
+successCriteria:
+  - "The application returns HTTP 200 through the Ingress."
+  - "You can state the root cause in one sentence."
+  - "You can name the single command that localised the fault."
+  - "You changed exactly one thing — no shotgun fixes."
+authors: [waleed]
+updated: 2026-08-10
+---
+## The incident
+A deployment went out an hour ago. The site now returns **502 Bad Gateway** for every request.
+
+You have `kubectl` access to the cluster. Nobody has told you what changed, and the person who deployed it has gone home.
+
+There is no solution section in this lab. Find it.
+
+## Reproduce it
+
+```bash
+kubectl create namespace incident-01
+kubectl apply -n incident-01 -f https://raw.githubusercontent.com/Waleeddarwesh/EgyKode/master/content/labs/fixtures/incident-01.yaml
+```
+
+If the fixture is unavailable, reproduce it by hand: deploy any HTTP image
+listening on **8080**, create a Service whose `targetPort` is **80**, and put an
+Ingress in front of it.
+
+## What a 502 already tells you
+
+A 502 comes **from the proxy**, not from your application. The ingress
+controller accepted the request, tried to forward it, and got nothing usable
+back. That single fact rules out a whole class of causes: DNS resolved, the load
+balancer is up, the controller is running, and TLS terminated.
+
+The fault is between the controller and the container.
+
+## Work the path, do not guess
+
+```text
+Ingress  →  Service  →  Endpoints  →  Pod  →  Container
+```
+
+Move one step at a time and prove each before moving on.
+
+**Is the Ingress admitted, and does it point where you think?**
+
+```bash
+kubectl -n incident-01 get ingress
+kubectl -n incident-01 describe ingress
+```
+
+Read the backend service name and port in the output, not in the YAML you
+expect to be there.
+
+**Does the Service have endpoints?**
+
+```bash
+kubectl -n incident-01 get endpoints
+```
+
+This is the highest-value command in the whole sequence. An empty list means the
+Service selects nothing ready, and the fault is behind it. A populated list means
+routing is fine and the fault is in front of the container.
+
+**Are the Pods running and ready?**
+
+```bash
+kubectl -n incident-01 get pods
+kubectl -n incident-01 describe pod <name>
+```
+
+`Running` and `READY 1/1` are different columns and different questions.
+
+**Does the container actually answer, on the port you think?**
+
+```bash
+kubectl -n incident-01 exec deploy/<name> -- wget -qO- localhost:8080 | head -3
+kubectl -n incident-01 port-forward deploy/<name> 9000:8080
+curl -s localhost:9000 | head -3
+```
+
+If the container answers here but the Service does not, the two are not talking
+about the same port.
+
+**What does the proxy itself say?**
+
+```bash
+kubectl -n ingress-nginx logs deploy/ingress-nginx-controller --tail=30
+```
+
+The controller logs the upstream it tried and why it failed. That line usually
+names the problem outright.
+
+## Before you change anything
+
+Write down, in one sentence: *"The 502 happens because ___."*
+
+If you cannot finish that sentence, you have not found it yet — and changing
+things now means you will not know which change fixed it.
+
+## The candidates, in the order they occur
+
+A 502 through an Ingress is nearly always one of these:
+
+1. The Service's `targetPort` does not match the container's listening port.
+2. The Service selector matches no ready Pod — endpoints empty.
+3. The container listens on `127.0.0.1` rather than `0.0.0.0`, so it is
+   reachable inside the Pod and nowhere else.
+4. The application is up but returning nothing on `/` — a slow start, or a
+   crash after accepting the connection.
+5. The Ingress names a Service or port that does not exist.
+
+Each is distinguishable by the commands above. That is the point of running them
+in order rather than reading the list and guessing.
+
+## When it goes wrong
+
+**You changed several things and it works**
+
+Revert them one at a time until it breaks again. A fix you cannot name is a fix you cannot repeat, and the real cause is still there.
+
+**`kubectl get endpoints` is empty**
+
+Then the fault is behind the Service, not in front of it — selector labels or readiness. That is a different incident from this one.
+
+**It works from port-forward but not through the Ingress**
+
+Everything from the Pod inwards is fine. Compare the Service's targetPort with the port that worked.
+
+---
+
+## Check your reasoning
+
+Read this **after** you have fixed it, or after a genuine attempt. Being handed the answer costs you the only thing this tier teaches.
+
+> **Root cause:** the Service declares `targetPort: 80` while the container listens on `8080`. Endpoints are populated — the selector is correct and the Pod is ready — so the fault sits between the Service and the container, which is why the endpoint list looked healthy and the request still failed.
+>
+> **The command that localised it:** `kubectl get endpoints` showed three healthy addresses, which ruled out everything behind the Service and pointed at the port mapping.
+>
+> **The fix:** set `targetPort: 8080`. One field.
+>
+> **Why it is easy to miss:** `port` and `targetPort` are both valid numbers and neither Kubernetes nor the controller validates that anything is listening on the target. Nothing is broken from the API's point of view — the mapping is simply wrong.
+
+## Clean up
+
+```bash
+kubectl delete namespace incident-in
+```

@@ -10,6 +10,11 @@ order: 6
 tier: guided
 estimatedMinutes: 23
 cloudCost: true
+costEstimate: "Free tier — a `t3.micro` EC2 instance and S3 storage are inside the 12-month allowance. Outside it, expect ~$8/month for the instance if left running. AWS Backup charges for stored recovery points."
+cleanup:
+  - "terraform destroy -auto-approve"
+  - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
+  - "aws backup list-recovery-points-by-backup-vault --backup-vault-name <vault> --query 'RecoveryPoints[].RecoveryPointArn'"
 successCriteria:
   - "Configure S3 remote state backend (backend.tf) with DynamoDB lock table."
   - "Provision Jenkins EC2 host (modules/ec2-jenkins/main.tf) with Elastic IP."
@@ -73,3 +78,18 @@ rds_endpoint        = "nti-devops-postgres.c123456789.us-east-1.rds.amazonaws.co
 ```
 
 ---
+
+---
+
+## Clean up
+
+Run this even if you did not finish. Everything above is destroyable, and an
+account full of half-built experiments is how a surprise bill starts.
+
+```bash
+terraform destroy -auto-approve
+aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'
+aws backup list-recovery-points-by-backup-vault --backup-vault-name <vault> --query 'RecoveryPoints[].RecoveryPointArn'
+```
+
+**Cost of this lab:** Free tier — a `t3.micro` EC2 instance and S3 storage are inside the 12-month allowance. Outside it, expect ~$8/month for the instance if left running. AWS Backup charges for stored recovery points.

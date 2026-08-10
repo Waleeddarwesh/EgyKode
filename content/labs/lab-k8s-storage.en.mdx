@@ -1,0 +1,184 @@
+---
+labId: lab-k8s-storage
+title: "Kubernetes Storage: PVC, PV and StorageClass"
+description: "Prove a container's filesystem is disposable, then attach storage that survives, and meet the access mode that blocks a rollout."
+domain: kubernetes
+level: intermediate
+type: lab
+phase: kubernetes
+order: 21
+tier: guided
+estimatedMinutes: 50
+cloudCost: false
+costEstimate: "Free on kind or minikube. On a cloud cluster each PVC provisions a real disk billed per GB-month — see cleanup."
+destructive: true
+skills:
+  - "Explain the StorageClass → PV → PVC chain and who creates what"
+  - "Recognise why ReadWriteOnce blocks a multi-replica Deployment"
+  - "Know what `reclaimPolicy` does to your data"
+tools:
+  - "kind or minikube"
+  - "kubectl 1.28+"
+successCriteria:
+  - "Data written into a container is gone after the Pod is deleted — demonstrated, not assumed."
+  - "The same data survives a Pod deletion once a PVC is mounted."
+  - "You can explain why a 3-replica Deployment with one ReadWriteOnce PVC leaves Pods Pending."
+  - "You can state what happens to the underlying disk when the PVC is deleted, for your StorageClass."
+cleanup:
+  - "kubectl delete deployment,pod --all"
+  - "kubectl delete pvc --all          # PVCs are NOT removed with the workload"
+  - "kubectl get pv                    # confirm nothing is Released and lingering"
+  - "# On a cloud cluster, unattached volumes keep billing:"
+  - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
+challengeId: lab-k8s-storage-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+A container's filesystem dies with the container. Most workloads do not care; a database very much does.
+
+This lab shows the difference concretely, then walks into the access mode that stops a Deployment scaling — which is one of the more confusing first encounters with Kubernetes storage.
+> **This lab deletes Pods and volumes on purpose.** Run it on a throwaway
+> cluster, never against anything holding data you need.
+
+## 1. Prove the filesystem is disposable
+
+```bash
+kubectl run scratch --image=busybox --restart=Never -- sh -c "sleep 3600"
+kubectl exec scratch -- sh -c "echo 'important' > /data.txt; cat /data.txt"
+kubectl delete pod scratch
+kubectl run scratch --image=busybox --restart=Never -- sh -c "sleep 3600"
+kubectl exec scratch -- cat /data.txt      # No such file
+```
+
+The writable layer belongs to the container, and it goes when the container
+does.
+
+## 2. The three objects
+
+| Object | Says | Created by |
+| --- | --- | --- |
+| `StorageClass` | *how* to provision — which disk type | The platform team, once |
+| `PersistentVolume` | a specific piece of storage that exists | Usually automatically |
+| `PersistentVolumeClaim` | *"I need 1Gi"* | The application author |
+
+```bash
+kubectl get storageclass
+```
+
+A Pod references a PVC; the PVC binds to a PV; the PV is created on demand from
+the StorageClass. Application authors write only the middle one.
+
+## 3. A claim, and a Pod that uses it
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: writer
+spec:
+  containers:
+    - name: app
+      image: busybox
+      command: ["sh", "-c", "sleep 3600"]
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: data
+```
+
+```bash
+kubectl apply -f storage.yaml
+kubectl get pvc,pv
+kubectl exec writer -- sh -c "echo 'survives' > /data/file.txt"
+kubectl delete pod writer
+kubectl apply -f storage.yaml
+kubectl exec writer -- cat /data/file.txt      # survives
+```
+
+## 4. The access mode that blocks a rollout
+
+```bash
+kubectl create deployment web --image=nginx --replicas=3
+# then patch it to mount the same ReadWriteOnce PVC
+kubectl get pods
+```
+
+Some Pods stay `Pending`. `kubectl describe pod <name>` says the volume is
+already attached elsewhere.
+
+**`ReadWriteOnce` means one *node* may mount it** — which is what a cloud block
+device physically is. Three replicas spread across nodes cannot share one. The
+options:
+
+- `ReadWriteOnce` + one replica — correct for most databases.
+- A **StatefulSet** with `volumeClaimTemplates` — each replica gets its own
+  volume.
+- `ReadWriteMany` — needs a file system such as NFS or EFS, not a block device.
+
+## 5. What happens to the disk
+
+```bash
+kubectl get pv -o custom-columns=NAME:.metadata.name,RECLAIM:.spec.persistentVolumeReclaimPolicy
+```
+
+- **`Delete`** — the default on most cloud StorageClasses. Deleting the PVC
+  destroys the underlying disk **and the data on it**.
+- **`Retain`** — the PV survives in `Released` state for manual recovery, and
+  keeps billing until you remove it.
+
+Check which one your cluster uses *before* you need to know.
+
+Two behaviours worth remembering:
+
+- **Deleting a StatefulSet does not delete its PVCs.** This protects your data,
+  and it means a "clean" reinstall silently reuses the old disks.
+- **`helm uninstall` does not remove PVCs either** — which is how a deleted
+  monitoring stack keeps billing for volumes nobody can see.
+
+## When it goes wrong
+
+**PVC stays `Pending`**
+
+No StorageClass can satisfy it. `kubectl describe pvc` names the reason — often no default StorageClass, or a class that provisions nothing on this cluster.
+
+**Pods Pending with 'volume is already exclusively attached'**
+
+A ReadWriteOnce volume with more than one replica. Scale to 1, or move to a StatefulSet with volumeClaimTemplates.
+
+**Data vanished after deleting the PVC**
+
+The reclaim policy was `Delete`. That is the default and it is working as designed — check before deleting, not after.
+
+**PV stuck `Terminating`**
+
+A finalizer is waiting on something still using it. Confirm no Pod mounts it, then inspect `kubectl get pv <name> -o yaml` for the finalizer.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+kubectl delete deployment,pod --all
+kubectl delete pvc --all          # PVCs are NOT removed with the workload
+kubectl get pv                    # confirm nothing is Released and lingering
+# On a cloud cluster, unattached volumes keep billing:
+aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table
+```
+
+**Cost of this lab:** Free on kind or minikube. On a cloud cluster each PVC provisions a real disk billed per GB-month — see cleanup.

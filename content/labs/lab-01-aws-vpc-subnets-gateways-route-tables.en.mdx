@@ -10,6 +10,13 @@ order: 1
 tier: guided
 estimatedMinutes: 47
 cloudCost: true
+costEstimate: "**Billable.** The NAT Gateway is ~$0.045/hour (~$32/month) plus $0.045/GB processed, and it bills whether or not traffic flows. The VPC, subnets and route tables are free. Destroy the NAT Gateway the moment you are done."
+cleanup:
+  - "terraform destroy -auto-approve"
+  - "# Verify the NAT Gateway is really gone — it is the only costly resource here:"
+  - "aws ec2 describe-nat-gateways --filter Name=state,Values=available --query 'NatGateways[].NatGatewayId'"
+  - "# Release any Elastic IP left behind (an unattached EIP is billed hourly):"
+  - "aws ec2 describe-addresses --query 'Addresses[?AssociationId==`null`].[PublicIp,AllocationId]' --output table"
 successCriteria:
   - "Write modular Infrastructure as Code (IaC) using Terraform (>= 1.6)."
   - "Provision a custom AWS VPC (10.0.0.0/16) across 2 Availability Zones (us-east-1a, us-east-1b)."
@@ -110,3 +117,20 @@ nat_gateway_ip      = "54.210.100.50"
 ```
 
 ---
+
+---
+
+## Clean up
+
+Run this even if you did not finish. Everything above is destroyable, and an
+account full of half-built experiments is how a surprise bill starts.
+
+```bash
+terraform destroy -auto-approve
+# Verify the NAT Gateway is really gone — it is the only costly resource here:
+aws ec2 describe-nat-gateways --filter Name=state,Values=available --query 'NatGateways[].NatGatewayId'
+# Release any Elastic IP left behind (an unattached EIP is billed hourly):
+aws ec2 describe-addresses --query 'Addresses[?AssociationId==`null`].[PublicIp,AllocationId]' --output table
+```
+
+**Cost of this lab:** **Billable.** The NAT Gateway is ~$0.045/hour (~$32/month) plus $0.045/GB processed, and it bills whether or not traffic flows. The VPC, subnets and route tables are free. Destroy the NAT Gateway the moment you are done.

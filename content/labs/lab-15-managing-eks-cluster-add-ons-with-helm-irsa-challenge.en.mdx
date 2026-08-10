@@ -10,6 +10,13 @@ order: 15
 tier: challenge
 estimatedMinutes: 19
 cloudCost: true
+costEstimate: "**Billable.** Cluster add-ons commonly provision real infrastructure — a load balancer, EBS volumes for persistent storage — that outlives `helm uninstall` if a finalizer fails."
+cleanup:
+  - "helm list -A"
+  - "helm uninstall <release> -n <namespace>"
+  - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName'"
+  - "# Unattached EBS volumes are billed per GB-month:"
+  - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
 successCriteria:
   - "Provision IAM Role for AWS Load Balancer Controller using Terraform IRSA module (irsa/lbc-irsa.tf)."
   - "Deploy Metrics Server add-on via Helm (releases/metrics-server-values.yaml)."

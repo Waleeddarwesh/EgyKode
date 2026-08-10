@@ -1,0 +1,148 @@
+---
+labId: lab-k8s-services
+title: "Kubernetes Services & Service Discovery"
+description: "Give disposable Pods a stable address, then break the selector and watch the endpoints empty."
+domain: kubernetes
+level: beginner
+type: lab
+phase: kubernetes
+order: 20
+tier: guided
+estimatedMinutes: 45
+cloudCost: false
+costEstimate: "Free — runs on kind, minikube or Docker Desktop."
+skills:
+  - "Explain why a Pod IP is never a valid target"
+  - "Read `kubectl get endpoints` as the first debugging step"
+  - "Reach a Service by DNS name from inside the cluster"
+tools:
+  - "kind or minikube"
+  - "kubectl 1.28+"
+successCriteria:
+  - "A ClusterIP Service routes traffic to three Pods, verified by repeated requests hitting different ones."
+  - "`kubectl get endpoints` lists three addresses."
+  - "Another Pod reaches the Service by name, not by IP."
+  - "You can make the endpoint list empty in two different ways, and explain each."
+challengeId: lab-k8s-services-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+Pods are replaced constantly and get a new IP every time. Nothing can hold a Pod IP.
+
+A Service is the answer, and `kubectl get endpoints` is the single most useful command when one does not work.
+## 1. Why not just use the Pod IP?
+
+```bash
+kubectl get pods -o wide         # note an IP
+kubectl delete pod <name>
+kubectl get pods -o wide         # the replacement has a different IP
+```
+
+Every rollout, eviction and node failure changes them. A Service is a stable
+name and virtual IP in front of whichever Pods currently match its selector.
+
+## 2. A ClusterIP Service
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  type: ClusterIP
+  selector:
+    app: web           # any Pod with this label receives traffic
+  ports:
+    - port: 80         # the port the Service exposes
+      targetPort: 80   # the port the container listens on
+```
+
+```bash
+kubectl apply -f service.yaml
+kubectl get svc web
+kubectl get endpoints web
+```
+
+```text
+NAME   ENDPOINTS                                   AGE
+web    10.244.0.6:80,10.244.0.7:80,10.244.0.8:80   5s
+```
+
+**Endpoints are the whole story.** The Service has no intelligence of its own —
+a controller watches for Pods matching the selector that are *ready*, and writes
+their addresses here. Everything else follows from this list.
+
+## 3. Reach it by name
+
+```bash
+kubectl run client --rm -it --image=curlimages/curl --restart=Never -- sh
+
+# inside the Pod:
+curl -s http://web           # same namespace
+curl -s http://web.default.svc.cluster.local
+cat /etc/resolv.conf         # points at CoreDNS
+```
+
+The short name works because `/etc/resolv.conf` has a search path. The fully
+qualified form is `<service>.<namespace>.svc.cluster.local`, and it is what you
+use across namespaces.
+
+## 4. Empty the endpoint list, twice
+
+**Way one — a selector that matches nothing:**
+
+```bash
+kubectl patch svc web -p '{"spec":{"selector":{"app":"wrong"}}}'
+kubectl get endpoints web     # ENDPOINTS is <none>
+kubectl patch svc web -p '{"spec":{"selector":{"app":"web"}}}'
+```
+
+**Way two — Pods that are not ready:**
+
+```yaml
+        readinessProbe:
+          httpGet:
+            path: /nonexistent
+            port: 80
+          periodSeconds: 5
+```
+
+```bash
+kubectl get pods              # Running, but 0/1 READY
+kubectl get endpoints web     # <none> — running is not the same as ready
+```
+
+That second case is the one that confuses people: the Pods are up, the logs look
+fine, and the Service returns nothing. **Readiness controls endpoint
+membership**, which is exactly what makes a rolling update safe.
+
+## 5. The three types
+
+| Type | Gives you | Use it for |
+| --- | --- | --- |
+| `ClusterIP` | An internal-only address | Everything inside the cluster — the default |
+| `NodePort` | A high port on every node | Debugging, or a load balancer in front |
+| `LoadBalancer` | A cloud load balancer | One public entry point per Service |
+
+`LoadBalancer` provisions — and bills for — a real load balancer per Service.
+That is why production puts one Ingress in front of many ClusterIP Services
+rather than a LoadBalancer each.
+
+## When it goes wrong
+
+**`ENDPOINTS` is `<none>`**
+
+Either the selector matches no Pod, or the matching Pods are not ready. `kubectl get pods --show-labels` and check the READY column.
+
+**Connection refused through the Service**
+
+`targetPort` does not match the container's actual port. The Service port and container port are different numbers.
+
+**The name does not resolve**
+
+Check CoreDNS is running: `kubectl get pods -n kube-system -l k8s-app=kube-dns`. Then confirm the namespace in the FQDN.
+
+**Traffic only ever reaches one Pod**
+
+Expected with keep-alive connections — kube-proxy balances connections, not requests. Use `curl` in a loop without keep-alive to see the spread.

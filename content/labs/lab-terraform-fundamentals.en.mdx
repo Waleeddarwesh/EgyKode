@@ -1,0 +1,223 @@
+---
+labId: lab-terraform-fundamentals
+title: "Terraform Fundamentals"
+description: "Provider, resource, variable, output, state — the five pieces, on infrastructure small enough to read in one screen."
+domain: terraform
+level: beginner
+type: lab
+phase: iac
+order: 5
+tier: guided
+estimatedMinutes: 45
+cloudCost: true
+costEstimate: "Free tier — one `t3.micro` and an S3 bucket. Nothing here runs an hourly-billed resource beyond the instance itself."
+skills:
+  - "Declare a provider and pin its version"
+  - "Read a plan and name what each symbol means"
+  - "Move a hardcoded value into a variable and out through an output"
+  - "Explain what the state file is and why it is not disposable"
+tools:
+  - "Terraform >= 1.6"
+  - "AWS CLI v2, configured"
+successCriteria:
+  - "`terraform apply` creates an EC2 instance and an S3 bucket from a single configuration."
+  - "Running `terraform apply` a second time reports `No changes` — you can explain why."
+  - "The instance type comes from a variable, and the public IP leaves through an output."
+  - "You can point at the line in `terraform.tfstate` that maps your resource to its real AWS id."
+  - "`terraform destroy` removes everything, verified with the AWS CLI."
+cleanup:
+  - "terraform destroy -auto-approve"
+  - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
+  - "aws s3 ls | grep tf-fundamentals   # must print nothing"
+challengeId: lab-terraform-fundamentals-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+Before a VPC module makes any sense, the five pieces underneath it have to be concrete: what a provider is, what a resource declaration produces, where a value comes in, where a value goes out, and what Terraform remembers between runs.
+
+This lab builds the smallest infrastructure that exercises all five.
+## 1. The provider
+
+```hcl
+terraform {
+  required_version = ">= 1.6"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.40"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.region
+}
+```
+
+Terraform knows nothing about AWS. The provider is a plugin that translates
+`resource` blocks into API calls, and `~> 5.40` means "any 5.x from 5.40, never
+6.0" — patch and minor updates are allowed, the breaking major is not.
+
+```bash
+terraform init
+```
+
+`init` downloads the plugin and writes `.terraform.lock.hcl`, which records the
+exact version and its checksum. **Commit that file** — it is what makes your
+build and the CI runner's build identical.
+
+## 2. Variables in, outputs out
+
+```hcl
+variable "region" {
+  description = "Where this runs"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "instance_type" {
+  description = "Size of the demo instance"
+  type        = string
+  default     = "t3.micro"
+}
+```
+
+A variable with no `default` is required, and Terraform refuses to run without
+it. That is the correct choice for anything environment-specific.
+
+```hcl
+output "instance_ip" {
+  description = "Public address of the demo instance"
+  value       = aws_instance.demo.public_ip
+}
+```
+
+Outputs are the module's public surface. Anything a caller needs must leave
+through one — there is no reaching inside.
+
+## 3. Resources
+
+```hcl
+data "aws_ami" "al2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+}
+
+resource "aws_instance" "demo" {
+  ami           = data.aws_ami.al2023.id
+  instance_type = var.instance_type
+
+  tags = {
+    Name    = "tf-fundamentals"
+    Purpose = "learning"
+  }
+}
+
+resource "aws_s3_bucket" "demo" {
+  bucket = "tf-fundamentals-${random_id.suffix.hex}"
+}
+
+resource "random_id" "suffix" {
+  byte_length = 4
+}
+```
+
+A `data` block *reads* something that already exists; a `resource` block *owns*
+something Terraform will create and destroy. Confusing the two is how people
+accidentally destroy shared infrastructure.
+
+Note `aws_s3_bucket.demo` depends on `random_id.suffix` without anyone saying
+so. Terraform builds a dependency graph from the references themselves and
+orders the work automatically.
+
+## 4. Read the plan before you apply it
+
+```bash
+terraform fmt -recursive
+terraform validate
+terraform plan
+```
+
+Every resource gets a symbol, and the symbol is the whole message:
+
+| Symbol | Meaning | How worried to be |
+| --- | --- | --- |
+| `+` | create | Normal for new infrastructure |
+| `~` | update in place | Usually safe |
+| `-` | destroy | Read carefully |
+| `-/+` | **destroy then recreate** | Stop and read every line |
+
+```bash
+terraform apply
+```
+
+Then run it again:
+
+```bash
+terraform apply
+# No changes. Your infrastructure matches the configuration.
+```
+
+That second run is the point of the whole tool. The configuration describes an
+end state, so applying it to a system already in that state does nothing. This
+is **idempotency**, and it is what makes it safe to run continuously.
+
+## 5. The state file
+
+```bash
+terraform state list
+terraform state show aws_instance.demo | head -20
+grep -o '"id": "i-[a-z0-9]*"' terraform.tfstate | head -1
+```
+
+State is Terraform's memory: a map from your resource addresses to real AWS
+ids. Without it, Terraform cannot tell a resource it created from one it has
+never seen.
+
+Two consequences to internalise now:
+
+- **It frequently contains secrets in plain text** — an RDS password, a
+  generated key — because the API returned them at creation. It never goes in
+  Git.
+- **Losing it orphans everything it tracked.** The resources keep running and
+  billing; Terraform simply no longer knows about them. That is why the next
+  lab moves it to a remote backend with locking.
+
+## When it goes wrong
+
+**`terraform apply` says the bucket name is already taken**
+
+S3 bucket names are globally unique across every AWS account. That is what `random_id` is for — check it is actually being interpolated into the name.
+
+**The second apply shows changes when nothing changed**
+
+Something outside Terraform modified the resource — configuration drift. `terraform plan` shows exactly which attribute differs.
+
+**`terraform destroy` leaves the bucket behind**
+
+S3 refuses to delete a bucket with objects in it. Empty it first: `aws s3 rm s3://<bucket> --recursive`.
+
+**`init` fails with a provider checksum mismatch**
+
+The lock file was written on a different platform. `terraform providers lock -platform=linux_amd64 -platform=windows_amd64` records both.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+terraform destroy -auto-approve
+aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'
+aws s3 ls | grep tf-fundamentals   # must print nothing
+```
+
+**Cost of this lab:** Free tier — one `t3.micro` and an S3 bucket. Nothing here runs an hourly-billed resource beyond the instance itself.

@@ -40,14 +40,30 @@ data "aws_iam_policy_document" "assume_from_github" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # The narrowest condition that still works. Without a `sub` restriction any
-    # repository on GitHub could assume this role — this pins it to deploys of
-    # the default branch of this one repository, so a fork or a pull request
-    # from a stranger cannot reach production.
+    # Restricted to branch pushes in this repository.
+    #
+    # GitHub sends the subject in its **immutable identifier** form, which
+    # CloudTrail showed after two exact-match attempts failed:
+    #
+    #   repo:Waleeddarwesh@138933390/EgyKode@1328730125:ref:refs/heads/master
+    #
+    # Owner and repository carry their numeric ids, so no pattern written
+    # against `Waleeddarwesh/EgyKode` can ever match. The ids are permanent —
+    # that is the point of the feature: renaming the repo or the account does
+    # not silently grant or revoke access, whereas a name-based policy would
+    # follow whoever takes the old name.
+    #
+    # Both forms are allowed because GitHub is rolling this out, and a
+    # repository can emit either. Ending each pattern at `:ref:refs/heads/*`
+    # keeps forks and pull requests out — a pull request's subject ends
+    # `:pull_request`, not `:ref:refs/heads/...`.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:ref:refs/heads/${var.production_branch}"]
+      values = [
+        "repo:${var.github_repository}:ref:refs/heads/*",
+        "repo:${var.github_owner_id}/${var.github_repo_id}:ref:refs/heads/*",
+      ]
     }
   }
 }

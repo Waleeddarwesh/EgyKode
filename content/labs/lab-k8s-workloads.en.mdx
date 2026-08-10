@@ -1,0 +1,169 @@
+---
+labId: lab-k8s-workloads
+title: "Kubernetes Workloads: Pod, ReplicaSet, Deployment"
+description: "Watch a Deployment create a ReplicaSet create Pods, then delete each in turn and see which come back."
+domain: kubernetes
+level: beginner
+type: lab
+phase: kubernetes
+order: 19
+tier: guided
+estimatedMinutes: 45
+cloudCost: false
+costEstimate: "Free — runs on kind, minikube or Docker Desktop. No cloud account needed."
+skills:
+  - "Explain the Deployment → ReplicaSet → Pod ownership chain"
+  - "Perform a rolling update and roll it back"
+  - "Match a selector to labels, and recognise when they do not"
+tools:
+  - "kind or minikube"
+  - "kubectl 1.28+"
+successCriteria:
+  - "A Deployment with 3 replicas is running, and you can name the ReplicaSet that owns the Pods."
+  - "Deleting a Pod causes a replacement to appear; deleting the Deployment does not."
+  - "A rolling update keeps the service available, and `rollout undo` returns to the previous image."
+  - "You can produce a Deployment that creates zero Pods, and explain why."
+challengeId: lab-k8s-workloads-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+Ingress, HPA and NetworkPolicy all assume you know what a Pod is and what owns it. This lab builds that, by creating each object and then deleting it to see what the cluster does about it.
+
+Deleting things on purpose is the fastest way to learn what is watching.
+## 1. A cluster on your laptop
+
+```bash
+kind create cluster --name fundamentals
+kubectl cluster-info
+kubectl get nodes
+```
+
+## 2. A bare Pod, and why you will not use one
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: solo
+spec:
+  containers:
+    - name: web
+      image: nginx:1.27-alpine
+```
+
+```bash
+kubectl apply -f pod.yaml
+kubectl get pod solo
+kubectl delete pod solo
+kubectl get pods          # gone, and nothing replaced it
+```
+
+That is the lesson: a bare Pod is not watched by anything. When it dies, it
+stays dead.
+
+## 3. A Deployment
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web           # which Pods this Deployment owns
+  template:
+    metadata:
+      labels:
+        app: web         # must match the selector above
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+```
+
+```bash
+kubectl apply -f deployment.yaml
+kubectl get deploy,rs,pods
+```
+
+Read the names in that output — the chain is visible in them:
+
+```text
+deployment.apps/web              3/3
+replicaset.apps/web-6d4c8f9b7    3         <- created by the Deployment
+pod/web-6d4c8f9b7-x2k9p                    <- created by the ReplicaSet
+pod/web-6d4c8f9b7-lm4tq
+pod/web-6d4c8f9b7-9wqzr
+```
+
+The Deployment manages ReplicaSets. The ReplicaSet keeps a count of Pods. The
+Pod runs the container. Each layer watches the one below.
+
+```bash
+kubectl delete pod -l app=web --field-selector status.phase=Running | head -1
+kubectl get pods -w         # a replacement appears within seconds; Ctrl-C
+```
+
+## 4. A rolling update
+
+```bash
+kubectl set image deployment/web web=nginx:1.28-alpine
+kubectl rollout status deployment/web
+kubectl get rs              # two ReplicaSets now — old scaled to 0
+```
+
+The old ReplicaSet is kept at zero replicas. That is what makes the next command
+instant:
+
+```bash
+kubectl rollout undo deployment/web
+kubectl rollout history deployment/web
+```
+
+Rolling back does not rebuild anything. It scales the previous ReplicaSet back
+up and the new one down — seconds, not a redeploy.
+
+## 5. Break it deliberately
+
+Change the selector so it no longer matches the template labels:
+
+```yaml
+  selector:
+    matchLabels:
+      app: web-typo        # template still says app: web
+```
+
+```bash
+kubectl apply -f broken.yaml
+```
+
+On an existing Deployment the API server rejects it — the selector is
+immutable. Create it under a new name and you get a Deployment reporting
+`0/3` with no error anywhere, because it owns nothing.
+
+**A Deployment that creates no Pods is almost always a label mismatch.** They
+are matched as plain strings, and a typo produces silence rather than a
+complaint.
+
+## When it goes wrong
+
+**Deployment shows 0/3 and no Pods exist**
+
+`selector.matchLabels` does not match `template.metadata.labels`. Compare them character by character.
+
+**`selector is immutable` on apply**
+
+A Deployment's selector cannot change after creation. Delete and recreate it, or use a new name.
+
+**Pods are Pending forever**
+
+`kubectl describe pod` and read Events — usually insufficient CPU/memory on the node, or a nodeSelector nothing satisfies.
+
+**`ImagePullBackOff`**
+
+The tag does not exist or the registry needs credentials. `kubectl describe pod` names the exact image it tried.

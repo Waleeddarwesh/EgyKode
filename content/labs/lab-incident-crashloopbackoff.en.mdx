@@ -1,0 +1,147 @@
+---
+labId: lab-incident-crashloopbackoff
+title: "Incident: CrashLoopBackOff"
+description: "A container starts, dies, and restarts forever. The current logs are empty. Find out what the one that died said."
+domain: kubernetes
+level: advanced
+type: lab
+phase: kubernetes
+order: 32
+tier: incident
+estimatedMinutes: 35
+cloudCost: false
+costEstimate: "Free — runs on kind or minikube."
+skills:
+  - "Read the logs of a container that has already exited"
+  - "Map an exit code to a cause"
+  - "Separate a crash from a failing health check"
+tools:
+  - "kind or minikube"
+  - "kubectl 1.28+"
+successCriteria:
+  - "The Pod reaches `Running` with `READY 1/1` and stays there for two minutes."
+  - "You can state the exit code and what it meant."
+  - "You can explain why `kubectl logs` alone was not enough."
+authors: [waleed]
+updated: 2026-08-10
+---
+## The incident
+A Pod has restarted 14 times in six minutes and sits in `CrashLoopBackOff`. `kubectl logs` prints nothing.
+
+Find out why, and fix it.
+
+## Reproduce it
+
+```bash
+kubectl create namespace incident-02
+kubectl apply -n incident-02 -f https://raw.githubusercontent.com/Waleeddarwesh/EgyKode/master/content/labs/fixtures/incident-02.yaml
+```
+
+By hand: deploy any image whose entrypoint reads a required environment
+variable that is not set, and let it exit non-zero.
+
+## What CrashLoopBackOff actually means
+
+It is not an error in itself. It means the container exited, Kubernetes
+restarted it, it exited again, and the kubelet is now backing off — waiting
+longer between attempts (10s, 20s, 40s…) so a broken container cannot spin the
+node.
+
+The useful information is in the container that *already died*.
+
+## The one command people miss
+
+```bash
+kubectl -n incident-02 logs <pod>              # the container that just started
+kubectl -n incident-02 logs <pod> --previous   # the one that died
+```
+
+`--previous` is the whole lab. The current container has been alive for two
+seconds and knows nothing; the evidence is in its predecessor.
+
+## Then the exit code
+
+```bash
+kubectl -n incident-02 describe pod <pod>
+```
+
+Look at `Last State: Terminated` and its `Exit Code`:
+
+| Exit code | Means | Look at |
+| --- | --- | --- |
+| `0` | Exited cleanly | A one-shot command in a Deployment — it needs to be a Job |
+| `1` | Application error | The previous logs |
+| `2` | Shell misuse | The command or args in the manifest |
+| `126` / `127` | Not executable / not found | The entrypoint path |
+| `137` | SIGKILL — almost always OOMKilled | Memory limit versus what it needs |
+| `143` | SIGTERM — asked to stop | Something else is terminating it |
+
+`137` is the one worth recognising instantly: the container exceeded its memory
+limit and the kernel's OOM killer terminated it. `describe` says `OOMKilled`
+explicitly in `Last State`.
+
+## Rule out the probes
+
+A container that is running fine but failing its liveness probe restarts in a
+loop that looks identical from the outside:
+
+```bash
+kubectl -n incident-02 describe pod <pod> | grep -A5 Liveness
+kubectl -n incident-02 get events --sort-by=.lastTimestamp | tail -20
+```
+
+An event saying `Liveness probe failed` means the application is alive and the
+check is wrong — often a slow-starting process with no `startupProbe`, being
+killed before it ever finishes booting.
+
+## Before you change anything
+
+Finish this sentence: *"The container exits because ___, which I know from ___."*
+
+The second half matters as much as the first.
+
+## The candidates
+
+1. A required environment variable or config file is missing, so the process
+   exits at startup.
+2. A referenced ConfigMap or Secret does not exist — the Pod never starts and
+   `describe` says so in Events.
+3. The memory limit is below what the process needs — exit `137`, `OOMKilled`.
+4. The command or args are wrong — exit `127`.
+5. It is a one-shot task in a Deployment: it succeeds, exits `0`, and gets
+   restarted because a Deployment expects a long-running process.
+6. A liveness probe is killing a healthy but slow-starting container.
+
+## When it goes wrong
+
+**`--previous` says there is no previous container**
+
+The Pod has not restarted yet, or was just recreated. Wait for one more restart, or check `kubectl get events`.
+
+**Restart count climbs but the logs look normal**
+
+Suspect a liveness probe rather than a crash. `describe` will show `Liveness probe failed` in Events.
+
+**The Pod never starts at all**
+
+That is not CrashLoopBackOff — it is `CreateContainerConfigError` or `ImagePullBackOff`. `describe` names which.
+
+---
+
+## Check your reasoning
+
+Read this **after** you have fixed it, or after a genuine attempt. Being handed the answer costs you the only thing this tier teaches.
+
+> **Root cause:** the container requires an environment variable that the manifest never sets. It exits `1` at startup, before writing anything to the log the *current* container would show.
+>
+> **The command that found it:** `kubectl logs <pod> --previous` — the dead container's output names the missing variable directly.
+>
+> **The fix:** add the variable via `env` or `envFrom`. If it belongs in a ConfigMap, note that editing that ConfigMap later will not restart the Pod — `envFrom` values are read once at container start.
+>
+> **Why `kubectl logs` alone showed nothing:** by the time you ran it, the kubelet had already started a replacement that had not reached the failure yet, or had produced no output at all.
+
+## Clean up
+
+```bash
+kubectl delete namespace incident-cr
+```

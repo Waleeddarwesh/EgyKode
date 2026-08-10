@@ -1,0 +1,67 @@
+---
+labId: lab-20-linux-server-administration-challenge
+title: "Linux Server Administration — Challenge"
+description: "Create users and groups, set permissions that actually hold, and manage services and packages on a server you did not build."
+domain: linux
+level: beginner
+type: lab
+phase: foundations
+order: 20
+tier: challenge
+estimatedMinutes: 22
+cloudCost: false
+costEstimate: "Free — runs on any Linux machine, a VM, or a container"
+skills:
+  - "Create users and groups with correct ownership and permissions"
+  - "Read and set permissions without reaching for chmod 777"
+  - "Manage packages and services, and make them survive a reboot"
+  - "Find what is consuming disk on a server that is full"
+tools:
+  - "Any Linux (Ubuntu 22.04+ or RHEL 9)"
+  - "sudo access"
+successCriteria:
+  - "A deploy user exists, belongs to a shared group, and can read the application directory without being root."
+  - "`/opt/app` is owned by that group and group-writable, and a second user in the group can write to it."
+  - "A service is installed, running, and comes back after `reboot` — proven by `systemctl is-enabled`."
+  - "You can state which directory is consuming the most disk, with the command that told you."
+guidedLabId: lab-20-linux-server-administration
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Linux Server Administration**, from an empty starting point,
+without the steps.
+
+You have been handed SSH access to a server somebody else built. A colleague needs to deploy to it, the application directory is owned by root, and the disk is at 91%. Nobody documented any of it.
+
+This is the most common first task in the job, and none of it is exotic — it is users, permissions, services and disk.
+
+## What must be true when you are done
+
+- A deploy user exists, belongs to a shared group, and can read the application directory without being root.
+- `/opt/app` is owned by that group and group-writable, and a second user in the group can write to it.
+- A service is installed, running, and comes back after `reboot` — proven by `systemctl is-enabled`.
+- You can state which directory is consuming the most disk, with the command that told you.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until you have been
+  stuck on the same thing for 20 minutes. Being stuck is the exercise; staying
+  stuck is not.
+- Official documentation is allowed and encouraged. In the job it is the first
+  thing you open.
+- Verify every criterion yourself with a command whose output you can read. "It
+  looks right" is not a check.
+
+## If you get stuck
+
+Work in layers rather than restarting things:
+
+1. What did you expect to happen, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?
+
+That sequence is the skill this tier exists to build. The commands are
+lookup-able; the sequence is not.

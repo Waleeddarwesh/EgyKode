@@ -1,0 +1,64 @@
+---
+labId: lab-terraform-fundamentals-challenge
+title: "Terraform Fundamentals — Challenge"
+description: "Provider, resource, variable, output, state — the five pieces, on infrastructure small enough to read in one screen."
+domain: terraform
+level: beginner
+type: lab
+phase: iac
+order: 5
+tier: challenge
+estimatedMinutes: 45
+cloudCost: true
+costEstimate: "Free tier — one `t3.micro` and an S3 bucket. Nothing here runs an hourly-billed resource beyond the instance itself."
+skills:
+  - "Declare a provider and pin its version"
+  - "Read a plan and name what each symbol means"
+  - "Move a hardcoded value into a variable and out through an output"
+  - "Explain what the state file is and why it is not disposable"
+tools:
+  - "Terraform >= 1.6"
+  - "AWS CLI v2, configured"
+successCriteria:
+  - "`terraform apply` creates an EC2 instance and an S3 bucket from a single configuration."
+  - "Running `terraform apply` a second time reports `No changes` — you can explain why."
+  - "The instance type comes from a variable, and the public IP leaves through an output."
+  - "You can point at the line in `terraform.tfstate` that maps your resource to its real AWS id."
+  - "`terraform destroy` removes everything, verified with the AWS CLI."
+cleanup:
+  - "terraform destroy -auto-approve"
+  - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
+  - "aws s3 ls | grep tf-fundamentals   # must print nothing"
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Terraform Fundamentals**, from an empty starting point,
+without the steps.
+
+Before a VPC module makes any sense, the five pieces underneath it have to be concrete: what a provider is, what a resource declaration produces, where a value comes in, where a value goes out, and what Terraform remembers between runs.
+
+This lab builds the smallest infrastructure that exercises all five.
+
+## What must be true when you are done
+
+- `terraform apply` creates an EC2 instance and an S3 bucket from a single configuration.
+- Running `terraform apply` a second time reports `No changes` — you can explain why.
+- The instance type comes from a variable, and the public IP leaves through an output.
+- You can point at the line in `terraform.tfstate` that maps your resource to its real AWS id.
+- `terraform destroy` removes everything, verified with the AWS CLI.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed. In the job it is the first thing you open.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

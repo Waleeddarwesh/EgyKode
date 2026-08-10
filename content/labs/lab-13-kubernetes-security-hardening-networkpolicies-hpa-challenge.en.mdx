@@ -10,6 +10,11 @@ order: 13
 tier: challenge
 estimatedMinutes: 23
 cloudCost: true
+costEstimate: "**Depends on an existing cluster.** NetworkPolicies and HPA objects are free; the cluster and any nodes the HPA scales up are not."
+cleanup:
+  - "kubectl delete networkpolicy --all -A"
+  - "kubectl delete hpa --all -A"
+  - "kubectl get nodes  # confirm the HPA did not leave extra nodes running"
 successCriteria:
   - "Implement zero-trust network isolation using Kubernetes NetworkPolicy (networkpolicy.yaml)."
   - "Enforce strict default-deny rules while selectively allowing ingress traffic on Port 8000 and egress database connections on Port 5432."

@@ -1,0 +1,62 @@
+---
+labId: lab-terraform-modules-challenge
+title: "Terraform Modules — Challenge"
+description: "Turn a working configuration into a network module and a compute module, called twice with different inputs."
+domain: terraform
+level: intermediate
+type: lab
+phase: iac
+order: 6
+tier: challenge
+estimatedMinutes: 50
+cloudCost: true
+costEstimate: "Free tier — a VPC, subnets and one `t3.micro`. **No NAT Gateway** in this lab, deliberately: it is the one resource here that would bill hourly."
+skills:
+  - "Extract a module with a deliberate input/output contract"
+  - "Call one module from another and let the graph order the work"
+  - "Know when a module is not worth writing"
+tools:
+  - "Terraform >= 1.6"
+  - "AWS CLI v2, configured"
+successCriteria:
+  - "A `modules/network` module creates a VPC and subnets from inputs, exposing subnet ids as outputs."
+  - "A `modules/compute` module places an instance into a subnet it did not create."
+  - "The root module wires them together with no hardcoded ids anywhere."
+  - "Calling the network module twice with different CIDRs produces two independent networks."
+  - "You can explain why the compute module never references `aws_vpc` directly."
+cleanup:
+  - "terraform destroy -auto-approve"
+  - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Terraform Modules**, from an empty starting point,
+without the steps.
+
+The configuration from the previous lab works, and now a second environment needs the same shape with different addresses. Copying the directory is the obvious move and the wrong one — two copies drift, and the drift is discovered during an incident.
+
+A module is how the same definition serves both.
+
+## What must be true when you are done
+
+- A `modules/network` module creates a VPC and subnets from inputs, exposing subnet ids as outputs.
+- A `modules/compute` module places an instance into a subnet it did not create.
+- The root module wires them together with no hardcoded ids anywhere.
+- Calling the network module twice with different CIDRs produces two independent networks.
+- You can explain why the compute module never references `aws_vpc` directly.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed. In the job it is the first thing you open.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

@@ -1,0 +1,174 @@
+---
+labId: lab-incident-cluster-dns
+title: "Incident: Service-to-Service Calls Fail"
+description: "Every Pod is Running and healthy, but one service cannot reach another by name. Work down from DNS."
+domain: kubernetes
+level: advanced
+type: lab
+phase: kubernetes
+order: 33
+tier: incident
+estimatedMinutes: 40
+cloudCost: false
+costEstimate: "Free — runs on kind or minikube."
+skills:
+  - "Test cluster DNS from inside a Pod"
+  - "Distinguish a name-resolution failure from a connectivity failure"
+  - "Recognise an egress policy that forgot DNS"
+tools:
+  - "kind or minikube"
+  - "kubectl 1.28+"
+successCriteria:
+  - "The calling Pod reaches the target Service by name and gets a response."
+  - "You can say whether the failure was resolution, routing or policy — and how you proved it."
+  - "You can name the namespace-qualified DNS name of the target Service."
+authors: [waleed]
+updated: 2026-08-10
+---
+## The incident
+The API Pods are `Running` and `READY`. The database Pods are `Running` and `READY`. The API logs show connection failures to the database, and nobody has changed either application.
+
+Find out why they cannot talk.
+
+## Reproduce it
+
+```bash
+kubectl create namespace incident-03
+kubectl apply -n incident-03 -f https://raw.githubusercontent.com/Waleeddarwesh/EgyKode/master/content/labs/fixtures/incident-03.yaml
+```
+
+By hand: deploy two services in one namespace, then apply a default-deny egress
+NetworkPolicy that does not allow UDP 53 to kube-system.
+
+> **Your CNI must enforce NetworkPolicy or this will not reproduce.**
+>
+> kind's default CNI (kindnet) accepts policies and silently ignores them, so
+> the calls will simply succeed and you will conclude the lab is broken. Use a
+> cluster with Calico or Cilium:
+>
+> ```bash
+> minikube start --cni=calico
+> # or kind with disableDefaultCNI: true, then apply Calico
+> ```
+>
+> Confirm enforcement is real before trusting any result:
+>
+> ```bash
+> kubectl get pods -n kube-system -l k8s-app=calico-node
+> ```
+>
+> This is worth knowing beyond the lab: a NetworkPolicy that is accepted but not
+> enforced is a security control that exists only on paper, and nothing warns
+> you.
+
+## Test DNS before anything else
+
+More than half of "the network is broken" reports in Kubernetes are name
+resolution.
+
+```bash
+kubectl -n incident-03 exec deploy/api -- nslookup db
+kubectl -n incident-03 exec deploy/api -- nslookup db.incident-03.svc.cluster.local
+kubectl -n incident-03 exec deploy/api -- cat /etc/resolv.conf
+```
+
+Three distinct outcomes, three different faults:
+
+| Result | Means |
+| --- | --- |
+| Resolves to an IP | DNS is fine — the problem is connectivity or the application |
+| `NXDOMAIN` | The Service does not exist, or the name is wrong for this namespace |
+| Times out | CoreDNS is unreachable — often an egress policy blocking UDP 53 |
+
+That third case is the one that surprises people, because *everything looks
+healthy*.
+
+## Is CoreDNS itself alright?
+
+```bash
+kubectl -n kube-system get pods -l k8s-app=kube-dns
+kubectl -n kube-system logs -l k8s-app=kube-dns --tail=20
+```
+
+## If the name resolves, test the connection
+
+```bash
+kubectl -n incident-03 exec deploy/api -- wget -qO- --timeout=5 http://db:5432 || echo "failed"
+kubectl -n incident-03 get endpoints db
+```
+
+Separate the two failures deliberately:
+
+- **Refused** — something answered and said no. Routing and policy are fine;
+  look at the service.
+- **Timed out** — nothing answered. Suspect a NetworkPolicy, or a Service with
+  no endpoints.
+
+## NetworkPolicies
+
+```bash
+kubectl -n incident-03 get networkpolicy
+kubectl -n incident-03 describe networkpolicy
+```
+
+Two properties cause most of these incidents:
+
+- A Pod selected by **no** policy is unrestricted. Security starts only when
+  something selects it — which is why a `default-deny` is usually the first
+  policy written, and why adding one breaks things that used to work.
+- Policies are **additive with no deny rule**. Traffic is allowed if any policy
+  allows it, so you cannot fix this by adding a deny — you widen an allow.
+
+**The classic mistake:** a default-deny egress policy that permits traffic to the
+database but forgets UDP 53 to CoreDNS. Every hostname lookup in the namespace
+then times out, while the policy looks correct because the database rule is
+right there.
+
+```yaml
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+```
+
+## Before you change anything
+
+*"The call fails because ___, which I proved by ___."*
+
+## When it goes wrong
+
+**`nslookup` returns NXDOMAIN, not a timeout**
+
+That is a different fault — the Service does not exist under that name. Check the namespace and `kubectl get svc`.
+
+**DNS works but the connection is refused**
+
+Resolution and policy are fine. The target is not listening on that port — check the Service's targetPort and the container.
+
+**Removing the policy fixes it, so you delete the policy**
+
+That is not a fix, it is removing the security control. Add the missing egress rule instead.
+
+---
+
+## Check your reasoning
+
+Read this **after** you have fixed it, or after a genuine attempt. Being handed the answer costs you the only thing this tier teaches.
+
+> **Root cause:** a default-deny egress NetworkPolicy allows traffic to the database but not to CoreDNS. The API cannot resolve `db`, so it never opens a connection at all — the database rule is correct and never gets used.
+>
+> **The command that found it:** `nslookup db` from inside the calling Pod *timed out* rather than returning NXDOMAIN. A timeout points at reachability of the resolver, not at a missing record.
+>
+> **The fix:** add an egress rule permitting UDP 53 to the kube-system namespace.
+>
+> **Why everything looked healthy:** the policy does exactly what it says, and both workloads are genuinely fine. Nothing reports an error, because from Kubernetes' point of view nothing is wrong.
+
+## Clean up
+
+```bash
+kubectl delete namespace incident-cl
+```

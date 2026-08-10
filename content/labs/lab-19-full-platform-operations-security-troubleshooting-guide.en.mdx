@@ -10,6 +10,16 @@ order: 19
 tier: guided
 estimatedMinutes: 20
 cloudCost: true
+costEstimate: "**Billable — this exercises the whole platform.** Expect an EKS control plane, nodes, a load balancer and a NAT Gateway to be running simultaneously: roughly $0.20–0.30/hour while the lab is up. Work through it in one sitting and destroy everything afterwards."
+cleanup:
+  - "kubectl delete ingress --all -A     # removes the ALB first"
+  - "helm list -A                        # then any releases holding volumes"
+  - "terraform destroy -auto-approve     # then the cluster and network"
+  - "# Finally sweep for anything Kubernetes created outside Terraform state:"
+  - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName'"
+  - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].VolumeId'"
+  - "aws ec2 describe-nat-gateways --filter Name=state,Values=available --query 'NatGateways[].NatGatewayId'"
+  - "aws eks list-clusters --query 'clusters'"
 successCriteria:
   []
 challengeId: lab-19-full-platform-operations-security-troubleshooting-guide-challenge
@@ -33,3 +43,23 @@ kubectl get pods -A
 ```
 
 ---
+
+---
+
+## Clean up
+
+Run this even if you did not finish. Everything above is destroyable, and an
+account full of half-built experiments is how a surprise bill starts.
+
+```bash
+kubectl delete ingress --all -A     # removes the ALB first
+helm list -A                        # then any releases holding volumes
+terraform destroy -auto-approve     # then the cluster and network
+# Finally sweep for anything Kubernetes created outside Terraform state:
+aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName'
+aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].VolumeId'
+aws ec2 describe-nat-gateways --filter Name=state,Values=available --query 'NatGateways[].NatGatewayId'
+aws eks list-clusters --query 'clusters'
+```
+
+**Cost of this lab:** **Billable — this exercises the whole platform.** Expect an EKS control plane, nodes, a load balancer and a NAT Gateway to be running simultaneously: roughly $0.20–0.30/hour while the lab is up. Work through it in one sitting and destroy everything afterwards.

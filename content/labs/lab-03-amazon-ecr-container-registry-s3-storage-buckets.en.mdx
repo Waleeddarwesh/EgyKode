@@ -10,6 +10,11 @@ order: 3
 tier: guided
 estimatedMinutes: 23
 cloudCost: true
+costEstimate: "Free tier — 500 MB of ECR storage and 5 GB of S3 are free for 12 months. Container images are large, so delete the repository rather than leaving a few GB of layers behind."
+cleanup:
+  - "aws ecr delete-repository --repository-name <name> --force"
+  - "aws s3 rm s3://<bucket> --recursive && aws s3api delete-bucket --bucket <bucket>"
+  - "terraform destroy -auto-approve"
 successCriteria:
   - "Step 1: Deploy ECR & S3 Infrastructure"
 challengeId: lab-03-amazon-ecr-container-registry-s3-storage-buckets-challenge
@@ -58,3 +63,18 @@ aws ecr describe-repositories --repository-names nti-devops-ecr
 ```
 
 ---
+
+---
+
+## Clean up
+
+Run this even if you did not finish. Everything above is destroyable, and an
+account full of half-built experiments is how a surprise bill starts.
+
+```bash
+aws ecr delete-repository --repository-name <name> --force
+aws s3 rm s3://<bucket> --recursive && aws s3api delete-bucket --bucket <bucket>
+terraform destroy -auto-approve
+```
+
+**Cost of this lab:** Free tier — 500 MB of ECR storage and 5 GB of S3 are free for 12 months. Container images are large, so delete the repository rather than leaving a few GB of layers behind.

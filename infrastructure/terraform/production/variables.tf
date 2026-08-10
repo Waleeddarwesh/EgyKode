@@ -47,6 +47,24 @@ variable "github_repository" {
   default     = "Waleeddarwesh/EgyKode"
 }
 
+variable "github_owner_id" {
+  description = <<-EOT
+    Owner in GitHub's immutable-identifier form, "name@numeric-id".
+
+    GitHub's OIDC subject uses these rather than plain names so that renaming an
+    account cannot transfer access to whoever claims the old name. Read the
+    exact value from a failed AssumeRoleWithWebIdentity event in CloudTrail.
+  EOT
+  type        = string
+  default     = "Waleeddarwesh@138933390"
+}
+
+variable "github_repo_id" {
+  description = "Repository in immutable-identifier form, \"name@numeric-id\""
+  type        = string
+  default     = "EgyKode@1328730125"
+}
+
 variable "production_branch" {
   description = "Only deploys from this branch may assume the deploy role"
   type        = string

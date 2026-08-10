@@ -1,0 +1,67 @@
+---
+labId: lab-22-bash-automation-backup-healthcheck-challenge
+title: "Bash Automation: A Script You Can Trust — Challenge"
+description: "Write a backup script that fails loudly instead of silently, and schedule it so a missed run does not go unnoticed."
+domain: linux
+level: beginner
+type: lab
+phase: foundations
+order: 22
+tier: challenge
+estimatedMinutes: 20
+cloudCost: false
+costEstimate: "Free — no cloud resources"
+skills:
+  - "Write a script that stops at the first real error"
+  - "Quote variables so a space cannot become a second argument"
+  - "Exit with codes that CI and systemd can act on"
+  - "Schedule work and detect a run that never happened"
+tools:
+  - "bash 4+"
+  - "systemd or cron"
+successCriteria:
+  - "The script exits non-zero when any step fails, proven by deliberately breaking one."
+  - "Running it twice does not corrupt or duplicate the previous backup."
+  - "A backup older than the retention window is removed automatically."
+  - "A failed run is visible without anyone reading the logs."
+guidedLabId: lab-22-bash-automation-backup-healthcheck
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Bash Automation: A Script You Can Trust**, from an empty starting point,
+without the steps.
+
+There is a backup script on the server. It has 'run successfully' every night for eight months. The backup directory is empty.
+
+It has been exiting 0 the whole time, because nothing in it ever checked whether anything worked.
+
+## What must be true when you are done
+
+- The script exits non-zero when any step fails, proven by deliberately breaking one.
+- Running it twice does not corrupt or duplicate the previous backup.
+- A backup older than the retention window is removed automatically.
+- A failed run is visible without anyone reading the logs.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until you have been
+  stuck on the same thing for 20 minutes. Being stuck is the exercise; staying
+  stuck is not.
+- Official documentation is allowed and encouraged. In the job it is the first
+  thing you open.
+- Verify every criterion yourself with a command whose output you can read. "It
+  looks right" is not a check.
+
+## If you get stuck
+
+Work in layers rather than restarting things:
+
+1. What did you expect to happen, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?
+
+That sequence is the skill this tier exists to build. The commands are
+lookup-able; the sequence is not.

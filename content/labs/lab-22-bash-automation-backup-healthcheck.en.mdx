@@ -1,0 +1,145 @@
+---
+labId: lab-22-bash-automation-backup-healthcheck
+title: "Bash Automation: A Script You Can Trust"
+description: "Write a backup script that fails loudly instead of silently, and schedule it so a missed run does not go unnoticed."
+domain: linux
+level: beginner
+type: lab
+phase: foundations
+order: 22
+tier: guided
+estimatedMinutes: 40
+cloudCost: false
+costEstimate: "Free — no cloud resources"
+skills:
+  - "Write a script that stops at the first real error"
+  - "Quote variables so a space cannot become a second argument"
+  - "Exit with codes that CI and systemd can act on"
+  - "Schedule work and detect a run that never happened"
+tools:
+  - "bash 4+"
+  - "systemd or cron"
+successCriteria:
+  - "The script exits non-zero when any step fails, proven by deliberately breaking one."
+  - "Running it twice does not corrupt or duplicate the previous backup."
+  - "A backup older than the retention window is removed automatically."
+  - "A failed run is visible without anyone reading the logs."
+challengeId: lab-22-bash-automation-backup-healthcheck-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+There is a backup script on the server. It has 'run successfully' every night for eight months. The backup directory is empty.
+
+It has been exiting 0 the whole time, because nothing in it ever checked whether anything worked.
+## The four lines that make a script trustworthy
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+```
+
+- **`-e`** — exit on the first failing command. Without it, a script whose
+  `pg_dump` failed carries on to upload an empty file and reports success.
+- **`-u`** — an unset variable is an error. This is what stops
+  `rm -rf "$BACKUP_DIR"/*` becoming `rm -rf /*` when the variable was never set.
+- **`-o pipefail`** — in `a | b`, fail if *any* stage failed. Without it,
+  `pg_dump | gzip > out.gz` reports success whenever `gzip` succeeds, which it
+  does even when it compresses nothing.
+- **`IFS`** — split on newlines and tabs, not spaces, so a filename with a
+  space stays one filename.
+
+## The script
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/app}"
+RETENTION_DAYS="${RETENTION_DAYS:-7}"
+STAMP="$(date +%Y-%m-%dT%H-%M-%S)"
+TARGET="${BACKUP_DIR}/db-${STAMP}.sql.gz"
+
+log() { printf '%s %s\n' "$(date -Is)" "$*" >&2; }
+
+die() { log "FAILED: $*"; exit 1; }
+
+mkdir -p "$BACKUP_DIR"
+
+log "starting backup -> ${TARGET}"
+
+# Write to a temporary name first. A partial file that is never renamed can
+# never be mistaken for a good backup.
+tmp="${TARGET}.partial"
+pg_dump --no-owner "$DATABASE_URL" | gzip -9 > "$tmp" || die "pg_dump failed"
+
+# A dump that produced nothing is a failure, even though every command exited 0.
+size=$(stat -c %s "$tmp")
+[ "$size" -gt 1024 ] || die "backup is only ${size} bytes — refusing to keep it"
+
+mv "$tmp" "$TARGET"
+log "wrote ${TARGET} (${size} bytes)"
+
+# Retention. -mtime is whole days; this deletes nothing on the first week.
+deleted=$(find "$BACKUP_DIR" -name 'db-*.sql.gz' -mtime "+${RETENTION_DAYS}" -print -delete | wc -l)
+log "removed ${deleted} backup(s) older than ${RETENTION_DAYS} days"
+```
+
+Two details carry most of the value.
+
+**Write to `.partial`, then rename.** A rename is atomic. If the machine dies
+mid-dump, you are left with a `.partial` file that no restore will ever pick up
+— rather than a truncated file that looks like a backup.
+
+**Check the size.** This is what the eight-months-of-nothing script was missing.
+Every command exited 0; the dump was simply empty. A backup that is not checked
+is a hope, not a backup.
+
+## Schedule it, and notice when it does not run
+
+A systemd timer over cron, for one reason — `Persistent=true`:
+
+```ini
+# /etc/systemd/system/db-backup.timer
+[Unit]
+Description=Nightly database backup
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+`Persistent=true` runs a missed job when the machine comes back. A cron job on a
+machine that was asleep at 02:30 simply never runs, and nothing says so.
+
+```bash
+sudo systemctl enable --now db-backup.timer
+systemctl list-timers db-backup.timer
+journalctl -u db-backup.service -n 20
+```
+
+`OnFailure=` on the service unit turns a failure into an alert rather than a
+log line nobody reads.
+
+## When it goes wrong
+The failure is where the learning is. These are the ones that actually happen:
+
+**The script exits 0 but the backup is empty**
+
+`pipefail` is not set, so only `gzip`'s exit code was checked. Add `set -o pipefail`, and check the file size explicitly.
+
+**`rm` deleted more than expected**
+
+An unquoted or unset variable. `set -u` catches the unset case; quoting `"$VAR"` catches the space case.
+
+**The timer never fired**
+
+`systemctl list-timers` shows the next run. If the unit is not listed, it was created but not enabled.
+
+**Retention deletes nothing**
+
+`find -mtime +7` means strictly more than 7×24 hours. On day 7 there is nothing to delete yet — that is correct, not broken.

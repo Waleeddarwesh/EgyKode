@@ -10,6 +10,11 @@ order: 17
 tier: guided
 estimatedMinutes: 31
 cloudCost: true
+costEstimate: "**Depends on an existing cluster.** kube-prometheus-stack requests persistent volumes — EBS at ~$0.08/GB-month — which survive `helm uninstall` because the PVCs are retained deliberately."
+cleanup:
+  - "helm uninstall kube-prometheus-stack -n monitoring"
+  - "kubectl delete pvc --all -n monitoring   # PVCs are NOT removed by uninstall"
+  - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
 successCriteria:
   - "Deploy kube-prometheus-stack on EKS using Helm and custom values (kube-prometheus-stack-values.yaml)."
   - "Configure automated monitoring installation script (install/install.sh)."
@@ -87,3 +92,18 @@ prometheus-kube-state-metrics-6d8b9f7c4d-v1w2u             1/1     Running   0  
 ```
 
 ---
+
+---
+
+## Clean up
+
+Run this even if you did not finish. Everything above is destroyable, and an
+account full of half-built experiments is how a surprise bill starts.
+
+```bash
+helm uninstall kube-prometheus-stack -n monitoring
+kubectl delete pvc --all -n monitoring   # PVCs are NOT removed by uninstall
+aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table
+```
+
+**Cost of this lab:** **Depends on an existing cluster.** kube-prometheus-stack requests persistent volumes — EBS at ~$0.08/GB-month — which survive `helm uninstall` because the PVCs are retained deliberately.

@@ -10,6 +10,10 @@ order: 2
 tier: challenge
 estimatedMinutes: 15
 cloudCost: true
+costEstimate: "Free — IAM roles, policies and security groups cost nothing. Only the resources they are attached to do."
+cleanup:
+  - "terraform destroy -auto-approve"
+  - "aws iam list-roles --query 'Roles[?starts_with(RoleName, `ivolve`)].RoleName'"
 successCriteria:
   - "Create least-privilege IAM Roles for EKS Cluster, EKS Node Group, and Jenkins EC2."
   - "Configure Security Group chaining: ALB \u2794 EKS Worker Nodes \u2794 RDS PostgreSQL."

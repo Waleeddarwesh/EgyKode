@@ -11,7 +11,17 @@ function contentRoot(): string {
   return found;
 }
 
-export type LabTier = "guided" | "challenge";
+/**
+ * Three tiers, not two.
+ *
+ *   guided    — follow the steps
+ *   challenge — same objective, steps removed
+ *   incident  — something is already broken; find out why
+ *
+ * The incident tier is the one closest to the job. "Create an Ingress" is an
+ * exercise; "the app returns 502 and you have cluster access" is a Tuesday.
+ */
+export type LabTier = "guided" | "challenge" | "incident";
 
 export interface LabMeta {
   labId: string;
@@ -25,9 +35,31 @@ export interface LabMeta {
   estimatedMinutes: number;
   /** True when the lab provisions billable cloud resources (§6.4). */
   cloudCost: boolean;
+  /**
+   * What running this actually costs, in the reader's terms — "Free tier",
+   * "under $0.10", "billable: NAT Gateway ~$0.045/hour". A learner who leaves
+   * a NAT Gateway running overnight because a lab never mentioned it has been
+   * failed by the lab, not by AWS.
+   */
+  costEstimate?: string;
+  /** How to destroy everything this lab created. Required when cloudCost. */
+  cleanup?: string[];
+  /**
+   * The lab deletes resources or data as part of the exercise — a dropped
+   * table, a killed node, a destroyed cluster. Distinct from `cloudCost`:
+   * money is recoverable, a database is not. The UI warns louder for this,
+   * and it must never be run against anything that matters.
+   */
+  destructive?: boolean;
+  /** Concrete capabilities proved, for the topic index and for a CV. */
+  skills?: string[];
+  /** Tools and versions the lab expects. */
+  tools?: string[];
   successCriteria: string[];
   challengeId?: string;
   guidedLabId?: string;
+  /** The incident variant of this lab, where one exists. */
+  incidentId?: string;
   sourceFile?: string;
 }
 
@@ -50,7 +82,10 @@ export function getAllLabs(): LabMeta[] {
   return cache;
 }
 
-/** Guided labs only — challenges are reached from their lab, not listed twice. */
+/**
+ * Guided labs only — challenges and incidents are reached from their lab
+ * rather than listed alongside it, so the index stays one entry per skill.
+ */
 export function getGuidedLabs(): LabMeta[] {
   return getAllLabs().filter((lab) => lab.tier === "guided");
 }

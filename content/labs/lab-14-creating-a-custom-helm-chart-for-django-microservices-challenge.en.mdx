@@ -10,6 +10,10 @@ order: 14
 tier: challenge
 estimatedMinutes: 23
 cloudCost: true
+costEstimate: "**Depends on an existing cluster.** Helm itself is free; the workloads it installs consume cluster capacity."
+cleanup:
+  - "helm uninstall <release> -n <namespace>"
+  - "kubectl get all -n <namespace>"
 successCriteria:
   - "Build a production-grade custom Helm Chart directory structure under myapp/."
   - "Parameterize deployment.yaml, service.yaml, ingress.yaml, configmap.yaml, secret.yaml, networkpolicy.yaml, and hpa.yaml."
