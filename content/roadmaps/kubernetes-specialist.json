@@ -106,11 +106,11 @@
     "glossary"
   ],
   "productionProject": {
-    "id": "cloud-native-devops-platform",
-    "title": "Self-managed Kubernetes cluster on AWS",
-    "titleAr": "كلاستر Kubernetes ذاتي الإدارة على AWS",
-    "summary": "A kubeadm-provisioned cluster on AWS with Calico networking, default-deny network policies, Helm-packaged workloads, Argo CD reconciliation and a Prometheus stack. Multi-control-plane HA is listed under what this path does not yet teach.",
-    "repo": "Cloud-Native-DevOps-Platform"
+    "id": "ivolve-cloud-devops-capstone",
+    "title": "Production workloads on EKS",
+    "titleAr": "أحمال عمل إنتاجية على EKS",
+    "summary": "37 objects validated with kubeconform: a MySQL StatefulSet on EBS, three Deployments with HPAs and PodDisruptionBudgets, default-deny NetworkPolicies, ALB ingress, and Argo CD sync waves ordering the rollout database-first. The managed counterpart to the kubeadm cluster this path teaches you to build.",
+    "repo": "CloudDevOpsProject"
   },
   "contentGaps": [
     "Scheduling in depth: requests and limits, QoS classes, taints and tolerations, affinity and topology spread",

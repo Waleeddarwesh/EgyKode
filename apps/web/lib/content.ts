@@ -165,6 +165,11 @@ export const DOMAIN_COLOR: Record<string, string> = {
   grafana: "var(--dm-observability)",
   logging: "var(--dm-observability)",
   security: "var(--dm-security)",
+  // Scanners and gates carry the security colour wherever they appear as a
+  // project stack badge; without an entry they fall back to muted grey and
+  // read as an afterthought next to the tools they are gating.
+  trivy: "var(--dm-security)",
+  sonarqube: "var(--dm-security)",
   sre: "var(--dm-platform)",
   cost: "var(--dm-platform)",
   "platform-engineering": "var(--dm-platform)",

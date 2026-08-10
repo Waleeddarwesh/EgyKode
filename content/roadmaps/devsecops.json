@@ -96,11 +96,11 @@
     "glossary"
   ],
   "productionProject": {
-    "id": "cloud-native-devops-platform",
+    "id": "ivolve-cloud-devops-capstone",
     "title": "A pipeline that can say no",
     "titleAr": "Pipeline قادر على الرفض",
-    "summary": "An enforced SonarQube quality gate, Trivy filesystem and image scans that block on high severity, immutable image tags, secrets outside source control, and default-deny network policies in the cluster.",
-    "repo": "cloud-native-devops-platform"
+    "summary": "Trivy blocks the push on a fixable CRITICAL, SonarQube gates the merge, and Checkov, Gitleaks and hadolint run before either. In the cluster: the restricted Pod Security Standard, default-deny NetworkPolicies, RBAC per service and secrets that never reach the image.",
+    "repo": "CloudDevOpsProject"
   },
   "contentGaps": [
     "Threat modelling and the secure SDLC as an opening chapter",

@@ -103,11 +103,11 @@
     "interview-prep"
   ],
   "productionProject": {
-    "id": "cloud-native-devops-platform",
-    "title": "A VPC you can defend in review",
-    "titleAr": "VPC يمكنك الدفاع عنها في المراجعة",
-    "summary": "Multi-AZ VPC with private data subnets, least-privilege IAM, secrets out of source control, an autoscaling tier behind a load balancer, and a monthly cost you can explain line by line.",
-    "repo": "Cloud-Native-DevOps-Platform"
+    "id": "ivolve-cloud-devops-capstone",
+    "title": "An AWS account you can defend in review",
+    "titleAr": "حساب AWS يمكنك الدفاع عنه في المراجعة",
+    "summary": "81 resources from four Terraform modules: a VPC across two availability zones with flow logs and NACLs, EKS with IRSA and KMS envelope encryption, ECR with immutable tags and a lifecycle policy, and a build host with IMDSv2 enforced and no static keys anywhere.",
+    "repo": "CloudDevOpsProject"
   },
   "contentGaps": [
     "AWS global infrastructure, regions, availability zones and the Shared Responsibility Model",

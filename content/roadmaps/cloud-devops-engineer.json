@@ -152,11 +152,11 @@
     "conclusion"
   ],
   "productionProject": {
-    "id": "cloud-native-devops-platform",
-    "title": "Cloud Native DevOps Platform",
-    "titleAr": "منصة Cloud Native DevOps",
-    "summary": "A self-managed kubeadm cluster on AWS, provisioned with Terraform, configured with Ansible, delivered by Jenkins and Argo CD, and observed with Prometheus and Grafana.",
-    "repo": "Cloud-Native-DevOps-Platform"
+    "id": "ivolve-cloud-devops-capstone",
+    "title": "Cloud DevOps Capstone — iVolve",
+    "titleAr": "مشروع التخرج — iVolve",
+    "summary": "Three microservices in three languages, taken from source to a monitored, GitOps-managed deployment on AWS EKS: Terraform builds the account, Ansible configures the build host, Jenkins builds and scans, Argo CD reconciles, Prometheus watches.",
+    "repo": "CloudDevOpsProject"
   },
   "contentGaps": [
     "Software delivery fundamentals: artifacts, environments, versioning and rollback as the model CI/CD implements",

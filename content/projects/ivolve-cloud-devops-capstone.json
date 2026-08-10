@@ -4,7 +4,7 @@
   "titleAr": "مشروع التخرج — iVolve",
   "summary": "Three microservices taken from raw source code to a running, monitored, GitOps-managed deployment on AWS EKS.",
   "summaryAr": "ثلاث microservices من الكود المصدري حتى نشر يعمل ويخضع للمراقبة ويُدار عبر GitOps على AWS EKS.",
-  "why": "The counterpart to the self-managed platform: the same delivery discipline, but on managed Kubernetes. Running both is what makes the trade-off between them concrete rather than theoretical.",
+  "why": "This is where the curriculum lands. Three services in three languages — Node 22, Python 3.12 and Java 21 — plus a stateful MySQL, carried through every layer of the path: Terraform builds the account, Ansible configures the build host, Jenkins builds and gates, Argo CD reconciles, Prometheus watches. Nothing in it is aspirational, and that is the part worth copying: the Terraform plans against a live AWS account at 81 resources with zero errors, all 37 Kubernetes objects pass `kubeconform --strict` against the real 1.31 schemas, and every phase directory carries its own README explaining the code line by line. A project that claims to work and a project that has been made to prove it are different artifacts.",
   "author": "waleed",
   "repo": "https://github.com/Waleeddarwesh/CloudDevOpsProject",
   "license": "MIT",
@@ -13,33 +13,74 @@
   "roadmap": "cloud-devops-engineer",
   "stack": [
     "terraform",
+    "ansible",
     "aws",
     "kubernetes",
-    "helm",
+    "kustomize",
+    "docker",
     "jenkins",
     "argocd",
-    "docker"
+    "trivy",
+    "sonarqube",
+    "prometheus",
+    "grafana"
   ],
   "highlights": [
-    "AWS EKS 1.31 provisioned with Terraform 1.10",
-    "Three microservices built, scanned and released independently",
-    "Jenkins shared library so pipeline logic lives in one place",
-    "Argo CD managing all environments from git",
-    "A START-HERE checklist listing every command, in order"
+    "81 AWS resources from 4 Terraform modules — VPC across 2 AZs with NACLs and flow logs, EKS 1.31 with OIDC and IRSA, ECR with immutable tags, a Jenkins host with IMDSv2 enforced",
+    "9 Ansible roles with Vault and AWS dynamic inventory — the build host is configured with no manual step",
+    "37 Kubernetes objects, all passing `kubeconform --strict`: StatefulSet on EBS CSI, HPAs, PodDisruptionBudgets, RBAC, quotas and default-deny NetworkPolicies",
+    "A 9-stage Jenkins pipeline driven by a Groovy shared library, so logic lives in one place rather than in every Jenkinsfile",
+    "Trivy runs before the push — an image with a fixable CRITICAL CVE never reaches the registry",
+    "Argo CD sync waves order the rollout: database, then backends, then frontend, then the load balancer",
+    "Pod Security Standard `restricted` — non-root, read-only root filesystem, all capabilities dropped, enforced at admission",
+    "kube-prometheus-stack with 12 alert rules whose annotations link to a runbook, plus black-box probes that need no change to the app",
+    "Zero static AWS keys anywhere: IAM instance profile for CI, IRSA for workloads"
   ],
   "highlightsAr": [
-    "AWS EKS 1.31 مُنشأ عبر Terraform 1.10",
-    "ثلاث microservices تُبنى وتُفحص وتُصدَر كل منها على حدة",
-    "Jenkins shared library يجعل منطق الـ pipeline في مكان واحد",
-    "Argo CD يدير جميع البيئات انطلاقاً من git",
-    "ملف START-HERE يسرد كل أمر بالترتيب"
+    "81 مورداً على AWS من 4 وحدات Terraform — VPC عبر منطقتَي إتاحة مع NACLs وسجلات التدفق، وEKS 1.31 مع OIDC وIRSA، وECR بوسوم غير قابلة للتغيير",
+    "9 أدوار Ansible مع Vault وجرد ديناميكي من AWS — يُهيَّأ خادم البناء دون أي خطوة يدوية",
+    "37 كائن Kubernetes تجتاز جميعها `kubeconform --strict`: StatefulSet على EBS CSI، وHPA، وPDB، وRBAC، وحصص، وسياسات شبكة بالرفض الافتراضي",
+    "خط Jenkins من 9 مراحل تقوده مكتبة Groovy مشتركة، فيبقى المنطق في مكان واحد",
+    "Trivy يعمل قبل الدفع — أي صورة بها ثغرة CRITICAL قابلة للإصلاح لا تصل إلى السجل",
+    "موجات مزامنة Argo CD ترتّب النشر: قاعدة البيانات ثم الخدمات الخلفية ثم الواجهة ثم موازِن الأحمال",
+    "معيار أمان الحاويات `restricted` — بلا صلاحيات جذر، ونظام ملفات للقراءة فقط، وإسقاط كل الامتيازات",
+    "kube-prometheus-stack مع 12 قاعدة تنبيه مرتبطة بدليل تشغيل، إضافة إلى فحوص خارجية لا تتطلب تعديل التطبيق",
+    "لا توجد مفاتيح AWS ثابتة إطلاقاً: IAM instance profile للتكامل المستمر، وIRSA لأحمال العمل"
+  ],
+  "decisions": [
+    {
+      "question": "Why EKS here, when the platform project uses kubeadm?",
+      "answer": "Because they answer different questions. kubeadm teaches you what a control plane is; EKS is what most teams should actually run. Having built both, you can say why you would pick one — which is the question an interviewer asks, and the one a single project cannot answer."
+    },
+    {
+      "question": "Why Kustomize rather than Helm for the applications?",
+      "answer": "The manifests are deployed to one cluster in one shape, so the templating a chart buys you goes unused, and Argo CD reads Kustomize natively. Helm is still here for kube-prometheus-stack, where the chart is doing real work that someone else maintains."
+    },
+    {
+      "question": "The upstream README describes the services incorrectly. What do you follow?",
+      "answer": "The code. Upstream states that auth-service is Java and roadmap-service is Python; `auth-service/app.py` is Flask and `roadmap-service/pom.xml` is Spring Boot, so it is the other way round. Its config key is `DB_USER`, not `DB_USERNAME`. Every manifest, Dockerfile and pipeline here follows what the code does — and reading the source rather than the documentation is most of the job."
+    },
+    {
+      "question": "What did running a real plan catch that validation did not?",
+      "answer": "An `Invalid count argument` in the EKS access-entry resource, where `count` depended on an ARN that is unknown until apply. `terraform validate` cannot see it because nothing is wrong with the syntax. It is the argument for planning against a live account before you claim something works."
+    },
+    {
+      "question": "What does it cost to run?",
+      "answer": "About $231/month in us-east-1 if left running: $73 for the EKS control plane, $61 for two t3.medium nodes, $34 for the Jenkins host, $33 for a NAT Gateway, $17 for the ALB. `single_nat_gateway`, ECR lifecycle expiry and log retention caps are built in, and `make tf-destroy` tears it down. The control plane bills hourly whether or not anything is deployed."
+    },
+    {
+      "question": "Why does the teardown order matter?",
+      "answer": "Delete the Argo CD Application first so its finalizer cascades, then the Ingress so the ALB is released. Destroy the VPC while the load balancer still exists and its ENIs block the deletion — `terraform destroy` hangs for twenty minutes and then fails. The StorageClass uses `reclaimPolicy: Retain`, so the MySQL volume survives on purpose."
+    }
   ],
   "phases": [
     "cloud",
     "iac",
     "kubernetes",
     "cicd",
-    "gitops"
+    "gitops",
+    "observability",
+    "security"
   ],
-  "updated": "2026-08-07"
+  "updated": "2026-08-10"
 }

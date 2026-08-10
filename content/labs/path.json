@@ -1,7 +1,7 @@
 {
   "$comment": "The Project Path: one continuous build from an empty laptop to a running production platform. This is a learning graph laid over the existing labs — it never renames a lab or changes its id, it only says what order they make sense in and why each phase exists. A lab may appear here and in the library; a lab may also exist only in the library, which is correct for things like Terraform state recovery that nobody needs on their first pass.",
   "title": "Build the Production Platform",
-  "summary": "One continuous project. Start on an empty laptop, finish with a containerised application running on a self-managed Kubernetes platform on AWS, delivered by a pipeline and watched by Prometheus.",
+  "summary": "One continuous project. Start on an empty laptop, finish with a containerised application running on Kubernetes on AWS, delivered by a pipeline that scans before it ships and watched by Prometheus — then break it on purpose.",
   "phases": [
     {
       "id": "foundations",

@@ -1365,6 +1365,7 @@
       ],
       "projects": [
         "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
         "ivolve-cloud-devops-internship",
         "nti-final-project",
         "nti-step-by-step"
@@ -1400,6 +1401,7 @@
       ],
       "projects": [
         "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
         "ivolve-cloud-devops-internship",
         "nti-final-project",
         "nti-step-by-step"
@@ -1431,6 +1433,7 @@
       ],
       "projects": [
         "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
         "ivolve-cloud-devops-internship",
         "nti-final-project",
         "nti-step-by-step"
@@ -1881,7 +1884,6 @@
         "kubernetes-specialist"
       ],
       "projects": [
-        "ivolve-cloud-devops-capstone",
         "nti-final-project",
         "nti-step-by-step"
       ]
@@ -1907,7 +1909,6 @@
         "kubernetes-specialist"
       ],
       "projects": [
-        "ivolve-cloud-devops-capstone",
         "nti-final-project",
         "nti-step-by-step"
       ]
@@ -1935,7 +1936,9 @@
         "devsecops",
         "kubernetes-specialist"
       ],
-      "projects": []
+      "projects": [
+        "ivolve-cloud-devops-capstone"
+      ]
     },
     {
       "id": "gitops-principles",
@@ -2220,6 +2223,7 @@
       ],
       "projects": [
         "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
         "ivolve-cloud-devops-internship",
         "nti-final-project",
         "nti-step-by-step"
@@ -2253,6 +2257,7 @@
       ],
       "projects": [
         "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
         "ivolve-cloud-devops-internship",
         "nti-final-project",
         "nti-step-by-step"
@@ -2288,6 +2293,7 @@
       ],
       "projects": [
         "cloud-native-devops-platform",
+        "ivolve-cloud-devops-capstone",
         "ivolve-cloud-devops-internship",
         "nti-final-project",
         "nti-step-by-step"
