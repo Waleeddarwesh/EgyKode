@@ -10,6 +10,7 @@ import rehypePrettyCode from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 
+import { LabHeader, BeforeYouStart } from "@/components/labs/lab-header";
 import { SuccessCriteria } from "@/components/labs/success-criteria";
 import { mdxComponents } from "@/components/content/mdx";
 import { domainColor,
@@ -86,59 +87,39 @@ export default async function LabPage({
         </Link>
       </nav>
 
-      <header>
-        {/* A challenge must not look like a lab — the whole point is that the
-            instructions are gone, and the page has to say so. */}
-        <span
-          className="badge mb-4"
-          style={
-            isChallenge
-              ? { background: "var(--clr-warning-bg)", color: "var(--clr-warning)" }
-              : { background: "var(--clr-surface-active)", color: colour }
-          }
-        >
-          {isChallenge ? <Swords size={13} aria-hidden /> : <Wrench size={13} aria-hidden />}
-          {isChallenge ? t("labs.challenge") : t("labs.guided")}
-        </span>
+      <LabHeader
+        lab={lab}
+        locale={typed}
+        colour={colour}
+        contentDir={contentDir}
+        labels={{
+          guided: t("labs.guided"),
+          challenge: t("labs.challenge"),
+          incident: t("labs.incident"),
+          minutes: t("chapter.minutes", {
+            minutes: formatNumber(lab.estimatedMinutes, typed),
+          }),
+          level: t(`level.${lab.level}`),
+          objectives: t("labs.objectivesCount", {
+            count: formatNumber(lab.successCriteria?.length ?? 0, typed),
+          }),
+          start: t("labs.startLab"),
+          tryChallenge: t("labs.challenge"),
+          viewGuided: t("labs.viewGuided"),
+          destructive: t("labs.destructiveBadge"),
+        }}
+      />
 
-        <h1
-          dir={contentDir}
-          lang={contentLang}
-          className="font-display text-[clamp(1.8rem,4vw,2.5rem)] font-bold leading-tight tracking-tight text-content"
-        >
-          {lab.title}
-        </h1>
-
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-content-muted">
-          <span className="inline-flex items-center gap-1.5">
-            <Clock size={14} aria-hidden />
-            {t("chapter.minutes", { minutes: formatNumber(lab.estimatedMinutes, typed) })}
-          </span>
-          <span>{t(`level.${lab.level}`)}</span>
-        </div>
-
-        {/* Cost warning is mandatory on anything that provisions cloud
-            resources (§6.4). A learner left with an AWS bill has been failed. */}
-        {lab.cloudCost && (
-          <p
-            className="mt-5 flex items-start gap-2 rounded-lg border px-4 py-3 text-sm"
-            style={{
-              background: "color-mix(in srgb, var(--clr-accent) 12%, transparent)",
-              borderColor: "color-mix(in srgb, var(--clr-accent) 55%, transparent)",
-            }}
-          >
-            <DollarSign
-              size={16}
-              className="mt-0.5 shrink-0"
-              aria-hidden
-              style={{ color: "var(--clr-accent)" }}
-            />
-            <span className="text-content">
-              <strong>{t("labs.costTitle")}</strong> {t("labs.costBody")}
-            </span>
-          </p>
-        )}
-      </header>
+      <BeforeYouStart
+        lab={lab}
+        labels={{
+          heading: t("labs.beforeYouStart"),
+          tools: t("labs.toolsNeeded"),
+          skills: t("labs.skillsProved"),
+          cost: t("labs.costLabel"),
+          cleanup: t("labs.cleanupLink"),
+        }}
+      />
 
       <div className="mt-8">
         <SuccessCriteria
@@ -154,7 +135,7 @@ export default async function LabPage({
         />
       </div>
 
-      <div className="prose mt-10" lang={contentLang} dir={contentDir}>
+      <div id="build" className="prose mt-10" lang={contentLang} dir={contentDir}>
         <MDXRemote
           source={lab.body}
           options={mdxOptions}

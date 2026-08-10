@@ -10,6 +10,7 @@ order: 14
 tier: challenge
 estimatedMinutes: 23
 cloudCost: true
+costTier: low
 costEstimate: "**Depends on an existing cluster.** Helm itself is free; the workloads it installs consume cluster capacity."
 cleanup:
   - "helm uninstall <release> -n <namespace>"

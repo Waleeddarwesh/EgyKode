@@ -10,6 +10,7 @@ order: 15
 tier: guided
 estimatedMinutes: 39
 cloudCost: true
+costTier: billable
 costEstimate: "**Billable.** Cluster add-ons commonly provision real infrastructure — a load balancer, EBS volumes for persistent storage — that outlives `helm uninstall` if a finalizer fails."
 cleanup:
   - "helm list -A"

@@ -10,6 +10,7 @@ order: 18
 tier: guided
 estimatedMinutes: 23
 cloudCost: true
+costTier: low
 costEstimate: "**Depends on an existing cluster.** Alert rules and dashboards are configuration and cost nothing; the Prometheus stack under them holds EBS volumes."
 cleanup:
   - "kubectl delete prometheusrule --all -n monitoring"

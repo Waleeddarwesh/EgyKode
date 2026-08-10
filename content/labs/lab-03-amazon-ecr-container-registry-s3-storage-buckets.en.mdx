@@ -10,6 +10,7 @@ order: 3
 tier: guided
 estimatedMinutes: 23
 cloudCost: true
+costTier: low
 costEstimate: "Free tier — 500 MB of ECR storage and 5 GB of S3 are free for 12 months. Container images are large, so delete the repository rather than leaving a few GB of layers behind."
 cleanup:
   - "aws ecr delete-repository --repository-name <name> --force"

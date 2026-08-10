@@ -10,6 +10,7 @@ order: 13
 tier: guided
 estimatedMinutes: 47
 cloudCost: true
+costTier: low
 costEstimate: "**Depends on an existing cluster.** NetworkPolicies and HPA objects are free; the cluster and any nodes the HPA scales up are not."
 cleanup:
   - "kubectl delete networkpolicy --all -A"

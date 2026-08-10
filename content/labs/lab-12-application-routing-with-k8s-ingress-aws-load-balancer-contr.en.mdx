@@ -10,6 +10,7 @@ order: 12
 tier: guided
 estimatedMinutes: 23
 cloudCost: true
+costTier: billable
 costEstimate: "**Billable.** An Ingress backed by the AWS Load Balancer Controller creates a real ALB at ~$0.0225/hour (~$16/month) plus LCU charges — and it is created by Kubernetes, so `terraform destroy` will not remove it."
 cleanup:
   - "kubectl delete ingress --all -A"

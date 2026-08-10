@@ -10,6 +10,7 @@ order: 8
 tier: guided
 estimatedMinutes: 31
 cloudCost: true
+costTier: low
 costEstimate: "Free tier — one `t3.micro` for Jenkins. Note that Jenkins wants more memory than a micro provides for real builds; a `t3.small` is ~$15/month."
 cleanup:
   - "terraform destroy -auto-approve"

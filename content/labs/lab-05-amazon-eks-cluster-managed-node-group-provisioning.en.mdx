@@ -10,6 +10,7 @@ order: 5
 tier: guided
 estimatedMinutes: 31
 cloudCost: true
+costTier: billable
 costEstimate: "**Billable, and never free.** An EKS control plane is $0.10/hour (~$73/month) from the moment it exists, with no free tier — plus the node group's EC2 instances and any NAT Gateway. Budget a few dollars for an afternoon, and destroy the cluster the same day."
 cleanup:
   - "terraform destroy -auto-approve"

@@ -36,6 +36,14 @@ export interface LabMeta {
   /** True when the lab provisions billable cloud resources (§6.4). */
   cloudCost: boolean;
   /**
+   * How much financial care this lab needs, at a glance.
+   *
+   * A single "creates billable resources" warning treats a $0.40 secret and a
+   * $73/month EKS control plane identically, so learners stop reading it. Three
+   * tiers keep the loud one loud.
+   */
+  costTier?: "free" | "low" | "billable";
+  /**
    * What running this actually costs, in the reader's terms — "Free tier",
    * "under $0.10", "billable: NAT Gateway ~$0.045/hour". A learner who leaves
    * a NAT Gateway running overnight because a lab never mentioned it has been
@@ -86,6 +94,16 @@ export function getAllLabs(): LabMeta[] {
  * Guided labs only — challenges and incidents are reached from their lab
  * rather than listed alongside it, so the index stays one entry per skill.
  */
+/**
+ * Cost tier, falling back to something sensible for labs authored before the
+ * field existed: no cloud resources is free, and anything the author flagged
+ * as billable stays billable until someone says otherwise.
+ */
+export function costTierOf(lab: LabMeta): "free" | "low" | "billable" {
+  if (lab.costTier) return lab.costTier;
+  return lab.cloudCost ? "billable" : "free";
+}
+
 export function getGuidedLabs(): LabMeta[] {
   return getAllLabs().filter((lab) => lab.tier === "guided");
 }
@@ -122,4 +140,52 @@ export function getLab(labId: string, locale: Locale): Lab | null {
 export function labNeedsLtr(labId: string, locale: Locale): boolean {
   if (locale === "en") return false;
   return !existsSync(join(contentRoot(), "labs", `${labId}.${locale}.mdx`));
+}
+
+/**
+ * The Project Path — one continuous build, laid over the existing labs.
+ *
+ * The lab index sorts by `order`, which accumulated collisions as labs were
+ * added (Terraform Fundamentals landed sixth, after the VPC and EKS labs that
+ * depend on it). Rather than renumber ids that appear in URLs, the sequence
+ * lives in content/labs/path.json as data: what order the labs make sense in,
+ * and why each phase exists at all.
+ */
+export interface LabPhase {
+  id: string;
+  number: string;
+  title: string;
+  why: string;
+  milestone: string;
+  labs: string[];
+}
+
+export interface LabPath {
+  title: string;
+  summary: string;
+  phases: LabPhase[];
+}
+
+let pathCache: LabPath | null = null;
+
+export function getLabPath(): LabPath | null {
+  if (pathCache) return pathCache;
+  const file = join(contentRoot(), "labs", "path.json");
+  if (!existsSync(file)) return null;
+  pathCache = JSON.parse(readFileSync(file, "utf8")) as LabPath;
+  return pathCache;
+}
+
+/** Phases with their labs resolved, dropping any id that no longer exists. */
+export function getResolvedPath(): { phase: LabPhase; labs: LabMeta[] }[] {
+  const path = getLabPath();
+  if (!path) return [];
+  const byId = new Map(getAllLabs().map((lab) => [lab.labId, lab]));
+
+  return path.phases.map((phase) => ({
+    phase,
+    labs: phase.labs
+      .map((id) => byId.get(id))
+      .filter((lab): lab is LabMeta => Boolean(lab)),
+  }));
 }

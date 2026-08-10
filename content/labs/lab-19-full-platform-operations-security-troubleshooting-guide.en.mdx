@@ -10,6 +10,7 @@ order: 19
 tier: guided
 estimatedMinutes: 20
 cloudCost: true
+costTier: billable
 costEstimate: "**Billable — this exercises the whole platform.** Expect an EKS control plane, nodes, a load balancer and a NAT Gateway to be running simultaneously: roughly $0.20–0.30/hour while the lab is up. Work through it in one sitting and destroy everything afterwards."
 cleanup:
   - "kubectl delete ingress --all -A     # removes the ALB first"

@@ -10,6 +10,7 @@ order: 1
 tier: challenge
 estimatedMinutes: 23
 cloudCost: true
+costTier: billable
 costEstimate: "**Billable.** The NAT Gateway is ~$0.045/hour (~$32/month) plus $0.045/GB processed, and it bills whether or not traffic flows. The VPC, subnets and route tables are free. Destroy the NAT Gateway the moment you are done."
 cleanup:
   - "terraform destroy -auto-approve"

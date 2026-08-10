@@ -10,6 +10,7 @@ order: 17
 tier: guided
 estimatedMinutes: 31
 cloudCost: true
+costTier: low
 costEstimate: "**Depends on an existing cluster.** kube-prometheus-stack requests persistent volumes — EBS at ~$0.08/GB-month — which survive `helm uninstall` because the PVCs are retained deliberately."
 cleanup:
   - "helm uninstall kube-prometheus-stack -n monitoring"

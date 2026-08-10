@@ -6,7 +6,8 @@ import { notFound } from "next/navigation";
 import { FilterBar } from "@/components/filters/filter-bar";
 import { domainColor } from "@/lib/content";
 import { getDomainMeta } from "@/lib/domains";
-import { getGuidedLabs, labNeedsLtr } from "@/lib/labs";
+import { ProjectPath } from "@/components/labs/project-path";
+import { costTierOf, getGuidedLabs, getResolvedPath, labNeedsLtr } from "@/lib/labs";
 import { formatNumber, getTranslations, isLocale, type Locale, languageAlternates } from "@/lib/i18n";
 
 export async function generateMetadata({
@@ -37,6 +38,28 @@ export default async function LabsPage({
   const isAr = typed === "ar";
   const labs = getGuidedLabs();
 
+  // The ordered journey, resolved from content/labs/path.json. The filter grid
+  // below stays as the library — the two answer different questions.
+  const pathPhases = getResolvedPath().map(({ phase, labs: phaseLabs }) => ({
+    id: phase.id,
+    number: phase.number,
+    title: phase.title,
+    why: phase.why,
+    milestone: phase.milestone,
+    labs: phaseLabs.map((lab) => ({
+      labId: lab.labId,
+      title: lab.title,
+      href: `/${typed}/labs/${lab.labId}`,
+      minutes: t("chapter.minutes", { minutes: formatNumber(lab.estimatedMinutes, typed) }),
+      level: t(`level.${lab.level}`),
+      domain: lab.domain,
+      colour: domainColor(lab.domain),
+      costTier: costTierOf(lab),
+      criteriaCount: lab.successCriteria?.length ?? 0,
+      isIncident: lab.tier === "incident",
+    })),
+  }));
+
   const count = <T extends string>(key: (l: (typeof labs)[number]) => T) =>
     labs.reduce<Record<string, number>>((acc, lab) => {
       const k = key(lab);
@@ -56,6 +79,32 @@ export default async function LabsPage({
         <p className="mt-3 text-lg text-content-secondary">{t("labs.subtitle")}</p>
         <p className="mt-3 text-sm text-content-muted">{t("labs.pairNote")}</p>
       </header>
+
+      {pathPhases.length > 0 && (
+        <ProjectPath
+          phases={pathPhases}
+          labels={{
+            heading: t("labs.pathHeading"),
+            summary: t("labs.pathSummary"),
+            progress: t("labs.pathProgress"),
+            of: t("roadmap.of"),
+            continueLabel: t("labs.pathContinue"),
+            startLabel: t("labs.pathStart"),
+            milestone: t("labs.pathMilestone"),
+            complete: t("labs.allDone"),
+            billable: t("labs.pathBillable"),
+          }}
+        />
+      )}
+
+      <section className="border-t pt-10" aria-labelledby="lab-library">
+        <h2 id="lab-library" className="font-display text-xl font-semibold text-content">
+          {t("labs.library")}
+        </h2>
+        <p className="mb-6 mt-1 max-w-2xl text-sm text-content-secondary">
+          {t("labs.libraryBody")}
+        </p>
+      </section>
 
       <FilterBar
         className="reveal-items list-virtual grid gap-4 md:grid-cols-2 lg:grid-cols-3"
