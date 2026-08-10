@@ -32,7 +32,7 @@
   {
     "id": "github-actions-if-you-have-an-enterprise-github-organization-and-need-to-enforce-that",
     "question": "If you have an Enterprise GitHub Organization and need to enforce that every repository executes a specific security scan before deployment, how do you architect this using GitHub Actions natively?",
-    "answer": "You implement **Required Workflows** (a feature of GitHub Enterprise). You define the security scanning workflow in a centralized `.github` repository for the organization. You then configure the Organization's Branch Protection Rules to require that specific workflow to pass before any Pull Request can be merged into `main`. Developers cannot bypass or remove this workflow from their local repositories.",
+    "answer": "You implement **Repository Rulesets**. You define an Organization-level Ruleset that targets all repositories (or a specific subset). You configure the rule to require specific workflows to pass before any Pull Request can be merged. You define the required security workflow in a centralized repository, and the Ruleset enforces its execution dynamically. Developers cannot bypass this rule, and it is superior to the legacy 'Required Workflows' feature.",
     "level": "expert",
     "kind": "scenario",
     "domain": "github-actions",

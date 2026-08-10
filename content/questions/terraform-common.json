@@ -42,7 +42,7 @@
   {
     "id": "common-how-do-you-refactor-a-large-state-file-without-destroying-infrastructu",
     "question": "How do you refactor a large state file without destroying infrastructure?",
-    "answer": "`terraform state mv` moves resource addresses between states, and `terraform import` adopts existing resources. Both change the mapping only — no cloud API calls that alter real infrastructure — so production keeps running while the layout changes.",
+    "answer": "In modern Terraform (1.1+), you use declarative `moved { from = ... to = ... }` blocks in your code to instruct Terraform to adopt the new resource addresses. For older versions or splitting states across different backends, you use the imperative `terraform state mv` command. Both change the mapping only — no cloud API calls that alter real infrastructure are made — so production keeps running while the layout changes.",
     "level": "advanced",
     "kind": "conceptual",
     "domain": "terraform",

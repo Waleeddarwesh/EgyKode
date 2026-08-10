@@ -32,7 +32,7 @@
   {
     "id": "terraform-explain-how-to-safely-refactor-a-monolithic-terraform-state-into-micro",
     "question": "Explain how to safely refactor a Monolithic Terraform state into micro-states without destroying and recreating the infrastructure.",
-    "answer": "You must decouple the state file using the `terraform state mv` command. You define the new backend configurations, then surgically move the resource addresses from the monolithic state file to the new micro-state files. This updates the memory mapping without touching the actual AWS APIs, ensuring zero downtime for the production resources.",
+    "answer": "You decouple the state file using state manipulation. For refactoring within the same state, use declarative `moved {}` blocks (Terraform 1.1+). For splitting a monolith into micro-states (different backends), you define the new backend configurations, then use the `terraform state mv` command to surgically move the resource addresses from the monolithic state file to the new micro-state files. This updates the memory mapping without touching the actual AWS APIs, ensuring zero downtime for the production resources.",
     "level": "expert",
     "kind": "conceptual",
     "domain": "terraform",

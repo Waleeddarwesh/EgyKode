@@ -82,7 +82,7 @@
   {
     "id": "common-are-kubernetes-secrets-encrypted",
     "question": "Are Kubernetes Secrets encrypted?",
-    "answer": "By default they are base64-encoded, not encrypted — anyone who can read the Secret can decode it instantly. Real protection needs encryption at rest in etcd, RBAC limiting who can read Secrets, `automountServiceAccountToken: false` where the API is not used, and ideally an external store such as AWS Secrets Manager.",
+    "answer": "By default they are base64-encoded, not encrypted — anyone who can read the Secret can decode it instantly. Real protection requires enabling 'Encryption at Rest' in the API server using a KMS provider (Envelope Encryption), implementing RBAC to restrict who can read Secrets, setting `automountServiceAccountToken: false` where the API is not needed, and integrating external stores like AWS Secrets Manager via the External Secrets Operator.",
     "level": "advanced",
     "kind": "conceptual",
     "domain": "kubernetes",

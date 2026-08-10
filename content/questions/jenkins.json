@@ -32,7 +32,7 @@
   {
     "id": "jenkins-your-jenkins-master-is-running-out-of-memory-oom-every-day-at-3-00-pm-",
     "question": "Your Jenkins Master is running out of memory (OOM) every day at 3:00 PM. You've already increased the JVM heap size to 16GB. What architectural flaws cause Jenkins Master instability, and how do you resolve them?",
-    "answer": "Increasing the heap is a band-aid. Master instability is almost always caused by executing heavy logic on the Master instead of the Agents.",
+    "answer": "Increasing the heap is a band-aid. Master instability is almost always caused by executing heavy logic on the Master instead of the Agents, storing large artifacts on the master, or keeping excessive build histories. To resolve this: 1. Ensure all pipelines use `agent { node { label 'worker' } }` so workloads run on ephemeral workers, never the built-in node. 2. Implement log rotation (`buildDiscarder`) to purge old build data. 3. Offload artifacts to a dedicated repository manager (Nexus/Artifactory/S3) instead of archiving them in Jenkins.",
     "level": "expert",
     "kind": "scenario",
     "domain": "jenkins",

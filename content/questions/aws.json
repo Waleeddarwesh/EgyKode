@@ -32,7 +32,7 @@
   {
     "id": "auto-scaling-you-are-running-a-stateful-application-kafka-on-kubernetes-using-persi",
     "question": "You are running a stateful application (Kafka) on Kubernetes using persistent EBS volumes. The Kubernetes Node fails. The ASG replaces the Node. However, the Kafka Pod is stuck in `Pending` on the new Node because the EBS volume is in a different Availability Zone. How do you architect the ASG to prevent this?",
-    "answer": "EBS volumes are locked to a specific Availability Zone (AZ). If a Node in `us-east-1a` dies, the ASG might spin up the replacement Node in `us-east-1b` to maintain balance. The Pod will schedule in `1b`, but the disk is in `1a`.",
+    "answer": "EBS volumes are locked to a specific Availability Zone (AZ). If a Node in `us-east-1a` dies, the ASG might spin up the replacement Node in `us-east-1b` to maintain balance. The Pod will schedule in `1b`, but the disk is in `1a`. To prevent this, you should architect multiple ASGs, each pinned to a single Availability Zone (e.g., ASG-1a, ASG-1b). Modern autoscalers like Karpenter natively understand volume topology constraints. Additionally, ensure your EBS StorageClass uses `WaitForFirstConsumer` volume binding mode.",
     "level": "expert",
     "kind": "scenario",
     "domain": "aws",
@@ -142,7 +142,7 @@
   {
     "id": "iam-explain-how-you-would-grant-an-ec2-instance-in-account-a-the-permissio",
     "question": "Explain how you would grant an EC2 instance in Account A the permission to read an S3 bucket in Account B.",
-    "answer": "This requires Cross-Account IAM.",
+    "answer": "This requires Cross-Account IAM. Account B must create an IAM Role with a Trust Policy that allows Account A to assume it. Account B's Role must also have a Permissions Policy granting read access to the S3 bucket. Then, in Account A, the EC2 instance's Instance Profile Role must have permissions to `sts:AssumeRole` on the Role in Account B.",
     "level": "advanced",
     "kind": "conceptual",
     "domain": "aws",
@@ -192,7 +192,7 @@
   {
     "id": "load-balancers-during-a-massive-ddos-attack-your-application-load-balancer-scales-up-",
     "question": "During a massive DDoS attack, your Application Load Balancer scales up to handle 500,000 requests per second, but your backend Kubernetes cluster is completely overwhelmed and dies. How do you architect the edge layer to protect the cluster?",
-    "answer": "You must decouple the traffic from the compute layer using Edge caching and Web Application Firewalls (WAF).",
+    "answer": "You must decouple the traffic from the compute layer. Deploy Amazon CloudFront (CDN) in front of the ALB to cache content and absorb volumetric attacks at the edge. Attach AWS WAF to block malicious request patterns. Implement strict rate limiting, and use AWS Shield Advanced for automated layer 3/4 DDoS mitigation before traffic ever reaches your ALB.",
     "level": "expert",
     "kind": "scenario",
     "domain": "aws",
@@ -332,7 +332,7 @@
   {
     "id": "vpc-your-company-merges-with-another-company-you-have-vpc-a-10-0-0-0-16-an",
     "question": "Your company merges with another company. You have VPC A (`10.0.0.0/16`) and they have VPC B (`10.0.0.0/16`). You need the Kubernetes cluster in VPC A to query the RDS database in VPC B. How do you architect this without causing IP routing conflicts?",
-    "answer": "Because the CIDR blocks overlap identically, you cannot use VPC Peering or a Transit Gateway directly; the routing tables would have no idea which `10.0.x.x` IP to send traffic to.",
+    "answer": "Because the CIDR blocks overlap identically, you cannot use VPC Peering or a Transit Gateway directly; the routing tables would have no idea which `10.0.x.x` IP to send traffic to. You must use AWS PrivateLink. Account B places an Internal Network Load Balancer (NLB) in front of their RDS database, and configures a VPC Endpoint Service. Account A creates a VPC Interface Endpoint, allowing the Kubernetes cluster to query the database via the AWS backbone without routing conflicts.",
     "level": "expert",
     "kind": "scenario",
     "domain": "aws",

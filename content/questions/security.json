@@ -32,7 +32,7 @@
   {
     "id": "container-security-explain-how-ebpf-is-revolutionizing-kubernetes-runtime-security-e-g-us",
     "question": "Explain how eBPF is revolutionizing Kubernetes runtime security (e.g., using Falco or Tetragon) compared to traditional Sidecar-based security architectures.",
-    "answer": "Traditional sidecar security requires injecting a proxy container into every single Pod. This consumes massive overhead (CPU/RAM per pod) and only has visibility into network traffic or specific application layers; it cannot easily see kernel-level file modifications or process executions.",
+    "answer": "Traditional sidecar security requires injecting a proxy into every single Pod. This consumes massive overhead and only sees network traffic. eBPF (Extended Berkeley Packet Filter) allows sandboxed security programs to run directly inside the Linux kernel. Tools like Falco or Tetragon use eBPF to attach to system calls globally across the worker node. This provides real-time visibility into process execution and file access for *every* Pod on the node with near-zero overhead, eliminating sidecars.",
     "level": "expert",
     "kind": "conceptual",
     "domain": "security",
@@ -72,7 +72,7 @@
   {
     "id": "network-policies-contrast-iptables-based-cnis-like-traditional-calico-with-ebpf-based-c",
     "question": "Contrast iptables-based CNIs (like traditional Calico) with eBPF-based CNIs (like Cilium) for enforcing Network Policies in a 5,000-node cluster.",
-    "answer": "In a traditional iptables CNI, every Network Policy translates into sequential iptables rules on the Linux node. In a massive cluster, evaluating a packet against 50,000 iptables rules takes a long time, causing severe CPU spikes and network latency (the `iptables` bottleneck).",
+    "answer": "In a traditional CNI, Network Policies translate into sequential iptables rules. In a massive cluster, evaluating a packet against 50,000 iptables rules takes a long time, causing severe network latency. eBPF-based CNIs (like Cilium) bypass iptables entirely. They compile policies into optimized eBPF bytecode that executes in the kernel's XDP (eXpress Data Path) layer. Packets are evaluated using O(1) hash table lookups, providing massive scalability and throughput regardless of cluster size.",
     "level": "expert",
     "kind": "conceptual",
     "domain": "security",

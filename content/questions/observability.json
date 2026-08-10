@@ -32,7 +32,7 @@
   {
     "id": "observability-your-enterprise-has-50-kubernetes-clusters-globally-developers-are-com",
     "question": "Your enterprise has 50 Kubernetes clusters globally. Developers are complaining that they have to log into 50 different Grafana dashboards to find their logs and metrics. How do you architect a global observability pane of glass?",
-    "answer": "You must decouple local ingestion from global querying.",
+    "answer": "You must decouple local ingestion from global querying. Each cluster runs a lightweight agent (Prometheus Agent/Promtail/OTel Collector) that scrapes data locally and pushes it to a centralized, multi-tenant backend like Grafana Mimir (for metrics) and Loki (for logs) hosted in a central management account. You then connect a single global Grafana instance to these centralized backends, allowing developers to query all 50 clusters from one unified UI.",
     "level": "expert",
     "kind": "scenario",
     "domain": "observability",

@@ -2,7 +2,7 @@
   {
     "id": "kustomize-what-is-the-difference-between-a-kustomize-base-and-an-overlay",
     "question": "What is the difference between a Kustomize base and an overlay?",
-    "answer": "The base is a complete, valid set of manifests that could be applied as-is.",
+    "answer": "The base is a complete, valid set of standard Kubernetes YAML manifests that define the core application. An overlay is a directory containing a `kustomization.yaml` file (and optional patches) that mathematically merges changes into the base (like changing replicas or adding environment variables) to create environment-specific deployments (like dev or prod) without duplicating the core YAML.",
     "level": "beginner",
     "kind": "conceptual",
     "domain": "kustomize",
@@ -12,7 +12,7 @@
   {
     "id": "kustomize-when-would-you-choose-kustomize-over-helm",
     "question": "When would you choose Kustomize over Helm?",
-    "answer": "For manifests I own, deployed to environments I control. The base stays",
+    "answer": "You choose Kustomize for internal applications you own, deployed to environments you control, where the differences between environments are minor (e.g., dev vs prod). You choose Helm when you are distributing complex software to the public (like databases or monitoring stacks) where users need heavy templating logic and parameterization via a `values.yaml` file.",
     "level": "intermediate",
     "kind": "conceptual",
     "domain": "kustomize",
@@ -22,7 +22,7 @@
   {
     "id": "kustomize-why-does-the-pipeline-use-kustomize-edit-set-image-instead-of-sed",
     "question": "Why does the pipeline use `kustomize edit set image` instead of `sed`?",
-    "answer": "Because `sed` matches text and `kustomize edit` understands structure. A `sed`",
+    "answer": "Because `sed` matches raw text and is brittle; if the YAML indentation changes, `sed` might corrupt the file or update the wrong image tag. `kustomize edit set image` understands the Kubernetes YAML structure dynamically. It safely parses the `kustomization.yaml`, updates only the correct image tag reference regardless of whitespace, and guarantees the output remains syntactically valid.",
     "level": "advanced",
     "kind": "conceptual",
     "domain": "kustomize",
@@ -32,7 +32,7 @@
   {
     "id": "kustomize-how-do-you-stop-environments-drifting-apart-over-time",
     "question": "How do you stop environments drifting apart over time?",
-    "answer": "Structurally, by making divergence expensive to express. The base holds",
+    "answer": "By strictly enforcing the Base/Overlay structure and rejecting duplication. The Base must contain 95% of the logic. If a developer needs a change in Production, they must apply it to the Base (propagating it to all environments) or justify why it belongs in a specific Overlay. This makes environment drift structurally expensive to maintain, encouraging convergence rather than divergence.",
     "level": "expert",
     "kind": "conceptual",
     "domain": "kustomize",

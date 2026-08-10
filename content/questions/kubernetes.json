@@ -42,7 +42,7 @@
   {
     "id": "kubernetes-what-is-the-difference-between-a-deployment-and-a-statefulset",
     "question": "What is the difference between a Deployment and a StatefulSet?",
-    "answer": "A Deployment is for stateless applications (like web servers); the Pods are identical, interchangeable, and have random names (e.g., `api-5f8g9`). A StatefulSet is for stateful applications (like databases); the Pods have sticky, predictable identities (e.g., `db-0`, `db-1`) and are guaranteed to start and stop in a strict order.",
+    "answer": "A Deployment is for stateless applications (like web servers); the Pods are identical, interchangeable, and have random names (e.g., `api-5f8g9`). A StatefulSet is for stateful applications (like databases). It provides three critical features Deployments lack: stable network identities (via Headless Services), stable persistent storage (via `volumeClaimTemplates`), and strict ordered deployment/scaling guarantees.",
     "level": "intermediate",
     "kind": "conceptual",
     "domain": "kubernetes",
@@ -62,7 +62,7 @@
   {
     "id": "kubernetes-during-a-massive-traffic-spike-your-horizontal-pod-autoscaler-scales-f",
     "question": "During a massive traffic spike, your Horizontal Pod Autoscaler scales from 10 to 100 pods, but 50 of them remain in a `Pending` state. Walk me through the exact architectural bottleneck and how to automate the resolution.",
-    "answer": "The `Pending` state means the Scheduler cannot find a Worker Node with sufficient aggregate CPU/RAM capacity to satisfy the Pod's `requests`. The cluster is out of physical resources. To automate resolution, we must implement the **Cluster Autoscaler** (or Karpenter in AWS). The Cluster Autoscaler watches for `Pending` pods. When it sees them, it makes an API call to the AWS Auto Scaling Group to provision a new EC2 instance. Once the new EC2 instance boots and joins the cluster, the Kubernetes Scheduler recognizes the new capacity and schedules the pending Pods onto it.",
+    "answer": "The `Pending` state means the Scheduler cannot find a Worker Node with sufficient aggregate CPU/RAM capacity to satisfy the Pod's `requests`. To automate resolution, we implement node auto-provisioning using Cluster Autoscaler or Karpenter. Cluster Autoscaler watches for `Pending` pods and adjusts the desired capacity of an AWS Auto Scaling Group. Karpenter acts faster: it bypasses ASGs entirely, directly provisioning right-sized EC2 instances based on the exact resource requests of the pending pods.",
     "level": "expert",
     "kind": "scenario",
     "domain": "kubernetes",
