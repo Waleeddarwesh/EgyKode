@@ -14,7 +14,10 @@
     "docker",
     "kubernetes",
     "terraform",
-    "ansible"
+    "ansible",
+    "argocd",
+    "prometheus",
+    "grafana"
   ],
   "highlights": [],
   "phases": [

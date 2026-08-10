@@ -230,15 +230,30 @@ test.describe("accessibility basics", () => {
     }
   });
 
-  test("the page never scrolls horizontally at 320px", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 720 });
-    const paths = ["/en", "/en/learn/kubernetes/kubernetes", ...(ARABIC_PUBLISHED ? ["/ar"] : [])];
+  test("the page never scrolls horizontally on a phone", async ({ page }) => {
+    // Two widths: 320 is the narrowest supported, 390 is a current iPhone —
+    // /en/learn overflowed at 390 while passing at 320, because a grid item's
+    // `min-width: auto` only bit at that ratio.
+    for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 720 });
+    const paths = [
+      "/en",
+      "/en/learn",
+      "/en/topics",
+      "/en/labs",
+      "/en/roadmaps",
+      "/en/projects",
+      "/en/prepare/questions",
+      "/en/learn/kubernetes/kubernetes",
+      ...(ARABIC_PUBLISHED ? ["/ar"] : []),
+    ];
     for (const path of paths) {
       await page.goto(path);
       const overflow = await page.evaluate(
-        () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
       );
-      expect(overflow, `${path} overflows at 320px`).toBe(false);
+      expect(overflow, `${path} overflows by ${overflow}px at ${width}px`).toBeLessThanOrEqual(1);
+    }
     }
   });
 });

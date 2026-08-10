@@ -19,7 +19,7 @@ export async function generateMetadata({
   const t = getTranslations(locale);
   return {
     title: t("labs.title"),
-    description: t("labs.subtitle"),
+    description: t("seo.labsDescription"),
     alternates: { canonical: `/${locale}/labs`, languages: languageAlternates((locale) => `/${locale}/labs`) },
   };
 }
@@ -58,7 +58,7 @@ export default async function LabsPage({
       </header>
 
       <FilterBar
-        className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+        className="reveal-items list-virtual grid gap-4 md:grid-cols-2 lg:grid-cols-3"
         items={labs.map((lab) => {
           const colour = domainColor(lab.domain);
           const ltr = labNeedsLtr(lab.labId, typed);

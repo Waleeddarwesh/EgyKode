@@ -1,12 +1,12 @@
 {
   "id": "nti-final-project",
-  "title": "NTI Final Project",
-  "summary": "Eight modules taken end to end: Terraform infrastructure, Ansible configuration, Docker, Kubernetes, Helm, a Jenkins pipeline, and an observability stack.",
-  "why": "Structured as a course rather than a repository: each module is a numbered directory with its own README, so it can be followed in order without reading the whole thing first. It is the closest thing here to a guided path.",
+  "title": "NTI Cloud DevOps Capstone — the Platform",
+  "summary": "A production-shaped AWS platform: Terraform modules for VPC, EKS, RDS and ECR, a Jenkins pipeline with blocking SonarQube and Trivy gates, and a kube-prometheus-stack behind it.",
+  "why": "This is the finished platform, organised by technology rather than by lesson — Terraform/, ansible/, docker/, k8s/, helm/, jenkins/, monitoring/, docs/. It runs a Django application on PostgreSQL and Redis, served by Gunicorn behind Nginx and an ALB. What makes it worth reading is the production detail most tutorials skip: IRSA rather than node credentials, IMDSv2, Secrets Manager, NetworkPolicy and pod security, HPA and rolling updates, remote state with locking, and quality gates that block a deployment rather than merely reporting on it.\n\nIf you would rather build it than read it, the same capstone is taught step by step as 19 labs — see the companion project below.",
   "author": "waleed",
   "repo": "https://github.com/Waleeddarwesh/NTI_Final_Project",
   "license": "No licence declared",
-  "level": "intermediate",
+  "level": "advanced",
   "featured": false,
   "stack": [
     "terraform",
@@ -15,17 +15,18 @@
     "kubernetes",
     "helm",
     "jenkins",
-    "observability"
+    "prometheus",
+    "grafana",
+    "aws"
   ],
   "highlights": [
-    "01 Infrastructure — Terraform",
-    "02 Configuration Management — Ansible",
-    "03 Containerization — Docker",
-    "04 Kubernetes Orchestration",
-    "05 Helm Package Management",
-    "06 CI/CD — Jenkins Pipeline",
-    "07 Monitoring & Observability",
-    "08 Documentation & Operations"
+    "Terraform modules — VPC, EKS, RDS, IAM, ECR, Secrets Manager, Backup",
+    "Ansible roles configuring the Jenkins host — Docker, Java, kubectl, Helm",
+    "Multi-stage Docker build behind an Nginx reverse proxy",
+    "Kubernetes manifests and a Helm chart, with HPA and NetworkPolicy",
+    "Jenkins multibranch pipeline with SonarQube and Trivy as blocking gates",
+    "kube-prometheus-stack with custom alert rules and Grafana dashboards",
+    "Security-first: IRSA, IMDSv2, Secrets Manager, pod security"
   ],
   "phases": [
     "iac",
@@ -40,7 +41,7 @@
     "defaultBranch": "main",
     "importedAt": "2026-08-09"
   },
-  "updated": "2026-07-26",
-  "titleAr": "مشروع NTI النهائي",
-  "summaryAr": "ثماني وحدات من البداية إلى النهاية: بنية تحتية بـ Terraform، وتهيئة بـ Ansible، و Docker، و Kubernetes، و Helm، وخط Jenkins، ومنظومة مراقبة."
+  "updated": "2026-08-10",
+  "titleAr": "مشروع NTI النهائي — المنصة",
+  "summaryAr": "منصة AWS بمواصفات إنتاجية: وحدات Terraform لـ VPC و EKS و RDS و ECR، وخط Jenkins ببوابات SonarQube و Trivy تُوقف النشر، ومنظومة kube-prometheus-stack خلفها."
 }

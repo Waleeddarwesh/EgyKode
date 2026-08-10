@@ -30,7 +30,7 @@ export function ExpandableGrid({
   const shown = items.slice(0, initial);
   const rest = items.slice(initial);
 
-  const grid = "grid gap-3 sm:grid-cols-2 lg:grid-cols-3";
+  const grid = "reveal-items list-virtual grid gap-3 sm:grid-cols-2 lg:grid-cols-3";
 
   if (hidden <= 0) {
     return <ul className={`mt-3 ${grid}`}>{shown.map(cell)}</ul>;

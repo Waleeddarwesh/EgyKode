@@ -213,7 +213,7 @@ export default async function TopicsPage({
         </h2>
 
         <FilterBar
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          className="reveal-items list-virtual grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
           items={topics.map((topic) => ({
             id: topic.id,
             level: levelOf(topic.chapters),

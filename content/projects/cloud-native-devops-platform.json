@@ -6,6 +6,7 @@
   "summaryAr": "منصة Kubernetes ذاتية الإدارة على AWS — تُبنى بـ Terraform، وتُهيّأ بـ Ansible، وتُسلَّم عبر Jenkins و Argo CD.",
   "why": "Managed Kubernetes hides the parts worth understanding. This cluster was built without one: three control plane nodes, an etcd quorum, containerd and Calico, provisioned and configured from scratch. Two small applications run on it, but they are not the point — they exist to exercise the delivery path end to end. The platform is the artifact.",
   "author": "waleed",
+  "repo": "https://github.com/Waleeddarwesh/Cloud-Native-DevOps-Platform",
   "license": "MIT",
   "level": "advanced",
   "featured": true,
@@ -49,6 +50,5 @@
     "gitops",
     "observability"
   ],
-  "updated": "2026-07-31",
-  "repoStatus": "unpublished"
+  "updated": "2026-07-31"
 }

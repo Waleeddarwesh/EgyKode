@@ -37,7 +37,7 @@ These numbers are counted from the corpus, not aspirational:
 |---|---|---|
 | **Chapters** | 47 | Migrated from the `Cloud-Native-DevOps-Handbook` project |
 | **Topics** | 74 | Across 12 areas — *derived from the content, never hand-authored* |
-| **Labs** | 19 + 19 | Each guided lab has a challenge version with the steps removed |
+| **Labs** | 19 | Each guided lab has a challenge version with the steps removed |
 | **Roadmaps** | 4 | 11, 8, 8 and 8 phases |
 | **Projects** | 4 | With attribution and licence metadata |
 | **Interview questions** | 215 | 161 extracted from the chapters, plus 54 commonly-asked interview questions |

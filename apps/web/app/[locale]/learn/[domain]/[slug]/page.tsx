@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BackLink } from "@/components/layout/back-link";
+import { JsonLd } from "@/components/seo/json-ld";
 import { MarkComplete } from "@/components/learn/mark-complete";
 import { notFound } from "next/navigation";
 import { MDXRemote, type MDXRemoteProps } from "next-mdx-remote/rsc";
@@ -26,6 +27,7 @@ import { getLabsForDomain } from "@/lib/labs";
 import { getQuestionsForChapter } from "@/lib/questions";
 import { PUBLIC_LOCALES, formatNumber, getTranslations, isLocale, type Locale, languageAlternates } from "@/lib/i18n";
 import { SITE } from "@/lib/site";
+import { breadcrumbs, graph, learningResource } from "@/lib/structured-data";
 
 export function generateStaticParams() {
   return PUBLIC_LOCALES.flatMap((locale) =>
@@ -122,6 +124,26 @@ export default async function ChapterPage({
     // because widening it to fill the row would make it harder to read — the
     // spare width carries navigation instead (§6.2).
     <div className="mx-auto grid max-w-[1140px] gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_14rem] lg:px-8 xl:gap-16">
+      <JsonLd
+        data={graph(
+          learningResource({
+            title: chapter.title,
+            description: chapter.description,
+            path: `/${typed}/learn/${domain}/${slug}`,
+            level: chapter.level,
+            readingTime: chapter.readingTime,
+            updated: chapter.updated,
+            locale: typed,
+            keywords: [chapter.domain, ...chapter.objectives],
+          }),
+          breadcrumbs([
+            { name: "EgyKode", path: `/${typed}` },
+            { name: t("learn.title"), path: `/${typed}/learn` },
+            { name: chapter.title, path: `/${typed}/learn/${domain}/${slug}` },
+          ]),
+        )}
+      />
+
       <article className="min-w-0">
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-content-muted">
         <BackLink href={`/${typed}/learn`} label={t("learn.title")} />

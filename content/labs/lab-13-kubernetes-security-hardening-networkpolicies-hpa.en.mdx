@@ -39,7 +39,7 @@ The **HorizontalPodAutoscaler (HPA)** automatically scales the number of running
            | HTTP / Port 80
            v
   +-----------------------------------------------------------------------------------+
-  |  AWS Application Load Balancer (ALB Ingress)                                     |
+  |  AWS Application Load Balancer (ALB Ingress)                                      |
   +----------------------------------------+------------------------------------------+
                                            |
                                            | ALLOW Ingress Port 8000
@@ -50,7 +50,7 @@ The **HorizontalPodAutoscaler (HPA)** automatically scales the number of running
   |  +-----------------------------------------------------------------------------+  |
   |  |  DJANGO APPLICATION PODS (Deployment: 2 to 6 Replicas via HPA)              |  |
   |  |  +------------------------+             +------------------------+          |  |
-  |  |  | Pod 1 (IP: 10.0.1.42)   |             | Pod 2 (IP: 10.0.2.89)   |          |  |
+  |  |  | Pod 1 (IP: 10.0.1.42)   |             | Pod 2 (IP: 10.0.2.89)   |        |  |
   |  |  +------------------------+             +------------------------+          |  |
   |  +-------------------------------------+---------------------------------------+  |
   |                                        |                                          |
@@ -62,7 +62,7 @@ The **HorizontalPodAutoscaler (HPA)** automatically scales the number of running
   |                                        ^                                          |
   |                                        | BLOCKED by NetworkPolicy                 |
   |  +-------------------------------------+---------------------------------------+  |
-  |  |  UNAUTHORIZED / COMPROMISED POD (In any Namespace)                           |  |
+  |  |  UNAUTHORIZED / COMPROMISED POD (In any Namespace)                          |  |
   |  +-----------------------------------------------------------------------------+  |
   +-----------------------------------------------------------------------------------+
 ```

@@ -4,6 +4,9 @@ import Link from "next/link";
 import { BackLink } from "@/components/layout/back-link";
 import { notFound } from "next/navigation";
 
+import { JsonLd } from "@/components/seo/json-ld";
+import { breadcrumbs, course, graph } from "@/lib/structured-data";
+
 import { RoadmapCanvas, type RoadmapPhase } from "@/components/roadmap/roadmap-canvas";
 import { RoadmapCoverage } from "@/components/roadmap/coverage";
 import { domainColor, getChapterMeta } from "@/lib/content";
@@ -76,6 +79,26 @@ export default async function RoadmapPage({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+      <JsonLd
+        data={graph(
+          course({
+            title: isAr ? roadmap.titleAr : roadmap.title,
+            description: isAr ? roadmap.descriptionAr : roadmap.description,
+            path: `/${typed}/roadmaps/${roadmap.id}`,
+            locale: typed,
+            chapters: phases.reduce((n, phase) => n + phase.nodes.length, 0),
+          }),
+          breadcrumbs([
+            { name: "EgyKode", path: `/${typed}` },
+            { name: t("roadmaps.title"), path: `/${typed}/roadmaps` },
+            {
+              name: isAr ? roadmap.titleAr : roadmap.title,
+              path: `/${typed}/roadmaps/${roadmap.id}`,
+            },
+          ]),
+        )}
+      />
+
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-content-muted">
         <BackLink href={`/${typed}/roadmaps`} label={t("roadmaps.title")} />
       </nav>
@@ -110,6 +133,7 @@ export default async function RoadmapPage({
         locale={typed}
         projectTitle={isAr ? roadmap.productionProject.titleAr : roadmap.productionProject.title}
         projectSummary={roadmap.productionProject.summary}
+        projectHref={`/${typed}/projects/${roadmap.productionProject.id}`}
         labels={{
           complete: t("roadmap.complete"),
           inProgress: t("roadmap.inProgress"),

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="EgyKode">
+  <!--
+    Browser-tab icon. A solid brand tile with the mark knocked out, rather than
+    the bare mark: the mark's strokes are thin, and at 16px on a busy tab strip
+    a thin outline dissolves into the background. A filled tile keeps the
+    silhouette legible, and works on light and dark browser chrome alike.
+  -->
+  <rect width="64" height="64" rx="14" fill="#1fe881"/>
+  <g transform="translate(12.8 5.2) scale(0.375)">
+    <path fill="#0f1316" d="M50.14 0.0 L80.27 29.86 L73.7 36.44 L55.89 18.63 L55.34 18.9 L55.34 64.66 L55.89 65.75 L86.85 33.97 L100.0 33.97 L69.04 65.75 L99.45 96.99 L100.0 97.81 L100.0 110.68 L62.47 72.88 L46.3 89.04 L46.03 17.53 L9.32 54.52 L9.59 67.95 L10.14 68.22 L27.4 50.14 L38.63 39.45 L38.63 52.05 L9.59 81.64 L9.86 98.9 L38.36 69.86 L38.63 82.74 L10.96 110.96 L0.0 110.68 L0.0 50.41 L49.86 0.27 Z"/>
+  </g>
+</svg>

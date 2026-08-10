@@ -1,0 +1,48 @@
+{
+  "id": "nti-step-by-step",
+  "title": "NTI Cloud DevOps Capstone — Step by Step",
+  "summary": "The same AWS capstone taught as 19 reproducible labs across eight numbered modules, each with its own README so it can be followed in order.",
+  "why": "The platform project shows the finished system; this one shows how it is built. Eight numbered directories run from Terraform infrastructure to operational documentation, and the 19 labs inside them are reproducible from an empty AWS account — you can start at 01 without reading the whole repository first.\n\nUse this one to build it, and the platform repository to see how the pieces sit together once they are done.",
+  "author": "waleed",
+  "repo": "https://github.com/Waleeddarwesh/StepByStep_Final_NTI_Project",
+  "license": "No licence declared",
+  "level": "intermediate",
+  "featured": false,
+  "stack": [
+    "terraform",
+    "ansible",
+    "docker",
+    "kubernetes",
+    "helm",
+    "jenkins",
+    "prometheus",
+    "grafana",
+    "aws"
+  ],
+  "highlights": [
+    "01 Infrastructure — Terraform",
+    "02 Configuration Management — Ansible",
+    "03 Containerization — Docker",
+    "04 Kubernetes Orchestration",
+    "05 Helm Package Management",
+    "06 CI/CD — Jenkins Pipeline",
+    "07 Monitoring & Observability",
+    "08 Documentation & Operations"
+  ],
+  "phases": [
+    "iac",
+    "kubernetes",
+    "cicd",
+    "observability"
+  ],
+  "source": {
+    "kind": "github",
+    "stars": 0,
+    "forks": 0,
+    "defaultBranch": "main",
+    "importedAt": "2026-08-09"
+  },
+  "updated": "2026-08-10",
+  "titleAr": "مشروع NTI النهائي — خطوة بخطوة",
+  "summaryAr": "المشروع النهائي نفسه على AWS، لكن على هيئة 19 معملًا قابلًا لإعادة الإنتاج عبر ثماني وحدات مرقّمة، لكل منها README خاص بها ليمكن اتّباعها بالترتيب."
+}

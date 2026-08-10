@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, Circle, Flag, Lock } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Circle, Flag, Lock } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -38,11 +38,14 @@ export function RoadmapCanvas({
   labels,
   projectTitle,
   projectSummary,
+  projectHref,
 }: {
   phases: RoadmapPhase[];
   locale: Locale;
   projectTitle: string;
   projectSummary: string;
+  /** The project page this path ends at. */
+  projectHref: string;
   labels: {
     complete: string;
     inProgress: string;
@@ -121,8 +124,13 @@ export function RoadmapCanvas({
               aria-label={labels.progress}
             >
               <div
-                className="h-full rounded-full transition-[width] duration-500 ease-out"
-                style={{ width: `${loaded ? percent : 0}%`, background: "var(--clr-primary)" }}
+                // scaleX, not width: animating width relayouts the bar and
+                // its neighbours every frame (see globals.css, Level 3).
+                className="progress-fill h-full w-full rounded-full"
+                style={{
+                  transform: `scaleX(${loaded ? percent / 100 : 0})`,
+                  background: "var(--clr-primary)",
+                }}
               />
             </div>
             {loaded && remainingMinutes > 0 && (
@@ -279,8 +287,12 @@ export function RoadmapCanvas({
 
         {/* The promise, as the terminal node of the path. */}
         <li>
-          <div
-            className="card border-primary/40 p-5"
+          {/* The whole card is the link. It names the thing a reader has been
+              working towards, so it was the most obviously clickable element
+              on the page — and did nothing. */}
+          <Link
+            href={projectHref}
+            className="card card-lift group block border-primary/40 p-5"
             style={{ background: "var(--clr-success-bg)" }}
           >
             <div className="flex items-start gap-4">
@@ -295,11 +307,18 @@ export function RoadmapCanvas({
                   style={{ color: "var(--clr-primary-dark)" }}>
                   {labels.endsWith}
                 </p>
-                <p className="mt-1 font-display font-semibold text-content">{projectTitle}</p>
+                <p className="mt-1 flex items-center gap-1.5 font-display font-semibold text-content">
+                  {projectTitle}
+                  <ArrowRight
+                    size={15}
+                    aria-hidden
+                    className="icon-directional opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
+                  />
+                </p>
                 <p className="mt-1 text-sm text-content-secondary">{projectSummary}</p>
               </div>
             </div>
-          </div>
+          </Link>
         </li>
       </ol>
 

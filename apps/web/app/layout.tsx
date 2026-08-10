@@ -4,9 +4,42 @@ import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://egykode.com"),
-  title: { default: "EgyKode", template: "%s · EgyKode" },
-  description: "The open Cloud & DevOps platform — Arabic and English.",
+  // No `template` here. The locale layout owns it — defining one at both
+  // levels applied it twice, producing "EgyKode — … · EgyKode" on the home
+  // page, which reads as a broken title in a search result.
+  title: "EgyKode",
+  description:
+    "Free, open-source Cloud and DevOps learning platform. Structured chapters, hands-on labs with challenge mode, ordered roadmaps, and projects you deploy — Linux, Docker, Kubernetes, Terraform, AWS, CI/CD, GitOps, observability and SRE.",
   applicationName: "EgyKode",
+  // Not a ranking factor, but read by several non-Google engines and by the
+  // preview cards that scrape a page before Google ever sees it.
+  keywords: [
+    "DevOps learning platform",
+    "open source DevOps course",
+    "learn Kubernetes",
+    "learn Terraform",
+    "AWS DevOps roadmap",
+    "hands-on DevOps labs",
+    "CI/CD tutorial",
+    "GitOps",
+    "SRE",
+    "DevOps interview questions",
+  ],
+  authors: [{ name: "Waleed Darwesh" }],
+  creator: "Waleed Darwesh",
+  publisher: "EgyKode",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  twitter: { card: "summary_large_image", title: "EgyKode", creator: "@Waleeddarwesh" },
 };
 
 export const viewport: Viewport = {

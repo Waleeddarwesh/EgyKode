@@ -33,7 +33,14 @@ export default async function CommunityPage({
       title={t("community.title")}
       intent={t("community.intent")}
       items={[
-        { title: t("community.feedTitle"), body: t("community.feedBody") },
+        {
+          title: t("community.feedTitle"),
+          body: t("community.feedBody"),
+          // The bank is live today — 215 questions — so this card leads there
+          // rather than describing something the reader cannot reach.
+          href: `/${typed}/prepare/questions`,
+          cta: t("questions.title"),
+        },
         { title: t("community.chatTitle"), body: t("community.chatBody") },
         { title: t("community.contributeTitle"), body: t("community.contributeBody") },
         { title: t("community.profileTitle"), body: t("community.profileBody") },

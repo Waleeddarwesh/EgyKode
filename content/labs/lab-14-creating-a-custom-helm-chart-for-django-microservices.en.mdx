@@ -39,7 +39,7 @@ A **Helm Chart** is a structured directory package containing Go-template files 
   +----------------------------------+          +----------------------------------+
   |    VALUES FILE (values.yaml)     |          |   TEMPLATES (templates/*.yaml)   |
   |  replicaCount: 2                 |          |  replicas: {{ .Values.replica }} |
-  |  image:                        | +======> |  image: {{ .Values.image.repo }} |
+  |  image:                          | +======> |  image: {{ .Values.image.repo }} |
   |    repository: ecr-repo-url      |          |  ...                             |
   |    tag: "1.0.0"                  |          +-----------------+----------------+
   +----------------------------------+                            |

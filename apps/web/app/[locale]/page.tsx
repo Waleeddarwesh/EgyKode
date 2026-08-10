@@ -3,10 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Mark } from "@/components/brand/logo";
+import { JsonLd } from "@/components/seo/json-ld";
 import { ContinueLearning, type PathNode } from "@/components/learn/continue-learning";
 import { getAllChapters, getRoadmap, domainColor } from "@/lib/content";
 import { getGeneratedTopics } from "@/lib/domains";
 import { formatNumber, getTranslations, isLocale } from "@/lib/i18n";
+import { graph, organization, website } from "@/lib/structured-data";
 
 export default async function HomePage({
   params,
@@ -54,6 +56,8 @@ export default async function HomePage({
 
   return (
     <>
+      <JsonLd data={graph(organization(), website(locale))} />
+
       {/* ── Hero ───────────────────────────────────────────────────────── */}
       <section className="mx-auto max-w-content px-4 pb-16 pt-16 sm:px-6 sm:pt-24 lg:px-8">
         <div className="grid items-center gap-12 lg:grid-cols-[1.15fr_1fr]">
@@ -85,11 +89,11 @@ export default async function HomePage({
           {/* The mark at scale — the one permitted brand animation (§2.4). */}
           <div className="relative hidden justify-center lg:flex">
             <div
-              className="absolute inset-0 -z-10 blur-3xl"
+              className="animate-glow absolute inset-0 -z-10 blur-3xl"
               style={{ background: "var(--clr-primary-glow)" }}
               aria-hidden
             />
-            <Mark className="h-64 w-auto text-brand" />
+            <Mark className="animate-mark h-64 w-auto text-brand" />
           </div>
         </div>
 
@@ -130,11 +134,15 @@ export default async function HomePage({
       </div>
 
       {/* ── Why ────────────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-content px-4 py-16 sm:px-6 lg:px-8">
+      <section className="reveal mx-auto max-w-content px-4 py-16 sm:px-6 lg:px-8">
         <h2 className="font-display text-2xl font-bold text-content">{t("home.whyTitle")}</h2>
-        <div className="mt-8 grid gap-5 md:grid-cols-3">
-          {why.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="card card-lift p-6">
+        <div className="stagger mt-8 grid gap-5 md:grid-cols-3">
+          {why.map(({ icon: Icon, title, body }, index) => (
+            <div
+              key={title}
+              className="card card-lift p-6"
+              style={{ "--i": index } as React.CSSProperties}
+            >
               <Icon size={22} className="text-primary" aria-hidden />
               <h3 className="mt-4 font-display text-lg font-semibold text-content">{title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-content-secondary">{body}</p>
@@ -144,7 +152,7 @@ export default async function HomePage({
       </section>
 
       {/* ── The path ───────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-content px-4 py-16 sm:px-6 lg:px-8">
+      <section className="reveal mx-auto max-w-content px-4 py-16 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="font-display text-2xl font-bold text-content">
@@ -160,7 +168,7 @@ export default async function HomePage({
           </Link>
         </div>
 
-        <ol className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ol className="reveal-items mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {roadmap.phases.map((phase) => {
             const first = phase.chapters[0];
             const chapter = first ? chapters.find((c) => c.contentId === first) : undefined;

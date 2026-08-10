@@ -4,6 +4,12 @@ import { getAllChapters } from "@/lib/content";
 import { getProjects, getRoadmaps } from "@/lib/projects";
 import { PUBLIC_LOCALES } from "@/lib/i18n";
 
+/**
+ * Generated at build time. `output: export` has no server to run this per
+ * request, so it must be declared static explicitly.
+ */
+export const dynamic = "force-static";
+
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://egykode.com";
 
 /**

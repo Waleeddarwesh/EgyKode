@@ -1,0 +1,132 @@
+name: Deploy production
+
+# Production is AWS S3 + CloudFront. Pull-request previews are Cloudflare
+# Pages, configured in its dashboard — Pages is never in the production path.
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".github/**"
+      - "!.github/workflows/deploy-production.yml"
+  workflow_dispatch:
+
+# Never two deploys writing the same bucket at once. A newer push supersedes
+# an in-flight one rather than racing it.
+concurrency:
+  group: production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write # required to request the OIDC token
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # The same gates that run locally. Production is not the place to find
+      # out that a code fence lost its language or a topic lost its chapter.
+      - run: npm run lint:mdx
+      - run: npm run content:lint
+      - run: npm run lint:rtl
+      - run: npm run check:translation
+      - run: npm run typecheck
+      - run: npm run lint
+
+  deploy:
+    name: Build and publish
+    needs: verify
+    runs-on: ubuntu-latest
+
+    # An `environment: production` block would add a deployment record, a URL
+    # on the run, and optional required reviewers. It is commented out because
+    # GitHub validates the name against environments that already exist, and
+    # referencing one that has not been created shows as an error. Create it
+    # under Settings -> Environments, then uncomment:
+    #
+    # environment:
+    #   name: production
+    #   url: https://egykode.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build static export
+        env:
+          NEXT_OUTPUT: export
+          NEXT_DIST_DIR: .next-export
+          NEXT_PUBLIC_SITE_URL: https://egykode.com
+        run: |
+          npm run tokens
+          npm run topics
+          npm run search
+          npm run build --workspace=@egykode/web
+
+      # Short-lived credentials from the OIDC token. No AWS key is stored in
+      # this repository, which is the property the Jenkins chapter claims.
+      - name: Assume deploy role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: egykode-deploy-${{ github.run_id }}
+
+      # Two passes, because the two kinds of file want opposite cache headers.
+      # Fingerprinted assets first: they are immutable, and uploading them
+      # before the HTML that references them avoids a window where a page
+      # points at an asset that is not there yet.
+      - name: Upload immutable assets
+        run: |
+          aws s3 sync apps/web/.next-export/_next/static \
+            s3://${{ secrets.AWS_SITE_BUCKET }}/_next/static \
+            --cache-control "public,max-age=31536000,immutable" \
+            --only-show-errors
+
+      - name: Upload pages
+        run: |
+          aws s3 sync apps/web/.next-export \
+            s3://${{ secrets.AWS_SITE_BUCKET }} \
+            --exclude "_next/static/*" \
+            --cache-control "public,max-age=0,must-revalidate" \
+            --delete \
+            --only-show-errors
+
+      # Only the mutable half needs invalidating. `/_next/static/*` is
+      # content-hashed, so invalidating it would be free churn — and the first
+      # 1,000 invalidation paths a month are free, which this stays inside.
+      - name: Invalidate pages
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.AWS_DISTRIBUTION_ID }} \
+            --paths "/*" \
+            --query 'Invalidation.Id' --output text
+
+      - name: Smoke test
+        run: |
+          for path in / /en/ /en/learn/ /en/topics/ /en/roadmaps/; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -L "https://egykode.com$path")
+            echo "$path -> $code"
+            [ "$code" = "200" ] || exit 1
+          done

@@ -123,13 +123,13 @@ export function CommandPalette({
           aria-label={labels.search}
         >
           <button
-            className="absolute inset-0 bg-black/60"
+            className="animate-scrim absolute inset-0 bg-black/60"
             aria-label="Close"
             tabIndex={-1}
             onClick={() => setOpen(false)}
           />
 
-          <div className="relative w-full max-w-xl overflow-hidden rounded-xl border bg-surface shadow-xl">
+          <div className="animate-dialog relative w-full max-w-xl overflow-hidden rounded-xl border bg-surface shadow-xl">
             <div className="flex items-center gap-3 border-b px-4">
               <SearchIcon size={17} className="shrink-0 text-content-muted" aria-hidden />
               <input

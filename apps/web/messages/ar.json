@@ -19,7 +19,7 @@
   "action.language": "تغيير اللغة",
   "action.search": "بحث",
   "action.startLearning": "ابدأ التعلّم",
-  "action.seePlatform": "استعرض المنصة",
+  "action.seePlatform": "استكشف المشاريع",
   "action.readChapter": "اقرأ الفصل",
   "action.viewAll": "عرض الكل",
   "action.previous": "السابق",
@@ -265,5 +265,12 @@
   "progress.mark": "وضع علامة مكتمل",
   "progress.done": "مكتمل",
   "progress.storedLocally": "محفوظ في هذا المتصفح",
-  "home.statTopics": "موضوعًا"
+  "home.statTopics": "موضوعًا",
+  "nav.interview": "المقابلات",
+  "seo.homeTitle": "EgyKode — منصة مفتوحة المصدر لتعلّم Cloud و DevOps",
+  "seo.homeDescription": "تعلّم Cloud و DevOps مجانًا وبشكل مفتوح: فصول منظّمة، ومعامل تطبيقية بنمط التحدي، ومسارات مرتّبة، ومشاريع حقيقية تنشرها بنفسك.",
+  "seo.learnDescription": "47 فصلًا تغطي Linux والشبكات و Docker و Kubernetes و Terraform و AWS و CI/CD و GitOps وقابلية الرصد والأمان و SRE — بأوامر تنفّذها، وكيف تفشل، والمفاضلات.",
+  "seo.questionsDescription": "215 سؤال مقابلة في Cloud و DevOps مع إجاباتها، مصنّفة بالمستوى ومرتبطة بالفصل الذي يشرح كلًّا منها.",
+  "seo.roadmapsDescription": "مسارات تعلّم مرتّبة في Cloud و DevOps — من أساسيات Linux إلى النشر في الإنتاج. وكل مسار ينتهي بمشروع يمكنك تشغيله فعلًا.",
+  "seo.labsDescription": "معامل تطبيقية في Cloud و DevOps بمعايير تحقّق، ولكل منها نسخة تحدٍّ تحذف الخطوات."
 }

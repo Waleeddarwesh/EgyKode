@@ -2,7 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 /**
  * A question with its answer hidden behind a reveal.
@@ -40,9 +40,10 @@ export function QuestionCard({
   contentDir?: "ltr";
 }) {
   const [open, setOpen] = useState(false);
+  const answerId = useId();
 
   return (
-    <article className="card p-5">
+    <article className="card flex h-full flex-col p-5">
       <h3
         dir={contentDir}
         lang={contentDir ? "en" : undefined}
@@ -51,7 +52,11 @@ export function QuestionCard({
         {question}
       </h3>
 
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-content-muted">
+      {/* mt-auto pushes the footer down, so cards of different question
+          lengths still line their metadata and controls up with each other.
+          Without it a two-line question and a five-line one produced the
+          ragged rows this grid is meant to avoid. */}
+      <div className="mt-auto flex flex-wrap items-center gap-2 pt-3 text-xs text-content-muted">
         <span
           className="badge border px-2 py-0.5 font-mono text-[11px]"
           style={{ color: meta.domainColour }}
@@ -71,7 +76,8 @@ export function QuestionCard({
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+        aria-controls={answerId}
+        className="mt-3 inline-flex self-start items-center gap-1.5 text-sm font-medium text-primary hover:underline"
       >
         {open ? hideLabel : revealLabel}
         <ChevronDown
@@ -81,15 +87,20 @@ export function QuestionCard({
         />
       </button>
 
-      {open && (
-        <p
-          dir={contentDir}
-          lang={contentDir ? "en" : undefined}
-          className="mt-3 border-t pt-3 text-sm leading-relaxed text-content-secondary"
-        >
-          {answer}
-        </p>
-      )}
+      {/* Always in the DOM, hidden rather than unmounted.
+          Two reasons: the FAQPage structured data on this page is only
+          truthful if every answer is actually present in the HTML, and an
+          answer that exists only after a click is invisible to search and to
+          in-page find. Collapsed-behind-a-toggle is explicitly permitted. */}
+      <p
+        id={answerId}
+        hidden={!open}
+        dir={contentDir}
+        lang={contentDir ? "en" : undefined}
+        className="mt-3 border-t pt-3 text-sm leading-relaxed text-content-secondary"
+      >
+        {answer}
+      </p>
     </article>
   );
 }

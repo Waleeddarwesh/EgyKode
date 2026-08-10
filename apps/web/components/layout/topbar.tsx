@@ -11,13 +11,17 @@ export function TopBar({ locale }: { locale: Locale }) {
   const t = getTranslations(locale);
 
   const nav = [
-    { href: `/${locale}/topics`, label: t("nav.topics") },
-    { href: `/${locale}/learn`, label: t("nav.learn") },
-    { href: `/${locale}/labs`, label: t("nav.labs") },
+    // Ordered as an engineer's path, not alphabetically: find the route, learn
+    // it, practise it, build with it, prepare for the interview, get the job —
+    // and community last, because it is what you join once you are in it.
     { href: `/${locale}/roadmaps`, label: t("nav.roadmaps") },
+    { href: `/${locale}/learn`, label: t("nav.learn") },
+    { href: `/${locale}/topics`, label: t("nav.topics") },
+    { href: `/${locale}/labs`, label: t("nav.labs") },
     { href: `/${locale}/projects`, label: t("nav.projects") },
-    { href: `/${locale}/community`, label: t("nav.community") },
+    { href: `/${locale}/prepare/questions`, label: t("nav.interview") },
     { href: `/${locale}/jobs`, label: t("nav.jobs") },
+    { href: `/${locale}/community`, label: t("nav.community") },
   ];
 
   return (

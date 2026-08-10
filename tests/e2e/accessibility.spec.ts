@@ -40,8 +40,16 @@ async function audit(page: Page, path: string) {
   // and mid-fade every element is composited at partial opacity — which
   // reported --clr-text-muted as #7f898d and produced contrast failures that
   // moved between pages on every run.
+  // Only time-based animations. A scroll-driven one (`animation-timeline:
+  // view()`, used by the section reveal) is tied to scroll position, so its
+  // `finished` promise never resolves and awaiting it hangs the audit.
   await page.evaluate(() =>
-    Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))),
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.timeline === document.timeline)
+        .map((a) => a.finished.catch(() => {})),
+    ),
   );
 
   return new AxeBuilder({ page })

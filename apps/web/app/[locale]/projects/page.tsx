@@ -45,7 +45,7 @@ export default async function BuildPage({
         <p className="mt-3 text-lg text-content-secondary">{t("build.subtitle")}</p>
       </header>
 
-      <ul className="mt-12 grid gap-5 lg:grid-cols-2">
+      <ul className="reveal-items mt-12 grid gap-5 lg:grid-cols-2">
         {projects.map((project) => {
           const author = getAuthor(project.author);
           return (

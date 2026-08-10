@@ -16,7 +16,7 @@ export async function generateMetadata({
   const t = getTranslations(locale);
   return {
     title: t("roadmaps.title"),
-    description: t("roadmaps.subtitle"),
+    description: t("seo.roadmapsDescription"),
     alternates: {
       canonical: `/${locale}/roadmaps`,
       languages: languageAlternates((locale) => `/${locale}/roadmaps`),
@@ -46,7 +46,7 @@ export default async function RoadmapsPage({
         <p className="mt-3 text-lg text-content-secondary">{t("roadmaps.subtitle")}</p>
       </header>
 
-      <ul className="mt-12 space-y-6">
+      <ul className="reveal-items mt-12 space-y-6">
         {roadmaps.map((roadmap) => {
           const chapterCount = roadmap.phases.reduce(
             (sum: number, phase: { chapters: string[] }) => sum + phase.chapters.length,

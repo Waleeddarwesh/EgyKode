@@ -4,10 +4,12 @@ import { notFound } from "next/navigation";
 
 import { FilterBar } from "@/components/filters/filter-bar";
 import { BackLink } from "@/components/layout/back-link";
+import { JsonLd } from "@/components/seo/json-ld";
 import { QuestionCard } from "@/components/questions/question-card";
 import { domainColor } from "@/lib/content";
 import { getDomainMeta } from "@/lib/domains";
 import { getQuestions } from "@/lib/questions";
+import { breadcrumbs, faqPage, graph } from "@/lib/structured-data";
 import { formatNumber, getTranslations, isLocale, type Locale, languageAlternates } from "@/lib/i18n";
 
 export async function generateMetadata({
@@ -20,7 +22,7 @@ export async function generateMetadata({
   const t = getTranslations(locale);
   return {
     title: t("questions.title"),
-    description: t("questions.subtitle"),
+    description: t("seo.questionsDescription"),
     alternates: {
       canonical: `/${locale}/prepare/questions`,
       languages: languageAlternates((locale) => `/${locale}/prepare/questions`),
@@ -53,6 +55,22 @@ export default async function QuestionsPage({
 
   return (
     <div className="mx-auto max-w-content px-4 py-14 sm:px-6 lg:px-8">
+      <JsonLd
+        data={graph(
+          // Capped: Google reads a sane number of entries, and the whole bank
+          // would add more bytes than it earns.
+          faqPage(
+            questions.slice(0, 50).map((q) => ({ question: q.question, answer: q.answer })),
+            `/${typed}/prepare/questions`,
+          ),
+          breadcrumbs([
+            { name: "EgyKode", path: `/${typed}` },
+            { name: t("nav.prepare"), path: `/${typed}/prepare` },
+            { name: t("questions.title"), path: `/${typed}/prepare/questions` },
+          ]),
+        )}
+      />
+
       <nav aria-label="Breadcrumb" className="mb-6">
         <BackLink href={`/${typed}/prepare`} label={t("nav.prepare")} />
       </nav>
@@ -70,7 +88,7 @@ export default async function QuestionsPage({
       </header>
 
       <FilterBar
-        className="grid gap-4 md:grid-cols-2"
+        className="reveal-items list-virtual grid gap-4 md:grid-cols-2"
         items={questions.map((q) => ({
           id: q.id,
           level: q.level,

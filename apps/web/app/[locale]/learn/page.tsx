@@ -17,7 +17,7 @@ export async function generateMetadata({
   const t = getTranslations(locale);
   return {
     title: t("learn.title"),
-    description: t("learn.subtitle"),
+    description: t("seo.learnDescription"),
     alternates: {
       canonical: `/${locale}/learn`,
       languages: languageAlternates((locale) => `/${locale}/learn`),
@@ -31,7 +31,12 @@ function ChapterRow({ contentId, locale }: { contentId: string; locale: Locale }
   const t = getTranslations(locale);
 
   return (
-    <li>
+    // min-w-0: a grid item defaults to `min-width: auto`, so it refuses to
+    // shrink below its content and pushes the page wider than the viewport.
+    // The Reference section lays these out in a grid, which made /en/learn
+    // scroll horizontally on a phone — cards stopped short of the screen edge
+    // and the whole layout looked narrow.
+    <li className="min-w-0">
       <Link
         href={`/${locale}/learn/${chapter.domain}/${chapter.contentId}`}
         className="group flex items-center gap-3 rounded-md px-3 py-2.5 transition-colors hover:bg-surface-hover"
@@ -81,7 +86,7 @@ export default async function LearnPage({
 
       <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {roadmap.phases.map((phase) => (
-          <section key={phase.id} id={phase.id} className="card cv-auto p-5">
+          <section key={phase.id} id={phase.id} className="reveal card cv-auto min-w-0 p-5">
             <h2 className="flex items-baseline gap-2.5">
               <span className="font-mono text-sm font-bold tabular-nums text-content-muted">
                 {phase.number}

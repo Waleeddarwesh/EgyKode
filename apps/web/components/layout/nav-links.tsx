@@ -32,7 +32,7 @@ export function NavLinks({
               aria-current={active ? "page" : undefined}
               className={`relative rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                 active
-                  ? "text-content"
+                  ? "bg-surface-active font-semibold text-content"
                   : "text-content-secondary hover:bg-surface-hover hover:text-content"
               }`}
             >

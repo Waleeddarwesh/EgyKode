@@ -44,6 +44,26 @@ model, and it is the right one.
 complete · complete a lab and submit evidence · post and receive a reply · send
 and receive a chat message · search (Arabic query) and open a result.
 
+**Waiting for animations before an assertion.** Visual and accessibility
+assertions must not race the first paint — axe samples computed colour, and an
+element captured mid-fade reports a composited value rather than its real one,
+which produced contrast failures that moved between pages on every run.
+
+The rule has two halves, and the second is not obvious:
+
+- **Finite animations may be awaited.** `document.getAnimations()` filtered to
+  `a.timeline === document.timeline`, then `await Promise.all(...finished)`.
+- **Scroll-driven animations must never be awaited for completion.** An
+  animation on a view timeline (`animation-timeline: view()`, used by the
+  section reveal in §2b.4) has its progress controlled by scroll position, not
+  by elapsed time. Its `finished` promise never resolves, so awaiting it hangs
+  the test until the suite times out — which is exactly what happened when the
+  section reveal was introduced.
+
+Do not "simplify" the filter in `tests/e2e/accessibility.spec.ts` back to
+awaiting every animation. It reintroduces the hang, and the failure looks like
+a timeout in an unrelated audit rather than an animation problem.
+
 ### 13.3 Application security
 
 - **Auth:** Django's hasher (Argon2), session cookies `HttpOnly`/`Secure`/

@@ -134,6 +134,21 @@ samp,
     content-visibility: auto;
     contain-intrinsic-size: auto 180px;
   }
+
+  /* The same, applied to every child of a long list.
+     The topics page renders 148 cards and the question bank 215 — all of them
+     laid out and painted on load, which is the real cost on a phone, far more
+     than the bytes (those pages are 16kB and 52kB brotli). `content-visibility`
+     lets the browser skip layout and paint for anything off-screen and do the
+     work as it scrolls into view. `contain-intrinsic-size` supplies a
+     placeholder height so the scrollbar does not jump.
+
+     Applied to the list, not the card, so it composes with `.reveal-items`
+     without either class needing to know about the other. */
+  .list-virtual > * {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 190px;
+  }
 }
 
 /* ── Prose ───────────────────────────────────────────────────────────────── */
@@ -251,11 +266,15 @@ samp,
      Level 3 — learning  (--dur-learning)   progress, completion, diagrams
 
    Rules that keep it purposeful rather than decorative:
-     · Motion communicates state or hierarchy. Nothing loops, nothing floats.
+     · Motion must never compete with learning content: every page is
+       readable and usable before any animation has run.
+     · Motion earns its place by communicating hierarchy, state, spatial
+       relationship or feedback. Anything else is decoration.
      · Animate sections, not paragraphs, and never body text.
-     · Only compositor-friendly properties — transform and opacity. Animating
-       width/top/height forces layout on every frame and is what actually makes
-       a page feel slow.
+     · Animate transform and opacity by default; any other property needs an
+       explicit reason (state/theme colour feedback is the common one).
+       width/top/height force layout every frame and are what actually make a
+       page feel slow.
      · CSS and native APIs first. A JavaScript animation library is warranted
        only for an interaction these cannot express cleanly.
      · Every rule below degrades to "no motion, content still visible" under
@@ -283,15 +302,50 @@ samp,
   }
 }
 
+/* Transform only — deliberately no opacity.
+   A scroll-driven reveal holds its first frame until the element enters the
+   range, so anything below the fold sat at opacity 0. Automated contrast
+   checks sample the composited colour and reported serious failures across
+   the labs and projects pages, and any crawler or screenshot service that
+   does not scroll would see the same faded text. Sliding into place is just
+   as visible and can never make content unreadable. */
 @keyframes revealIn {
-  from { opacity: 0; transform: translateY(var(--reveal-shift)); }
-  to   { opacity: 1; transform: none; }
+  from { transform: translateY(var(--reveal-shift)); }
+  to   { transform: none; }
 }
 
-/* Stagger for a row of cards. `--i` is set per item at render time; the delay
-   is capped so a long list never leaves the last item waiting. */
+/* Stagger for a row of cards. `--i` is set per item at render time where the
+   markup allows it; the delay is capped so a long list never leaves the last
+   item waiting. */
 .stagger > * {
   animation-delay: calc(min(var(--i, 0) * var(--stagger-step), 300ms));
+}
+
+/* Level 2 — item reveal.
+
+   Each child animates as it scrolls into view, rather than the container
+   animating once. This is what makes a long list feel alive while scrolling,
+   and it is the pattern most of the site uses: one class on the grid, nothing
+   per card, so it works with client-rendered lists too.
+
+   `entry 0% cover 16%` finishes the animation while the card is still rising
+   into the viewport — a card is never mid-fade by the time it is comfortably
+   readable. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal-items > * {
+      animation: revealIn var(--dur-large) var(--ease-out) both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 16%;
+    }
+
+    /* A short stagger across the first row, so a grid resolves left-to-right
+       instead of snapping in as a block. Beyond the first few the delay is
+       pointless — those cards are scrolled to individually anyway. */
+    .reveal-items > *:nth-child(2) { animation-delay: 40ms; }
+    .reveal-items > *:nth-child(3) { animation-delay: 80ms; }
+    .reveal-items > *:nth-child(4) { animation-delay: 120ms; }
+  }
 }
 
 /* Level 3 — progress. Transform, not width: animating width relayouts the bar
@@ -323,11 +377,41 @@ samp,
 .animate-dialog { animation: dialogIn var(--dur-base) var(--ease-out); }
 .animate-scrim { animation: scrimIn var(--dur-micro) linear; }
 
-/* The one permitted logo animation (§2.4): the chevron draws itself upward,
-   once, on the landing page. */
-@keyframes markDraw {
-  from { stroke-dashoffset: 600; opacity: 0.2 }
-  to   { stroke-dashoffset: 0; opacity: 1 }
+/* The one permitted logo animation (§2.4): the chevron rises into place, once,
+   on the landing page.
+
+   A wipe rather than a stroke draw. The previous `markDraw` animated
+   `stroke-dashoffset` — which does nothing here, because the mark is a filled
+   path with no stroke, so the rule was dead CSS that had never rendered.
+
+   `clip-path: inset(100% 0 0 0)` hides the mark entirely; shrinking the top
+   inset to 0 reveals it from the bottom edge upward, which is the direction
+   the chevron itself points. Level 3: this is the brand introducing itself,
+   so it is allowed to be noticed. */
+@keyframes markRise {
+  from {
+    clip-path: inset(100% 0 0 0);
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-mark {
+  animation: markRise 900ms var(--ease-out) both;
+}
+
+/* The glow behind it fades in slightly later, so the mark leads and the glow
+   follows rather than both arriving flat. */
+@keyframes glowIn {
+  from { opacity: 0 }
+  to   { opacity: 1 }
+}
+.animate-glow {
+  animation: glowIn var(--dur-learning) var(--ease-out) 260ms both;
 }
 
 /* The global override is a safety net for anything added later that forgets to

@@ -39,21 +39,21 @@ Production enterprise cloud architecture mandates strict network boundary isolat
   |  VPC: nti-devops-vpc (CIDR: 10.0.0.0/16)                                          |
   |                                                                                   |
   |  +-----------------------------------------------------------------------------+  |
-  |  |  PUBLIC SUBNETS (Connected to Internet Gateway)                            |  |
+  |  |  PUBLIC SUBNETS (Connected to Internet Gateway)                             |  |
   |  |  +-------------------------------+     +---------------------------------+  |  |
-  |  |  | Public Subnet A (us-east-1a)   |     | Public Subnet B (us-east-1b)    |  |  |
-  |  |  | CIDR: 10.0.1.0/24               |     | CIDR: 10.0.2.0/24               |  |  |
+  |  |  | Public Subnet A (us-east-1a)  |     | Public Subnet B (us-east-1b)    |  |  |
+  |  |  | CIDR: 10.0.1.0/24             |     | CIDR: 10.0.2.0/24               |  |  |
   |  |  | - AWS Application LB (ALB)    |     | - NAT Gateway (Elastic IP)      |  |  |
   |  |  | - Jenkins EC2 (Public IP)     |     |                                 |  |  |
   |  |  +---------------+---------------+     +----------------+----------------+  |  |
   |  +------------------|--------------------------------------|-------------------+  |
-  |                     | Routing                              | Outbound Egress     |
-  |                     v                                      v                     |
+  |                     | Routing                              | Outbound Egress      |
+  |                     v                                      v                      |
   |  +-----------------------------------------------------------------------------+  |
   |  |  PRIVATE SUBNETS (No Public IPs — Routed via NAT Gateway)                   |  |
   |  |  +-------------------------------+     +---------------------------------+  |  |
-  |  |  | Private Subnet A (us-east-1a)  |     | Private Subnet B (us-east-1b)   |  |  |
-  |  |  | CIDR: 10.0.10.0/24              |     | CIDR: 10.0.11.0/24              |  |  |
+  |  |  | Private Subnet A (us-east-1a) |     | Private Subnet B (us-east-1b)   |  |  |
+  |  |  | CIDR: 10.0.10.0/24            |     | CIDR: 10.0.11.0/24              |  |  |
   |  |  | - EKS Managed Worker Nodes    |     | - RDS PostgreSQL Database       |  |  |
   |  |  +-------------------------------+     +---------------------------------+  |  |
   |  +-----------------------------------------------------------------------------+  |

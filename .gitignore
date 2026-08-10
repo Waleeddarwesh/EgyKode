@@ -36,3 +36,16 @@ Thumbs.db
 *.log
 npm-debug.log*
 .next-verify
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+tfplan
+
+# NextJS Export
+apps/web/.next-export/
+.output/
+# Screenshots
+tests/screenshots/

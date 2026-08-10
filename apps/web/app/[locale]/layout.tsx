@@ -21,8 +21,10 @@ export async function generateMetadata({
   if (!isLocale(locale)) return {};
   const t = getTranslations(locale);
   return {
-    title: { default: `EgyKode — ${t("brand.tagline")}`, template: "%s · EgyKode" },
-    description: t("brand.descriptor"),
+    // Leads with what people search for. The tagline is brand voice and lives
+    // on the page itself; a title tag has ~60 characters to earn a click.
+    title: { default: t("seo.homeTitle"), template: "%s · EgyKode" },
+    description: t("seo.homeDescription"),
     alternates: {
       canonical: `/${locale}`,
       languages: languageAlternates((locale) => `/${locale}`, { xDefault: true }),
@@ -31,6 +33,9 @@ export async function generateMetadata({
       siteName: "EgyKode",
       locale: locale === "ar" ? "ar_EG" : "en_US",
       type: "website",
+      title: t("seo.homeTitle"),
+      description: t("seo.homeDescription"),
+      url: `/${locale}`,
     },
   };
 }
@@ -84,11 +89,11 @@ export default async function LocaleLayout({
         <MobileNav
           locale={typed}
           items={[
-            { key: "topics", label: t("nav.topics") },
+            { key: "roadmaps", label: t("nav.roadmaps") },
             { key: "learn", label: t("nav.learn") },
             { key: "labs", label: t("nav.labs") },
-            { key: "roadmaps", label: t("nav.roadmaps") },
             { key: "projects", label: t("nav.projects") },
+            { key: "interview", label: t("nav.interview"), path: "prepare/questions" },
           ]}
         />
 
