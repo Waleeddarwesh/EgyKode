@@ -9,6 +9,9 @@
 Learn the concepts, build the infrastructure, practise in hands-on labs, and
 finish with projects you can actually deploy.
 
+**[egykode.com](https://egykode.com)** · [Learn](https://egykode.com/en/learn/) · [Labs](https://egykode.com/en/labs/) · [Roadmaps](https://egykode.com/en/roadmaps/) · [Interview](https://egykode.com/en/prepare/questions/)
+
+[![Live](https://img.shields.io/badge/live-egykode.com-1fe881?style=flat-square)](https://egykode.com)
 [![Licence: MIT](https://img.shields.io/badge/code-MIT-1fe881?style=flat-square)](LICENSE)
 [![Content: CC BY-SA 4.0](https://img.shields.io/badge/content-CC%20BY--SA%204.0-1fe881?style=flat-square)](LICENSE-CONTENT)
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black?style=flat-square)
@@ -37,9 +40,9 @@ These numbers are counted from the corpus, not aspirational:
 |---|---|---|
 | **Chapters** | 47 | Migrated from the `Cloud-Native-DevOps-Handbook` project |
 | **Topics** | 74 | Across 12 areas — *derived from the content, never hand-authored* |
-| **Labs** | 19 | Each guided lab has a challenge version with the steps removed |
+| **Labs** | 46 | 43 guided (each with a challenge version) plus 3 incident labs |
 | **Roadmaps** | 4 | 11, 8, 8 and 8 phases |
-| **Projects** | 4 | With attribution and licence metadata |
+| **Projects** | 5 | With attribution and licence metadata |
 | **Interview questions** | 215 | 161 extracted from the chapters, plus 54 commonly-asked interview questions |
 
 > **Topics are measured, not claimed.** `scripts/build-topics.mjs` derives every
@@ -91,10 +94,24 @@ syntax highlighter.
 Reading is not enough. Every lab is built on one principle: **build it
 yourself.**
 
-Each lab has a practical objective, a guided implementation, verification
-criteria you check yourself, and a **challenge version with the instructions
-removed** — so you move from *follow* → *understand* → *rebuild* → *solve
-independently*.
+Three tiers, because following instructions is only the first of them:
+
+| Tier | You get | You practise |
+|---|---|---|
+| 🟢 **Guided** | The objective and the steps | Doing it once, correctly |
+| 🟡 **Challenge** | The same objective, no steps | Rebuilding it from understanding |
+| 🔴 **Incident** | A broken system and a symptom | Diagnosing something nobody explained |
+
+An incident lab never states the cause. You are given the failure — *502 Bad
+Gateway*, a `CrashLoopBackOff`, service-to-service calls that time out — plus a
+method for working the layers, and the root cause sits behind a reveal you read
+only after a genuine attempt. That tier is the one closest to the job.
+
+**Every lab that provisions billable cloud resources says what it costs and how
+to destroy it**, and a lint rule makes that a build error rather than a
+convention — an EKS control plane left running over a weekend is about $73, and
+a lab that does not mention it has failed the reader. Labs that delete data or
+kill workloads on purpose are marked `destructive` as well.
 
 ## 🚀 Projects
 
@@ -112,6 +129,7 @@ Being honest about what is finished matters more than a long feature list.
 
 | Area | Status |
 |---|---|
+| **Live at [egykode.com](https://egykode.com)** | ✅ AWS S3 + CloudFront, deployed from `master` |
 | Chapters, topics, roadmaps, labs, projects | ✅ Available |
 | Interview question bank | ✅ Available |
 | Search (⌘K), dark/light themes, reading progress | ✅ Available |
