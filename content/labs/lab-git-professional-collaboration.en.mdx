@@ -1,0 +1,146 @@
+---
+labId: lab-git-professional-collaboration
+title: "Professional Collaboration on GitHub"
+description: "Protect a branch, require review, and make the pipeline the thing that decides whether code can merge."
+domain: git
+level: intermediate
+type: lab
+phase: foundations
+order: 28
+tier: guided
+estimatedMinutes: 45
+cloudCost: false
+costEstimate: "Free — a GitHub account."
+skills:
+  - "Configure branch protection that CI actually enforces"
+  - "Route review automatically with CODEOWNERS"
+  - "Write commit messages a release process can read"
+tools:
+  - "A GitHub repository you own"
+  - "git 2.30+"
+successCriteria:
+  - "A direct push to the protected branch is rejected."
+  - "A pull request cannot merge while its status check is failing."
+  - "A CODEOWNERS entry requests the right reviewer automatically."
+  - "You can explain why 'require branches to be up to date' matters."
+challengeId: lab-git-professional-collaboration-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+Trunk-based development only works when `main` is always releasable. That is not a matter of discipline — it is a matter of configuration.
+
+This lab makes the repository enforce it.
+## 1. A check for the branch to depend on
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm test
+```
+
+Branch protection can only require a check that has run at least once, so merge
+this first.
+
+## 2. Protect the branch
+
+**Settings → Branches → Add rule**, pattern `main`:
+
+- **Require a pull request before merging** — no direct pushes.
+- **Require approvals: 1** — for a solo repository this can be 0; keep the PR
+  requirement regardless, because it is what makes the checks run.
+- **Require status checks to pass** — select `test`.
+- **Require branches to be up to date before merging.**
+- **Do not allow bypassing the above settings** — including for administrators.
+
+Prove it:
+
+```bash
+git switch main
+echo "direct" >> README.md && git commit -qam "direct push"
+git push origin main
+# ! [remote rejected] main -> main (protected branch hook declined)
+```
+
+**"Up to date before merging" is the one worth understanding.** Without it, two
+PRs that each pass independently can break `main` together — one renames a
+function, the other adds a caller. Neither PR ever saw the other. With it, the
+branch must be rebased onto current `main` and the checks re-run against the
+combination that will actually exist.
+
+## 3. CODEOWNERS
+
+```text
+# .github/CODEOWNERS
+*                       @Waleeddarwesh
+/infrastructure/        @Waleeddarwesh
+/content/learn/         @Waleeddarwesh
+*.tf                    @Waleeddarwesh
+```
+
+Last matching pattern wins — the opposite of `.gitignore`. Combined with
+"Require review from Code Owners", a change to `/infrastructure/` cannot merge
+without the person responsible for it seeing it.
+
+## 4. Commit messages a machine can read
+
+```text
+feat(labs): add incident tier
+fix(ci): accept GitHub's immutable OIDC subject
+docs(readme): correct the lab count
+```
+
+Conventional Commits are worth adopting for one concrete reason: the prefix
+drives release automation. `fix` produces a patch release, `feat` a minor, and
+`!` or a `BREAKING CHANGE:` footer a major. The changelog writes itself.
+
+```bash
+git log --oneline --grep '^feat' | head
+```
+
+## 5. The pull request
+
+```bash
+git switch -c fix/typo
+# ... change, commit, push ...
+gh pr create --fill        # or open it in the browser
+```
+
+Two habits that make review useful rather than ceremonial:
+
+- **Say what a reader can now do that they could not before.** A diff shows
+  what changed; only you can say why.
+- **Keep it small.** A 40-line PR gets a real review. A 2,000-line PR gets
+  "LGTM", which is not a review.
+
+## When it goes wrong
+
+**The status check cannot be selected in branch protection**
+
+It has never run. Merge the workflow first, or open one PR so GitHub learns the check name.
+
+**Protection does not apply to you**
+
+Enable 'Do not allow bypassing'. Administrators are exempt by default.
+
+**CODEOWNERS is ignored**
+
+It must be on the *default* branch, in `.github/`, `docs/` or the root, and the owner needs write access.
+
+**PRs stay blocked after checks pass**
+
+'Up to date' is on and `main` moved. Rebase and let the checks re-run.

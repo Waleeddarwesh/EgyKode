@@ -1,0 +1,181 @@
+---
+labId: lab-aws-iam-least-privilege
+title: "AWS IAM & Least Privilege"
+description: "Write a policy that grants exactly one action, prove what it blocks, and swap a long-lived key for a role."
+domain: aws
+level: beginner
+type: lab
+phase: cloud
+order: 9
+tier: guided
+estimatedMinutes: 50
+cloudCost: false
+costEstimate: "Free — IAM users, roles and policies cost nothing."
+skills:
+  - "Read and write an IAM policy document"
+  - "Test a permission before shipping it, with the policy simulator"
+  - "Explain the difference between a trust policy and a permissions policy"
+tools:
+  - "AWS CLI v2, configured"
+  - "An AWS account"
+successCriteria:
+  - "A user can read one specific S3 bucket and nothing else, proven by an allowed call and a denied one."
+  - "You can explain why `s3:ListBucket` and `s3:GetObject` need different resource ARNs."
+  - "A role is assumed with `sts assume-role`, returning credentials that expire."
+  - "You can name what an explicit `Deny` does to an `Allow`."
+cleanup:
+  - "aws iam detach-user-policy --user-name lab-reader --policy-arn <arn>"
+  - "aws iam delete-policy --policy-arn <arn>"
+  - "aws iam delete-user --user-name lab-reader"
+  - "aws iam delete-role --role-name lab-reader-role"
+challengeId: lab-aws-iam-least-privilege-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+The application has an access key with `AdministratorAccess` because that made it work. Everybody knows it is wrong; nobody knows what it actually needs.
+
+This lab replaces it with a policy you can defend, and a role instead of a key.
+> The Terraform labs build IAM as code. This one works in the CLI and console
+> deliberately — when a permission fails at 3am you will be reading the console,
+> and a resource you have only ever seen through HCL is one you cannot debug.
+
+## 1. The anatomy of a policy
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadOneBucket",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": "arn:aws:s3:::egykode-lab-config/*"
+    },
+    {
+      "Sid": "ListThatBucket",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::egykode-lab-config"
+    }
+  ]
+}
+```
+
+**Two statements, because the two actions act on different things.**
+`ListBucket` operates on the *bucket*; `GetObject` operates on *objects inside
+it*. Granting only one produces the most common IAM confusion in existence: a
+policy that "clearly allows S3" and returns AccessDenied.
+
+## 2. Create and attach
+
+```bash
+aws iam create-user --user-name lab-reader
+aws iam create-policy --policy-name lab-read-config \
+  --policy-document file://policy.json
+
+aws iam attach-user-policy --user-name lab-reader \
+  --policy-arn arn:aws:iam::<account>:policy/lab-read-config
+```
+
+## 3. Prove what it allows *and* what it blocks
+
+```bash
+aws iam simulate-principal-policy \
+  --policy-source-arn arn:aws:iam::<account>:user/lab-reader \
+  --action-names s3:GetObject s3:DeleteObject s3:ListAllMyBuckets \
+  --resource-arns "arn:aws:s3:::egykode-lab-config/settings.yaml" \
+  --query 'EvaluationResults[].[EvalActionName,EvalDecision]' --output table
+```
+
+`allowed` for `GetObject`, `implicitDeny` for the others. **Testing the denials
+matters as much as the grants** — a policy that works is not the same as a
+policy that is narrow.
+
+## 4. Roles instead of keys
+
+A user carries long-lived credentials. A role is assumed and issues credentials
+that expire in an hour.
+
+```bash
+cat > trust.json <<'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": { "AWS": "arn:aws:iam::<account>:user/lab-reader" },
+    "Action": "sts:AssumeRole"
+  }]
+}
+EOF
+
+aws iam create-role --role-name lab-reader-role \
+  --assume-role-policy-document file://trust.json
+
+aws sts assume-role \
+  --role-arn arn:aws:iam::<account>:role/lab-reader-role \
+  --role-session-name demo \
+  --query 'Credentials.[AccessKeyId,Expiration]' --output table
+```
+
+**Two different policies, and confusing them is the classic mistake:**
+
+| Policy | Answers | Failure looks like |
+| --- | --- | --- |
+| Trust policy | *Who may become this role?* | AccessDenied on `sts:AssumeRole` |
+| Permissions policy | *What may the role then do?* | AccessDenied on `s3:GetObject` |
+
+Read which action the error names, and you know which document to open.
+
+## 5. Deny always wins
+
+```json
+{ "Effect": "Deny", "Action": "s3:DeleteObject", "Resource": "*" }
+```
+
+An explicit `Deny` overrides every `Allow`, from any policy, including an
+administrator's. That is how guardrails and SCPs work — you cannot grant your
+way past one.
+
+## 6. When permissions behave strangely
+
+```bash
+aws sts get-caller-identity
+```
+
+Run this first, always. The most common cause of "the policy is not working" is
+that you are not the principal you assumed you were — a profile, an assumed
+role, or an instance role is in play.
+
+## When it goes wrong
+
+**AccessDenied on a policy that clearly allows it**
+
+Check the resource ARN. Bucket-level and object-level actions need `arn:...:bucket` and `arn:...:bucket/*` respectively.
+
+**`sts assume-role` denied**
+
+That is the trust policy, not the permissions policy. The principal must be listed in the role's trust document.
+
+**The simulator says allowed but the real call fails**
+
+Something else denies it — an SCP, a permission boundary, or a bucket policy. The simulator does not evaluate resource-based policies by default.
+
+**Cannot delete the user**
+
+Detach all policies and delete access keys and login profile first.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+aws iam detach-user-policy --user-name lab-reader --policy-arn <arn>
+aws iam delete-policy --policy-arn <arn>
+aws iam delete-user --user-name lab-reader
+aws iam delete-role --role-name lab-reader-role
+```
+
+**Cost of this lab:** Free — IAM users, roles and policies cost nothing.

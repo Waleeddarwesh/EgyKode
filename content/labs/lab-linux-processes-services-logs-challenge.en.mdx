@@ -1,0 +1,58 @@
+---
+labId: lab-linux-processes-services-logs-challenge
+title: "Linux Processes, Services & Logs — Challenge"
+description: "Find the process, read what it actually said, and restore a service that will not start."
+domain: linux
+level: beginner
+type: lab
+phase: foundations
+order: 23
+tier: challenge
+estimatedMinutes: 22
+cloudCost: false
+costEstimate: "Free — any Linux machine, VM or container."
+skills:
+  - "Locate a process by port, name or open file"
+  - "Read a service's own logs rather than guessing from its status"
+  - "Tell a crash apart from a configuration error"
+tools:
+  - "Linux with systemd"
+  - "sudo access"
+successCriteria:
+  - "You can name the PID holding a given port, and the command that told you."
+  - "You can show the last 50 log lines for one service without reading the whole journal."
+  - "A deliberately broken service is diagnosed from its logs and restored."
+  - "You can explain the difference between `failed`, `inactive` and `activating`."
+guidedLabId: lab-linux-processes-services-logs
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Linux Processes, Services & Logs**, from an empty starting point,
+without the steps.
+
+A service is down. `systemctl status` says `failed`, which tells you *that* it failed and nothing about why.
+
+This lab builds the sequence that gets from that word to the cause.
+
+## What must be true when you are done
+
+- You can name the PID holding a given port, and the command that told you.
+- You can show the last 50 log lines for one service without reading the whole journal.
+- A deliberately broken service is diagnosed from its logs and restored.
+- You can explain the difference between `failed`, `inactive` and `activating`.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

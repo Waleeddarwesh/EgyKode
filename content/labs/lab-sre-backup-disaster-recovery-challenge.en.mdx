@@ -1,0 +1,63 @@
+---
+labId: lab-sre-backup-disaster-recovery-challenge
+title: "Backup & Disaster Recovery Drill — Challenge"
+description: "Lose the database on purpose, restore it, and write down the RTO and RPO you actually achieved."
+domain: sre
+level: advanced
+type: lab
+phase: production
+order: 35
+tier: challenge
+estimatedMinutes: 27
+cloudCost: false
+costEstimate: "Free — runs locally with Docker Compose and PostgreSQL."
+destructive: true
+skills:
+  - "Verify a backup by restoring it, not by checking it exists"
+  - "Measure RTO and RPO rather than asserting them"
+  - "Write a runbook someone else can follow"
+tools:
+  - "Docker"
+  - "Docker Compose"
+  - "psql"
+successCriteria:
+  - "A backup is taken, verified, and restored into a clean database."
+  - "You can state the RTO you measured and the RPO your schedule implies."
+  - "The restore is driven by a written runbook, not by memory."
+  - "A deliberately corrupted backup is detected before it is trusted."
+cleanup:
+  - "docker compose down -v"
+  - "rm -rf backups /tmp/corrupt.dump"
+guidedLabId: lab-sre-backup-disaster-recovery
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Backup & Disaster Recovery Drill**, from an empty starting point,
+without the steps.
+
+The backup job has reported success every night for eight months. Nobody has restored one.
+
+Today you find out whether it works — on a database you can afford to lose.
+
+## What must be true when you are done
+
+- A backup is taken, verified, and restored into a clean database.
+- You can state the RTO you measured and the RPO your schedule implies.
+- The restore is driven by a written runbook, not by memory.
+- A deliberately corrupted backup is detected before it is trusted.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

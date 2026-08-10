@@ -1,0 +1,64 @@
+---
+labId: lab-aws-ec2-cloudwatch-ssm-challenge
+title: "EC2 Operations: SSM, CloudWatch Logs & Metrics — Challenge"
+description: "Operate an instance without SSH: run commands, ship logs, and alarm on something that matters."
+domain: aws
+level: intermediate
+type: lab
+phase: cloud
+order: 11
+tier: challenge
+estimatedMinutes: 25
+cloudCost: true
+costEstimate: "Free tier — one `t3.micro`, and CloudWatch's free tier covers 5 GB of logs and 10 custom metrics. Leave the instance running and expect ~$8/month after the first year."
+skills:
+  - "Administer an instance with no inbound ports open"
+  - "Ship application logs to CloudWatch and query them"
+  - "Alarm on a symptom rather than on CPU"
+tools:
+  - "AWS CLI v2, configured"
+  - "An AWS account"
+successCriteria:
+  - "You ran a command on the instance with no SSH key and no inbound rule."
+  - "Application logs appear in a CloudWatch log group and you can query them."
+  - "An alarm exists on a metric that reflects user impact, and you can justify the threshold."
+  - "You can explain why the default EC2 metrics do not include memory or disk."
+cleanup:
+  - "aws ec2 terminate-instances --instance-ids <id>"
+  - "aws logs delete-log-group --log-group-name /egykode/lab/app"
+  - "aws cloudwatch delete-alarms --alarm-names egykode-lab-errors"
+  - "aws iam remove-role-from-instance-profile --instance-profile-name <p> --role-name <r>"
+  - "aws iam delete-instance-profile --instance-profile-name <p>"
+guidedLabId: lab-aws-ec2-cloudwatch-ssm
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **EC2 Operations: SSM, CloudWatch Logs & Metrics**, from an empty starting point,
+without the steps.
+
+An instance has port 22 open to the world, a key everyone shares, and logs that exist only on its disk — so when it is replaced, the evidence goes with it.
+
+All three are avoidable, and the alternatives are free.
+
+## What must be true when you are done
+
+- You ran a command on the instance with no SSH key and no inbound rule.
+- Application logs appear in a CloudWatch log group and you can query them.
+- An alarm exists on a metric that reflects user impact, and you can justify the threshold.
+- You can explain why the default EC2 metrics do not include memory or disk.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

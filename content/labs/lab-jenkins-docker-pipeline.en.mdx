@@ -1,0 +1,180 @@
+---
+labId: lab-jenkins-docker-pipeline
+title: "Jenkins Pipeline: Build, Scan and Push an Image"
+description: "Take a commit to a scanned, tagged image in a registry, with a gate that blocks rather than reports."
+domain: jenkins
+level: intermediate
+type: lab
+phase: cicd
+order: 34
+tier: guided
+estimatedMinutes: 55
+cloudCost: false
+costEstimate: "Free — local Jenkins and a free registry account."
+skills:
+  - "Build a container image from a pipeline without leaking credentials"
+  - "Fail a build on a vulnerability rather than logging one"
+  - "Tag images so a deployment can be traced to a commit"
+tools:
+  - "Docker"
+  - "Jenkins with the Docker Pipeline plugin"
+  - "A registry account"
+successCriteria:
+  - "A push produces an image tagged with the short commit SHA in the registry."
+  - "A HIGH or CRITICAL vulnerability fails the build — proven with a deliberately old base image."
+  - "No credential appears in the build log."
+  - "The `latest` tag is not what gets deployed, and you can say why."
+cleanup:
+  - "docker image prune -af"
+  - "docker logout docker.io"
+challengeId: lab-jenkins-docker-pipeline-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+The pipeline builds an image and pushes it as `latest`. Nobody can say which commit is in production, the scan runs after the push, and the registry password is an environment variable in the job configuration.
+## The pipeline
+
+```groovy
+pipeline {
+  agent any
+
+  environment {
+    REGISTRY   = 'docker.io/waleeddarwesh'
+    IMAGE      = 'egykode-demo'
+    // Short SHA: traceable, immutable, and sortable by build.
+    TAG        = "${env.GIT_COMMIT.take(7)}"
+  }
+
+  options {
+    timeout(time: 20, unit: 'MINUTES')
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+  }
+
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
+
+    stage('Unit tests') {
+      steps { sh 'make test || echo "no tests yet"' }
+    }
+
+    stage('Build image') {
+      steps {
+        sh 'docker build -t $REGISTRY/$IMAGE:$TAG .'
+      }
+    }
+
+    stage('Scan image') {
+      steps {
+        // --exit-code 1 is what turns a report into a gate.
+        sh '''
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image \
+            --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed \
+            $REGISTRY/$IMAGE:$TAG
+        '''
+      }
+    }
+
+    stage('Push') {
+      when { branch 'main' }
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: 'registry',
+          usernameVariable: 'REG_USER',
+          passwordVariable: 'REG_PASS')]) {
+          sh '''
+            echo "$REG_PASS" | docker login $REGISTRY -u "$REG_USER" --password-stdin
+            docker push $REGISTRY/$IMAGE:$TAG
+            docker logout $REGISTRY
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always { sh 'docker image prune -f || true' }
+  }
+}
+```
+
+## The four decisions in that file
+
+**1. Tag with the commit SHA, never `latest`.** `latest` is not a version — it
+is whatever was pushed most recently, so the same manifest deployed twice can
+produce two different containers and a rollback has nothing to roll back to.
+`$TAG` ties a running container to exactly one commit.
+
+**2. Scan before push, and exit non-zero.** A scan after the push has already
+published the vulnerable image. `--exit-code 1` makes Trivy fail the stage;
+`--ignore-unfixed` removes findings you cannot act on, which is what stops the
+gate becoming noise people learn to ignore.
+
+**3. `withCredentials`, and `--password-stdin`.** The block masks the values in
+the log; `--password-stdin` keeps the password out of the process list, where
+`ps aux` on the agent would otherwise show it.
+
+**4. `when { branch 'main' }`.** Feature branches build and scan — the feedback
+a developer needs — but only `main` publishes.
+
+## Prove the gate works
+
+```dockerfile
+FROM debian:10        # end of life, plenty of unfixed CVEs
+RUN apt-get update && apt-get install -y curl
+```
+
+Run the pipeline. The scan stage should fail and the push stage should never
+execute. **A gate you have not seen fail is a gate you cannot trust** — this is
+the only way to know it is wired up.
+
+Then fix it:
+
+```dockerfile
+FROM debian:12-slim
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+## Order the stages by cost
+
+Unit tests before the image build; the image build before the scan. A test suite
+that fails in 40 seconds should not run after a six-minute build. Engineers learn
+about a broken test in under a minute, and the expensive stages only run on code
+that has earned them.
+
+## When it goes wrong
+
+**`docker: permission denied` in the pipeline**
+
+The Jenkins user cannot reach the Docker socket. Add it to the `docker` group, or mount the socket with correct permissions.
+
+**The credential appears in the log**
+
+Something echoed it outside `withCredentials`, or the shell traced it. Avoid `set -x` in stages that touch secrets.
+
+**Trivy reports nothing on a knowingly old image**
+
+The database failed to download and it exited 0. Check the stage output for a DB error — a scanner that cannot update is not a gate.
+
+**`GIT_COMMIT` is null**
+
+`checkout scm` has not run yet, or the job is not backed by SCM. Compute the tag after checkout.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+docker image prune -af
+docker logout docker.io
+```
+
+**Cost of this lab:** Free — local Jenkins and a free registry account.

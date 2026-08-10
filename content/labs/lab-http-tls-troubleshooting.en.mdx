@@ -1,0 +1,148 @@
+---
+labId: lab-http-tls-troubleshooting
+title: "HTTP & TLS Troubleshooting"
+description: "Take a failing HTTPS request apart layer by layer: DNS, TCP, TLS, HTTP — and know which one broke."
+domain: networking
+level: intermediate
+type: lab
+phase: foundations
+order: 25
+tier: guided
+estimatedMinutes: 50
+cloudCost: false
+costEstimate: "Free — uses public endpoints and a local container."
+skills:
+  - "Inspect a certificate chain and its expiry from the command line"
+  - "Separate a TLS failure from an HTTP failure"
+  - "Read `curl -v` output as a sequence of layers"
+tools:
+  - "curl"
+  - "openssl"
+  - "dig"
+  - "nc"
+successCriteria:
+  - "You can print a site's certificate subject, issuer and expiry without a browser."
+  - "You can state which layer failed for three different broken URLs."
+  - "You can explain what `SSL_ERROR_SYSCALL` and `certificate verify failed` each imply."
+  - "You can prove a port is reachable independently of whether TLS succeeds."
+challengeId: lab-http-tls-troubleshooting-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+"The site is down." It returns a certificate error in one browser, works in another, and curl fails with something different again.
+
+Each of those is a different layer, and the fix depends entirely on which one.
+## The four layers, in order
+
+```text
+DNS  ->  TCP  ->  TLS  ->  HTTP
+dig      nc       openssl   curl
+```
+
+`curl -v` walks all four in one command, and its output is readable as exactly
+that sequence:
+
+```bash
+curl -v https://egykode.com/ 2>&1 | head -20
+```
+
+```text
+* Host egykode.com:443 was resolved.          <- DNS worked
+* Connected to egykode.com (52.84.143.46)      <- TCP worked
+* TLS handshake, Certificate (11):             <- TLS in progress
+* SSL certificate verify ok.                   <- TLS worked
+> GET / HTTP/2                                 <- HTTP begins
+```
+
+Whichever line is missing is the layer that failed.
+
+## 1. DNS
+
+```bash
+dig +short egykode.com
+dig egykode.com | grep -A2 "ANSWER SECTION"
+```
+
+A wrong-but-cached answer is the common case; the TTL in the answer tells you
+whether you are looking at cache or configuration.
+
+## 2. TCP, without TLS in the way
+
+```bash
+nc -vz egykode.com 443
+```
+
+This proves reachability on its own. If `nc` connects and `curl` still fails,
+the network is fine and the problem is TLS or above — which removes firewalls
+and security groups from the investigation entirely.
+
+## 3. TLS
+
+```bash
+echo | openssl s_client -connect egykode.com:443 -servername egykode.com 2>/dev/null \
+  | openssl x509 -noout -subject -issuer -dates
+
+# Just the expiry, for a monitoring check
+echo | openssl s_client -connect egykode.com:443 2>/dev/null \
+  | openssl x509 -noout -enddate
+
+# The full chain the server actually sends
+echo | openssl s_client -connect egykode.com:443 -showcerts 2>/dev/null | grep -c "BEGIN CERTIFICATE"
+```
+
+`-servername` sets SNI. Without it a server hosting several sites returns its
+default certificate, and you diagnose the wrong one.
+
+**The three failures you will meet:**
+
+| Message | Means | Fix |
+| --- | --- | --- |
+| `certificate has expired` | The dates have passed | Renewal automation stopped |
+| `unable to get local issuer certificate` | Chain incomplete | Server sends the leaf but not the intermediate |
+| `certificate is not valid for <host>` | Right cert, wrong name | Missing SAN entry |
+
+The second is the subtle one: it works in browsers, which cache intermediates
+from previous sites, and fails in curl and in your application. "It works in
+Chrome" is not evidence the chain is complete.
+
+## 4. HTTP
+
+```bash
+curl -sI https://egykode.com/ | head -5
+curl -s -o /dev/null -w 'code=%{http_code} tls=%{time_appconnect} total=%{time_total}\n' https://egykode.com/
+```
+
+`time_appconnect` is when TLS finished. If it is close to `time_total`, the
+handshake is your latency, not the application.
+
+## 5. Practise on deliberately broken endpoints
+
+```bash
+curl -v https://expired.badssl.com/        2>&1 | grep -i "certificate"
+curl -v https://wrong.host.badssl.com/     2>&1 | grep -i "certificate"
+curl -v https://untrusted-root.badssl.com/ 2>&1 | grep -i "issuer"
+curl -v https://self-signed.badssl.com/    2>&1 | grep -i "self.signed"
+```
+
+Read each error and name the layer before moving on. `-k` skips verification and
+is useful to *confirm* the diagnosis — if `-k` works, the transport is fine and
+the fault is purely certificate validation.
+
+## When it goes wrong
+
+**Works in the browser, fails in curl**
+
+Almost always an incomplete chain. The browser cached the intermediate from another site; curl did not.
+
+**`SSL_ERROR_SYSCALL` with no detail**
+
+The connection dropped during the handshake — often a middlebox, or the server rejecting the TLS version. Try `--tlsv1.2`.
+
+**Certificate looks correct but the name is wrong**
+
+You omitted `-servername`, so the server returned its default certificate.
+
+**`nc` connects but curl times out**
+
+The port is open and nothing is speaking HTTPS on it — check you are not hitting a plain HTTP port with https://.

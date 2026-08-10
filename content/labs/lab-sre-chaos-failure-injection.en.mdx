@@ -1,0 +1,190 @@
+---
+labId: lab-sre-chaos-failure-injection
+title: "Chaos: Failure Injection & Recovery"
+description: "Kill things deliberately, measure how long recovery takes, and find the assumption that was wrong."
+domain: sre
+level: advanced
+type: lab
+phase: production
+order: 36
+tier: guided
+estimatedMinutes: 50
+cloudCost: false
+costEstimate: "Free — a local Kubernetes cluster."
+destructive: true
+skills:
+  - "Form a hypothesis before injecting a failure"
+  - "Measure recovery rather than observing it"
+  - "Recognise a self-healing gap that only appears under failure"
+tools:
+  - "kind or minikube"
+  - "kubectl 1.28+"
+successCriteria:
+  - "A killed Pod is replaced automatically, and you measured how long it took."
+  - "You found at least one case where recovery did *not* happen as expected."
+  - "A PodDisruptionBudget prevents an eviction that would have caused an outage."
+  - "Each experiment had a written hypothesis before it was run."
+cleanup:
+  - "kubectl delete deployment web --ignore-not-found"
+  - "kubectl delete svc web --ignore-not-found"
+  - "kubectl delete pdb web --ignore-not-found"
+  - "kubectl uncordon --all"
+challengeId: lab-sre-chaos-failure-injection-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+The architecture diagram says the system is highly available. Nobody has tested it.
+
+Chaos engineering is not breaking things at random — it is stating what you believe will happen, then checking.
+> **This lab deletes running workloads.** Use a throwaway cluster.
+
+## The method
+
+Every experiment has four parts, and the first is the one people skip:
+
+1. **Hypothesis** — "killing one of three replicas causes no failed requests."
+2. **Blast radius** — one namespace, one Deployment, and a way to stop.
+3. **Inject** — the smallest failure that tests the hypothesis.
+4. **Measure** — was the hypothesis right? If yes, make it harsher.
+
+An experiment without a hypothesis is just an outage you caused.
+
+## 1. Something to break
+
+```bash
+kubectl create deployment web --image=nginx:1.27-alpine --replicas=3
+kubectl expose deployment web --port=80
+kubectl set resources deployment web --requests=cpu=10m,memory=16Mi
+```
+
+Generate steady traffic in a second terminal:
+
+```bash
+kubectl run load --rm -it --image=curlimages/curl --restart=Never -- \
+  sh -c 'while true; do curl -s -o /dev/null -w "%{http_code} " http://web; sleep 0.2; done'
+```
+
+## 2. Experiment one — kill a Pod
+
+**Hypothesis:** no failed requests; a replacement is Ready within 30 seconds.
+
+```bash
+time kubectl delete pod -l app=web --field-selector=status.phase=Running --wait=false | head -1
+kubectl get pods -w
+```
+
+Watch the traffic terminal. Count non-200 responses.
+
+If you saw failures, the hypothesis was wrong, and that is the useful outcome:
+the Service kept the dying Pod in its endpoints until it was fully terminated.
+The fix is a `preStop` hook and a readiness probe that fails first.
+
+## 3. Experiment two — take the whole Deployment down
+
+**Hypothesis:** requests fail until Pods return, and recovery is automatic.
+
+```bash
+kubectl scale deployment web --replicas=0
+sleep 10
+kubectl scale deployment web --replicas=3
+```
+
+Measure the gap. This is a controlled version of a bad deploy, and the number
+you get is your real recovery time for one.
+
+## 4. Experiment three — drain a node
+
+**Hypothesis:** draining a node moves the Pods without downtime.
+
+```bash
+kubectl get nodes
+kubectl drain <node> --ignore-daemonsets --delete-emptydir-data
+```
+
+On a single-node cluster everything becomes `Pending` — which *is* the finding:
+there is nowhere to reschedule. On multi-node, watch whether all replicas were on
+the same node, which quietly defeats the point of having three.
+
+```bash
+kubectl uncordon <node>
+```
+
+## 5. Protect against the eviction
+
+```yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: web
+```
+
+```bash
+kubectl apply -f pdb.yaml
+kubectl drain <node> --ignore-daemonsets
+# evicting pod web-...
+# error when evicting pod: Cannot evict pod as it would violate the disruption budget
+```
+
+**A PDB does not stop a crash.** It stops *voluntary* disruption — drains,
+upgrades, autoscaler scale-downs — which is precisely the category that causes
+self-inflicted outages during maintenance.
+
+Spreading matters too:
+
+```yaml
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: web
+```
+
+Three replicas on one node is one node failure away from zero.
+
+## 6. Write it down
+
+For each experiment: the hypothesis, what happened, and what you changed.
+
+The experiments that *disprove* a hypothesis are the entire value. An experiment
+that confirms what you already believed has told you nothing you did not know.
+
+## When it goes wrong
+
+**Requests fail when a single Pod is deleted**
+
+The Pod stayed in endpoints while terminating. Add a readiness probe and a `preStop` sleep so it leaves the Service before the process stops.
+
+**`drain` hangs forever**
+
+Something cannot be evicted — often a bare Pod with no controller, or a PDB that cannot be satisfied. The message names it.
+
+**All replicas are on one node**
+
+The scheduler had no reason to spread them. That is what `topologySpreadConstraints` is for.
+
+**The PDB blocks every drain**
+
+`minAvailable` equals the replica count leaves no room for disruption. It must be lower than `replicas`.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+kubectl delete deployment web --ignore-not-found
+kubectl delete svc web --ignore-not-found
+kubectl delete pdb web --ignore-not-found
+kubectl uncordon --all
+```
+
+**Cost of this lab:** Free — a local Kubernetes cluster.

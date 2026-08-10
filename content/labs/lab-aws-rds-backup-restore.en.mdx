@@ -1,0 +1,174 @@
+---
+labId: lab-aws-rds-backup-restore
+title: "RDS PostgreSQL: Backups, Restore and Failover"
+description: "Take a snapshot, destroy data on purpose, and restore it — then measure how long that actually took."
+domain: aws
+level: intermediate
+type: lab
+phase: cloud
+order: 12
+tier: guided
+estimatedMinutes: 55
+cloudCost: true
+costEstimate: "**Partly billable.** A `db.t3.micro` is free for 12 months on a new account and ~$13/month after. Snapshots are billed beyond the free allowance. Delete the instance the same day."
+destructive: true
+skills:
+  - "Restore a database to a point in time, not just to a snapshot"
+  - "Measure a real RTO instead of assuming one"
+  - "Explain why a restore creates a new instance"
+tools:
+  - "AWS CLI v2, configured"
+  - "psql"
+successCriteria:
+  - "A manual snapshot exists and you can list it."
+  - "Data deleted on purpose is recovered, verified by querying it."
+  - "You can state the measured RTO — wall-clock minutes from decision to service restored."
+  - "You can explain why the restored instance has a different endpoint."
+cleanup:
+  - "aws rds delete-db-instance --db-instance-identifier <id> --skip-final-snapshot"
+  - "aws rds delete-db-instance --db-instance-identifier <restored-id> --skip-final-snapshot"
+  - "aws rds delete-db-snapshot --db-snapshot-identifier <snapshot-id>"
+  - "aws rds describe-db-instances --query 'DBInstances[].DBInstanceIdentifier'   # must be empty"
+  - "aws rds describe-db-snapshots --snapshot-type manual --query 'DBSnapshots[].DBSnapshotIdentifier'"
+challengeId: lab-aws-rds-backup-restore-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+There is a backup. Nobody has ever restored it.
+
+A backup that has not been restored is a hope, not a backup — and the only way to know your recovery time is to measure it with a stopwatch.
+> **This lab destroys data on purpose.** Use a database you created for it and
+> nothing else.
+
+## 1. A database with backups on
+
+```bash
+aws rds create-db-instance \
+  --db-instance-identifier egykode-lab \
+  --db-instance-class db.t3.micro \
+  --engine postgres --engine-version 16 \
+  --allocated-storage 20 \
+  --master-username labadmin --manage-master-user-password \
+  --backup-retention-period 7 \
+  --no-publicly-accessible
+```
+
+`--manage-master-user-password` puts the password in Secrets Manager rather than
+in your shell history. `--backup-retention-period 7` is what enables
+point-in-time recovery — with `0`, automated backups are **off** and PITR is not
+available at all.
+
+## 2. Data worth losing
+
+```sql
+CREATE TABLE orders (id serial PRIMARY KEY, customer text, total numeric);
+INSERT INTO orders (customer, total)
+  SELECT 'customer-' || i, i * 10 FROM generate_series(1, 1000) i;
+SELECT count(*) FROM orders;   -- 1000
+```
+
+## 3. A manual snapshot
+
+```bash
+aws rds create-db-snapshot \
+  --db-instance-identifier egykode-lab \
+  --db-snapshot-identifier egykode-lab-before-incident
+
+aws rds wait db-snapshot-completed \
+  --db-snapshot-identifier egykode-lab-before-incident
+```
+
+Automated backups follow the instance and are deleted with it. A **manual**
+snapshot survives, which is what you want before anything risky.
+
+## 4. The incident
+
+```sql
+DELETE FROM orders WHERE total > 500;
+SELECT count(*) FROM orders;   -- 50
+```
+
+**Start a timer now.** RTO is wall-clock time from the decision to recover until
+service is restored, and it is always longer than people guess.
+
+## 5. Restore
+
+```bash
+aws rds restore-db-instance-from-db-snapshot \
+  --db-instance-identifier egykode-lab-restored \
+  --db-snapshot-identifier egykode-lab-before-incident \
+  --db-instance-class db.t3.micro
+
+aws rds wait db-instance-available --db-instance-identifier egykode-lab-restored
+```
+
+Or to a point in time, which is usually what you actually want — five minutes
+before the mistake, not whenever the last snapshot happened:
+
+```bash
+aws rds restore-db-instance-to-point-in-time \
+  --source-db-instance-identifier egykode-lab \
+  --target-db-instance-identifier egykode-lab-pitr \
+  --restore-time 2026-08-10T14:25:00Z
+```
+
+**A restore always creates a new instance.** It does not overwrite the original,
+and the new one has a **different endpoint** — so recovery is not complete when
+the data is back. The application still points at the old host, and someone has
+to repoint it. That step is where most of the measured RTO actually goes, and it
+is the step DR plans forget.
+
+Stop the timer:
+
+```sql
+SELECT count(*) FROM orders;   -- 1000
+```
+
+## 6. What you just measured
+
+| | Meaning | What you did |
+| --- | --- | --- |
+| **RTO** | How long recovery took | Your stopwatch |
+| **RPO** | How much data was lost | Time between the snapshot and the delete |
+
+A 7-day retention with PITR gives an RPO of roughly five minutes, because
+transaction logs are shipped continuously. Snapshot-only recovery gives an RPO
+of "since the last snapshot", which can be a whole day.
+
+Write both numbers down. A DR plan with numbers nobody has measured is a
+document, not a plan.
+
+## When it goes wrong
+
+**`restore-db-instance-to-point-in-time` rejects the time**
+
+It must be within the retention window and after the earliest restorable time — `describe-db-instances` reports both.
+
+**Cannot connect to the restored instance**
+
+It is created with the *default* security group, not the source's. Attach the right one.
+
+**Deleting the instance leaves a final snapshot**
+
+That is the default. `--skip-final-snapshot` for a lab; never in production.
+
+**`--manage-master-user-password` is unsupported**
+
+An older CLI or engine version. Upgrade the CLI, or set a password and rotate it afterwards.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+aws rds delete-db-instance --db-instance-identifier <id> --skip-final-snapshot
+aws rds delete-db-instance --db-instance-identifier <restored-id> --skip-final-snapshot
+aws rds delete-db-snapshot --db-snapshot-identifier <snapshot-id>
+aws rds describe-db-instances --query 'DBInstances[].DBInstanceIdentifier'   # must be empty
+aws rds describe-db-snapshots --snapshot-type manual --query 'DBSnapshots[].DBSnapshotIdentifier'
+```
+
+**Cost of this lab:** **Partly billable.** A `db.t3.micro` is free for 12 months on a new account and ~$13/month after. Snapshots are billed beyond the free allowance. Delete the instance the same day.

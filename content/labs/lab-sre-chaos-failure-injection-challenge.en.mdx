@@ -1,0 +1,64 @@
+---
+labId: lab-sre-chaos-failure-injection-challenge
+title: "Chaos: Failure Injection & Recovery — Challenge"
+description: "Kill things deliberately, measure how long recovery takes, and find the assumption that was wrong."
+domain: sre
+level: advanced
+type: lab
+phase: production
+order: 36
+tier: challenge
+estimatedMinutes: 25
+cloudCost: false
+costEstimate: "Free — a local Kubernetes cluster."
+destructive: true
+skills:
+  - "Form a hypothesis before injecting a failure"
+  - "Measure recovery rather than observing it"
+  - "Recognise a self-healing gap that only appears under failure"
+tools:
+  - "kind or minikube"
+  - "kubectl 1.28+"
+successCriteria:
+  - "A killed Pod is replaced automatically, and you measured how long it took."
+  - "You found at least one case where recovery did *not* happen as expected."
+  - "A PodDisruptionBudget prevents an eviction that would have caused an outage."
+  - "Each experiment had a written hypothesis before it was run."
+cleanup:
+  - "kubectl delete deployment web --ignore-not-found"
+  - "kubectl delete svc web --ignore-not-found"
+  - "kubectl delete pdb web --ignore-not-found"
+  - "kubectl uncordon --all"
+guidedLabId: lab-sre-chaos-failure-injection
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Chaos: Failure Injection & Recovery**, from an empty starting point,
+without the steps.
+
+The architecture diagram says the system is highly available. Nobody has tested it.
+
+Chaos engineering is not breaking things at random — it is stating what you believe will happen, then checking.
+
+## What must be true when you are done
+
+- A killed Pod is replaced automatically, and you measured how long it took.
+- You found at least one case where recovery did *not* happen as expected.
+- A PodDisruptionBudget prevents an eviction that would have caused an outage.
+- Each experiment had a written hypothesis before it was run.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

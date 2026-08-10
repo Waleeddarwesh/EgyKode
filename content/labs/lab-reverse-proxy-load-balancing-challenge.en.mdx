@@ -1,0 +1,61 @@
+---
+labId: lab-reverse-proxy-load-balancing-challenge
+title: "Reverse Proxy & Load Balancing with Nginx — Challenge"
+description: "Put a proxy in front of two backends, then break one and watch what the health check does about it."
+domain: networking
+level: intermediate
+type: lab
+phase: foundations
+order: 26
+tier: challenge
+estimatedMinutes: 25
+cloudCost: false
+costEstimate: "Free — Docker Compose on your own machine."
+skills:
+  - "Configure an upstream with more than one backend"
+  - "Forward the headers an application needs to see the real client"
+  - "Explain 502 versus 504 from the proxy's point of view"
+tools:
+  - "Docker"
+  - "Docker Compose"
+successCriteria:
+  - "Requests through the proxy reach both backends, demonstrated by repeated calls."
+  - "Stopping one backend does not produce errors for the client."
+  - "The backend can see the original client IP, not the proxy's."
+  - "You can produce a 502 and a 504 deliberately and explain the difference."
+cleanup:
+  - "docker compose down -v"
+  - "docker ps -a | grep http-echo   # should be empty"
+guidedLabId: lab-reverse-proxy-load-balancing
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Reverse Proxy & Load Balancing with Nginx**, from an empty starting point,
+without the steps.
+
+One application server is a single point of failure, and it also has to terminate TLS, serve static files and survive a restart.
+
+A reverse proxy in front solves all three — and introduces its own failure modes, which are the ones you will actually debug in Kubernetes later.
+
+## What must be true when you are done
+
+- Requests through the proxy reach both backends, demonstrated by repeated calls.
+- Stopping one backend does not produce errors for the client.
+- The backend can see the original client IP, not the proxy's.
+- You can produce a 502 and a 504 deliberately and explain the difference.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

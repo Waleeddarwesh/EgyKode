@@ -1,0 +1,174 @@
+---
+labId: lab-reverse-proxy-load-balancing
+title: "Reverse Proxy & Load Balancing with Nginx"
+description: "Put a proxy in front of two backends, then break one and watch what the health check does about it."
+domain: networking
+level: intermediate
+type: lab
+phase: foundations
+order: 26
+tier: guided
+estimatedMinutes: 50
+cloudCost: false
+costEstimate: "Free — Docker Compose on your own machine."
+skills:
+  - "Configure an upstream with more than one backend"
+  - "Forward the headers an application needs to see the real client"
+  - "Explain 502 versus 504 from the proxy's point of view"
+tools:
+  - "Docker"
+  - "Docker Compose"
+successCriteria:
+  - "Requests through the proxy reach both backends, demonstrated by repeated calls."
+  - "Stopping one backend does not produce errors for the client."
+  - "The backend can see the original client IP, not the proxy's."
+  - "You can produce a 502 and a 504 deliberately and explain the difference."
+cleanup:
+  - "docker compose down -v"
+  - "docker ps -a | grep http-echo   # should be empty"
+challengeId: lab-reverse-proxy-load-balancing-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+One application server is a single point of failure, and it also has to terminate TLS, serve static files and survive a restart.
+
+A reverse proxy in front solves all three — and introduces its own failure modes, which are the ones you will actually debug in Kubernetes later.
+## 1. Two backends and a proxy
+
+```yaml
+# compose.yaml
+services:
+  app1:
+    image: hashicorp/http-echo:1.0
+    command: ["-listen=:5678", "-text=backend one"]
+  app2:
+    image: hashicorp/http-echo:1.0
+    command: ["-listen=:5678", "-text=backend two"]
+  proxy:
+    image: nginx:1.27-alpine
+    ports: ["8080:80"]
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on: [app1, app2]
+```
+
+```nginx
+# nginx.conf
+upstream backend {
+    server app1:5678 max_fails=2 fail_timeout=10s;
+    server app2:5678 max_fails=2 fail_timeout=10s;
+}
+
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://backend;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_connect_timeout 2s;
+        proxy_read_timeout    5s;
+    }
+}
+```
+
+```bash
+docker compose up -d
+for i in $(seq 1 6); do curl -s localhost:8080; echo; done
+```
+
+You should see both backends. Nginx round-robins by default.
+
+## 2. Why those four headers matter
+
+Once a proxy is in front, the application no longer sees the client — it sees
+the proxy. Without these headers:
+
+- Every log line records the proxy's IP, so rate limiting and audit trails are
+  useless.
+- Redirects are built against the proxy's hostname.
+- The application thinks the request was HTTP, and redirect loops to HTTPS.
+
+`X-Forwarded-For` appends rather than replaces, so a chain of proxies is
+preserved. Your application must be configured to *trust* it — accepting it from
+anywhere lets a client forge their own IP.
+
+## 3. Kill a backend
+
+```bash
+docker compose stop app1
+for i in $(seq 1 6); do curl -s localhost:8080; echo; done
+```
+
+Every response now comes from `app2`. `max_fails=2 fail_timeout=10s` marks a
+backend unavailable after two failures and retries it ten seconds later — a
+passive health check, driven by real traffic rather than a separate probe.
+
+```bash
+docker compose start app1
+```
+
+## 4. Produce 502 and 504 on purpose
+
+```bash
+docker compose stop app1 app2
+curl -s -o /dev/null -w '%{http_code}\n' localhost:8080     # 502
+```
+
+**502** — the proxy could not get a usable response. Nothing was listening, or
+the connection was refused. The fault is behind the proxy.
+
+For a **504**, make a backend slow: with `proxy_read_timeout 5s`, a backend that
+takes ten seconds produces a gateway timeout. The backend is alive and simply
+too slow — a completely different investigation.
+
+| Code | Proxy is saying | Look at |
+| --- | --- | --- |
+| 502 | "I could not talk to the backend" | Is it running? Right port? |
+| 504 | "The backend did not answer in time" | Slow queries, timeouts, saturation |
+
+That distinction is exactly the one you will need for a Kubernetes Ingress,
+which is the same pattern with the proxy managed for you.
+
+```bash
+docker compose logs proxy | tail -5
+```
+
+The proxy's own log names the upstream it tried and why it failed. It is the
+first place to look, and the last place people look.
+
+## When it goes wrong
+
+**502 immediately, with both backends running**
+
+The upstream port is wrong, or the service name does not resolve on the Compose network. `docker compose exec proxy ping app1`.
+
+**All requests hit one backend**
+
+Keep-alive: the connection is reused. Nginx balances connections, not requests — use `curl -H 'Connection: close'`.
+
+**The application logs the proxy's IP**
+
+`X-Real-IP` is set but the application is not reading it, or does not trust it.
+
+**`host not found in upstream`**
+
+Nginx resolves upstream names at startup. If a backend was not up yet, the proxy fails to start — `depends_on` helps, a resolver is the robust fix.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+docker compose down -v
+docker ps -a | grep http-echo   # should be empty
+```
+
+**Cost of this lab:** Free — Docker Compose on your own machine.

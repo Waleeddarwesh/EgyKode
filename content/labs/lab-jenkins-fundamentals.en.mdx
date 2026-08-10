@@ -1,0 +1,173 @@
+---
+labId: lab-jenkins-fundamentals
+title: "Jenkins Fundamentals & Role-Based Access"
+description: "Run Jenkins in a container, build a job from a webhook, and stop every authenticated user being an administrator."
+domain: jenkins
+level: beginner
+type: lab
+phase: cicd
+order: 33
+tier: guided
+estimatedMinutes: 50
+cloudCost: false
+costEstimate: "Free — Jenkins in Docker on your own machine."
+skills:
+  - "Run Jenkins reproducibly with persistent state"
+  - "Trigger a build from a push rather than a button"
+  - "Grant permissions by role rather than to everyone"
+tools:
+  - "Docker"
+  - "Docker Compose"
+successCriteria:
+  - "Jenkins is running with its home directory on a named volume, surviving a container restart."
+  - "A job builds automatically when a commit is pushed."
+  - "Two users exist: one administrator, one read-only, verified by logging in as each."
+  - "The read-only user cannot start a build — demonstrated, not assumed."
+cleanup:
+  - "docker compose down"
+  - "# keep the volume, or remove it with:"
+  - "docker compose down -v"
+challengeId: lab-jenkins-fundamentals-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+Jenkins out of the box gives every authenticated user broad permissions, and its state lives inside a container that will be replaced.
+
+Neither is acceptable, and both are fixed before writing a single pipeline.
+> Grounded in the iVolve internship labs 21–23, which are procedures that have
+> actually been run rather than assembled from documentation.
+
+## 1. Jenkins that survives its container
+
+```yaml
+# compose.yaml
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    ports:
+      - "8080:8080"
+      - "50000:50000"      # agent port
+    volumes:
+      - jenkins_home:/var/jenkins_home
+    environment:
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+
+volumes:
+  jenkins_home:
+```
+
+```bash
+docker compose up -d
+docker compose exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+**`jenkins_home` on a named volume is the whole lab in one line.** Jobs,
+credentials, plugins and build history all live there. Without it, `docker
+compose down` destroys your CI server — which is how people end up with a
+Jenkins nobody dares upgrade.
+
+## 2. A job that builds on push
+
+Install **Git** and **Pipeline** plugins, then create a Pipeline job with:
+
+```groovy
+pipeline {
+  agent any
+
+  triggers {
+    githubPush()
+  }
+
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
+    stage('Build') {
+      steps { sh 'echo building; ls -la' }
+    }
+    stage('Test') {
+      steps { sh 'echo testing' }
+    }
+  }
+
+  post {
+    always  { echo "finished: ${currentBuild.currentResult}" }
+    failure { echo 'notify here' }
+  }
+}
+```
+
+For the webhook, GitHub must be able to reach Jenkins. Locally that means a
+tunnel:
+
+```bash
+# ngrok, cloudflared, or any tunnel
+ngrok http 8080
+# then GitHub -> Settings -> Webhooks -> https://<tunnel>/github-webhook/
+```
+
+The trailing slash on `/github-webhook/` is required. Without it GitHub gets a
+404 and the delivery shows red in the webhook's Recent Deliveries — which is the
+first place to look when pushes do not trigger builds.
+
+## 3. Role-based access
+
+Install **Role-based Authorization Strategy**, then
+**Manage Jenkins → Security → Authorization → Role-Based Strategy**.
+
+**Manage and Assign Roles → Manage Roles:**
+
+| Role | Pattern | Permissions |
+| --- | --- | --- |
+| `admin` | — | Overall/Administer |
+| `readonly` | — | Overall/Read, Job/Read, Job/Discover |
+
+Create two users under **Manage Users**, assign one to each, and then verify by
+logging in as the read-only user:
+
+- The **Build Now** button is absent, not merely disabled.
+- `Manage Jenkins` does not appear.
+
+**Verify by logging in, not by reading the matrix.** A permissions grid that
+looks right and behaves differently is the normal case, and the only proof is
+attempting the action.
+
+## 4. Why this comes before pipelines
+
+A Jenkins with `jenkins_home` in a container and every user an administrator
+will work perfectly until the day it does not — and then there is no history to
+consult and no way to tell who changed what. Both problems are ten minutes of
+configuration now and a rebuild later.
+
+## When it goes wrong
+
+**The webhook fires but no build starts**
+
+The job needs `githubPush()` in `triggers`, and the URL must end in `/github-webhook/`. Check Recent Deliveries in GitHub for the response code.
+
+**Locked out after enabling role-based strategy**
+
+No user has Overall/Administer. Edit `config.xml` in `jenkins_home` to set `<useSecurity>false</useSecurity>`, restart, and reconfigure.
+
+**Plugins disappear after a restart**
+
+`jenkins_home` is not on a volume. Everything Jenkins knows lives there.
+
+**`sh` steps fail with 'command not found'**
+
+The tool is not in the container. Either install it in a custom image or run the stage on an agent that has it.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+docker compose down
+# keep the volume, or remove it with:
+docker compose down -v
+```
+
+**Cost of this lab:** Free — Jenkins in Docker on your own machine.

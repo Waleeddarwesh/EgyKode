@@ -1,0 +1,165 @@
+---
+labId: lab-aws-vpc-console
+title: "AWS VPC Networking by Hand"
+description: "Build the network by hand so the Terraform version stops being magic — and find out what actually makes a subnet public."
+domain: aws
+level: beginner
+type: lab
+phase: cloud
+order: 10
+tier: guided
+estimatedMinutes: 55
+cloudCost: true
+costEstimate: "Free tier — a VPC, subnets, an Internet Gateway and one `t3.micro`. **No NAT Gateway is created**, deliberately: it is the one resource here that bills hourly."
+skills:
+  - "Explain what makes a subnet public, in terms of the route table"
+  - "Distinguish a security group from a NACL by their statefulness"
+  - "Reach an instance in a private subnet without a public IP"
+tools:
+  - "AWS CLI v2, configured"
+  - "An AWS account"
+successCriteria:
+  - "A VPC with one public and one private subnet exists, built by hand."
+  - "An instance in the public subnet is reachable over SSH; one in the private subnet is not."
+  - "You can state which single route makes the public subnet public."
+  - "You reached the private instance without giving it a public IP."
+cleanup:
+  - "aws ec2 terminate-instances --instance-ids <ids>"
+  - "aws ec2 delete-subnet --subnet-id <id>   # both subnets"
+  - "aws ec2 detach-internet-gateway --internet-gateway-id <igw> --vpc-id <vpc>"
+  - "aws ec2 delete-internet-gateway --internet-gateway-id <igw>"
+  - "aws ec2 delete-vpc --vpc-id <vpc>"
+  - "aws ec2 describe-vpcs --query 'Vpcs[?!IsDefault].VpcId'   # should be empty"
+challengeId: lab-aws-vpc-console-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+The Terraform VPC lab produces a working network in one command, which is the point of Terraform and also the problem: nothing about it explains why it works.
+
+Build the same thing by hand once, and every later `terraform apply` becomes readable.
+## 1. The VPC and two subnets
+
+```bash
+VPC=$(aws ec2 create-vpc --cidr-block 10.50.0.0/16 \
+  --query 'Vpc.VpcId' --output text)
+aws ec2 create-tags --resources $VPC --tags Key=Name,Value=lab-vpc
+
+PUB=$(aws ec2 create-subnet --vpc-id $VPC --cidr-block 10.50.1.0/24 \
+  --availability-zone us-east-1a --query 'Subnet.SubnetId' --output text)
+PRIV=$(aws ec2 create-subnet --vpc-id $VPC --cidr-block 10.50.2.0/24 \
+  --availability-zone us-east-1b --query 'Subnet.SubnetId' --output text)
+```
+
+At this point **both subnets are private**. Nothing distinguishes them yet — the
+names are a convention, not a setting.
+
+## 2. The one route that changes everything
+
+```bash
+IGW=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
+aws ec2 attach-internet-gateway --internet-gateway-id $IGW --vpc-id $VPC
+
+RT=$(aws ec2 create-route-table --vpc-id $VPC --query 'RouteTable.RouteTableId' --output text)
+aws ec2 create-route --route-table-id $RT \
+  --destination-cidr-block 0.0.0.0/0 --gateway-id $IGW
+aws ec2 associate-route-table --route-table-id $RT --subnet-id $PUB
+```
+
+**That `0.0.0.0/0 → igw` route is the entire difference.** A subnet is public
+because its route table sends unmatched traffic to an Internet Gateway. Nothing
+else about it changed.
+
+```bash
+aws ec2 describe-route-tables --route-table-ids $RT \
+  --query 'RouteTables[0].Routes' --output table
+```
+
+Routes match **most-specific-first**: traffic to `10.50.x.x` matches the `local`
+route and stays inside; anything else falls through to `0.0.0.0/0`.
+
+## 3. Security groups, and what stateful means
+
+```bash
+SG=$(aws ec2 create-security-group --group-name lab-ssh \
+  --description "SSH from my IP" --vpc-id $VPC --query 'GroupId' --output text)
+
+MYIP=$(curl -s https://checkip.amazonaws.com)
+aws ec2 authorize-security-group-ingress --group-id $SG \
+  --protocol tcp --port 22 --cidr ${MYIP}/32
+```
+
+There is no outbound rule here, and the SSH session still works. That is
+**statefulness**: the reply to an allowed inbound connection is permitted
+automatically.
+
+A NACL is stateless — allow inbound 22 and the reply is still dropped unless you
+also allow outbound on the ephemeral range. The symptom is a *hang*, not a
+refusal, which is why people debug the application instead of the network.
+
+## 4. Public and private instances
+
+```bash
+aws ec2 run-instances --image-id <al2023-ami> --instance-type t3.micro \
+  --subnet-id $PUB --security-group-ids $SG --associate-public-ip-address \
+  --key-name <your-key>
+
+aws ec2 run-instances --image-id <al2023-ami> --instance-type t3.micro \
+  --subnet-id $PRIV --security-group-ids $SG
+```
+
+The second has no public IP and no route to the internet. It is unreachable from
+outside and cannot reach out — which is correct, and inconvenient.
+
+## 5. Reaching the private instance without a NAT Gateway
+
+The obvious answer is a NAT Gateway, and it bills ~$32/month whether or not
+traffic flows. For a lab, use **SSM Session Manager** instead:
+
+```bash
+aws ssm start-session --target <private-instance-id>
+```
+
+It needs the SSM agent (present on Amazon Linux 2023), an instance profile with
+`AmazonSSMManagedInstanceCore`, and either internet egress or VPC endpoints. No
+inbound rule, no public IP, no bastion — and every session is logged, which a
+bastion host does not give you.
+
+**This is worth knowing beyond the lab.** A great many "we need a bastion" and
+"we need a NAT Gateway" requirements dissolve into SSM plus VPC endpoints, and
+that is a real monthly saving.
+
+## When it goes wrong
+
+**SSH times out to the public instance**
+
+Three candidates: no `0.0.0.0/0` route, no public IP assigned, or the security group does not allow your current address. Check in that order.
+
+**`delete-vpc` fails as in use**
+
+Dependencies must go first: instances, then subnets, then detach and delete the IGW.
+
+**The private instance cannot reach the internet**
+
+That is correct behaviour — there is no NAT Gateway. Use SSM, or VPC endpoints for AWS APIs.
+
+**SSM says the target is not connected**
+
+The instance needs the SSM instance profile and a path to the SSM endpoints. Check the instance profile first.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+aws ec2 terminate-instances --instance-ids <ids>
+aws ec2 delete-subnet --subnet-id <id>   # both subnets
+aws ec2 detach-internet-gateway --internet-gateway-id <igw> --vpc-id <vpc>
+aws ec2 delete-internet-gateway --internet-gateway-id <igw>
+aws ec2 delete-vpc --vpc-id <vpc>
+aws ec2 describe-vpcs --query 'Vpcs[?!IsDefault].VpcId'   # should be empty
+```
+
+**Cost of this lab:** Free tier — a VPC, subnets, an Internet Gateway and one `t3.micro`. **No NAT Gateway is created**, deliberately: it is the one resource here that bills hourly.

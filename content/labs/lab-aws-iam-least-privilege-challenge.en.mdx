@@ -1,0 +1,63 @@
+---
+labId: lab-aws-iam-least-privilege-challenge
+title: "AWS IAM & Least Privilege — Challenge"
+description: "Write a policy that grants exactly one action, prove what it blocks, and swap a long-lived key for a role."
+domain: aws
+level: beginner
+type: lab
+phase: cloud
+order: 9
+tier: challenge
+estimatedMinutes: 25
+cloudCost: false
+costEstimate: "Free — IAM users, roles and policies cost nothing."
+skills:
+  - "Read and write an IAM policy document"
+  - "Test a permission before shipping it, with the policy simulator"
+  - "Explain the difference between a trust policy and a permissions policy"
+tools:
+  - "AWS CLI v2, configured"
+  - "An AWS account"
+successCriteria:
+  - "A user can read one specific S3 bucket and nothing else, proven by an allowed call and a denied one."
+  - "You can explain why `s3:ListBucket` and `s3:GetObject` need different resource ARNs."
+  - "A role is assumed with `sts assume-role`, returning credentials that expire."
+  - "You can name what an explicit `Deny` does to an `Allow`."
+cleanup:
+  - "aws iam detach-user-policy --user-name lab-reader --policy-arn <arn>"
+  - "aws iam delete-policy --policy-arn <arn>"
+  - "aws iam delete-user --user-name lab-reader"
+  - "aws iam delete-role --role-name lab-reader-role"
+guidedLabId: lab-aws-iam-least-privilege
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **AWS IAM & Least Privilege**, from an empty starting point,
+without the steps.
+
+The application has an access key with `AdministratorAccess` because that made it work. Everybody knows it is wrong; nobody knows what it actually needs.
+
+This lab replaces it with a policy you can defend, and a role instead of a key.
+
+## What must be true when you are done
+
+- A user can read one specific S3 bucket and nothing else, proven by an allowed call and a denied one.
+- You can explain why `s3:ListBucket` and `s3:GetObject` need different resource ARNs.
+- A role is assumed with `sts assume-role`, returning credentials that expire.
+- You can name what an explicit `Deny` does to an `Allow`.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

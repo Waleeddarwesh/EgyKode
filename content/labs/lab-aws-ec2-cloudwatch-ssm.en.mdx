@@ -1,0 +1,177 @@
+---
+labId: lab-aws-ec2-cloudwatch-ssm
+title: "EC2 Operations: SSM, CloudWatch Logs & Metrics"
+description: "Operate an instance without SSH: run commands, ship logs, and alarm on something that matters."
+domain: aws
+level: intermediate
+type: lab
+phase: cloud
+order: 11
+tier: guided
+estimatedMinutes: 50
+cloudCost: true
+costEstimate: "Free tier — one `t3.micro`, and CloudWatch's free tier covers 5 GB of logs and 10 custom metrics. Leave the instance running and expect ~$8/month after the first year."
+skills:
+  - "Administer an instance with no inbound ports open"
+  - "Ship application logs to CloudWatch and query them"
+  - "Alarm on a symptom rather than on CPU"
+tools:
+  - "AWS CLI v2, configured"
+  - "An AWS account"
+successCriteria:
+  - "You ran a command on the instance with no SSH key and no inbound rule."
+  - "Application logs appear in a CloudWatch log group and you can query them."
+  - "An alarm exists on a metric that reflects user impact, and you can justify the threshold."
+  - "You can explain why the default EC2 metrics do not include memory or disk."
+cleanup:
+  - "aws ec2 terminate-instances --instance-ids <id>"
+  - "aws logs delete-log-group --log-group-name /egykode/lab/app"
+  - "aws cloudwatch delete-alarms --alarm-names egykode-lab-errors"
+  - "aws iam remove-role-from-instance-profile --instance-profile-name <p> --role-name <r>"
+  - "aws iam delete-instance-profile --instance-profile-name <p>"
+challengeId: lab-aws-ec2-cloudwatch-ssm-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+An instance has port 22 open to the world, a key everyone shares, and logs that exist only on its disk — so when it is replaced, the evidence goes with it.
+
+All three are avoidable, and the alternatives are free.
+## 1. An instance with no inbound ports
+
+```bash
+aws iam create-role --role-name lab-ec2-ssm \
+  --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
+
+aws iam attach-role-policy --role-name lab-ec2-ssm \
+  --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+aws iam attach-role-policy --role-name lab-ec2-ssm \
+  --policy-arn arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+
+aws iam create-instance-profile --instance-profile-name lab-ec2-ssm
+aws iam add-role-to-instance-profile --instance-profile-name lab-ec2-ssm --role-name lab-ec2-ssm
+```
+
+Launch with that profile and **no SSH ingress rule at all**, then:
+
+```bash
+aws ssm start-session --target <instance-id>
+
+aws ssm send-command --instance-ids <instance-id> \
+  --document-name "AWS-RunShellScript" \
+  --parameters 'commands=["uptime","df -h"]' \
+  --query 'Command.CommandId' --output text
+```
+
+`send-command` runs across many instances at once and records who ran what.
+That audit trail is something a shared SSH key can never provide.
+
+## 2. Ship the logs off the instance
+
+```bash
+sudo dnf install -y amazon-cloudwatch-agent
+```
+
+```json
+{
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/app/app.log",
+            "log_group_name": "/egykode/lab/app",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 7
+          }
+        ]
+      }
+    }
+  },
+  "metrics": {
+    "metrics_collected": {
+      "mem": { "measurement": ["mem_used_percent"] },
+      "disk": { "measurement": ["used_percent"], "resources": ["/"] }
+    }
+  }
+}
+```
+
+**`retention_in_days` is not optional.** A log group defaults to *never expire*,
+and CloudWatch Logs charges for storage — an unbounded log group is one of the
+quietest ways to accumulate a bill.
+
+**Why memory and disk are in there:** EC2's default metrics come from the
+hypervisor, which can see CPU, network and disk I/O but has no visibility inside
+the guest. Memory and filesystem usage require an agent. A great deal of
+"CloudWatch does not show memory" confusion is this, and only this.
+
+## 3. Query the logs
+
+```bash
+aws logs start-query \
+  --log-group-name /egykode/lab/app \
+  --start-time $(date -d '1 hour ago' +%s) --end-time $(date +%s) \
+  --query-string 'fields @timestamp, @message | filter @message like /ERROR/ | sort @timestamp desc | limit 20'
+```
+
+## 4. Alarm on something that matters
+
+```bash
+aws logs put-metric-filter \
+  --log-group-name /egykode/lab/app \
+  --filter-name errors \
+  --filter-pattern 'ERROR' \
+  --metric-transformations metricName=AppErrors,metricNamespace=EgyKode,metricValue=1
+
+aws cloudwatch put-metric-alarm \
+  --alarm-name egykode-lab-errors \
+  --metric-name AppErrors --namespace EgyKode \
+  --statistic Sum --period 300 --evaluation-periods 2 \
+  --threshold 10 --comparison-operator GreaterThanThreshold \
+  --treat-missing-data notBreaching
+```
+
+Two deliberate choices:
+
+- **`evaluation-periods 2`** — the condition must hold for two consecutive
+  windows. One bad minute during a deploy should not page anyone.
+- **`treat-missing-data notBreaching`** — no errors produces no data points, and
+  the default (`missing`) would leave the alarm in `INSUFFICIENT_DATA` forever.
+
+**Alarm on errors, not CPU.** CPU at 90% with happy users is not an incident;
+errors at 10 per five minutes is, whatever the CPU is doing.
+
+## When it goes wrong
+
+**The instance does not appear in Session Manager**
+
+Missing instance profile, or no path to the SSM endpoints. `aws ssm describe-instance-information` lists what SSM can actually see.
+
+**No logs arrive**
+
+The agent is not running, the file path is wrong, or the role lacks `CloudWatchAgentServerPolicy`. Check `/opt/aws/amazon-cloudwatch-agent/logs/`.
+
+**The alarm sits in INSUFFICIENT_DATA**
+
+A metric filter emits data points only when the pattern matches. Set `--treat-missing-data notBreaching`.
+
+**No memory metric**
+
+Expected. The hypervisor cannot see inside the guest — the agent provides it.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+aws ec2 terminate-instances --instance-ids <id>
+aws logs delete-log-group --log-group-name /egykode/lab/app
+aws cloudwatch delete-alarms --alarm-names egykode-lab-errors
+aws iam remove-role-from-instance-profile --instance-profile-name <p> --role-name <r>
+aws iam delete-instance-profile --instance-profile-name <p>
+```
+
+**Cost of this lab:** Free tier — one `t3.micro`, and CloudWatch's free tier covers 5 GB of logs and 10 custom metrics. Leave the instance running and expect ~$8/month after the first year.

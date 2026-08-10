@@ -1,0 +1,62 @@
+---
+labId: lab-jenkins-fundamentals-challenge
+title: "Jenkins Fundamentals & Role-Based Access — Challenge"
+description: "Run Jenkins in a container, build a job from a webhook, and stop every authenticated user being an administrator."
+domain: jenkins
+level: beginner
+type: lab
+phase: cicd
+order: 33
+tier: challenge
+estimatedMinutes: 25
+cloudCost: false
+costEstimate: "Free — Jenkins in Docker on your own machine."
+skills:
+  - "Run Jenkins reproducibly with persistent state"
+  - "Trigger a build from a push rather than a button"
+  - "Grant permissions by role rather than to everyone"
+tools:
+  - "Docker"
+  - "Docker Compose"
+successCriteria:
+  - "Jenkins is running with its home directory on a named volume, surviving a container restart."
+  - "A job builds automatically when a commit is pushed."
+  - "Two users exist: one administrator, one read-only, verified by logging in as each."
+  - "The read-only user cannot start a build — demonstrated, not assumed."
+cleanup:
+  - "docker compose down"
+  - "# keep the volume, or remove it with:"
+  - "docker compose down -v"
+guidedLabId: lab-jenkins-fundamentals
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Jenkins Fundamentals & Role-Based Access**, from an empty starting point,
+without the steps.
+
+Jenkins out of the box gives every authenticated user broad permissions, and its state lives inside a container that will be replaced.
+
+Neither is acceptable, and both are fixed before writing a single pipeline.
+
+## What must be true when you are done
+
+- Jenkins is running with its home directory on a named volume, surviving a container restart.
+- A job builds automatically when a commit is pushed.
+- Two users exist: one administrator, one read-only, verified by logging in as each.
+- The read-only user cannot start a build — demonstrated, not assumed.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

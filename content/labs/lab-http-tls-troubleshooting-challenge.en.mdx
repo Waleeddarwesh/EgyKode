@@ -1,0 +1,60 @@
+---
+labId: lab-http-tls-troubleshooting-challenge
+title: "HTTP & TLS Troubleshooting — Challenge"
+description: "Take a failing HTTPS request apart layer by layer: DNS, TCP, TLS, HTTP — and know which one broke."
+domain: networking
+level: intermediate
+type: lab
+phase: foundations
+order: 25
+tier: challenge
+estimatedMinutes: 25
+cloudCost: false
+costEstimate: "Free — uses public endpoints and a local container."
+skills:
+  - "Inspect a certificate chain and its expiry from the command line"
+  - "Separate a TLS failure from an HTTP failure"
+  - "Read `curl -v` output as a sequence of layers"
+tools:
+  - "curl"
+  - "openssl"
+  - "dig"
+  - "nc"
+successCriteria:
+  - "You can print a site's certificate subject, issuer and expiry without a browser."
+  - "You can state which layer failed for three different broken URLs."
+  - "You can explain what `SSL_ERROR_SYSCALL` and `certificate verify failed` each imply."
+  - "You can prove a port is reachable independently of whether TLS succeeds."
+guidedLabId: lab-http-tls-troubleshooting
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **HTTP & TLS Troubleshooting**, from an empty starting point,
+without the steps.
+
+"The site is down." It returns a certificate error in one browser, works in another, and curl fails with something different again.
+
+Each of those is a different layer, and the fix depends entirely on which one.
+
+## What must be true when you are done
+
+- You can print a site's certificate subject, issuer and expiry without a browser.
+- You can state which layer failed for three different broken URLs.
+- You can explain what `SSL_ERROR_SYSCALL` and `certificate verify failed` each imply.
+- You can prove a port is reachable independently of whether TLS succeeds.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

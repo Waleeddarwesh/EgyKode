@@ -1,0 +1,170 @@
+---
+labId: lab-sre-backup-disaster-recovery
+title: "Backup & Disaster Recovery Drill"
+description: "Lose the database on purpose, restore it, and write down the RTO and RPO you actually achieved."
+domain: sre
+level: advanced
+type: lab
+phase: production
+order: 35
+tier: guided
+estimatedMinutes: 55
+cloudCost: false
+costEstimate: "Free — runs locally with Docker Compose and PostgreSQL."
+destructive: true
+skills:
+  - "Verify a backup by restoring it, not by checking it exists"
+  - "Measure RTO and RPO rather than asserting them"
+  - "Write a runbook someone else can follow"
+tools:
+  - "Docker"
+  - "Docker Compose"
+  - "psql"
+successCriteria:
+  - "A backup is taken, verified, and restored into a clean database."
+  - "You can state the RTO you measured and the RPO your schedule implies."
+  - "The restore is driven by a written runbook, not by memory."
+  - "A deliberately corrupted backup is detected before it is trusted."
+cleanup:
+  - "docker compose down -v"
+  - "rm -rf backups /tmp/corrupt.dump"
+challengeId: lab-sre-backup-disaster-recovery-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+The backup job has reported success every night for eight months. Nobody has restored one.
+
+Today you find out whether it works — on a database you can afford to lose.
+> **This lab destroys a database on purpose.** Use the Compose stack below and
+> nothing that matters.
+
+## 1. Something to lose
+
+```yaml
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: labonly
+      POSTGRES_DB: shop
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
+```
+
+```sql
+CREATE TABLE orders (id serial PRIMARY KEY, customer text, total numeric, created_at timestamptz DEFAULT now());
+INSERT INTO orders (customer, total)
+  SELECT 'customer-' || i, i * 10 FROM generate_series(1, 5000) i;
+```
+
+## 2. A backup that verifies itself
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+STAMP=$(date +%Y-%m-%dT%H-%M-%S)
+OUT="backups/shop-${STAMP}.dump"
+mkdir -p backups
+
+# Custom format: compressed, and restorable selectively with pg_restore.
+docker compose exec -T db pg_dump -U postgres -Fc shop > "${OUT}.partial"
+
+size=$(stat -c %s "${OUT}.partial")
+[ "$size" -gt 4096 ] || { echo "FATAL: dump is ${size} bytes"; exit 1; }
+
+# Verify it parses before trusting it. This is the step that was missing for
+# eight months: every command exited 0 and the dump was empty.
+docker compose exec -T db pg_restore --list /dev/stdin < "${OUT}.partial" > /dev/null   || { echo "FATAL: dump is not readable by pg_restore"; exit 1; }
+
+mv "${OUT}.partial" "$OUT"
+echo "ok: $OUT ($size bytes)"
+```
+
+Three things make this a backup rather than a file:
+
+- **`.partial` then rename** — a rename is atomic, so an interrupted dump can
+  never be mistaken for a good one.
+- **A size floor** — an empty dump is a successful command and a failed backup.
+- **`pg_restore --list`** — proves the archive is readable. A corrupt dump that
+  nobody parses is discovered during the incident.
+
+## 3. The disaster
+
+```bash
+docker compose down -v      # the volume, and every byte in it, is gone
+docker compose up -d
+```
+
+**Start the timer.**
+
+## 4. Restore, from the runbook
+
+```bash
+docker compose exec -T db psql -U postgres -c "CREATE DATABASE shop;"
+docker compose exec -T db pg_restore -U postgres -d shop --no-owner < backups/shop-<stamp>.dump
+docker compose exec -T db psql -U postgres -d shop -c "SELECT count(*) FROM orders;"
+```
+
+Stop the timer. That number is your **RTO**, and it is the honest one — including
+the time you spent finding the right file and remembering the flags.
+
+## 5. Detect a corrupt backup
+
+```bash
+cp backups/shop-<stamp>.dump /tmp/corrupt.dump
+dd if=/dev/urandom of=/tmp/corrupt.dump bs=1 seek=500 count=200 conv=notrunc
+docker compose exec -T db pg_restore --list /dev/stdin < /tmp/corrupt.dump
+# pg_restore: error: did not find magic string in file header
+```
+
+Your backup script already runs that check. This is what it catches.
+
+## 6. Write the numbers down
+
+| | Definition | Yours |
+| --- | --- | --- |
+| **RTO** | Time from decision to service restored | measured above |
+| **RPO** | Maximum data loss, in time | your backup interval |
+
+A nightly backup means an RPO of up to 24 hours. If that is unacceptable, the
+answer is continuous archiving (WAL shipping), not a more frequent `pg_dump`.
+
+**The runbook is the deliverable**, not the script. Write the restore procedure
+so that someone who has never done it can follow it at 3am — then have someone
+else run it, because the only real test of a runbook is a person who did not
+write it.
+
+## When it goes wrong
+
+**`pg_restore` reports errors about ownership**
+
+Use `--no-owner`. Roles from the source database do not exist in a fresh instance.
+
+**The restore succeeds but the table is empty**
+
+You restored into the wrong database, or the dump was taken before the data existed. Check with `pg_restore --list`.
+
+**The backup file is a few hundred bytes**
+
+`pg_dump` failed and the shell still wrote a file. This is exactly what the size check catches.
+
+**Restore takes far longer than expected**
+
+That is the finding. A measured RTO that disappoints you is more useful than an assumed one that does not.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+docker compose down -v
+rm -rf backups /tmp/corrupt.dump
+```
+
+**Cost of this lab:** Free — runs locally with Docker Compose and PostgreSQL.

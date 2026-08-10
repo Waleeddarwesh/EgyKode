@@ -1,0 +1,135 @@
+---
+labId: lab-linux-processes-services-logs
+title: "Linux Processes, Services & Logs"
+description: "Find the process, read what it actually said, and restore a service that will not start."
+domain: linux
+level: beginner
+type: lab
+phase: foundations
+order: 23
+tier: guided
+estimatedMinutes: 45
+cloudCost: false
+costEstimate: "Free — any Linux machine, VM or container."
+skills:
+  - "Locate a process by port, name or open file"
+  - "Read a service's own logs rather than guessing from its status"
+  - "Tell a crash apart from a configuration error"
+tools:
+  - "Linux with systemd"
+  - "sudo access"
+successCriteria:
+  - "You can name the PID holding a given port, and the command that told you."
+  - "You can show the last 50 log lines for one service without reading the whole journal."
+  - "A deliberately broken service is diagnosed from its logs and restored."
+  - "You can explain the difference between `failed`, `inactive` and `activating`."
+challengeId: lab-linux-processes-services-logs-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+A service is down. `systemctl status` says `failed`, which tells you *that* it failed and nothing about why.
+
+This lab builds the sequence that gets from that word to the cause.
+## 1. What is running, and what holds the port
+
+```bash
+ps aux --sort=-%mem | head -10       # heaviest processes first
+sudo ss -ltnp | grep ':8080'         # who is listening
+sudo lsof -i :8080                   # the same, with more detail
+pgrep -a nginx                       # PIDs by name, with their command line
+```
+
+`ss -ltnp` is the one to memorise: **l**istening, **t**cp, **n**umeric, with the
+**p**rocess. If nothing is listening, the service is not running and the network
+was never involved.
+
+## 2. Ask systemd, then ask the application
+
+```bash
+systemctl status nginx               # what systemd thinks happened
+journalctl -u nginx -n 50 --no-pager # what the application said
+journalctl -u nginx -f               # follow it live
+journalctl -u nginx --since "10 min ago" -p err
+```
+
+`status` gives you the exit code and the last few lines. `journalctl -u` gives
+you everything the unit wrote. The second is where the cause usually is, and it
+is the step people skip.
+
+**The states mean different things:**
+
+| State | Means |
+| --- | --- |
+| `active (running)` | Working |
+| `inactive (dead)` | Stopped, and nothing tried to start it |
+| `failed` | It tried and exited non-zero — read the logs |
+| `activating` | Still starting, or stuck in a start loop |
+
+## 3. Break it, then fix it
+
+```bash
+sudo sed -i 's/^user /usr /' /etc/nginx/nginx.conf   # a deliberate typo
+sudo systemctl restart nginx
+systemctl status nginx
+```
+
+Now work it properly:
+
+```bash
+journalctl -u nginx -n 20 --no-pager
+sudo nginx -t                        # most services have a config test
+```
+
+`nginx -t` names the file and line. Many daemons have an equivalent — `sshd -t`,
+`apachectl configtest`, `postgres --check`. Reach for it before restarting
+anything, because a service that fails to start on a bad config will keep
+failing no matter how many times you restart it.
+
+```bash
+sudo sed -i 's/^usr /user /' /etc/nginx/nginx.conf
+sudo systemctl restart nginx && systemctl is-active nginx
+```
+
+## 4. Signals, and what a restart really does
+
+```bash
+sudo systemctl reload nginx          # SIGHUP — re-read config, keep connections
+sudo systemctl restart nginx         # stop then start — drops connections
+kill -TERM <pid>                     # ask politely
+kill -9 <pid>                        # last resort; no cleanup happens
+```
+
+`reload` and `restart` are not interchangeable. On a busy server `restart` drops
+every in-flight request; `reload` re-reads the configuration without doing so —
+if the service supports it.
+
+## 5. When the logs are empty
+
+```bash
+journalctl -u myapp --since today | wc -l
+sudo journalctl --disk-usage
+systemctl cat myapp | grep -E 'StandardOutput|StandardError'
+```
+
+A unit with `StandardOutput=null` writes nothing to the journal, and its output
+is wherever the application was told to put it. `systemctl cat` shows the unit
+as systemd actually sees it, including drop-ins you did not know existed.
+
+## When it goes wrong
+
+**`systemctl status` shows failed with no useful output**
+
+`journalctl -u <unit> -n 50` — status truncates. If that is empty too, check `StandardOutput` in `systemctl cat`.
+
+**The service restarts in a loop**
+
+`Restart=always` with a config error. Fix the config; the loop is systemd doing what it was told.
+
+**Port already in use**
+
+`sudo ss -ltnp | grep <port>` names the holder. Often an old instance that did not exit.
+
+**Changes to the unit file do nothing**
+
+`sudo systemctl daemon-reload` after editing a unit, then restart it.

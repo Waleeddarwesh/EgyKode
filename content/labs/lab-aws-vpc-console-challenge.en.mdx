@@ -1,0 +1,65 @@
+---
+labId: lab-aws-vpc-console-challenge
+title: "AWS VPC Networking by Hand — Challenge"
+description: "Build the network by hand so the Terraform version stops being magic — and find out what actually makes a subnet public."
+domain: aws
+level: beginner
+type: lab
+phase: cloud
+order: 10
+tier: challenge
+estimatedMinutes: 27
+cloudCost: true
+costEstimate: "Free tier — a VPC, subnets, an Internet Gateway and one `t3.micro`. **No NAT Gateway is created**, deliberately: it is the one resource here that bills hourly."
+skills:
+  - "Explain what makes a subnet public, in terms of the route table"
+  - "Distinguish a security group from a NACL by their statefulness"
+  - "Reach an instance in a private subnet without a public IP"
+tools:
+  - "AWS CLI v2, configured"
+  - "An AWS account"
+successCriteria:
+  - "A VPC with one public and one private subnet exists, built by hand."
+  - "An instance in the public subnet is reachable over SSH; one in the private subnet is not."
+  - "You can state which single route makes the public subnet public."
+  - "You reached the private instance without giving it a public IP."
+cleanup:
+  - "aws ec2 terminate-instances --instance-ids <ids>"
+  - "aws ec2 delete-subnet --subnet-id <id>   # both subnets"
+  - "aws ec2 detach-internet-gateway --internet-gateway-id <igw> --vpc-id <vpc>"
+  - "aws ec2 delete-internet-gateway --internet-gateway-id <igw>"
+  - "aws ec2 delete-vpc --vpc-id <vpc>"
+  - "aws ec2 describe-vpcs --query 'Vpcs[?!IsDefault].VpcId'   # should be empty"
+guidedLabId: lab-aws-vpc-console
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **AWS VPC Networking by Hand**, from an empty starting point,
+without the steps.
+
+The Terraform VPC lab produces a working network in one command, which is the point of Terraform and also the problem: nothing about it explains why it works.
+
+Build the same thing by hand once, and every later `terraform apply` becomes readable.
+
+## What must be true when you are done
+
+- A VPC with one public and one private subnet exists, built by hand.
+- An instance in the public subnet is reachable over SSH; one in the private subnet is not.
+- You can state which single route makes the public subnet public.
+- You reached the private instance without giving it a public IP.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?
