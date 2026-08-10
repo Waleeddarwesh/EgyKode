@@ -2174,8 +2174,8 @@
       "id": "github-actions-workflows",
       "area": "cicd",
       "domain": "github-actions",
-      "title": "GitHub Actions",
-      "titleAr": "GitHub Actions",
+      "title": "GitHub Actions Workflows",
+      "titleAr": "GitHub Actions Workflows",
       "coverage": "explained",
       "chapters": [
         "github-actions",

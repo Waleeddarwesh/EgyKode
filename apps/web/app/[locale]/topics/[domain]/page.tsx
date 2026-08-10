@@ -31,12 +31,39 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale, domain } = await params;
   if (!isLocale(locale)) return {};
-  const topic = getTopic(domain);
-  if (!topic.meta) return {};
   const isAr = locale === "ar";
+  const topic = getTopic(domain);
+
+  // `topic.meta` exists only for the dozen domain hubs. The other ~90 pages
+  // are generated topics, and returning {} for them meant they inherited the
+  // site's default <title> — 30 pages competing with the home page for the
+  // same string, which is the duplicate-title problem search engines punish.
+  const generated = topic.meta ? null : getGeneratedTopic(domain);
+  if (!topic.meta && !generated) return {};
+
+  const title = topic.meta
+    ? isAr
+      ? topic.meta.titleAr
+      : topic.meta.title
+    : isAr
+      ? generated!.titleAr
+      : generated!.title;
+
+  const description = topic.meta
+    ? isAr
+      ? topic.meta.blurbAr
+      : topic.meta.blurb
+    : `${title} on EgyKode — ${generated!.chapters.length} chapter(s) and ` +
+      `${generated!.labs.length} hands-on lab(s), with how it fails and the ` +
+      `trade-offs against the alternative.`;
+
   return {
-    title: isAr ? topic.meta.titleAr : topic.meta.title,
-    description: isAr ? topic.meta.blurbAr : topic.meta.blurb,
+    // A topic hub aggregates everything on a subject; the chapter of the same
+    // name is the canonical page for it. Without a distinguishing suffix the
+    // two compete for one title — "Troubleshooting · EgyKode" was on both —
+    // and a search result gives no clue which one to open.
+    title: `${title} — chapters & labs`,
+    description,
     alternates: {
       canonical: `/${locale}/topics/${domain}`,
       languages: languageAlternates((locale) => `/${locale}/topics/${domain}`),

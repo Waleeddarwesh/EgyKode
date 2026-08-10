@@ -37,7 +37,12 @@ if (sitemap.status !== 200) {
   console.error(`sitemap.xml returned ${sitemap.status}`);
   process.exit(1);
 }
-const urls = [...sitemap.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+// The sitemap carries absolute production URLs. Rewrite them onto the origin
+// being tested, or pointing this at localhost silently checks production and
+// reports a build you have not deployed yet as broken.
+const urls = [...sitemap.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) =>
+  m[1].replace(/^https?:\/\/[^/]+/, ORIGIN),
+);
 console.log(`crawling ${urls.length} URLs from ${ORIGIN}/sitemap.xml\n`);
 
 let done = 0;
