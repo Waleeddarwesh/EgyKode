@@ -1,0 +1,160 @@
+---
+labId: lab-helm-upgrade-rollback
+title: "Helm Upgrades, Rollbacks & Release Strategy"
+description: "Ship a release, break the next one on purpose, and get back to a working state in seconds."
+domain: helm
+level: intermediate
+type: lab
+phase: kubernetes
+order: 32
+tier: guided
+estimatedMinutes: 45
+cloudCost: false
+costTier: free
+costEstimate: "Free — kind or minikube."
+skills:
+  - "Upgrade with `--atomic` so a failed release rolls itself back"
+  - "Inspect release history and roll back to a known-good revision"
+  - "See what an upgrade would change before running it"
+tools:
+  - "Helm 3.14+"
+  - "kind or minikube"
+successCriteria:
+  - "Three revisions exist and `helm history` shows their status."
+  - "A deliberately broken upgrade does not leave the release broken."
+  - "You rolled back to a specific revision and verified the running image."
+  - "You can explain what `--atomic` does that `--wait` alone does not."
+cleanup:
+  - "helm uninstall demo -n demo"
+  - "kubectl delete namespace demo --ignore-not-found"
+challengeId: lab-helm-upgrade-rollback-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+The chart lab taught you to build a chart. This is the other 95% of the job: upgrading it, discovering the new version does not start, and getting back to the one that did — under time pressure.
+## 1. A release to operate
+
+```bash
+kubectl create namespace demo
+helm install demo oci://registry-1.docker.io/bitnamicharts/nginx \
+  -n demo --version 18.1.0 --wait
+helm list -n demo
+```
+
+## 2. History is the feature
+
+```bash
+helm history demo -n demo
+```
+
+```text
+REVISION  UPDATED       STATUS      CHART        APP VERSION  DESCRIPTION
+1         Mon Aug 10..  deployed    nginx-18.1.0 1.27.0       Install complete
+```
+
+Helm keeps every revision's rendered manifests and values in a Secret in the
+namespace. That is what makes rollback instant — nothing is rebuilt or
+re-fetched.
+
+## 3. See the change before making it
+
+```bash
+helm plugin install https://github.com/databus23/helm-diff
+helm diff upgrade demo oci://registry-1.docker.io/bitnamicharts/nginx \
+  -n demo --version 18.1.0 --set replicaCount=3
+```
+
+`helm upgrade` with no preview is the Terraform equivalent of applying without
+a plan. The diff shows exactly which fields change.
+
+## 4. Upgrade atomically
+
+```bash
+helm upgrade demo oci://registry-1.docker.io/bitnamicharts/nginx \
+  -n demo --version 18.1.0 --set replicaCount=3 \
+  --atomic --timeout 3m
+```
+
+| Flag | Does |
+| --- | --- |
+| `--wait` | Waits for resources to be ready, then reports failure |
+| `--atomic` | `--wait`, **and rolls back automatically if it fails** |
+| `--timeout` | How long to wait before calling it failed |
+
+**`--wait` tells you the release broke. `--atomic` un-breaks it.** The
+difference is whether a failed deploy at 5pm is an incident or a message.
+
+## 5. Break one deliberately
+
+```bash
+helm upgrade demo oci://registry-1.docker.io/bitnamicharts/nginx \
+  -n demo --version 18.1.0 \
+  --set image.tag=this-tag-does-not-exist \
+  --atomic --timeout 90s
+```
+
+The Pods never become ready, the timeout expires, and Helm rolls back on its
+own:
+
+```bash
+helm history demo -n demo      # a failed revision, then a rolled-back one
+kubectl get pods -n demo       # still serving the working image
+```
+
+The release history records the failure — which is what you want. A rollback
+that hides the attempt makes the postmortem harder.
+
+## 6. Roll back deliberately
+
+```bash
+helm rollback demo 1 -n demo --wait
+helm history demo -n demo
+kubectl get deploy -n demo -o jsonpath='{.items[0].spec.template.spec.containers[0].image}'
+```
+
+A rollback is itself a new revision, so history stays append-only and you can
+always move forward again.
+
+## 7. What to hold onto
+
+- **Never `helm upgrade` without `--atomic` in production.** The only reason to
+  omit it is when you want to inspect a broken state deliberately.
+- **Pin the chart version** with `--version`. An unpinned upgrade pulls whatever
+  is newest, so the same command does something different next week.
+- **`--reuse-values` is a trap.** It carries forward values from the previous
+  revision, including ones you meant to drop. `--reset-values` plus an explicit
+  values file is predictable; `-f values-prod.yaml` every time is better still.
+- `helm get values demo -n demo` shows what a release is *actually* running,
+  which is frequently not what the values file in Git says.
+
+## When it goes wrong
+
+**`another operation is in progress`**
+
+A previous run died holding the lock. `helm rollback demo <last-good>` usually clears it; `helm status` shows the pending state.
+
+**Rollback succeeds but the Pods do not change**
+
+The rollback restored the manifest, and a Pod may still be pulling. `kubectl rollout status` tells you when it has settled.
+
+**Values reappear that you removed**
+
+`--reuse-values` carried them forward. Use `--reset-values` with an explicit values file.
+
+**History is empty after an uninstall**
+
+`helm uninstall` removes it unless `--keep-history` was passed. There is nothing to roll back to.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+helm uninstall demo -n demo
+kubectl delete namespace demo --ignore-not-found
+```
+
+**Cost of this lab:** Free — kind or minikube.

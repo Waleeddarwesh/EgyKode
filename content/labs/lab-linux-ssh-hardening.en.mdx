@@ -1,0 +1,154 @@
+---
+labId: lab-linux-ssh-hardening
+title: "Linux Security & SSH Hardening"
+description: "Lock down SSH without locking yourself out, and know how to recover when you inevitably do."
+domain: linux
+level: beginner
+type: lab
+phase: foundations
+order: 24
+tier: guided
+estimatedMinutes: 45
+cloudCost: false
+costTier: free
+costEstimate: "Free — a VM, a container, or a spare machine."
+skills:
+  - "Move from password login to key-only authentication safely"
+  - "Grant administrative access without handing out root"
+  - "Verify a change from a second session before trusting it"
+tools:
+  - "A Linux host you can reach another way (console, snapshot, or a second VM)"
+successCriteria:
+  - "Key-based login works for a non-root administrative user."
+  - "Password authentication and direct root login are both refused."
+  - "You proved the new configuration in a second session before closing the first."
+  - "A firewall permits SSH and nothing else you did not intend."
+challengeId: lab-linux-ssh-hardening-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+A server is reachable on port 22 with password authentication and a shared root login. It is being scanned within minutes of being created — that is not paranoia, it is what the auth log shows.
+
+This lab closes it down. The order matters more than the settings: get it wrong and you lock yourself out of a machine you cannot physically reach.
+> **Keep your current session open until the very end.** Every step below is
+> verified from a *second* connection. If something is wrong, the first session
+> is the only way back in.
+
+## 1. An administrative user that is not root
+
+```bash
+sudo adduser --gecos "" deploy
+sudo usermod -aG sudo deploy        # wheel on RHEL
+sudo install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+```
+
+Root should not be a login account. Every action becomes anonymous the moment
+several people share one, and `sudo` records who did what.
+
+## 2. A key, and the permissions that make it work
+
+On your **own machine**:
+
+```bash
+ssh-keygen -t ed25519 -C "deploy@egykode" -f ~/.ssh/egykode
+ssh-copy-id -i ~/.ssh/egykode.pub deploy@<host>
+```
+
+Ed25519 over RSA: shorter, faster, and no key-size decision to get wrong.
+
+If `ssh-copy-id` is unavailable, the permissions are the whole trick:
+
+```bash
+sudo -u deploy mkdir -p /home/deploy/.ssh
+sudo -u deploy tee -a /home/deploy/.ssh/authorized_keys < key.pub
+sudo chmod 700 /home/deploy/.ssh
+sudo chmod 600 /home/deploy/.ssh/authorized_keys
+```
+
+**SSH silently ignores an `authorized_keys` it considers too permissive**, and
+logs nothing helpful. If key auth "does not work", check these two modes first.
+
+## 3. Prove the key works — before changing anything
+
+```bash
+# from a SECOND terminal, leaving the first connected
+ssh -i ~/.ssh/egykode deploy@<host> 'whoami && sudo -n true && echo "sudo ok"'
+```
+
+Do not proceed until this succeeds. This single step is the difference between
+a hardening exercise and a support ticket.
+
+## 4. Now close the doors
+
+```bash
+sudo tee /etc/ssh/sshd_config.d/99-hardening.conf <<'EOF'
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+MaxAuthTries 3
+AllowUsers deploy
+EOF
+
+sudo sshd -t          # ALWAYS test the config first
+sudo systemctl reload sshd
+```
+
+`sshd -t` parses the configuration without applying it. A typo here plus a
+`restart` is how a machine becomes unreachable — and `reload` keeps existing
+sessions alive, where `restart` does not.
+
+A drop-in under `sshd_config.d/` rather than editing `sshd_config` means a
+package upgrade cannot silently revert your changes.
+
+## 5. Verify from a third session
+
+```bash
+ssh -i ~/.ssh/egykode deploy@<host> 'echo ok'      # must succeed
+ssh -o PreferredAuthentications=password deploy@<host>   # must be refused
+ssh root@<host>                                     # must be refused
+```
+
+Only when all three behave should you close the original session.
+
+## 6. A firewall that allows what you actually use
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp
+sudo ufw enable
+sudo ufw status verbose
+```
+
+Add the SSH rule **before** enabling. `ufw enable` on a remote machine with no
+SSH rule disconnects you immediately, and it is the single most common way
+people lock themselves out.
+
+## 7. Read the log you just protected
+
+```bash
+sudo journalctl -u ssh --since "1 hour ago" | grep -ci "failed password"
+```
+
+Run this on any host that has been on the internet for a day. The number is
+usually in the thousands, and it is the argument for everything above.
+
+## When it goes wrong
+
+**Key auth fails with no useful error**
+
+Permissions. `~/.ssh` must be 700 and `authorized_keys` 600, owned by the user. `sudo journalctl -u ssh` shows 'Authentication refused: bad ownership'.
+
+**Locked out after reloading sshd**
+
+Use the provider's console or serial access, or attach the disk to another instance. This is why step 3 exists.
+
+**`ufw enable` disconnected you**
+
+The allow rule must come first. Recover via console, then `ufw allow 22/tcp`.
+
+**`sudo` asks for a password in scripts**
+
+Expected, and correct. Use a dedicated automation user with a narrowly scoped NOPASSWD rule rather than disabling it globally.

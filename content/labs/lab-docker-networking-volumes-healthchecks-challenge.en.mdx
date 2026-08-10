@@ -1,0 +1,63 @@
+---
+labId: lab-docker-networking-volumes-healthchecks-challenge
+title: "Docker Networking, Volumes & Health Checks — Challenge"
+description: "Make four containers find each other, keep data across a restart, and start in an order that actually works."
+domain: docker
+level: beginner
+type: lab
+phase: build-and-containers
+order: 11
+tier: challenge
+estimatedMinutes: 25
+cloudCost: false
+costTier: free
+costEstimate: "Free — Docker on your own machine."
+skills:
+  - "Reach one container from another by name"
+  - "Tell a bind mount from a volume, and pick correctly"
+  - "Use a health check to control startup order"
+tools:
+  - "Docker"
+  - "Docker Compose"
+successCriteria:
+  - "The application reaches PostgreSQL and Redis by service name, with no IP addresses anywhere."
+  - "Database data survives `docker compose down` and returns after `up`."
+  - "The application waits for the database to be *ready*, not merely started."
+  - "You can explain why two containers on different networks cannot see each other."
+cleanup:
+  - "docker compose down -v"
+  - "docker network rm isolated"
+  - "docker volume prune -f"
+guidedLabId: lab-docker-networking-volumes-healthchecks
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Docker Networking, Volumes & Health Checks**, from an empty starting point,
+without the steps.
+
+The application connects fine on your machine and fails in the pipeline with 'connection refused'. It starts before the database is ready, and everything it wrote last night is gone.
+
+These three problems are the same three you will meet again as Services, PersistentVolumes and readiness probes — which is why this lab sits before Kubernetes.
+
+## What must be true when you are done
+
+- The application reaches PostgreSQL and Redis by service name, with no IP addresses anywhere.
+- Database data survives `docker compose down` and returns after `up`.
+- The application waits for the database to be *ready*, not merely started.
+- You can explain why two containers on different networks cannot see each other.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

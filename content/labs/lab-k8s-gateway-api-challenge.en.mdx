@@ -1,0 +1,64 @@
+---
+labId: lab-k8s-gateway-api-challenge
+title: "From Ingress to Gateway API — Challenge"
+description: "Express the same routing twice — as an Ingress and as a Gateway — and see what the newer model actually fixes."
+domain: kubernetes
+level: intermediate
+type: lab
+phase: kubernetes
+order: 30
+tier: challenge
+estimatedMinutes: 25
+cloudCost: false
+costTier: free
+costEstimate: "Free — kind or minikube with a Gateway controller."
+skills:
+  - "Write a Gateway and an HTTPRoute for an existing Service"
+  - "Explain the role split Gateway API introduces"
+  - "Do a weighted traffic split without controller-specific annotations"
+tools:
+  - "kind or minikube"
+  - "kubectl 1.28+"
+  - "A Gateway API controller (Envoy Gateway or NGINX Gateway Fabric)"
+successCriteria:
+  - "The same application is reachable through an Ingress and through an HTTPRoute."
+  - "A weighted split sends traffic to two Services, with no annotations."
+  - "You can name two things Gateway API expresses that Ingress cannot."
+  - "You can explain who owns a Gateway versus who owns an HTTPRoute."
+cleanup:
+  - "kubectl delete namespace <ns> --ignore-not-found"
+  - "kubectl get all -A | grep -v kube-system"
+  - "kubectl delete gateway,httproute --all -A"
+guidedLabId: lab-k8s-gateway-api
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **From Ingress to Gateway API**, from an empty starting point,
+without the steps.
+
+Ingress is stable, everywhere, and feature-frozen. Everything it cannot express — header matching, traffic splitting, timeouts — moved into vendor annotations that mean different things on different controllers.
+
+Gateway API is the replacement. Learn Ingress first, because it is what existing clusters run; learn this, because new ones will not.
+
+## What must be true when you are done
+
+- The same application is reachable through an Ingress and through an HTTPRoute.
+- A weighted split sends traffic to two Services, with no annotations.
+- You can name two things Gateway API expresses that Ingress cannot.
+- You can explain who owns a Gateway versus who owns an HTTPRoute.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

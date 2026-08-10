@@ -1,0 +1,167 @@
+---
+labId: lab-aws-route53-acm-dns
+title: "Production DNS & TLS with Route 53 and ACM"
+description: "Take a site from an IP address to a real domain over HTTPS, with a certificate that renews itself."
+domain: aws
+level: intermediate
+type: lab
+phase: cloud
+order: 13
+tier: guided
+estimatedMinutes: 50
+cloudCost: true
+costTier: low
+costEstimate: "**Low.** A Route 53 hosted zone is $0.50/month and queries are fractions of a cent. ACM certificates are free. A domain, if you do not have one, is roughly $12/year."
+skills:
+  - "Choose between A, CNAME and ALIAS records deliberately"
+  - "Validate an ACM certificate by DNS and understand why it renews"
+  - "Plan a cutover around TTL instead of being surprised by it"
+tools:
+  - "AWS CLI v2, configured"
+  - "A domain you control"
+successCriteria:
+  - "The site answers on your domain over HTTPS with a valid certificate."
+  - "You can state why an ALIAS is used at the apex instead of a CNAME."
+  - "The certificate's validation record is present and you can explain why it must stay."
+  - "You can name the TTL on your record and what it means for a cutover."
+cleanup:
+  - "aws route53 list-resource-record-sets --hosted-zone-id <id>"
+  - "# Delete non-default records, then the zone (a hosted zone bills monthly):"
+  - "aws route53 delete-hosted-zone --id <id>"
+  - "aws acm delete-certificate --certificate-arn <arn>"
+challengeId: lab-aws-route53-acm-dns-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+The platform is reachable at `d3bbb7tnfglcfh.cloudfront.net`. That is fine for a test and unusable for anything real.
+
+This is the same work that put egykode.com in front of this page, including the mistake that cost an hour.
+## 1. A hosted zone
+
+```bash
+aws route53 create-hosted-zone --name example.com \
+  --caller-reference "$(date +%s)" \
+  --query 'DelegationSet.NameServers' --output table
+```
+
+Point your registrar's nameservers at those four. Until that propagates, Route
+53 is authoritative for a domain nobody asks it about.
+
+```bash
+dig NS example.com +short          # must return the Route 53 nameservers
+```
+
+## 2. A certificate, validated by DNS
+
+```bash
+ARN=$(aws acm request-certificate --domain-name example.com \
+  --subject-alternative-names "www.example.com" \
+  --validation-method DNS --region us-east-1 \
+  --query CertificateArn --output text)
+
+aws acm describe-certificate --certificate-arn "$ARN" --region us-east-1 \
+  --query 'Certificate.DomainValidationOptions[].ResourceRecord' --output table
+```
+
+**us-east-1 regardless of where anything else runs** — CloudFront only accepts
+certificates from that region, and a certificate in the wrong one simply does
+not appear in the console dropdown.
+
+Create the CNAME it prints, then:
+
+```bash
+aws acm wait certificate-validated --certificate-arn "$ARN" --region us-east-1
+```
+
+**Leave the validation record in place forever.** ACM re-checks it to renew
+automatically; delete it and the certificate silently stops renewing, which
+surfaces thirteen months later as an outage.
+
+## 3. The records
+
+```json
+{
+  "Changes": [{
+    "Action": "UPSERT",
+    "ResourceRecordSet": {
+      "Name": "example.com",
+      "Type": "A",
+      "AliasTarget": {
+        "HostedZoneId": "Z2FDTNDATAQYW2",
+        "DNSName": "d3bbb7tnfglcfh.cloudfront.net",
+        "EvaluateTargetHealth": false
+      }
+    }
+  }]
+}
+```
+
+| | `A` | `CNAME` | `ALIAS` |
+| --- | --- | --- | --- |
+| Points at | A fixed IP | Another name | An AWS resource |
+| Allowed at the apex | Yes | **No** | Yes |
+| Follows a changing target | No | Yes | Yes |
+| Query cost | — | Billed | **Free** |
+
+The apex restriction is not an AWS quirk: DNS forbids a CNAME alongside the
+`SOA` and `NS` records every zone apex must have. ALIAS is Route 53 resolving it
+internally, which is why it works there and a CNAME does not.
+
+`Z2FDTNDATAQYW2` is CloudFront's fixed hosted zone id — the same for every
+distribution, and worth recognising rather than looking up each time.
+
+## 4. Verify all four layers
+
+```bash
+dig example.com +short
+curl -sI https://example.com | head -3
+echo | openssl s_client -connect example.com:443 -servername example.com 2>/dev/null \
+  | openssl x509 -noout -subject -dates
+```
+
+## 5. TTL, and cutovers
+
+```bash
+dig example.com | grep -A1 "ANSWER SECTION"
+```
+
+The number before the record type is the remaining TTL. Resolvers everywhere
+will keep serving the old answer until it expires.
+
+**Lower the TTL a day before a migration, not during it.** Lowering it at
+cutover changes nothing for anyone already holding the old record at the old
+long TTL — which is the single most common DNS migration mistake.
+
+## When it goes wrong
+
+**The certificate stays `PENDING_VALIDATION`**
+
+The CNAME is wrong or proxied. Many DNS providers append the zone automatically — paste the name without it, and check with `dig`.
+
+**CloudFront will not offer your certificate**
+
+It is not in us-east-1. Certificates for CloudFront must be requested there whatever region your other resources use.
+
+**`CNAMEAlreadyExists` when adding the alias**
+
+Another distribution already claims that alternate name. Remove it there first.
+
+**Old content after the cutover**
+
+The TTL has not expired. `dig` shows the remaining seconds; nothing you change makes a cached answer expire sooner.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+aws route53 list-resource-record-sets --hosted-zone-id <id>
+# Delete non-default records, then the zone (a hosted zone bills monthly):
+aws route53 delete-hosted-zone --id <id>
+aws acm delete-certificate --certificate-arn <arn>
+```
+
+**Cost of this lab:** **Low.** A Route 53 hosted zone is $0.50/month and queries are fractions of a cent. ACM certificates are free. A domain, if you do not have one, is roughly $12/year.

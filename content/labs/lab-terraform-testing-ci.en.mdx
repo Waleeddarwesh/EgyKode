@@ -1,0 +1,176 @@
+---
+labId: lab-terraform-testing-ci
+title: "Terraform Validation, Linting & CI"
+description: "Build the gate that runs before every apply: format, validate, lint, scan, and a plan a human approves."
+domain: terraform
+level: intermediate
+type: lab
+phase: iac
+order: 14
+tier: guided
+estimatedMinutes: 50
+cloudCost: false
+costTier: free
+costEstimate: "Free — everything here runs without creating infrastructure. `plan` reads AWS but changes nothing."
+skills:
+  - "Chain the checks that catch a bad change before it reaches AWS"
+  - "Apply exactly the plan that was reviewed"
+  - "Detect drift on a schedule rather than during an incident"
+tools:
+  - "Terraform >= 1.6"
+  - "tflint"
+  - "trivy or checkov"
+  - "A GitHub repository"
+successCriteria:
+  - "`fmt`, `validate`, `tflint` and a security scan all run in CI on a pull request."
+  - "A misformatted or insecure change fails the pipeline — proven deliberately."
+  - "The apply consumes a saved plan artifact rather than re-planning."
+  - "A scheduled run reports drift when a resource is changed outside Terraform."
+challengeId: lab-terraform-testing-ci-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+Terraform runs from someone's laptop. Reviews read the HCL, not the plan, so nobody notices the `-/+` that would recreate the database until it happens.
+
+This lab puts the checks in front of the apply.
+## The order, and why
+
+```text
+fmt  →  validate  →  tflint  →  security scan  →  plan  →  review  →  apply
+```
+
+Cheapest first. `fmt` takes a second; a security scan takes twenty; `plan` calls
+AWS. Failing early means the expensive steps only run on changes that deserve
+them.
+
+## 1. The local checks
+
+```bash
+terraform fmt -check -recursive      # -check fails rather than rewriting
+terraform init -backend=false        # no state needed to validate syntax
+terraform validate
+```
+
+`-backend=false` matters in CI: validation needs no credentials and no state, so
+it can run on a pull request from a fork.
+
+## 2. Lint what `validate` cannot see
+
+```bash
+tflint --init
+tflint --recursive
+```
+
+`validate` checks syntax and types. `tflint` catches the things that are valid
+HCL and wrong anyway: a nonexistent instance type, a deprecated argument, a
+missing required tag.
+
+## 3. Scan for insecure defaults
+
+```bash
+trivy config --severity HIGH,CRITICAL --exit-code 1 .
+```
+
+Catches the classics — an unencrypted bucket, a security group open to
+`0.0.0.0/0`, public access left unblocked. `--exit-code 1` is what makes it a
+gate rather than a report.
+
+## 4. Plan as an artifact
+
+```bash
+terraform plan -out=tfplan -input=false
+terraform show -no-color tfplan > plan.txt
+```
+
+Then apply **exactly that**:
+
+```bash
+terraform apply -input=false tfplan
+```
+
+This is the important habit. Re-planning at apply time means the change that
+runs is not the change that was reviewed — the world may have moved in between.
+A saved plan cannot drift between approval and execution.
+
+## 5. The workflow
+
+```yaml
+name: terraform
+on:
+  pull_request:
+    paths: ["infrastructure/**"]
+  schedule:
+    - cron: "0 6 * * 1"      # weekly drift check
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+
+      - uses: terraform-linters/setup-tflint@v4
+      - run: tflint --recursive
+
+      - uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE }}
+          aws-region: us-east-1
+
+      - run: terraform init
+      - run: terraform plan -out=tfplan -no-color | tee plan.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: tfplan
+```
+
+**The plan role should be read-only.** A pull request from anywhere should be
+able to *show* you what it would do and never be able to do it.
+
+## 6. Drift detection
+
+```bash
+terraform plan -detailed-exitcode
+# 0 = no changes, 1 = error, 2 = drift
+```
+
+That exit code is designed for exactly this. On a schedule, `2` means someone
+changed AWS by hand — and finding that on a Monday morning is considerably
+better than finding it mid-incident, when you cannot tell whether the drift is
+the cause or a previous fix.
+
+## When it goes wrong
+
+**`fmt -check` fails and you cannot see why**
+
+`terraform fmt -diff -recursive` prints the exact change it wants.
+
+**`validate` fails in CI, passes locally**
+
+A different Terraform version. Pin it with `setup-terraform`'s `terraform_version`.
+
+**The scanner flags something you accept**
+
+Suppress it inline with a documented reason. A blanket `--skip` teaches everyone to ignore the tool.
+
+**The saved plan is rejected at apply**
+
+State moved since the plan. That is the protection working — re-plan and review again.

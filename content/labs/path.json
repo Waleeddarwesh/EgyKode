@@ -12,6 +12,7 @@
       "labs": [
         "lab-20-linux-server-administration",
         "lab-linux-processes-services-logs",
+        "lab-linux-ssh-hardening",
         "lab-21-linux-networking-troubleshooting",
         "lab-22-bash-automation-backup-healthcheck",
         "lab-23-git-branching-collaboration",
@@ -27,6 +28,7 @@
       "milestone": "The application runs locally in production-shaped containers, behind a reverse proxy, over TLS.",
       "labs": [
         "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn",
+        "lab-docker-networking-volumes-healthchecks",
         "lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack",
         "lab-reverse-proxy-load-balancing",
         "lab-http-tls-troubleshooting"
@@ -42,6 +44,7 @@
         "lab-aws-iam-least-privilege",
         "lab-aws-vpc-console",
         "lab-24-s3-cloudfront-static-site",
+        "lab-aws-route53-acm-dns",
         "lab-aws-ec2-cloudwatch-ssm",
         "lab-aws-rds-backup-restore"
       ]
@@ -60,17 +63,19 @@
         "lab-02-iam-roles-irsa-policies-security-groups",
         "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
-        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault"
+        "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
+        "lab-terraform-testing-ci"
       ]
     },
     {
       "id": "config",
       "number": "05",
       "title": "Configuration management",
-      "why": "Terraform builds the machines; something has to configure them. Ansible is where a fresh server becomes a working one without anyone logging in.",
-      "milestone": "A new server is provisioned and configured with no manual steps, repeatably.",
+      "why": "Terraform builds the machines; something has to configure them. Ansible is where a fresh server becomes a working one without anyone logging in — and where you learn why running it twice has to be safe.",
+      "milestone": "A new server is provisioned and configured with no manual steps, and a second run changes nothing.",
       "labs": [
         "lab-07-ansible-architecture-configuration-automated-inventory",
+        "lab-ansible-roles-idempotency",
         "lab-08-automated-jenkins-server-toolchain-provisioning"
       ]
     },
@@ -79,7 +84,7 @@
       "number": "06",
       "title": "Kubernetes",
       "why": "The application already runs in containers and the infrastructure already exists. Now there is an actual reason for an orchestrator — and the objects come before the cluster, so the cluster is not the first thing you meet.",
-      "milestone": "The application runs on Kubernetes with storage, routing, network policy and autoscaling.",
+      "milestone": "The application runs on Kubernetes with storage, routing, scoped permissions, network policy and autoscaling.",
       "labs": [
         "lab-k8s-workloads",
         "lab-k8s-services",
@@ -87,6 +92,8 @@
         "lab-11-core-kubernetes-workloads-configmaps-secrets",
         "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
         "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+        "lab-k8s-gateway-api",
+        "lab-k8s-rbac-service-accounts",
         "lab-13-kubernetes-security-hardening-networkpolicies-hpa"
       ]
     },
@@ -95,9 +102,10 @@
       "number": "07",
       "title": "Packaging",
       "why": "A directory of manifests is not a release. Helm turns what you have built into something installable, upgradeable and rollback-able across environments.",
-      "milestone": "The application installs from a versioned chart, with per-environment values.",
+      "milestone": "The application installs from a versioned chart, upgrades safely, and rolls back in seconds.",
       "labs": [
         "lab-14-creating-a-custom-helm-chart-for-django-microservices",
+        "lab-helm-upgrade-rollback",
         "lab-15-managing-eks-cluster-add-ons-with-helm-irsa"
       ]
     },
@@ -110,18 +118,20 @@
       "labs": [
         "lab-jenkins-fundamentals",
         "lab-jenkins-docker-pipeline",
-        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy"
+        "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
+        "lab-github-actions-ecr-eks"
       ]
     },
     {
       "id": "observability",
       "number": "09",
       "title": "Observability",
-      "why": "You now have something running that people depend on. Being able to answer 'is it healthy, and how would I know' is what separates a deployment from an operated system.",
-      "milestone": "Metrics, dashboards and alerts exist, and the alerts are ones a human can act on.",
+      "why": "You now have something running that people depend on. Metrics tell you that something broke; logs tell you why. Being able to answer both is what separates a deployment from an operated system.",
+      "milestone": "Metrics, logs, dashboards and alerts exist — and the alerts are ones a human can act on.",
       "labs": [
         "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
-        "lab-18-custom-prometheus-alert-rules-grafana-dashboards"
+        "lab-18-custom-prometheus-alert-rules-grafana-dashboards",
+        "lab-loki-centralized-logging"
       ]
     },
     {
@@ -129,14 +139,16 @@
       "number": "10",
       "title": "Operating it",
       "why": "The part most curricula skip. Anyone can deploy a system on a good day — this phase is about the bad ones, where nobody tells you what broke.",
-      "milestone": "You have diagnosed failures you did not cause, restored data you deleted, and measured your own recovery time.",
+      "milestone": "You have diagnosed failures you did not cause, recovered state you deleted, taken a node out of service without an outage, and built the whole platform once with no instructions.",
       "labs": [
         "lab-incident-crashloopbackoff",
         "lab-incident-ingress-502",
         "lab-incident-cluster-dns",
         "lab-sre-backup-disaster-recovery",
         "lab-sre-chaos-failure-injection",
-        "lab-19-full-platform-operations-security-troubleshooting-guide"
+        "lab-terraform-state-recovery",
+        "lab-k8s-node-drain-upgrade",
+        "lab-19-production-capstone"
       ]
     }
   ]

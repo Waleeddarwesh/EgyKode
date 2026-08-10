@@ -1,0 +1,193 @@
+---
+labId: lab-terraform-state-recovery
+title: "Terraform Drift & State Recovery"
+description: "Someone changed AWS by hand and someone else deleted the state. Recover from both without rebuilding anything."
+domain: terraform
+level: advanced
+type: lab
+phase: production
+order: 41
+tier: guided
+estimatedMinutes: 55
+cloudCost: true
+costTier: low
+costEstimate: "Free tier — the exercises use an S3 bucket and a `t3.micro`. Nothing here bills hourly beyond the instance."
+destructive: true
+skills:
+  - "Detect drift and decide whether to adopt or revert it"
+  - "Import an existing resource into state"
+  - "Recover a state file from a versioned backend"
+tools:
+  - "Terraform >= 1.6"
+  - "AWS CLI v2, configured"
+successCriteria:
+  - "You detected a manual change and can explain both ways to resolve it."
+  - "A resource created outside Terraform is imported and `plan` reports no changes."
+  - "A deleted state file is restored from S3 versioning and matches reality."
+  - "Nothing was destroyed and recreated during any of it."
+cleanup:
+  - "terraform destroy -auto-approve"
+  - "aws s3 ls | grep tfstate-recovery"
+challengeId: lab-terraform-state-recovery-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+Someone widened a security group in the console during an incident. Someone else ran `terraform apply` a week later and closed it again, causing a second incident.
+
+Then the state file was deleted.
+
+All three are recoverable. None of them require rebuilding the infrastructure — which is what people do when they do not know these commands.
+> **This lab deletes state and modifies resources on purpose.** Use a scratch
+> configuration, never a real environment.
+
+## 1. Drift, detected
+
+```bash
+terraform apply -auto-approve
+aws ec2 authorize-security-group-ingress --group-id <sg> \
+  --protocol tcp --port 8080 --cidr 0.0.0.0/0      # the "incident fix"
+
+terraform plan -detailed-exitcode
+echo "exit: $?"        # 2 = drift
+```
+
+```text
+  ~ resource "aws_security_group" "demo" {
+      ~ ingress { - from_port = 8080 ... }
+    }
+```
+
+**Two legitimate responses, and choosing wrongly causes the second incident:**
+
+- **Revert** — `terraform apply` removes the rule. Correct when the manual
+  change was a mistake.
+- **Adopt** — put the rule in the configuration. Correct when it was a real fix
+  that must survive.
+
+Never resolve it by running `apply` without reading the plan. That is what
+closed the port again at the worst moment.
+
+`-detailed-exitcode` returns `2` for drift, which is designed for a scheduled
+job — finding drift on a Monday is much better than finding it mid-incident.
+
+## 2. A resource Terraform does not know about
+
+```bash
+aws s3api create-bucket --bucket tfstate-recovery-demo-$(date +%s)   # by hand
+```
+
+Adding a matching `resource` block and applying fails: the bucket exists and
+Terraform tries to create it. Import instead:
+
+```hcl
+resource "aws_s3_bucket" "adopted" {
+  bucket = "tfstate-recovery-demo-1234567890"
+}
+```
+
+```bash
+terraform import aws_s3_bucket.adopted tfstate-recovery-demo-1234567890
+terraform plan      # must report: No changes
+```
+
+That `No changes` is the test. If the plan wants to modify something, your
+configuration does not match reality yet — keep editing until it does, and
+resist the temptation to `apply` your way there.
+
+Terraform 1.5+ can do this declaratively, which is reviewable:
+
+```hcl
+import {
+  to = aws_s3_bucket.adopted
+  id = "tfstate-recovery-demo-1234567890"
+}
+```
+
+## 3. The state file is gone
+
+```bash
+aws s3 rm s3://<state-bucket>/demo/terraform.tfstate      # simulate it
+terraform plan
+# wants to create everything — it has lost all memory
+```
+
+**Do not apply.** That builds a second copy of everything you already have.
+
+```bash
+aws s3api list-object-versions --bucket <state-bucket> \
+  --prefix demo/terraform.tfstate \
+  --query 'Versions[].[VersionId,LastModified]' --output table
+
+aws s3api get-object --bucket <state-bucket> \
+  --key demo/terraform.tfstate --version-id <id> restored.tfstate
+
+aws s3 cp restored.tfstate s3://<state-bucket>/demo/terraform.tfstate
+terraform plan      # No changes
+```
+
+**This is why the bootstrap stack enables versioning on the state bucket.** A
+delete leaves a delete marker and the object is still there. Without versioning,
+the only recovery is importing every resource by hand.
+
+## 4. Refactoring without destroying
+
+Renaming a resource in your configuration makes Terraform plan a destroy and a
+create — same infrastructure, different address:
+
+```bash
+terraform state mv aws_instance.web aws_instance.frontend
+terraform plan      # No changes
+```
+
+`state mv` updates the map only. No AWS API call touches the resource, so a
+rename costs nothing and no downtime.
+
+```bash
+terraform state list
+terraform state show aws_instance.frontend
+terraform state rm aws_instance.frontend   # forget it WITHOUT deleting it
+```
+
+`state rm` is the one to be careful with: Terraform forgets the resource and it
+keeps running and billing, invisible to your configuration. It is the right tool
+for handing a resource to another stack, and a good way to create an orphan by
+accident.
+
+## 5. Habits worth keeping
+
+- Versioning **and** locking on the state bucket, always.
+- `-detailed-exitcode` on a schedule, so drift finds you rather than the reverse.
+- `plan -out` then `apply` that file, so what runs is what was reviewed.
+- Before anything risky: `terraform state pull > backup.tfstate`.
+
+## When it goes wrong
+
+**`import` says the resource already exists in state**
+
+It is already tracked under some address. `terraform state list` to find it.
+
+**`plan` still shows changes after import**
+
+Your configuration does not match the real resource. Edit until the plan is empty — do not apply your way there.
+
+**No versions in the state bucket**
+
+Versioning was not enabled. There is no recovery beyond importing everything; enable it now on every state bucket you own.
+
+**`state mv` reports the address does not exist**
+
+Addresses are exact, including index keys such as `[0]` or `["us-east-1a"]`. Copy them from `terraform state list` rather than typing them.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+terraform destroy -auto-approve
+aws s3 ls | grep tfstate-recovery
+```
+
+**Cost of this lab:** Free tier — the exercises use an S3 bucket and a `t3.micro`. Nothing here bills hourly beyond the instance.

@@ -1,0 +1,60 @@
+---
+labId: lab-helm-upgrade-rollback-challenge
+title: "Helm Upgrades, Rollbacks & Release Strategy — Challenge"
+description: "Ship a release, break the next one on purpose, and get back to a working state in seconds."
+domain: helm
+level: intermediate
+type: lab
+phase: kubernetes
+order: 32
+tier: challenge
+estimatedMinutes: 22
+cloudCost: false
+costTier: free
+costEstimate: "Free — kind or minikube."
+skills:
+  - "Upgrade with `--atomic` so a failed release rolls itself back"
+  - "Inspect release history and roll back to a known-good revision"
+  - "See what an upgrade would change before running it"
+tools:
+  - "Helm 3.14+"
+  - "kind or minikube"
+successCriteria:
+  - "Three revisions exist and `helm history` shows their status."
+  - "A deliberately broken upgrade does not leave the release broken."
+  - "You rolled back to a specific revision and verified the running image."
+  - "You can explain what `--atomic` does that `--wait` alone does not."
+cleanup:
+  - "helm uninstall demo -n demo"
+  - "kubectl delete namespace demo --ignore-not-found"
+guidedLabId: lab-helm-upgrade-rollback
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Helm Upgrades, Rollbacks & Release Strategy**, from an empty starting point,
+without the steps.
+
+The chart lab taught you to build a chart. This is the other 95% of the job: upgrading it, discovering the new version does not start, and getting back to the one that did — under time pressure.
+
+## What must be true when you are done
+
+- Three revisions exist and `helm history` shows their status.
+- A deliberately broken upgrade does not leave the release broken.
+- You rolled back to a specific revision and verified the running image.
+- You can explain what `--atomic` does that `--wait` alone does not.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

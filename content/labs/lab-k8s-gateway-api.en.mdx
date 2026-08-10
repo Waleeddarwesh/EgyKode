@@ -1,0 +1,203 @@
+---
+labId: lab-k8s-gateway-api
+title: "From Ingress to Gateway API"
+description: "Express the same routing twice — as an Ingress and as a Gateway — and see what the newer model actually fixes."
+domain: kubernetes
+level: intermediate
+type: lab
+phase: kubernetes
+order: 30
+tier: guided
+estimatedMinutes: 50
+cloudCost: false
+costTier: free
+costEstimate: "Free — kind or minikube with a Gateway controller."
+skills:
+  - "Write a Gateway and an HTTPRoute for an existing Service"
+  - "Explain the role split Gateway API introduces"
+  - "Do a weighted traffic split without controller-specific annotations"
+tools:
+  - "kind or minikube"
+  - "kubectl 1.28+"
+  - "A Gateway API controller (Envoy Gateway or NGINX Gateway Fabric)"
+successCriteria:
+  - "The same application is reachable through an Ingress and through an HTTPRoute."
+  - "A weighted split sends traffic to two Services, with no annotations."
+  - "You can name two things Gateway API expresses that Ingress cannot."
+  - "You can explain who owns a Gateway versus who owns an HTTPRoute."
+cleanup:
+  - "kubectl delete namespace <ns> --ignore-not-found"
+  - "kubectl get all -A | grep -v kube-system"
+  - "kubectl delete gateway,httproute --all -A"
+challengeId: lab-k8s-gateway-api-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+Ingress is stable, everywhere, and feature-frozen. Everything it cannot express — header matching, traffic splitting, timeouts — moved into vendor annotations that mean different things on different controllers.
+
+Gateway API is the replacement. Learn Ingress first, because it is what existing clusters run; learn this, because new ones will not.
+## 1. Install a controller and the CRDs
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.1.0/standard-install.yaml
+helm install eg oci://docker.io/envoyproxy/gateway-helm --version v1.1.0 -n envoy-gateway-system --create-namespace
+kubectl get gatewayclass
+```
+
+Gateway API ships as CRDs, not as part of core Kubernetes. Nothing works until
+both the CRDs and a controller implementing them are present.
+
+## 2. The same routing, both ways
+
+**Ingress — one object, one owner:**
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /     # controller-specific
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: web, port: { number: 80 } }
+```
+
+**Gateway API — two objects, two owners:**
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: platform
+spec:
+  gatewayClassName: eg
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All          # which namespaces may attach routes
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: web
+spec:
+  parentRefs:
+    - name: platform
+  hostnames: ["app.example.com"]
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: / }
+      backendRefs:
+        - name: web
+          port: 80
+```
+
+**That split is the entire point.** A platform team owns the `Gateway` — the
+listeners, the certificates, which namespaces may attach. Application teams own
+their `HTTPRoute` and can change their own routing without touching shared
+infrastructure or asking anyone.
+
+Under Ingress, both live in one object, so either everyone edits the shared
+routing or nobody can change their own.
+
+## 3. What Ingress cannot express
+
+```yaml
+  rules:
+    # Header matching — an annotation on every controller, if it exists at all
+    - matches:
+        - headers:
+            - name: x-canary
+              value: "true"
+      backendRefs:
+        - name: web-canary
+          port: 80
+
+    # A weighted split, in the spec itself
+    - backendRefs:
+        - name: web
+          port: 80
+          weight: 90
+        - name: web-canary
+          port: 80
+          weight: 10
+```
+
+```bash
+for i in $(seq 1 20); do curl -s -H "Host: app.example.com" http://<gw-ip>/; done | sort | uniq -c
+```
+
+Roughly 90/10. Doing that with Ingress requires controller-specific annotations
+that do not port between NGINX, Traefik and ALB — which is exactly the
+fragmentation Gateway API exists to end.
+
+## 4. The comparison
+
+| | Ingress | Gateway API |
+| --- | --- | --- |
+| Objects | One | `GatewayClass` → `Gateway` → `*Route` |
+| Ownership | Single team | Platform / application split |
+| Header, method, query matching | Annotations | Typed fields |
+| Traffic splitting | Annotations | `weight` |
+| Protocols | HTTP(S) | HTTP, TCP, UDP, TLS, gRPC |
+| Portability | Annotations differ per controller | Conformance-tested |
+| Status | Frozen | Actively developed |
+
+## 5. Migrating
+
+Both can run at once, on different hostnames or different controllers. The
+sensible path is a new Gateway alongside the existing Ingress, one route moved
+at a time, with DNS as the switch.
+
+```bash
+kubectl get gateway platform -o jsonpath='{.status.conditions}' | jq
+kubectl get httproute web -o jsonpath='{.status.parents}' | jq
+```
+
+**Read the status, not just the spec.** An HTTPRoute whose `parentRef` is not
+accepted reports `Accepted: False` with a reason — and unlike an Ingress that
+silently does nothing, it tells you why.
+
+## When it goes wrong
+
+**`no matches for kind Gateway`**
+
+The CRDs are not installed. They ship separately from Kubernetes.
+
+**The Gateway has no address**
+
+No controller is watching that `gatewayClassName`, or it is waiting on a LoadBalancer. `kubectl describe gateway` shows the condition.
+
+**HTTPRoute exists but nothing routes**
+
+Check `status.parents` — the Gateway's `allowedRoutes` may not permit that namespace.
+
+**The weighted split looks wrong**
+
+Weights are statistical, not per-request, and keep-alive reuses connections. Send more requests without keep-alive.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+kubectl delete namespace <ns> --ignore-not-found
+kubectl get all -A | grep -v kube-system
+kubectl delete gateway,httproute --all -A
+```
+
+**Cost of this lab:** Free — kind or minikube with a Gateway controller.

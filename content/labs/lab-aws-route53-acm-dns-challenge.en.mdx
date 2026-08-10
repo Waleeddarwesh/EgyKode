@@ -1,0 +1,64 @@
+---
+labId: lab-aws-route53-acm-dns-challenge
+title: "Production DNS & TLS with Route 53 and ACM — Challenge"
+description: "Take a site from an IP address to a real domain over HTTPS, with a certificate that renews itself."
+domain: aws
+level: intermediate
+type: lab
+phase: cloud
+order: 13
+tier: challenge
+estimatedMinutes: 25
+cloudCost: true
+costTier: low
+costEstimate: "**Low.** A Route 53 hosted zone is $0.50/month and queries are fractions of a cent. ACM certificates are free. A domain, if you do not have one, is roughly $12/year."
+skills:
+  - "Choose between A, CNAME and ALIAS records deliberately"
+  - "Validate an ACM certificate by DNS and understand why it renews"
+  - "Plan a cutover around TTL instead of being surprised by it"
+tools:
+  - "AWS CLI v2, configured"
+  - "A domain you control"
+successCriteria:
+  - "The site answers on your domain over HTTPS with a valid certificate."
+  - "You can state why an ALIAS is used at the apex instead of a CNAME."
+  - "The certificate's validation record is present and you can explain why it must stay."
+  - "You can name the TTL on your record and what it means for a cutover."
+cleanup:
+  - "aws route53 list-resource-record-sets --hosted-zone-id <id>"
+  - "# Delete non-default records, then the zone (a hosted zone bills monthly):"
+  - "aws route53 delete-hosted-zone --id <id>"
+  - "aws acm delete-certificate --certificate-arn <arn>"
+guidedLabId: lab-aws-route53-acm-dns
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Production DNS & TLS with Route 53 and ACM**, from an empty starting point,
+without the steps.
+
+The platform is reachable at `d3bbb7tnfglcfh.cloudfront.net`. That is fine for a test and unusable for anything real.
+
+This is the same work that put egykode.com in front of this page, including the mistake that cost an hour.
+
+## What must be true when you are done
+
+- The site answers on your domain over HTTPS with a valid certificate.
+- You can state why an ALIAS is used at the apex instead of a CNAME.
+- The certificate's validation record is present and you can explain why it must stay.
+- You can name the TTL on your record and what it means for a cutover.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

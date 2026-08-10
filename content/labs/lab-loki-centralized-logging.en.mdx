@@ -1,0 +1,173 @@
+---
+labId: lab-loki-centralized-logging
+title: "Centralised Logging with Loki and Grafana"
+description: "Ship every Pod's logs somewhere they survive the Pod, then answer a real question with them."
+domain: logging
+level: intermediate
+type: lab
+phase: observability
+order: 39
+tier: guided
+estimatedMinutes: 50
+cloudCost: false
+costTier: free
+costEstimate: "Free on kind or minikube. On a cloud cluster Loki requests a persistent volume, billed per GB-month — see cleanup."
+skills:
+  - "Query logs by label instead of grepping a stream"
+  - "Correlate a metric spike with the log lines behind it"
+  - "Explain why Loki indexes labels rather than content"
+tools:
+  - "kind or minikube"
+  - "Helm 3.14+"
+  - "kubectl"
+successCriteria:
+  - "Logs from every namespace are queryable in Grafana."
+  - "You can filter to one Deployment's errors in the last 15 minutes."
+  - "You produced a crash and found its cause from the logs alone."
+  - "You can explain what happens to logs when a Pod is deleted, with and without Loki."
+cleanup:
+  - "helm uninstall loki -n monitoring"
+  - "kubectl delete pvc --all -n monitoring   # PVCs survive uninstall"
+  - "kubectl delete namespace monitoring --ignore-not-found"
+challengeId: lab-loki-centralized-logging-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+A Pod crashed at 3am. It has been replaced, and `kubectl logs` shows the new one. The evidence went with the old container.
+
+Metrics told you *that* something broke. Logs are how you find out *why* — but only if they left the node before the Pod did.
+## 1. Install the stack
+
+```bash
+helm repo add grafana https://grafana.github.io/helm-charts
+helm upgrade --install loki grafana/loki-stack \
+  -n monitoring --create-namespace \
+  --set grafana.enabled=true \
+  --set promtail.enabled=true \
+  --wait
+
+kubectl port-forward -n monitoring svc/loki-grafana 3000:80
+```
+
+Three parts, and the split matters:
+
+- **Promtail** runs as a DaemonSet — one per node — and tails
+  `/var/log/pods`, attaching Kubernetes labels to every line.
+- **Loki** stores it, indexing **only the labels**.
+- **Grafana** queries it.
+
+## 2. Why label-only indexing
+
+Elasticsearch indexes the full text of every line, which is powerful and
+expensive — the index often exceeds the logs. Loki indexes only labels
+(namespace, pod, container) and compresses the rest, then brute-force searches
+within the selected streams.
+
+The practical consequence: **always select by label first**.
+
+```logql
+{namespace="production"}                             # fast
+{namespace="production", app="api"} |= "ERROR"       # fast, then scan
+{} |= "ERROR"                                        # scans everything, slow
+```
+
+That last query is the one people write first and the one that times out.
+
+## 3. Queries you will actually use
+
+```logql
+{namespace="production", app="api"} |= "ERROR"
+
+{namespace="production"} |= "ERROR" != "healthcheck"
+
+{app="api"} | json | status >= 500
+
+sum(rate({namespace="production"} |= "ERROR" [5m])) by (app)
+```
+
+That last one turns logs into a **metric**, so an error rate derived from log
+lines can be graphed beside Prometheus data and alerted on the same way.
+
+## 4. Cause a crash and find it
+
+```bash
+kubectl create deployment crasher --image=busybox -- \
+  sh -c 'echo "FATAL: config missing" >&2; exit 1'
+kubectl get pods -w      # CrashLoopBackOff
+```
+
+Now compare the two ways of looking:
+
+```bash
+kubectl logs deploy/crasher              # the current container: nothing useful
+kubectl logs deploy/crasher --previous   # the one that died: the message
+```
+
+Then in Grafana:
+
+```logql
+{app="crasher"}
+```
+
+**Every restart is there, in order.** `kubectl logs --previous` gives you one
+container back; Loki gives you all of them, including the ones from before the
+Pod was rescheduled onto a different node — which is the case `--previous`
+cannot reach at all.
+
+## 5. Retention, before it costs you
+
+```yaml
+loki:
+  config:
+    limits_config:
+      retention_period: 168h        # 7 days
+    compactor:
+      retention_enabled: true
+```
+
+Logs grow without limit by default. Seven days is a reasonable start: long
+enough for an investigation, short enough to bound the volume.
+
+## 6. Metrics and logs together
+
+Prometheus tells you the error rate rose at 02:14. Loki tells you what the
+errors said. The two are complementary and neither replaces the other:
+
+- **Metrics** — cheap, aggregated, good for alerting, no detail.
+- **Logs** — expensive, precise, good for diagnosis, poor for alerting.
+
+Use the same label names in both (`namespace`, `app`, `pod`) and a Grafana
+dashboard can jump from a spike straight to the lines underneath it.
+
+## When it goes wrong
+
+**No logs appear at all**
+
+Promtail is a DaemonSet — check it is running on every node and can read `/var/log/pods`. `kubectl logs -n monitoring ds/loki-promtail`.
+
+**Queries time out**
+
+No label selector, so Loki is scanning every stream. Always begin the query with a `{namespace="..."}` selector.
+
+**Logs stop after a while**
+
+Retention expired, or the PVC filled. `kubectl get pvc -n monitoring` and check the compactor.
+
+**Labels are missing**
+
+Promtail's relabel config drops most Kubernetes metadata by default. Only labels you keep are queryable.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+helm uninstall loki -n monitoring
+kubectl delete pvc --all -n monitoring   # PVCs survive uninstall
+kubectl delete namespace monitoring --ignore-not-found
+```
+
+**Cost of this lab:** Free on kind or minikube. On a cloud cluster Loki requests a persistent volume, billed per GB-month — see cleanup.

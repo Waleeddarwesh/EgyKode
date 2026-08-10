@@ -1,0 +1,205 @@
+---
+labId: lab-k8s-node-drain-upgrade
+title: "Node Drain, Upgrade & Recovery"
+description: "Take a node out of service without taking the application with it, and find out which workloads were never ready for it."
+domain: kubernetes
+level: advanced
+type: lab
+phase: production
+order: 42
+tier: guided
+estimatedMinutes: 55
+cloudCost: false
+costTier: free
+costEstimate: "Free — a multi-node kind cluster. See the setup note; a single node cannot demonstrate rescheduling."
+destructive: true
+skills:
+  - "Cordon and drain a node safely"
+  - "Protect availability during voluntary disruption with a PDB"
+  - "Recognise workloads that cannot survive rescheduling"
+tools:
+  - "kind (multi-node)"
+  - "kubectl 1.28+"
+successCriteria:
+  - "A node is drained with no failed requests to the application."
+  - "A PodDisruptionBudget blocks a drain that would breach availability."
+  - "You identified at least one workload that could not be rescheduled cleanly, and why."
+  - "The node returns to service and receives Pods again."
+cleanup:
+  - "kubectl uncordon --all"
+  - "kubectl delete deployment web --ignore-not-found"
+  - "kind delete cluster --name ops"
+challengeId: lab-k8s-node-drain-upgrade-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+The cluster needs a Kubernetes upgrade. That means taking each node out of service in turn, and the first one you try teaches you which of your workloads were only ever running by luck.
+> **This evicts running workloads.** Use a throwaway cluster.
+
+## Setup: more than one node
+
+```bash
+cat <<'EOF' | kind create cluster --name ops --config=-
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+  - role: worker
+  - role: worker
+EOF
+
+kubectl get nodes
+```
+
+A single-node cluster cannot demonstrate any of this — there is nowhere to
+reschedule to, and every Pod simply goes `Pending`.
+
+## 1. Something to keep alive
+
+```bash
+kubectl create deployment web --image=nginx:1.27-alpine --replicas=4
+kubectl expose deployment web --port=80
+kubectl get pods -o wide       # note the spread across nodes
+```
+
+Steady traffic, in another terminal:
+
+```bash
+kubectl run load --rm -it --image=curlimages/curl --restart=Never -- \
+  sh -c 'while true; do curl -s -o /dev/null -w "%{http_code} " http://web; sleep 0.2; done'
+```
+
+## 2. Cordon, then drain
+
+```bash
+kubectl cordon ops-worker
+kubectl get nodes              # SchedulingDisabled — nothing new lands here
+```
+
+`cordon` stops *new* Pods arriving. Existing ones keep running, which makes it
+safe to run well before the maintenance window.
+
+```bash
+kubectl drain ops-worker --ignore-daemonsets --delete-emptydir-data
+```
+
+- `--ignore-daemonsets` — DaemonSet Pods are recreated on the same node by
+  design, so a drain can never evict them and refuses to start without this.
+- `--delete-emptydir-data` — acknowledges that `emptyDir` data on this node is
+  destroyed. Say it deliberately.
+
+Watch the traffic terminal. Count non-200 responses.
+
+## 3. If you saw failures, the workload was not ready
+
+The Pod stayed in the Service's endpoints while it was terminating. The fix is
+in the workload, not in the drain:
+
+```yaml
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: web
+          readinessProbe:
+            httpGet: { path: /, port: 80 }
+            periodSeconds: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 5"]
+```
+
+The `preStop` sleep is not superstition. On termination, two things happen
+concurrently: the Pod is removed from endpoints, and `SIGTERM` is sent. The
+five seconds let the endpoint removal propagate to every kube-proxy *before*
+the process starts shutting down, so no traffic is routed to a dying Pod.
+
+## 4. Protect availability
+
+```yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web
+spec:
+  minAvailable: 3
+  selector:
+    matchLabels:
+      app: web
+```
+
+```bash
+kubectl apply -f pdb.yaml
+kubectl drain ops-worker2 --ignore-daemonsets 2>&1 | head -3
+# Cannot evict pod as it would violate the disruption budget
+```
+
+**A PDB governs voluntary disruption only** — drains, upgrades, autoscaler
+scale-downs. It does nothing about a crash or a node failure, and that
+distinction is the whole point: it prevents *self-inflicted* outages during
+maintenance.
+
+`minAvailable` must be lower than the replica count, or no drain can ever
+proceed.
+
+## 5. Back into service
+
+```bash
+kubectl uncordon ops-worker
+kubectl get nodes
+kubectl rollout restart deployment/web    # rebalance, once it is schedulable
+```
+
+Note that nothing moves back on its own. Kubernetes does not rebalance running
+Pods, so after a drain the remaining nodes stay loaded until something forces a
+reschedule.
+
+## 6. What a real upgrade adds
+
+```text
+cordon → drain → upgrade kubelet/kubeadm → uncordon → verify → next node
+```
+
+- Upgrade the **control plane first**, one node at a time.
+- Never skip a minor version — 1.28 → 1.30 is two upgrades.
+- Check API deprecations *before* starting: a removed API version breaks
+  workloads on the new nodes only, so it looks like a partial outage.
+
+```bash
+kubectl get --raw /metrics | grep apiserver_requested_deprecated_apis
+```
+
+That metric names what is still calling a deprecated API, which is exactly the
+list you want before an upgrade rather than after.
+
+## When it goes wrong
+
+**`drain` hangs indefinitely**
+
+Something cannot be evicted: a bare Pod with no controller, or a PDB that cannot be satisfied. The message names it.
+
+**Requests fail during the drain**
+
+The Pod left the process running while still in endpoints. Add a readiness probe and a `preStop` delay.
+
+**Everything goes Pending**
+
+Nowhere to reschedule — a single-node cluster, or the remaining nodes lack capacity.
+
+**Pods do not return after uncordon**
+
+Expected. Kubernetes does not rebalance running Pods; force it with `kubectl rollout restart`.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+kubectl uncordon --all
+kubectl delete deployment web --ignore-not-found
+kind delete cluster --name ops
+```
+
+**Cost of this lab:** Free — a multi-node kind cluster. See the setup note; a single node cannot demonstrate rescheduling.

@@ -1,0 +1,64 @@
+---
+labId: lab-loki-centralized-logging-challenge
+title: "Centralised Logging with Loki and Grafana — Challenge"
+description: "Ship every Pod's logs somewhere they survive the Pod, then answer a real question with them."
+domain: logging
+level: intermediate
+type: lab
+phase: observability
+order: 39
+tier: challenge
+estimatedMinutes: 25
+cloudCost: false
+costTier: free
+costEstimate: "Free on kind or minikube. On a cloud cluster Loki requests a persistent volume, billed per GB-month — see cleanup."
+skills:
+  - "Query logs by label instead of grepping a stream"
+  - "Correlate a metric spike with the log lines behind it"
+  - "Explain why Loki indexes labels rather than content"
+tools:
+  - "kind or minikube"
+  - "Helm 3.14+"
+  - "kubectl"
+successCriteria:
+  - "Logs from every namespace are queryable in Grafana."
+  - "You can filter to one Deployment's errors in the last 15 minutes."
+  - "You produced a crash and found its cause from the logs alone."
+  - "You can explain what happens to logs when a Pod is deleted, with and without Loki."
+cleanup:
+  - "helm uninstall loki -n monitoring"
+  - "kubectl delete pvc --all -n monitoring   # PVCs survive uninstall"
+  - "kubectl delete namespace monitoring --ignore-not-found"
+guidedLabId: lab-loki-centralized-logging
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Centralised Logging with Loki and Grafana**, from an empty starting point,
+without the steps.
+
+A Pod crashed at 3am. It has been replaced, and `kubectl logs` shows the new one. The evidence went with the old container.
+
+Metrics told you *that* something broke. Logs are how you find out *why* — but only if they left the node before the Pod did.
+
+## What must be true when you are done
+
+- Logs from every namespace are queryable in Grafana.
+- You can filter to one Deployment's errors in the last 15 minutes.
+- You produced a crash and found its cause from the logs alone.
+- You can explain what happens to logs when a Pod is deleted, with and without Loki.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

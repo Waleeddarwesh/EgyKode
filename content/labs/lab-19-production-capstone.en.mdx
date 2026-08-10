@@ -1,0 +1,261 @@
+---
+labId: lab-19-production-capstone
+title: "Production Capstone: Build, Deploy & Operate the Platform"
+description: "Everything, once, with no instructions — then keep it running while it is deliberately broken."
+domain: sre
+level: advanced
+type: lab
+phase: production
+order: 50
+tier: challenge
+estimatedMinutes: 240
+cloudCost: true
+costTier: billable
+destructive: true
+costEstimate: "**The most expensive lab on the platform.** An EKS control plane, two nodes, a load balancer and a NAT Gateway run at the same time: roughly $0.20–0.30 per hour. A four-hour sitting is about $1.20. Leaving it up for a week is about $50, which is how people learn this the hard way."
+skills:
+  - "Assemble everything from the path into one working system"
+  - "Diagnose failures with no hint about which layer broke"
+  - "Produce evidence a reviewer can check without your commentary"
+tools:
+  - "An AWS account you are willing to spend a few dollars in"
+  - "Terraform >= 1.6, kubectl, Helm, Docker, the AWS CLI"
+  - "A GitHub repository"
+  - "Four uninterrupted hours, and a budget alert you set beforehand"
+successCriteria:
+  - "The application is reachable over HTTPS on a domain you control, served from Kubernetes on AWS."
+  - "Every AWS resource was created by Terraform, from remote state with locking. Nothing was clicked."
+  - "A commit on main builds, scans and deploys automatically, and a failed rollout fails the pipeline."
+  - "Prometheus is scraping the application and at least one alert fires on a real condition."
+  - "You recovered from all four injected failures and can name the layer each one was in."
+  - "The application stayed available while a node was drained."
+  - "`terraform destroy` leaves nothing behind, verified by the sweep commands, not by assumption."
+cleanup:
+  - "kubectl delete ingress --all -A     # the ALB first, or Terraform hangs on the VPC"
+  - "helm list -A && helm uninstall <release> -n <ns>   # then anything holding a volume"
+  - "terraform destroy -auto-approve"
+  - "# Then verify, because Kubernetes creates resources Terraform never sees:"
+  - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName'"
+  - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].VolumeId'"
+  - "aws ec2 describe-nat-gateways --filter Name=state,Values=available --query 'NatGateways[].NatGatewayId'"
+  - "aws eks list-clusters --query 'clusters'"
+  - "aws ecr describe-repositories --query 'repositories[].repositoryName'"
+authors: [waleed]
+updated: 2026-08-10
+---
+
+## What this is
+
+Every other lab hands you something: a running cluster, a working pipeline, a
+scenario with one broken thing in it. This one hands you an empty AWS account.
+
+There are no steps. There is a specification, a set of failures that will be
+injected once you are running, and a list of things that must be true at the
+end. Everything you need is in the labs you have already done — this is the
+first time nobody tells you which one.
+
+**Budget four hours and set a billing alert before you start.** Both of those
+are part of the exercise.
+
+---
+
+## Part 1 — Build it
+
+Deliver a system meeting this specification. How is up to you.
+
+**The application**
+
+A containerised web application with a PostgreSQL database. Reuse the one from
+the Docker labs, or bring your own — the application is not the point, and
+choosing something you already understand is the correct decision.
+
+- Multi-stage build, non-root user, a health endpoint.
+- Image tagged with the commit SHA. Never `latest`.
+- Configuration from the environment; secrets never in the image.
+
+**The infrastructure**
+
+- A VPC across two availability zones, with public and private subnets.
+- An EKS cluster with a managed node group in the private subnets.
+- An ECR repository, and an RDS PostgreSQL instance that is not publicly
+  reachable.
+- All of it in Terraform, with remote state in S3 and locking. Versioning on
+  the state bucket.
+- No resource created by hand. If you click one, remove it and write it
+  properly — the sweep at the end will find it anyway.
+
+**The deployment**
+
+- A Helm chart with per-environment values.
+- Requests and limits on every container. A readiness probe that means
+  something, not a probe that returns 200 unconditionally.
+- Ingress or Gateway, HTTPS with an ACM certificate, on a domain in Route 53.
+- The database password from Secrets Manager, not a literal in a values file.
+
+**The pipeline**
+
+- On push to `main`: build, scan, push to ECR, deploy, wait for the rollout.
+- OIDC for AWS. No access key stored anywhere in the repository.
+- A HIGH or CRITICAL vulnerability blocks the push.
+- A rollout that does not complete fails the job.
+
+**The observability**
+
+- Prometheus scraping the cluster and the application.
+- A dashboard showing request rate, error rate and latency.
+- At least one alert that fires on a condition you can cause on purpose.
+
+### Checkpoint
+
+Before continuing, all of these must be true:
+
+```bash
+curl -sI https://<your-domain> | head -1          # HTTP/2 200
+terraform plan -detailed-exitcode; echo $?         # 0 — no drift
+kubectl get pods -A | grep -v Running | grep -v Completed
+git commit --allow-empty -m "capstone check" && git push   # pipeline goes green
+```
+
+---
+
+## Part 2 — Operate it
+
+Now it breaks. Apply these four in order. **Do not read ahead** — take each one
+as it comes, the way you would get a page.
+
+Time yourself on each. The number matters less than noticing which kinds of
+failure are slow for you.
+
+### Failure 1
+
+```bash
+kubectl patch deployment <app> -n <ns> --type=json \
+  -p='[{"op":"replace","path":"/spec/template/spec/containers/0/image","value":"<your-ecr>/<repo>:v-nonexistent"}]'
+```
+
+The application stops serving. Restore it, then answer: **why did Kubernetes
+not roll this back on its own, and what would have made it?**
+
+### Failure 2
+
+```bash
+kubectl patch svc <app> -n <ns> --type=json \
+  -p='[{"op":"replace","path":"/spec/selector/app","value":"wrong-name"}]'
+```
+
+The Pods are healthy and the site returns 503. Find it. Then state **which
+command told you the Pods were fine but the Service was not** — there is one
+that answers this in a single line.
+
+### Failure 3
+
+```bash
+aws rds modify-db-instance --db-instance-identifier <db> \
+  --vpc-security-group-ids <a-security-group-that-does-not-allow-5432> --apply-immediately
+```
+
+The application starts and then fails its readiness probe. Distinguish **DNS
+failure, connection refused, and connection timeout** from the logs before you
+touch anything, and say which one this is and what that told you.
+
+### Failure 4
+
+```bash
+kubectl drain <node> --ignore-daemonsets --delete-emptydir-data
+```
+
+Keep the site up while this runs. If requests fail, the workload was never
+ready for a node upgrade — fix it, restore the node, and prove it by draining
+the other one with no failed requests.
+
+### Then, unprompted
+
+Nobody is going to tell you when this one starts.
+
+Delete the Terraform state file from S3. Recover it without rebuilding
+anything, and without a single resource being destroyed and recreated.
+
+---
+
+## Part 3 — Prove it
+
+Write `CAPSTONE.md` in the repository. Not prose about what you learned — an
+operator's record that someone else could act on.
+
+**1. Architecture.** A diagram, and one paragraph on the decision you are least
+sure about.
+
+**2. Evidence.** For each success criterion, the command and its output.
+Screenshots do not count; a reviewer must be able to run what you ran.
+
+**3. The incident log.** For each of the five failures:
+
+| | |
+| --- | --- |
+| Symptom | What you observed first |
+| Layer | Application, Kubernetes, network, cloud, or state |
+| Detection | The command that isolated it |
+| Time | Minutes from noticing to restored |
+| Prevention | The specific change that stops it recurring |
+
+**4. Cost.** What it actually cost, from Cost Explorer rather than an estimate,
+and which line item was largest. It will not be the one you expect.
+
+**5. What you would not do again.** The most useful section, and the one people
+skip.
+
+---
+
+## How to know you are finished
+
+Hand `CAPSTONE.md` and the repository to someone who has not seen your work and
+ask them to verify three criteria at random by running your commands.
+
+If they cannot, the evidence is not evidence yet. That is the actual standard
+in operations: not that you fixed it, but that someone else can confirm you did
+and repeat it without you in the room.
+
+---
+
+## If you are stuck
+
+Twenty minutes on the same problem means you are missing information, not
+effort. In that order:
+
+1. **Which layer?** Application, Kubernetes, network, cloud, or state. Nearly
+   every capstone failure is someone debugging the wrong one.
+2. **What is the smallest command that proves the layer below is healthy?**
+   Work upward from something you know is fine.
+3. **Read the status, not the spec.** `kubectl describe`, `terraform plan`,
+   `helm status` and CloudTrail each report what the system actually did, which
+   is regularly not what you asked for.
+4. Only then, reopen the guided lab for that layer.
+
+---
+
+## Clean up
+
+**Do this the moment you finish.** This is the most expensive lab on the
+platform, and an EKS cluster left running over a weekend costs more than every
+other lab combined.
+
+```bash
+kubectl delete ingress --all -A     # the ALB first, or Terraform hangs on the VPC
+helm list -A && helm uninstall <release> -n <ns>   # then anything holding a volume
+terraform destroy -auto-approve
+
+# Then verify, because Kubernetes creates resources Terraform never sees:
+aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName'
+aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].VolumeId'
+aws ec2 describe-nat-gateways --filter Name=state,Values=available --query 'NatGateways[].NatGatewayId'
+aws eks list-clusters --query 'clusters'
+aws ecr describe-repositories --query 'repositories[].repositoryName'
+```
+
+Every one of those must come back empty. An orphaned NAT Gateway is $32 a month
+and nothing tells you it is there.
+
+**Cost of this lab:** **The most expensive lab on the platform.** An EKS
+control plane, two nodes, a load balancer and a NAT Gateway run at the same
+time: roughly $0.20–0.30 per hour. A four-hour sitting is about $1.20. Leaving
+it up for a week is about $50, which is how people learn this the hard way.

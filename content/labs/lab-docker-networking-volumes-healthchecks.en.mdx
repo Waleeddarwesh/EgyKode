@@ -1,0 +1,184 @@
+---
+labId: lab-docker-networking-volumes-healthchecks
+title: "Docker Networking, Volumes & Health Checks"
+description: "Make four containers find each other, keep data across a restart, and start in an order that actually works."
+domain: docker
+level: beginner
+type: lab
+phase: build-and-containers
+order: 11
+tier: guided
+estimatedMinutes: 50
+cloudCost: false
+costTier: free
+costEstimate: "Free — Docker on your own machine."
+skills:
+  - "Reach one container from another by name"
+  - "Tell a bind mount from a volume, and pick correctly"
+  - "Use a health check to control startup order"
+tools:
+  - "Docker"
+  - "Docker Compose"
+successCriteria:
+  - "The application reaches PostgreSQL and Redis by service name, with no IP addresses anywhere."
+  - "Database data survives `docker compose down` and returns after `up`."
+  - "The application waits for the database to be *ready*, not merely started."
+  - "You can explain why two containers on different networks cannot see each other."
+cleanup:
+  - "docker compose down -v"
+  - "docker network rm isolated"
+  - "docker volume prune -f"
+challengeId: lab-docker-networking-volumes-healthchecks-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+The application connects fine on your machine and fails in the pipeline with 'connection refused'. It starts before the database is ready, and everything it wrote last night is gone.
+
+These three problems are the same three you will meet again as Services, PersistentVolumes and readiness probes — which is why this lab sits before Kubernetes.
+## 1. Names, not addresses
+
+```yaml
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: labonly
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 5
+
+  cache:
+    image: redis:7-alpine
+
+  app:
+    image: curlimages/curl
+    command: ["sh", "-c", "sleep 3600"]
+    environment:
+      DB_HOST: db          # a name, not an IP
+      REDIS_HOST: cache
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+
+volumes:
+  pgdata:
+```
+
+```bash
+docker compose up -d
+docker compose exec app sh -c 'nslookup db; nslookup cache'
+docker compose exec app curl -s --max-time 3 telnet://db:5432 && echo reachable
+```
+
+Compose puts every service on one network and makes each **service name**
+resolvable. Container IPs change on every recreate, so a hardcoded address is
+broken by design.
+
+## 2. Prove isolation is real
+
+```bash
+docker network create isolated
+docker run -d --name lonely --network isolated alpine sleep 3600
+docker exec lonely ping -c1 db      # fails: different network
+```
+
+A container can only reach what shares a network with it. This is the same
+model as a Kubernetes NetworkPolicy, learned in thirty seconds.
+
+## 3. Volumes versus bind mounts
+
+```bash
+docker compose exec db psql -U postgres -c "CREATE TABLE t (id int); INSERT INTO t VALUES (1);"
+docker compose down          # containers destroyed, named volume kept
+docker compose up -d
+docker compose exec db psql -U postgres -c "SELECT * FROM t;"    # still there
+
+docker compose down -v       # -v ALSO removes named volumes
+```
+
+| | Named volume | Bind mount |
+| --- | --- | --- |
+| Written as | `pgdata:/var/lib/...` | `./src:/app` |
+| Managed by | Docker | You |
+| Survives `down` | Yes | Yes (it is your directory) |
+| Removed by `down -v` | **Yes** | No |
+| Right for | Databases, state | Source code in development |
+
+`down -v` is the command that deletes data. It is one character from `down`,
+and it is why the backup lab exists.
+
+## 4. Started is not ready
+
+```bash
+docker compose down && docker compose up -d
+docker compose ps       # db shows "healthy", not merely "running"
+```
+
+Plain `depends_on` waits for the container to **start**, which for PostgreSQL is
+several seconds before it accepts connections. That gap is exactly why an app
+crashes on first boot in CI and works locally, where the database was already
+running.
+
+`condition: service_healthy` ties startup to the health check instead:
+
+```yaml
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 5
+      start_period: 10s     # grace before failures count
+```
+
+**This is a readiness probe.** The Kubernetes lab later uses the same idea with
+different syntax.
+
+## 5. Break each one deliberately
+
+```bash
+# wrong service name
+docker compose exec app curl -s --max-time 3 telnet://database:5432 || echo "DNS: no such host"
+
+# right host, wrong port
+docker compose exec app curl -s --max-time 3 telnet://db:5433 || echo "refused or timeout"
+```
+
+Learn the difference now: **no such host** is name resolution, **refused** means
+something answered, **timeout** means nothing did.
+
+## When it goes wrong
+
+**`could not resolve host` between containers**
+
+They are on different networks, or you used the container name instead of the service name. `docker network inspect <net>` lists members.
+
+**Data disappears after `down`**
+
+You used `down -v`, or the volume is anonymous. Named volumes in the top-level `volumes:` block persist.
+
+**The app still starts too early**
+
+`depends_on` without `condition: service_healthy` waits only for start. The dependency needs a healthcheck for the condition to mean anything.
+
+**The healthcheck never turns healthy**
+
+The command runs *inside* the container — `pg_isready` must exist there. `docker inspect --format '{{json .State.Health}}' <c>` shows the output.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+docker compose down -v
+docker network rm isolated
+docker volume prune -f
+```
+
+**Cost of this lab:** Free — Docker on your own machine.

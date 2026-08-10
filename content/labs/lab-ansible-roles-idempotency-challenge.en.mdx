@@ -1,0 +1,59 @@
+---
+labId: lab-ansible-roles-idempotency-challenge
+title: "Ansible Roles, Variables & Idempotency — Challenge"
+description: "Write a role that configures a server, then prove the second run changes nothing."
+domain: ansible
+level: intermediate
+type: lab
+phase: iac
+order: 17
+tier: challenge
+estimatedMinutes: 25
+cloudCost: false
+costTier: free
+costEstimate: "Free — target a local container or VM."
+skills:
+  - "Structure a role so callers can override what they should"
+  - "Write tasks that report changed only when something changed"
+  - "Use handlers so a restart happens once, not per task"
+tools:
+  - "Ansible 2.15+"
+  - "A target host or container"
+successCriteria:
+  - "A role installs and configures a service from variables, with no hardcoded values in tasks."
+  - "The second run reports `changed=0` — demonstrated, not assumed."
+  - "A configuration change triggers exactly one restart, via a handler."
+  - "You can name two ways a task silently breaks idempotency."
+guidedLabId: lab-ansible-roles-idempotency
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Ansible Roles, Variables & Idempotency**, from an empty starting point,
+without the steps.
+
+The playbook works. Running it twice restarts production, because every task reports `changed` whether or not anything changed.
+
+Idempotency is the property that makes configuration management safe to run continuously, and it does not happen by accident.
+
+## What must be true when you are done
+
+- A role installs and configures a service from variables, with no hardcoded values in tasks.
+- The second run reports `changed=0` — demonstrated, not assumed.
+- A configuration change triggers exactly one restart, via a handler.
+- You can name two ways a task silently breaks idempotency.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

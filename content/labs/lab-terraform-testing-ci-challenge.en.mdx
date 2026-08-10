@@ -1,0 +1,61 @@
+---
+labId: lab-terraform-testing-ci-challenge
+title: "Terraform Validation, Linting & CI — Challenge"
+description: "Build the gate that runs before every apply: format, validate, lint, scan, and a plan a human approves."
+domain: terraform
+level: intermediate
+type: lab
+phase: iac
+order: 14
+tier: challenge
+estimatedMinutes: 25
+cloudCost: false
+costTier: free
+costEstimate: "Free — everything here runs without creating infrastructure. `plan` reads AWS but changes nothing."
+skills:
+  - "Chain the checks that catch a bad change before it reaches AWS"
+  - "Apply exactly the plan that was reviewed"
+  - "Detect drift on a schedule rather than during an incident"
+tools:
+  - "Terraform >= 1.6"
+  - "tflint"
+  - "trivy or checkov"
+  - "A GitHub repository"
+successCriteria:
+  - "`fmt`, `validate`, `tflint` and a security scan all run in CI on a pull request."
+  - "A misformatted or insecure change fails the pipeline — proven deliberately."
+  - "The apply consumes a saved plan artifact rather than re-planning."
+  - "A scheduled run reports drift when a resource is changed outside Terraform."
+guidedLabId: lab-terraform-testing-ci
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Terraform Validation, Linting & CI**, from an empty starting point,
+without the steps.
+
+Terraform runs from someone's laptop. Reviews read the HCL, not the plan, so nobody notices the `-/+` that would recreate the database until it happens.
+
+This lab puts the checks in front of the apply.
+
+## What must be true when you are done
+
+- `fmt`, `validate`, `tflint` and a security scan all run in CI on a pull request.
+- A misformatted or insecure change fails the pipeline — proven deliberately.
+- The apply consumes a saved plan artifact rather than re-planning.
+- A scheduled run reports drift when a resource is changed outside Terraform.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

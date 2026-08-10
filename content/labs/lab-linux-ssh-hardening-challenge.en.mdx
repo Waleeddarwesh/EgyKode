@@ -1,0 +1,58 @@
+---
+labId: lab-linux-ssh-hardening-challenge
+title: "Linux Security & SSH Hardening — Challenge"
+description: "Lock down SSH without locking yourself out, and know how to recover when you inevitably do."
+domain: linux
+level: beginner
+type: lab
+phase: foundations
+order: 24
+tier: challenge
+estimatedMinutes: 22
+cloudCost: false
+costTier: free
+costEstimate: "Free — a VM, a container, or a spare machine."
+skills:
+  - "Move from password login to key-only authentication safely"
+  - "Grant administrative access without handing out root"
+  - "Verify a change from a second session before trusting it"
+tools:
+  - "A Linux host you can reach another way (console, snapshot, or a second VM)"
+successCriteria:
+  - "Key-based login works for a non-root administrative user."
+  - "Password authentication and direct root login are both refused."
+  - "You proved the new configuration in a second session before closing the first."
+  - "A firewall permits SSH and nothing else you did not intend."
+guidedLabId: lab-linux-ssh-hardening
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Linux Security & SSH Hardening**, from an empty starting point,
+without the steps.
+
+A server is reachable on port 22 with password authentication and a shared root login. It is being scanned within minutes of being created — that is not paranoia, it is what the auth log shows.
+
+This lab closes it down. The order matters more than the settings: get it wrong and you lock yourself out of a machine you cannot physically reach.
+
+## What must be true when you are done
+
+- Key-based login works for a non-root administrative user.
+- Password authentication and direct root login are both refused.
+- You proved the new configuration in a second session before closing the first.
+- A firewall permits SSH and nothing else you did not intend.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

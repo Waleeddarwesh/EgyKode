@@ -1,0 +1,65 @@
+---
+labId: lab-terraform-state-recovery-challenge
+title: "Terraform Drift & State Recovery — Challenge"
+description: "Someone changed AWS by hand and someone else deleted the state. Recover from both without rebuilding anything."
+domain: terraform
+level: advanced
+type: lab
+phase: production
+order: 41
+tier: challenge
+estimatedMinutes: 27
+cloudCost: true
+costTier: low
+costEstimate: "Free tier — the exercises use an S3 bucket and a `t3.micro`. Nothing here bills hourly beyond the instance."
+destructive: true
+skills:
+  - "Detect drift and decide whether to adopt or revert it"
+  - "Import an existing resource into state"
+  - "Recover a state file from a versioned backend"
+tools:
+  - "Terraform >= 1.6"
+  - "AWS CLI v2, configured"
+successCriteria:
+  - "You detected a manual change and can explain both ways to resolve it."
+  - "A resource created outside Terraform is imported and `plan` reports no changes."
+  - "A deleted state file is restored from S3 versioning and matches reality."
+  - "Nothing was destroyed and recreated during any of it."
+cleanup:
+  - "terraform destroy -auto-approve"
+  - "aws s3 ls | grep tfstate-recovery"
+guidedLabId: lab-terraform-state-recovery
+authors: [waleed]
+updated: 2026-08-10
+---
+## The goal
+
+Achieve the same outcome as **Terraform Drift & State Recovery**, from an empty starting point,
+without the steps.
+
+Someone widened a security group in the console during an incident. Someone else ran `terraform apply` a week later and closed it again, causing a second incident.
+
+Then the state file was deleted.
+
+All three are recoverable. None of them require rebuilding the infrastructure — which is what people do when they do not know these commands.
+
+## What must be true when you are done
+
+- You detected a manual change and can explain both ways to resolve it.
+- A resource created outside Terraform is imported and `plan` reports no changes.
+- A deleted state file is restored from S3 versioning and matches reality.
+- Nothing was destroyed and recreated during any of it.
+
+## Rules
+
+- Do not open the guided lab until you are finished, or until the same problem
+  has held you up for 20 minutes.
+- Documentation is allowed and encouraged.
+- Verify every criterion with a command whose output you can read.
+
+## If you get stuck
+
+1. What did you expect, exactly?
+2. What happened instead — the error text, not a paraphrase?
+3. Which layer is that error from?
+4. What is the smallest command that proves the layer below is fine?

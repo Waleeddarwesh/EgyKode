@@ -1,0 +1,208 @@
+---
+labId: lab-github-actions-ecr-eks
+title: "GitHub Actions: Build, Scan and Deploy to EKS"
+description: "The same pipeline as the Jenkins lab, with no server to maintain and no stored AWS credentials."
+domain: github-actions
+level: intermediate
+type: lab
+phase: cicd
+order: 37
+tier: guided
+estimatedMinutes: 55
+cloudCost: true
+costTier: billable
+costEstimate: "**Depends on an existing cluster.** Actions minutes are free on public repositories. ECR storage is inside the free tier at this scale; the EKS cluster you deploy to is $0.10/hour if you created one."
+skills:
+  - "Authenticate to AWS from CI with OIDC instead of an access key"
+  - "Push to ECR and deploy to EKS from a workflow"
+  - "Compare a hosted CI service with a self-managed controller honestly"
+tools:
+  - "A GitHub repository"
+  - "An AWS account"
+  - "An EKS cluster (or adapt to any Kubernetes)"
+successCriteria:
+  - "A push builds an image tagged with the commit SHA and pushes it to ECR."
+  - "No AWS access key exists in the repository — authentication is OIDC."
+  - "A vulnerability at HIGH or CRITICAL fails the workflow before the push."
+  - "The deployment rolls out, and the workflow fails if the rollout does not complete."
+cleanup:
+  - "aws ecr batch-delete-image --repository-name <repo> --image-ids imageTag=<tag>"
+  - "kubectl delete deployment <name> -n <ns> --ignore-not-found"
+  - "aws iam delete-role --role-name <github-deploy-role>   # after detaching policies"
+challengeId: lab-github-actions-ecr-eks-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+The Jenkins pipeline works, and it needs a server, plugins, backups and upgrades. For a project that already lives on GitHub, there is a path with none of that.
+
+This is not a replacement for the Jenkins lab. Knowing both, and why you would pick each, is the actual skill.
+## 1. A role GitHub can assume, with no stored key
+
+```bash
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com
+```
+
+The trust policy is the security boundary:
+
+```json
+{
+  "Effect": "Allow",
+  "Principal": { "Federated": "arn:aws:iam::<acct>:oidc-provider/token.actions.githubusercontent.com" },
+  "Action": "sts:AssumeRoleWithWebIdentity",
+  "Condition": {
+    "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
+    "StringLike": { "token.actions.githubusercontent.com:sub": "repo:OWNER/REPO:ref:refs/heads/main" }
+  }
+}
+```
+
+**The `sub` condition is not optional.** Without it, any repository on GitHub
+can assume this role.
+
+> **A trap this platform hit in production.** GitHub is rolling out *immutable
+> identifiers*, where the subject carries numeric ids:
+>
+> ```
+> repo:owner@138933390/repo@1328730125:ref:refs/heads/main
+> ```
+>
+> A pattern written against the repository *name* then matches nothing, and the
+> failure is an opaque `Not authorized to perform sts:AssumeRoleWithWebIdentity`.
+> CloudTrail shows the subject that was actually sent — look there rather than
+> guessing. The design is deliberate: renaming an account cannot transfer access
+> to whoever claims the old name.
+
+## 2. The workflow
+
+```yaml
+name: deploy
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write        # required to request the OIDC token
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO: egykode-demo
+  CLUSTER: egykode-eks
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assume AWS role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+
+      - name: Build
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ github.sha }}
+        run: docker build -t "$REGISTRY/$ECR_REPO:${TAG::7}" .
+
+      # Scan BEFORE the push. Scanning afterwards has already published it.
+      - name: Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Push
+        run: docker push "${{ steps.ecr.outputs.registry }}/$ECR_REPO:${GITHUB_SHA::7}"
+
+      - name: Deploy
+        run: |
+          aws eks update-kubeconfig --name "$CLUSTER" --region "$AWS_REGION"
+          kubectl set image deployment/api api="${{ steps.ecr.outputs.registry }}/$ECR_REPO:${GITHUB_SHA::7}" -n production
+          kubectl rollout status deployment/api -n production --timeout=5m
+```
+
+`kubectl rollout status --timeout` is what makes this a deploy rather than a
+request. Without it the workflow goes green the moment the API accepts the
+change, whether or not a single Pod ever became ready.
+
+## 3. EKS has its own permission layer
+
+`update-kubeconfig` succeeding means IAM let you *describe the cluster*. Talking
+to the Kubernetes API is separate:
+
+```bash
+aws eks create-access-entry --cluster-name "$CLUSTER" \
+  --principal-arn arn:aws:iam::<acct>:role/github-deploy
+
+aws eks associate-access-policy --cluster-name "$CLUSTER" \
+  --principal-arn arn:aws:iam::<acct>:role/github-deploy \
+  --access-scope type=namespace,namespaces=production \
+  --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy
+```
+
+On older clusters this is the `aws-auth` ConfigMap instead. Either way, "I have
+IAM access" and "I can use kubectl" are two different grants, and confusing them
+produces a confident `error: You must be logged in to the server`.
+
+## 4. Jenkins or Actions?
+
+| | Jenkins | GitHub Actions |
+| --- | --- | --- |
+| Runs on | A server you own | GitHub's runners, or yours |
+| You maintain | Controller, plugins, backups, upgrades | Nothing |
+| Config | `Jenkinsfile` (Groovy) | Workflow YAML |
+| Credentials | Credential store | OIDC, no stored key |
+| Cost | The server | Free on public repos |
+| Runs offline | Yes | No |
+| Ecosystem | Plugins, sometimes unmaintained | Marketplace actions, same caveat |
+
+**Choose Jenkins** when builds must run inside your network, when you need
+hardware GitHub does not offer, or when you are already invested and it works.
+**Choose Actions** when the code is already on GitHub and you would rather not
+operate a CI server — which is most projects, including this one.
+
+Neither is the modern choice and the other legacy. The one that fails least
+often is the one your team can debug.
+
+## When it goes wrong
+
+**`Not authorized to perform sts:AssumeRoleWithWebIdentity`**
+
+The `sub` in the trust policy does not match what GitHub sent. Read the real subject from CloudTrail — see the immutable-identifier note above.
+
+**`Credentials could not be loaded`**
+
+`id-token: write` is missing from `permissions`. Without it no OIDC token is issued at all.
+
+**`You must be logged in to the server` after a successful update-kubeconfig**
+
+IAM let you describe the cluster; Kubernetes has not authorised the principal. Add an EKS access entry or an aws-auth mapping.
+
+**The workflow is green but nothing deployed**
+
+`kubectl set image` returns immediately. Without `rollout status --timeout` a failed rollout never fails the job.
+
+---
+
+## Clean up
+
+Run this even if you did not finish.
+
+```bash
+aws ecr batch-delete-image --repository-name <repo> --image-ids imageTag=<tag>
+kubectl delete deployment <name> -n <ns> --ignore-not-found
+aws iam delete-role --role-name <github-deploy-role>   # after detaching policies
+```
+
+**Cost of this lab:** **Depends on an existing cluster.** Actions minutes are free on public repositories. ECR storage is inside the free tier at this scale; the EKS cluster you deploy to is $0.10/hour if you created one.

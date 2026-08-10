@@ -40,7 +40,7 @@ These numbers are counted from the corpus, not aspirational:
 |---|---|---|
 | **Chapters** | 47 | Migrated from the `Cloud-Native-DevOps-Handbook` project |
 | **Topics** | 74 | Across 12 areas — *derived from the content, never hand-authored* |
-| **Labs** | 46 | 43 guided (each with a challenge version) plus 3 incident labs |
+| **Labs** | 58 | 54 guided (each with a challenge version), 3 incident labs and a challenge-only capstone |
 | **Roadmaps** | 4 | 11, 8, 8 and 8 phases |
 | **Projects** | 5 | With attribution and licence metadata |
 | **Interview questions** | 215 | 161 extracted from the chapters, plus 54 commonly-asked interview questions |
@@ -106,6 +106,13 @@ An incident lab never states the cause. You are given the failure — *502 Bad
 Gateway*, a `CrashLoopBackOff`, service-to-service calls that time out — plus a
 method for working the layers, and the root cause sits behind a reveal you read
 only after a genuine attempt. That tier is the one closest to the job.
+
+The labs are not a catalogue. They are laid out as one continuous build — the
+**Project Path** — in ten phases, from an empty laptop to a containerised
+application running on Kubernetes on AWS, delivered by a pipeline, watched by
+Prometheus, and then deliberately broken. Each phase says why it exists and
+what is true when you finish it, and the path ends with a capstone that gives
+you a specification, five injected failures and no instructions.
 
 **Every lab that provisions billable cloud resources says what it costs and how
 to destroy it**, and a lint rule makes that a build error rather than a

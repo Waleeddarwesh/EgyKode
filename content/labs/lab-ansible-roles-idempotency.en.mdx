@@ -1,0 +1,164 @@
+---
+labId: lab-ansible-roles-idempotency
+title: "Ansible Roles, Variables & Idempotency"
+description: "Write a role that configures a server, then prove the second run changes nothing."
+domain: ansible
+level: intermediate
+type: lab
+phase: iac
+order: 17
+tier: guided
+estimatedMinutes: 50
+cloudCost: false
+costTier: free
+costEstimate: "Free — target a local container or VM."
+skills:
+  - "Structure a role so callers can override what they should"
+  - "Write tasks that report changed only when something changed"
+  - "Use handlers so a restart happens once, not per task"
+tools:
+  - "Ansible 2.15+"
+  - "A target host or container"
+successCriteria:
+  - "A role installs and configures a service from variables, with no hardcoded values in tasks."
+  - "The second run reports `changed=0` — demonstrated, not assumed."
+  - "A configuration change triggers exactly one restart, via a handler."
+  - "You can name two ways a task silently breaks idempotency."
+challengeId: lab-ansible-roles-idempotency-challenge
+authors: [waleed]
+updated: 2026-08-10
+---
+## The scenario
+The playbook works. Running it twice restarts production, because every task reports `changed` whether or not anything changed.
+
+Idempotency is the property that makes configuration management safe to run continuously, and it does not happen by accident.
+## 1. The role layout
+
+```text
+roles/webserver/
+  tasks/main.yml       what to do
+  handlers/main.yml    things triggered by notify
+  defaults/main.yml    variables the caller may override
+  vars/main.yml        variables the caller should not
+  templates/           Jinja2 rendered onto the host
+  files/               copied verbatim
+  meta/main.yml        dependencies
+```
+
+Ansible loads these by name — putting a file in the right directory *is* the
+wiring.
+
+**`defaults/` versus `vars/` is the decision that makes a role reusable.** Both
+define variables; they differ in precedence. `defaults` sits near the bottom, so
+inventory, playbook and `--extra-vars` all override it. `vars` sits near the top
+and is effectively unoverridable.
+
+Every variable a caller might reasonably change belongs in `defaults`. Put it in
+`vars` and you have written a role only you can use.
+
+## 2. Tasks that tell the truth
+
+```yaml
+# roles/webserver/tasks/main.yml
+- name: Install nginx
+  ansible.builtin.package:
+    name: "{{ webserver_package }}"
+    state: present
+
+- name: Deploy configuration
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    mode: "0644"
+    validate: "nginx -t -c %s"     # refuse to install a broken config
+  notify: Restart nginx
+
+- name: Ensure nginx is running and enabled
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true
+```
+
+Every module here **checks state before acting**. `package` does nothing if it is
+installed; `template` compares a checksum and rewrites only on difference.
+
+`validate:` is the detail worth copying — Ansible renders to a temporary file,
+runs `nginx -t` against it, and only installs it if it parses. A broken template
+can never take the service down.
+
+## 3. Handlers: once, at the end
+
+```yaml
+# roles/webserver/handlers/main.yml
+- name: Restart nginx
+  ansible.builtin.service:
+    name: nginx
+    state: restarted
+```
+
+Three tasks can all `notify` this and nginx restarts **once**, after everything
+has converged. Restarting inline per task would bounce the service repeatedly
+during a single run.
+
+## 4. Prove it
+
+```bash
+ansible-playbook -i inventory site.yml
+# PLAY RECAP: ok=4 changed=3
+
+ansible-playbook -i inventory site.yml
+# PLAY RECAP: ok=4 changed=0     <- the point of the whole lab
+```
+
+`changed=0` on the second run is the definition of idempotent. If it is not
+zero, something reports change every time, and you can find it:
+
+```bash
+ansible-playbook -i inventory site.yml --check --diff
+```
+
+`--check` is a dry run; `--diff` shows exactly what it wants to alter.
+
+## 5. The two ways people break it
+
+**`command` and `shell` always report changed.** They have no idea what state
+they produce, so Ansible assumes the worst:
+
+```yaml
+# breaks idempotency
+- name: Extract archive
+  ansible.builtin.shell: tar xzf /tmp/app.tar.gz -C /opt/app
+
+# fixed — a guard that tells Ansible when the work is already done
+- name: Extract archive
+  ansible.builtin.unarchive:
+    src: /tmp/app.tar.gz
+    dest: /opt/app
+    remote_src: true
+    creates: /opt/app/bin/start
+```
+
+**A template that renders differently each run.** A timestamp or a random value
+in the template makes the checksum differ every time, so it rewrites and
+notifies a restart forever. Anything genuinely dynamic belongs outside the
+managed file.
+
+## When it goes wrong
+
+**The second run still reports changed**
+
+`--check --diff` names the task. Almost always a `shell`/`command` without `creates`, or a template with dynamic content.
+
+**The handler never runs**
+
+Handlers run at the end of a play, and are skipped entirely if the notifying task did not change. Force with `--force-handlers` when debugging.
+
+**Overriding a variable has no effect**
+
+It is in `vars/` rather than `defaults/`. `vars` outranks nearly everything a caller can set.
+
+**A bad template took the service down**
+
+Add `validate:` to the template task so a config that does not parse is never installed.
