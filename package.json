@@ -25,14 +25,16 @@
     "search": "node scripts/build-search-index.mjs",
     "test:e2e": "playwright test --project=desktop tests/e2e/critical-paths.spec.ts",
     "test:visual": "playwright test tests/e2e/visual-matrix.spec.ts",
-    "verify": "npm run lint:mdx && npm run lint:diagrams && npm run content:lint && npm run lint:refs && npm run lint:rtl && npm run check:translation && npm run typecheck && npm run lint && npm run build:verify && npm run test:e2e",
+    "verify": "npm run lint:mdx && npm run lint:diagrams && npm run content:lint && npm run lint:refs && npm run lint:resources && npm run lint:rtl && npm run check:translation && npm run typecheck && npm run lint && npm run build:verify && npm run test:e2e",
     "topics": "node scripts/build-topics.mjs",
     "audit:topics": "node scripts/audit-topics.mjs",
     "check:translation": "node scripts/check-translation.mjs",
     "build:verify": "node scripts/build-verify.mjs",
     "lint:diagrams": "node scripts/normalize-diagrams.mjs --check",
     "lint:refs": "node scripts/check-references.mjs",
-    "check:live": "node scripts/check-live.mjs"
+    "check:live": "node scripts/check-live.mjs",
+    "lint:resources": "node scripts/check-resources.mjs",
+    "check:links": "node scripts/check-resources.mjs --live"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

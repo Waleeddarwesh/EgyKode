@@ -5,7 +5,7 @@ import matter from "gray-matter";
 import type { Locale } from "./i18n";
 
 /** Content lives at the repo root (§9.7), outside apps/web. */
-function contentRoot(): string {
+export function contentRoot(): string {
   const candidates = [
     resolve(process.cwd(), "..", "..", "content"),
     resolve(process.cwd(), "content"),

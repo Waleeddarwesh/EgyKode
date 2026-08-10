@@ -4,6 +4,8 @@ import Link from "next/link";
 
 import { BackLink } from "@/components/layout/back-link";
 import { JsonLd } from "@/components/seo/json-ld";
+import { Resources } from "@/components/content/resources";
+import { getResources } from "@/lib/resources";
 import { MarkComplete } from "@/components/learn/mark-complete";
 import { notFound } from "next/navigation";
 import { MDXRemote, type MDXRemoteProps } from "next-mdx-remote/rsc";
@@ -370,6 +372,17 @@ export default async function ChapterPage({
           </ul>
         </section>
       )}
+
+      {/* Last on the page, deliberately: read the chapter first, then go
+          watch someone build it if that helps. */}
+      <Resources
+        resources={getResources(chapter.domain)}
+        labels={{
+          heading: t("resources.heading"),
+          body: t("resources.body"),
+          arabic: t("resources.arabic"),
+        }}
+      />
       </article>
 
       <aside className="hidden lg:block">

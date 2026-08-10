@@ -1,0 +1,305 @@
+{
+  "$comment": "Free external references, keyed by domain. Every URL here was verified to resolve and its title read from the live page, not from memory — scripts/check-resources.mjs re-checks them and fails when one rots. Video and playlist ids are only added when someone supplies them: they are opaque, so a guessed id is either a dead link or the wrong content. Channels are listed as channels rather than courses, because that is what they are. Arabic entries were confirmed by the maintainer; the checker can verify a URL and a title but not a spoken language.",
+  "domains": {
+    "ansible": [
+      {
+        "title": "Jeff Geerling",
+        "url": "https://www.youtube.com/@JeffGeerling",
+        "by": "Jeff Geerling",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "argocd": [
+      {
+        "title": "Argo CD Crash Course (Arabic)",
+        "url": "https://www.youtube.com/watch?v=C0xRfrNIRak",
+        "by": "Ahmed Elfakharany",
+        "language": "ar",
+        "kind": "course"
+      },
+      {
+        "title": "DevOps Toolkit",
+        "url": "https://www.youtube.com/@DevOpsToolkit",
+        "by": "DevOps & AI Toolkit",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "aws": [
+      {
+        "title": "AWS SAA-C02 — كورس كامل بالعربي مع المهندس عيسى أبو شريف",
+        "url": "https://www.youtube.com/playlist?list=PLOoZRfEtk6kWSM_l9xMjDh-_MJXl03-pf",
+        "by": "AWS Riyadh User Group",
+        "language": "ar",
+        "kind": "playlist"
+      },
+      {
+        "title": "كورس \"(CLF-C02) AWS Cloud Practitioner Full Course\" كامل بالعربي",
+        "url": "https://www.youtube.com/playlist?list=PLJZLxa-J0VZSEVmKS8HQQoi09yB6IHigK",
+        "by": "Cloud Simplified",
+        "language": "ar",
+        "kind": "playlist"
+      },
+      {
+        "title": "Amazon Web Services",
+        "url": "https://www.youtube.com/@amazonwebservices",
+        "by": "Amazon Web Services",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "docker": [
+      {
+        "title": "Docker and Kubernetes | العلبة دي فيها سوعبان",
+        "url": "https://www.youtube.com/watch?v=PrusdhS2lmo",
+        "by": "بالعربي Big Data",
+        "language": "ar",
+        "kind": "course"
+      },
+      {
+        "title": "TechWorld with Nana",
+        "url": "https://www.youtube.com/@TechWorldwithNana",
+        "by": "TechWorld with Nana",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "git": [
+      {
+        "title": "Git and GitHub | شخبط وانت متطمن",
+        "url": "https://www.youtube.com/watch?v=Q6G-J54vgKc",
+        "by": "بالعربي Big Data",
+        "language": "ar",
+        "kind": "course"
+      },
+      {
+        "title": "freeCodeCamp.org — full-length free courses",
+        "url": "https://www.youtube.com/@freecodecamp",
+        "by": "freeCodeCamp.org",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "github-actions": [
+      {
+        "title": "GitHub Actions full course Arabic",
+        "url": "https://www.youtube.com/watch?v=7gJFHjXscr8",
+        "by": "Ahmed Elfakharany",
+        "language": "ar",
+        "kind": "course"
+      },
+      {
+        "title": "TechWorld with Nana",
+        "url": "https://www.youtube.com/@TechWorldwithNana",
+        "by": "TechWorld with Nana",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "gitops": [
+      {
+        "title": "DevOps Toolkit",
+        "url": "https://www.youtube.com/@DevOpsToolkit",
+        "by": "DevOps & AI Toolkit",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "grafana": [
+      {
+        "title": "Grafana Labs",
+        "url": "https://www.youtube.com/@GrafanaLabs",
+        "by": "grafana labs",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "helm": [
+      {
+        "title": "Helm for Beginners | Complete Beginners Course",
+        "url": "https://www.youtube.com/watch?v=Zb1agTzXpAw",
+        "by": "Kube-ops Academy",
+        "language": "ar",
+        "kind": "course"
+      },
+      {
+        "title": "Helm vs Kustomize (Arabic)",
+        "url": "https://www.youtube.com/watch?v=yHICGHaSRoo",
+        "by": "Ahmed Elfakharany",
+        "language": "ar",
+        "kind": "course"
+      }
+    ],
+    "jenkins": [
+      {
+        "title": "TechWorld with Nana",
+        "url": "https://www.youtube.com/@TechWorldwithNana",
+        "by": "TechWorld with Nana",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "kubernetes": [
+      {
+        "title": "Docker and Kubernetes | العلبة دي فيها سوعبان",
+        "url": "https://www.youtube.com/watch?v=PrusdhS2lmo",
+        "by": "بالعربي Big Data",
+        "language": "ar",
+        "kind": "course"
+      },
+      {
+        "title": "What is Kubernetes? (Arabic)",
+        "url": "https://www.youtube.com/watch?v=-ezhA_YALDs",
+        "by": "Ahmed Elfakharany",
+        "language": "ar",
+        "kind": "course"
+      },
+      {
+        "title": "TechWorld with Nana",
+        "url": "https://www.youtube.com/@TechWorldwithNana",
+        "by": "TechWorld with Nana",
+        "language": "en",
+        "kind": "channel"
+      },
+      {
+        "title": "KodeKloud",
+        "url": "https://www.youtube.com/@KodeKloud",
+        "by": "KodeKloud",
+        "language": "en",
+        "kind": "channel"
+      },
+      {
+        "title": "DevOps Toolkit",
+        "url": "https://www.youtube.com/@DevOpsToolkit",
+        "by": "DevOps & AI Toolkit",
+        "language": "en",
+        "kind": "channel"
+      },
+      {
+        "title": "CNCF — conference talks and project deep dives",
+        "url": "https://www.youtube.com/@cncf",
+        "by": "CNCF [Cloud Native Computing Foundation]",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "kustomize": [
+      {
+        "title": "Helm vs Kustomize (Arabic)",
+        "url": "https://www.youtube.com/watch?v=yHICGHaSRoo",
+        "by": "Ahmed Elfakharany",
+        "language": "ar",
+        "kind": "course"
+      }
+    ],
+    "linux": [
+      {
+        "title": "Red Hat System Administration — I",
+        "url": "https://maharatech.gov.eg/course/view.php?id=2115",
+        "by": "Mahara-Tech (ITI)",
+        "language": "ar",
+        "kind": "course"
+      },
+      {
+        "title": "Red Hat System Administration — II",
+        "url": "https://maharatech.gov.eg/course/view.php?id=2205",
+        "by": "Mahara-Tech (ITI)",
+        "language": "ar",
+        "kind": "course",
+        "titleFromPage": false
+      },
+      {
+        "title": "Learn Linux TV",
+        "url": "https://www.youtube.com/@LearnLinuxTV",
+        "by": "Learn Linux TV",
+        "language": "en",
+        "kind": "channel"
+      },
+      {
+        "title": "NetworkChuck",
+        "url": "https://www.youtube.com/@NetworkChuck",
+        "by": "NetworkChuck",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "networking": [
+      {
+        "title": "TCP/IP & Networking for Cloud — مقدمة الشبكات لمتعلمي الكلاود والديف اوبس",
+        "url": "https://www.youtube.com/watch?v=-7A4_v6Uhuk",
+        "by": "DolfinED",
+        "language": "ar",
+        "kind": "course"
+      },
+      {
+        "title": "NetworkChuck",
+        "url": "https://www.youtube.com/@NetworkChuck",
+        "by": "NetworkChuck",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "observability": [
+      {
+        "title": "Grafana Labs",
+        "url": "https://www.youtube.com/@GrafanaLabs",
+        "by": "grafana labs",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "platform-engineering": [
+      {
+        "title": "The Great Engineering Debate: DevOps vs. SRE vs. Platform Engineering",
+        "url": "https://www.youtube.com/watch?v=QEY7DzkLAEE",
+        "by": "Ahmed Elfakharany",
+        "language": "ar",
+        "kind": "course"
+      }
+    ],
+    "prometheus": [
+      {
+        "title": "Prometheus Monitoring",
+        "url": "https://www.youtube.com/@PrometheusIo",
+        "by": "Prometheus Monitoring",
+        "language": "en",
+        "kind": "channel"
+      }
+    ],
+    "security": [
+      {
+        "title": "DevSecOps: كيف نحمي تطبيقاتنا بأقل جهد",
+        "url": "https://www.youtube.com/watch?v=swJNs0Opg6E",
+        "by": "Ahmed Elfakharany",
+        "language": "ar",
+        "kind": "course"
+      }
+    ],
+    "sre": [
+      {
+        "title": "The Great Engineering Debate: DevOps vs. SRE vs. Platform Engineering",
+        "url": "https://www.youtube.com/watch?v=QEY7DzkLAEE",
+        "by": "Ahmed Elfakharany",
+        "language": "ar",
+        "kind": "course"
+      }
+    ],
+    "terraform": [
+      {
+        "title": "HashiCorp",
+        "url": "https://www.youtube.com/@HashiCorp",
+        "by": "HashiCorp, an IBM Company",
+        "language": "en",
+        "kind": "channel"
+      },
+      {
+        "title": "TechWorld with Nana",
+        "url": "https://www.youtube.com/@TechWorldwithNana",
+        "by": "TechWorld with Nana",
+        "language": "en",
+        "kind": "channel"
+      }
+    ]
+  }
+}

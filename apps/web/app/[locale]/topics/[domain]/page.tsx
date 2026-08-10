@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BackLink } from "@/components/layout/back-link";
+import { Resources } from "@/components/content/resources";
+import { getResources } from "@/lib/resources";
 import { notFound } from "next/navigation";
 
 import { domainColor, getChapterMeta as getChapterMetaSafe,
@@ -281,6 +283,17 @@ export default async function TopicPage({
           </ul>
         </section>
       )}
+
+      {/* A generated topic inherits its domain's references: a channel covers
+          "Kubernetes", not "kubernetes-networkpolicy". */}
+      <Resources
+        resources={getResources(topic.domain)}
+        labels={{
+          heading: t("resources.heading"),
+          body: t("resources.body"),
+          arabic: t("resources.arabic"),
+        }}
+      />
     </div>
   );
 }

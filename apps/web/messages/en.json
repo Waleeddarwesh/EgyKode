@@ -301,5 +301,8 @@
   "labs.previousLab": "Previous",
   "labs.pathEnd": "You have reached the end of the project path.",
   "labs.pathEndBody": "Everything after this is the library — pick what you need, or go back and do the challenge versions without the steps.",
-  "labs.browseLibrary": "Browse the lab library"
+  "labs.browseLibrary": "Browse the lab library",
+  "resources.heading": "Free courses elsewhere",
+  "resources.body": "Good free material from other people. External links — EgyKode is not affiliated with them, and they are listed because they are worth your time.",
+  "resources.arabic": "العربية"
 }
