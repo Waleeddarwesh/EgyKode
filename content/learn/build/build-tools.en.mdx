@@ -1,0 +1,415 @@
+---
+contentId: build-tools
+title: "Build Tools"
+titleAr: "أدوات البناء (Build Tools)"
+description: "What every build tool does, across Java, JavaScript, Python, Go and Rust — lockfiles, reproducibility, and why CI caches dependencies"
+descriptionAr: "ما تفعله كل أدوات البناء عبر Java و JavaScript و Python و Go و Rust — ملفات القفل، وقابلية إعادة الإنتاج، ولماذا يخزّن الـ CI الاعتماديات."
+domain: build
+level: beginner
+type: concept
+phase: build-and-containers
+order: 8
+readingTime: 40
+prerequisites: ["linux-foundations"]
+relatedChapters: []
+objectives:
+  - "Explain what any build tool does, read a lockfile, and know why a CI cache and a pinned dependency are the same problem"
+status: complete
+translationStatus: missing
+sourceFile: "Cloud-Native-DevOps-Handbook/08_Build_Tools.md"
+authors: [waleed]
+updated: 2026-08-08
+---
+
+## Why a DevOps engineer needs this
+
+You are not going to write Java. But you are going to:
+
+- put `mvn clean package` in a Dockerfile and a pipeline
+- debug a build that fails in CI and works locally
+- explain why the CI build takes 8 minutes and how to make it 2
+- wire coverage reports into a SonarQube quality gate
+
+All of that requires knowing what the build tool is actually doing. Treating
+`mvn` as a magic incantation is how you end up unable to fix a broken pipeline.
+
+---
+
+## Level 1 — Beginner
+
+### What a build tool does
+
+Source code is not a deployable thing. Something has to turn a directory of
+files that humans edit into a single artifact a machine can run — and that is
+true whether the language is compiled, interpreted, or bundled.
+
+**Every build tool, in every ecosystem, does the same five jobs:**
+
+| Job | What it means | Where it goes wrong |
+| --- | --- | --- |
+| **Resolve** | Work out the full dependency tree, including your dependencies' dependencies | Two libraries want different versions of the same thing |
+| **Fetch** | Download them from a registry, and cache them locally | The registry is down, or the version was deleted |
+| **Compile / transform** | Source → bytecode, machine code, or a bundle | Works locally, fails in CI on a different version |
+| **Test** | Run the suite and fail the build if it does not pass | Tests that pass in isolation, fail together |
+| **Package** | Produce one artifact: a jar, a wheel, a binary, a tarball | Ships the wrong files, or a secret |
+
+Doing any of that by hand for a real application means compiling files in
+dependency order, resolving a tree that is usually hundreds of packages deep,
+and packaging the result correctly every time. A build tool does all of it from
+one command — which is the only reason a pipeline can be five lines long.
+
+### The same five jobs, in every ecosystem
+
+The vocabulary changes; the model does not.
+
+| | Java | JavaScript | Python | Go | Rust | .NET |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Tool** | Maven, Gradle | npm, pnpm, yarn | pip, Poetry, uv | `go` | Cargo | `dotnet` |
+| **Manifest** | `pom.xml` | `package.json` | `pyproject.toml` | `go.mod` | `Cargo.toml` | `.csproj` |
+| **Lockfile** | *(none by default)* | `package-lock.json` | `poetry.lock`, `uv.lock` | `go.sum` | `Cargo.lock` | `packages.lock.json` |
+| **Registry** | Maven Central | npm | PyPI | proxy.golang.org | crates.io | NuGet |
+| **Artifact** | `.jar`, `.war` | a bundle, or a tarball | `.whl` | a static binary | a binary | `.dll` |
+| **Build command** | `mvn package` | `npm run build` | `python -m build` | `go build` | `cargo build` | `dotnet publish` |
+| **Cache location** | `~/.m2` | `~/.npm`, `node_modules` | `~/.cache/pip` | `$GOMODCACHE` | `~/.cargo` | `~/.nuget` |
+
+Two rows deserve attention, because they cause most build problems in CI.
+
+**The lockfile row.** A manifest says *what you want* ("any 5.x"); a lockfile
+records *what you got* (5.40.1, with this checksum). Without one, two builds of
+the same commit can produce different artifacts — which is why the `Cargo.lock`
+and `package-lock.json` belong in Git, and why Maven's lack of one by default
+is a real weakness that `dependency:lock` and a pinned parent POM exist to
+paper over.
+
+**The cache row.** Every one of those directories is what a CI pipeline should
+cache between runs. Fetching a few hundred dependencies on every build is
+usually the single largest chunk of pipeline time, and it is pure repetition —
+nothing about it changed since the last run.
+
+### Interpreted languages have builds too
+
+A common misconception is that Python and JavaScript "do not need building"
+because there is no compiler. There is still a build; it just produces
+something other than machine code:
+
+- **JavaScript** bundles, minifies, tree-shakes and fingerprints — turning
+  hundreds of modules into a handful of hashed files a CDN can cache forever.
+  That is exactly what produces the `_next/static` directory this platform
+  deploys.
+- **Python** produces a **wheel** (`.whl`) — a zip with metadata that installs
+  without re-running `setup.py`. Installing from a wheel rather than a source
+  distribution is the difference between a two-second install and compiling C
+  extensions on the target machine.
+
+If a language claims not to need a build step, the build step is usually
+happening somewhere less visible — at install time, on the server, in
+production.
+
+### The artifact: what a `.jar` actually is
+
+A `.jar` is **a ZIP file**. Genuinely — rename it and open it.
+
+```bash
+cp target/ivolve-api.jar /tmp/x.zip && unzip -l /tmp/x.zip | head
+```
+
+A Spring Boot "fat jar" contains your compiled classes, every dependency, and a
+small launcher. That is why `java -jar app.jar` works with nothing else
+installed — and why the file is 40MB rather than 200KB.
+
+This matters for Docker: you copy **one file** into the runtime image.
+
+**Every ecosystem has this idea, under a different name.** The build's job is to
+collapse a source tree into the smallest number of files the runtime needs:
+
+| Ecosystem | Artifact | What it really is |
+| --- | --- | --- |
+| Java | `.jar` / `.war` | A zip of classes, dependencies and a manifest |
+| Python | `.whl` | A zip of modules plus install metadata |
+| JavaScript | a bundle | Hashed JS/CSS the CDN caches forever |
+| Go / Rust | a binary | Statically linked; often needs no runtime at all |
+| Containers | an image | Layers, which the Docker chapter covers |
+
+A Go or Rust binary is the extreme case: nothing else has to be installed, which
+is why their container images can be built `FROM scratch` and measure a few
+megabytes rather than a few hundred.
+
+### A worked example: Maven and Gradle
+
+The rest of this chapter follows one ecosystem end to end, because the details
+only become concrete in a real tool. The concepts transfer directly — replace
+`pom.xml` with `package.json` and `~/.m2` with `~/.npm`, and every section
+below still applies.
+
+| | Maven | Gradle |
+|---|---|---|
+| Config file | `pom.xml` (XML) | `build.gradle` (Groovy/Kotlin) |
+| Style | declarative, rigid | programmable, flexible |
+| Speed | slower | faster (incremental builds, daemon) |
+| Predictability | very | depends what you wrote |
+
+This platform uses **Maven** for the API. Maven's rigidity is a feature in CI:
+every Maven project builds the same way, so a pipeline that works for one works
+for all. A Gradle build can do anything, including things you did not expect.
+
+---
+
+## Level 2 — Intermediate
+
+### The Maven lifecycle
+
+Maven has ordered **phases**. Running one runs every phase before it — the
+detail that confuses people first.
+
+```
+validate → compile → test → package → verify → install → deploy
+```
+
+```bash
+mvn compile     # compiles only
+mvn test        # compiles, THEN tests
+mvn package     # compiles, tests, THEN builds the jar
+mvn verify      # all of the above, plus integration tests and checks
+```
+
+So `mvn package` runs your tests whether you asked or not. That is why
+`-DskipTests` exists — and why using it in CI defeats the point of CI.
+
+```bash
+mvn clean package              # tests run. Correct for CI.
+mvn clean package -DskipTests  # tests skipped. Only for a fast local loop.
+```
+
+`clean` deletes `target/` first. Without it you can package stale classes from a
+previous build — a genuinely confusing bug.
+
+### Reading the platform's `pom.xml`
+
+Open `application/ivolve-api/pom.xml`:
+
+```xml
+<parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.2.0</version>
+</parent>
+
+<groupId>com.ivolve</groupId>
+<artifactId>ivolve-api</artifactId>
+<version>1.0.0</version>
+```
+
+- **`parent`** inherits sensible dependency versions from Spring Boot, so you
+  do not pick compatible versions of 40 libraries yourself.
+- **`groupId` + `artifactId` + `version`** uniquely identify the artifact —
+  the coordinates Nexus stores it under.
+
+```xml
+<build>
+    <finalName>ivolve-api</finalName>
+```
+
+`finalName` fixes the output at `target/ivolve-api.jar` instead of
+`target/ivolve-api-1.0.0.jar`. **That is deliberate**: the Dockerfile can then
+say `COPY target/ivolve-api.jar` without the version being baked into the
+Dockerfile, so a version bump does not break the image build.
+
+### The JaCoCo plugin, and why the quality gate needs it
+
+```xml
+<plugin>
+    <groupId>org.jacoco</groupId>
+    <artifactId>jacoco-maven-plugin</artifactId>
+    <executions>
+        <execution>
+            <id>prepare-agent</id>
+            <goals><goal>prepare-agent</goal></goals>
+        </execution>
+        <execution>
+            <id>report</id>
+            <phase>test</phase>
+            <goals><goal>report</goal></goals>
+        </execution>
+    </executions>
+</plugin>
+```
+
+JaCoCo measures which lines the tests actually executed. `prepare-agent`
+attaches a Java agent that records execution; `report` writes
+`target/site/jacoco/jacoco.xml`.
+
+SonarQube reads that file. **No JaCoCo plugin means no coverage data, which
+means the "coverage ≥ 80%" quality gate passes vacuously** — the pipeline looks
+green and enforces nothing. This is a real and common failure.
+
+---
+
+## Level 3 — Advanced
+
+### Why the Dockerfile splits dependency download from source copy
+
+```dockerfile
+COPY pom.xml .
+RUN mvn -B -q dependency:go-offline    # ← layer A
+
+COPY src ./src
+RUN mvn -B clean package -DskipTests   # ← layer B
+```
+
+Docker caches layers. If `pom.xml` has not changed, layer A is reused from cache
+— **every dependency download is skipped.**
+
+Copy the whole directory at once and any source change invalidates the cache,
+re-downloading hundreds of megabytes on every commit. This one ordering
+decision is often the difference between a 90-second build and an 8-minute one.
+
+> Note the Dockerfile *does* use `-DskipTests`. That is correct here: tests ran
+> in the pipeline's earlier Build & Test stage, against the JaCoCo agent. Running
+> them again inside the image build would double the time and produce no coverage
+> report anyone reads.
+
+### `-B` and why CI output is unreadable without it
+
+`-B` is batch mode. Without it Maven emits progress spinners with carriage
+returns, which render in a CI log as thousands of lines of noise.
+
+Always `-B` in CI. Always.
+
+### The local repository, and "works on my machine"
+
+Maven caches every downloaded dependency in `~/.m2/repository`. This causes the
+classic failure: a build that works locally and fails in CI, because your
+machine has a jar cached that is no longer published.
+
+`mvn dependency:go-offline` in a clean container proves the build is genuinely
+reproducible from published artifacts.
+
+For agents, the platform sets:
+
+```
+MAVEN_OPTS="-Dmaven.repo.local=/home/jenkins/agent/.m2/repository"
+```
+
+so the cache lives on a persistent volume — shared between builds, isolated from
+the host.
+
+### Reproducible builds and version pinning
+
+`1.0.0` is a fixed version. `1.0.0-SNAPSHOT` is not — Maven re-resolves
+snapshots and can produce a different artifact from identical source.
+
+Deploy **releases**, never snapshots. Nexus enforces this: `ivolve-releases` is
+configured `writePolicy: ALLOW_ONCE`, so a version number can never be
+overwritten with different content. That is what makes "version 1.0.0" mean one
+specific artifact forever.
+
+---
+
+## Level 4 — Enterprise
+
+### Proxying the public repository
+
+Every `mvn` invocation downloads from Maven Central. At enterprise scale that is
+a problem for three reasons:
+
+1. **Availability** — a Central outage stops every build in the company.
+2. **Speed** — an internal proxy is much closer than the internet.
+3. **Supply chain** — you cannot inspect what you do not control.
+
+Nexus proxies Central. The first request fetches and caches; every subsequent
+one is served locally. Configure it in `~/.m2/settings.xml`:
+
+```xml
+<mirror>
+  <id>nexus</id>
+  <mirrorOf>*</mirrorOf>
+  <url>https://nexus.ivolve.example.com/repository/maven-central-proxy/</url>
+</mirror>
+```
+
+### Dependency confusion
+
+A real and exploited attack: publish a package to a **public** registry with the
+same name as a company's **internal** one, and a misconfigured resolver picks
+the public — attacker-controlled — version.
+
+Defence: scope internal artifacts to a namespace you own, and configure the
+resolver so internal groups resolve *only* from the internal repository, never
+falling back to public.
+
+### SBOM and the CVE question
+
+The pipeline generates a CycloneDX SBOM per build. That is what makes the
+question "are we affected by the CVE announced this morning?" answerable in
+minutes rather than days — you query the SBOMs instead of rebuilding and
+rescanning everything you have ever shipped.
+
+---
+
+## Hands-on
+
+```bash
+cd Cloud-Native-DevOps-Platform/application/ivolve-api
+
+# 1. Build it. Watch the phases go past.
+mvn -B clean package
+
+# 2. Look at what came out
+ls -la target/*.jar
+unzip -l target/ivolve-api.jar | head -20
+
+# 3. Run it
+java -jar target/ivolve-api.jar
+curl localhost:8080/actuator/health/liveness
+
+# 4. Find the coverage report the quality gate reads
+cat target/site/jacoco/jacoco.xml | head -20
+
+# 5. Prove the Docker cache theory. Time both.
+docker build -t api:v1 .              # cold
+touch src/main/java/com/ivolve/api/IvolveApiApplication.java
+time docker build -t api:v2 .         # only the source layer rebuilds
+```
+
+**Checkpoint:** explain why step 5's second build was fast, and what would have
+happened if the Dockerfile had a single `COPY . .`.
+
+---
+
+## Interview Questions
+
+### Beginner
+**Q: What does `mvn clean package` do?**
+A: `clean` deletes the `target/` directory so nothing stale is packaged. `package`
+runs every lifecycle phase up to and including packaging — validate, compile,
+test, then build the jar. Tests run as part of it unless explicitly skipped.
+
+### Intermediate
+**Q: Why does the Dockerfile copy `pom.xml` before `src`?**
+A: Docker layer caching. Dependency resolution is expensive and changes rarely;
+source changes on every commit. Copying `pom.xml` and resolving dependencies in
+its own layer means that layer is reused whenever dependencies have not changed,
+so only the fast compile step reruns. Copying everything at once invalidates the
+cache on every commit and re-downloads all dependencies.
+
+### Senior
+**Q: The SonarQube gate says 0% coverage, but the tests pass. Why?**
+A: Coverage data is not being produced or not being found. Most likely the
+JaCoCo plugin is not attached, so no `jacoco.xml` is written, or
+`sonar.coverage.jacoco.xmlReportPaths` points somewhere the file is not. This is
+worse than a failing gate: the pipeline reports green while enforcing nothing.
+I would check the report exists on disk after `mvn verify` before looking
+anywhere else.
+
+### Principal/Architect
+**Q: How do you make builds reproducible across developers and CI?**
+A: Four things. Pin every dependency to a release version — no `SNAPSHOT` and no
+open ranges, so the same source always resolves to the same artifacts. Proxy the
+public repository through an internal one, so builds do not depend on external
+availability and the inputs are auditable. Build inside a container with a
+pinned toolchain image, so the JDK and Maven versions are identical everywhere.
+And enforce write-once on the release repository, so a published version can
+never be replaced with different bytes. Together those mean the artifact is a
+function of the commit, which is the property everything downstream — signing,
+SBOMs, rollback — depends on.
+[Contents](/learn) | [09 — Containerization (Docker)](/learn/docker/docker) |

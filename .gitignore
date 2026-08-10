@@ -3,6 +3,12 @@ node_modules/
 out/
 dist/
 build/
+# `build/` matches at any depth, which silently swallowed the Build Tools
+# chapter at content/learn/build/ — it was never committed, so CI failed with
+# "references unknown chapter build-tools" while the file sat on disk locally.
+# The directory itself must be un-ignored; a negation on the file alone does
+# not work once its parent is excluded.
+!content/learn/build/
 .turbo/
 
 # generated
