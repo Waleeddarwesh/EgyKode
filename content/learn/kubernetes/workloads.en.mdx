@@ -1,0 +1,382 @@
+---
+contentId: k8s-workloads
+title: "Kubernetes Workloads"
+titleAr: "أحمال العمل في Kubernetes"
+description: "Pick the right controller — Deployment, StatefulSet, DaemonSet, Job — and know what each one guarantees"
+descriptionAr: "اختر وحدة التحكم الصحيحة واعرف ما تضمنه كل واحدة منها."
+domain: kubernetes
+level: intermediate
+type: concept
+phase: kubernetes
+order: 24
+readingTime: 55
+prerequisites: ["kubernetes", "docker"]
+relatedChapters: ["k8s-config-storage", "k8s-services-networking", "helm"]
+objectives:
+  - "Choose between Deployment, StatefulSet, DaemonSet, Job and CronJob from what the workload needs"
+  - "Explain what a ReplicaSet does and why you never create one directly"
+  - "Control a rolling update, and roll it back when it goes wrong"
+  - "Recognise the failure each controller cannot protect you from"
+status: complete
+translationStatus: missing
+authors: [waleed]
+updated: 2026-08-10
+---
+
+## Introduction
+
+You never tell Kubernetes to run a container. You tell it what you want to be
+true, and a **controller** spends the rest of its life making reality match.
+
+That sentence is the whole chapter. Everything below is about which controller
+to pick, because each one makes a different promise about identity, ordering
+and lifetime — and picking the wrong one produces a system that works in
+testing and corrupts data in production.
+
+---
+
+## Level 1 — Beginner
+
+### The Pod is not the thing you deploy
+
+A **Pod** is one or more containers that share a network namespace and a
+lifetime. Two containers in a Pod reach each other on `localhost` and are
+scheduled onto the same node, always.
+
+A Pod is also **mortal and unrepairable**. If its node dies, the Pod dies with
+it. Nothing brings it back. Kubernetes does not restart Pods on other nodes —
+it creates *new* ones, and only a controller will do that.
+
+```bash
+kubectl run temp --image=nginx      # a bare Pod
+kubectl delete pod temp             # gone, permanently
+```
+
+So you almost never write a Pod manifest. You write a controller that writes
+Pod manifests for you.
+
+### The four questions that choose your controller
+
+```text
+Does every node need one copy?          → DaemonSet
+Does each replica need a stable name
+  and its own storage?                  → StatefulSet
+Does it run to completion and stop?     → Job  (or CronJob on a schedule)
+Otherwise — interchangeable replicas    → Deployment
+```
+
+Roughly 90% of what you deploy is a Deployment. The other three exist for
+cases where "any replica will do" is false.
+
+---
+
+## Level 2 — Intermediate
+
+### Deployment → ReplicaSet → Pod
+
+A Deployment does not create Pods. It creates a **ReplicaSet**, and the
+ReplicaSet creates Pods.
+
+```text
+Deployment  "I want 3 of version v2, updated gradually"
+    │
+    ├── ReplicaSet (v1)  desired: 0      ← kept for rollback
+    └── ReplicaSet (v2)  desired: 3
+             ├── Pod api-7d4f-a1b2
+             ├── Pod api-7d4f-c3d4
+             └── Pod api-7d4f-e5f6
+```
+
+The extra layer looks redundant until you update the image. The Deployment
+creates a second ReplicaSet, scales the new one up and the old one down, and
+keeps the old one at zero replicas afterwards. **That retained ReplicaSet is
+what a rollback rewinds to** — which is why `kubectl rollout undo` is instant
+and does not rebuild anything.
+
+```bash
+kubectl get rs                       # the history, as objects
+kubectl rollout history deploy/api
+kubectl rollout undo deploy/api --to-revision=2
+```
+
+You never create a ReplicaSet directly. It exists so the Deployment has
+something to hand versions to.
+
+### Controlling a rolling update
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  replicas: 4
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1     # never drop below 3 serving
+      maxSurge: 1           # never run more than 5
+  selector:
+    matchLabels: { app: api }
+  template:
+    metadata:
+      labels: { app: api }
+    spec:
+      containers:
+        - name: api
+          image: registry.example.com/api:1.4.2
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            periodSeconds: 5
+```
+
+**The readiness probe is what makes the rollout safe.** Without it, Kubernetes
+considers a Pod available the moment its container starts, so it moves to the
+next one while the first is still loading — and with `maxUnavailable: 1` on
+four replicas you can briefly have zero Pods actually serving.
+
+`spec.selector` is immutable after creation. Changing labels on an existing
+Deployment fails; you delete and recreate.
+
+```bash
+kubectl rollout status deploy/api --timeout=5m
+```
+
+That command is the difference between deploying and *requesting* a deploy. It
+exits non-zero if the rollout stalls, which is what makes a pipeline fail
+honestly.
+
+### StatefulSet: when replicas are not interchangeable
+
+A Deployment's Pods get random suffixes and can be replaced in any order. For
+a database, that is wrong — replica 0 is the primary, and it must come back as
+replica 0 with its own disk.
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  serviceName: postgres-headless      # required
+  replicas: 3
+  selector:
+    matchLabels: { app: postgres }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:               # one PVC per Pod, not one shared
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests: { storage: 20Gi }
+```
+
+Three guarantees a Deployment does not make:
+
+| | Deployment | StatefulSet |
+| --- | --- | --- |
+| Pod names | `api-7d4f-a1b2` (random) | `postgres-0`, `-1`, `-2` (stable) |
+| Start order | All at once | 0, then 1, then 2 |
+| Shutdown order | Any | Reverse — 2, then 1, then 0 |
+| Storage | Shared or none | One PVC per Pod, kept on delete |
+| DNS | One Service name | `postgres-0.postgres-headless...` per Pod |
+
+`volumeClaimTemplates` is the part people miss: it creates a **separate** PVC
+for each replica. A `volumes:` block with one PVC would have all three Pods
+mounting the same disk, which for most databases means corruption.
+
+**The PVCs outlive the StatefulSet.** Deleting it leaves the data behind on
+purpose, so recreating it reattaches rather than starting empty. It also means
+`kubectl delete sts` does not free the storage — you delete the PVCs
+explicitly.
+
+### DaemonSet: one per node
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+spec:
+  selector:
+    matchLabels: { app: node-exporter }
+  template:
+    metadata:
+      labels: { app: node-exporter }
+    spec:
+      tolerations:
+        - operator: Exists            # run on tainted nodes too
+      containers:
+        - name: node-exporter
+          image: prom/node-exporter:v1.8.2
+```
+
+No `replicas` field — the count is however many nodes there are. Add a node
+and a Pod appears on it; remove one and it goes.
+
+This is what log shippers, metrics exporters and CNI agents use. The
+`tolerations` block matters: without it, a DaemonSet skips tainted nodes,
+including control-plane nodes, which is usually not what a monitoring agent
+wants.
+
+### Job and CronJob: work that ends
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+spec:
+  backoffLimit: 3                # retries before giving up
+  template:
+    spec:
+      restartPolicy: OnFailure   # Always is invalid here
+      containers:
+        - name: migrate
+          image: registry.example.com/api:1.4.2
+          command: ["./manage.py", "migrate"]
+```
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nightly-backup
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid      # do not start if the last one is still going
+  successfulJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: backup-tool:1.2
+
+```
+
+`concurrencyPolicy: Forbid` is the setting that prevents the classic incident:
+a backup that normally takes 20 minutes takes 90, the next one starts anyway,
+and two processes write the same file.
+
+CronJob schedules use the cluster's timezone unless you set `spec.timeZone`.
+Assuming UTC when the control plane is not on UTC is a reliable way to run a
+job at the wrong hour.
+
+---
+
+## Level 3 — Advanced
+
+### What each controller cannot do for you
+
+Controllers keep the *declared* state true. They have no opinion about whether
+your application is correct.
+
+- **A Deployment will happily roll out a broken image forever.** With no
+  readiness probe, Kubernetes sees a running container and moves on. With one,
+  the rollout stalls — visible, and not yet an outage. This is why the probe is
+  not optional.
+- **A StatefulSet does not replicate your data.** It gives each replica a
+  stable name and a disk. Making `postgres-1` a replica of `postgres-0` is
+  your application's job, or an operator's.
+- **A DaemonSet does not fix a bad node.** It puts a Pod on every node,
+  including the one that is broken.
+- **A Job's `backoffLimit` counts failures, not time.** A container that hangs
+  is never a failure. Add `activeDeadlineSeconds` for that.
+
+### Pod disruption, and the two kinds
+
+```yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api
+spec:
+  minAvailable: 3
+  selector:
+    matchLabels: { app: api }
+```
+
+A PDB governs **voluntary** disruption — a node drain, a cluster upgrade, the
+autoscaler removing a node. It has no effect on a crash or a node failure,
+which are involuntary.
+
+That distinction is the entire point: a PDB stops *you* from causing an outage
+during maintenance. It cannot stop the hardware.
+
+`minAvailable` must be below the replica count, or no drain will ever be
+allowed to proceed and cluster upgrades will hang.
+
+### Ownership and cascading deletion
+
+Every Pod a controller creates carries an `ownerReferences` entry pointing at
+its ReplicaSet, which points at the Deployment.
+
+```bash
+kubectl get pod <pod> -o jsonpath='{.metadata.ownerReferences}' | jq
+```
+
+Deleting the Deployment garbage-collects the chain. You can break it
+deliberately:
+
+```bash
+kubectl delete deploy api --cascade=orphan     # Pods keep running, unmanaged
+```
+
+Useful in an incident when you want the Pods to survive while you rebuild the
+controller. Dangerous otherwise — orphaned Pods have nothing watching them, so
+nothing replaces them when they die.
+
+### Choosing under pressure
+
+The question that resolves most arguments: **if I delete replica 2 and a new
+one appears with a different name, is anything broken?**
+
+- No → Deployment.
+- Yes, because something addresses it by name or its disk matters → StatefulSet.
+- The question does not apply, it is per-node → DaemonSet.
+- It should stop when finished → Job.
+
+---
+
+## Common failures
+
+**`ImagePullBackOff`** — the node cannot fetch the image. Wrong tag, private
+registry with no `imagePullSecrets`, or no network route to the registry.
+`kubectl describe pod` names which.
+
+**`CrashLoopBackOff`** — the container starts and exits repeatedly. Kubernetes
+backs off exponentially up to five minutes. `kubectl logs <pod> --previous`
+reads the *dead* container's output, which is where the reason is.
+
+**Pods `Pending` forever** — nothing can schedule them. Usually insufficient
+CPU or memory, an unsatisfiable node selector, or a PVC with no available
+volume. `kubectl describe pod` ends with the scheduler's exact complaint.
+
+**A rollout that never completes** — the new Pods never become ready. The old
+ReplicaSet is still serving, so there is no outage yet. Read the new Pods'
+logs before touching anything; `kubectl rollout undo` is one command away.
+
+**A StatefulSet stuck at Pod 0** — ordered startup means nothing proceeds
+until replica 0 is ready. One failing Pod blocks the entire set, by design.
+
+---
+
+## Practise this
+
+- Lab: **Kubernetes Workloads** — build each controller and break it
+- Lab: **Helm Upgrades, Rollbacks & Release Strategy** — rollouts under a chart
+- Lab: **Node Drain, Upgrade & Recovery** — PodDisruptionBudgets in anger
+- Incident: **CrashLoopBackOff** — you are given the symptom and nothing else

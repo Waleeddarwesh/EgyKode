@@ -38,7 +38,7 @@ These numbers are counted from the corpus, not aspirational:
 
 | | Count | |
 |---|---|---|
-| **Chapters** | 47 | Migrated from the `Cloud-Native-DevOps-Handbook` project |
+| **Chapters** | 55 | Migrated from the `Cloud-Native-DevOps-Handbook` project, then extended where the roadmaps had gaps |
 | **Topics** | 74 | Across 12 areas — *derived from the content, never hand-authored* |
 | **Labs** | 58 | 54 guided (each with a challenge version), 3 incident labs and a challenge-only capstone |
 | **Roadmaps** | 4 | 11, 8, 8 and 8 phases |

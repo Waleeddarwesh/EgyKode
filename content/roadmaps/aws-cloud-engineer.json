@@ -39,11 +39,11 @@
     {
       "id": "compute",
       "number": "04",
-      "title": "Compute",
-      "titleAr": "الحوسبة",
+      "title": "Compute & Load Balancing",
+      "titleAr": "الحوسبة وموازنة الأحمال",
       "chapters": [
-        "load-balancers",
-        "serverless"
+        "ec2",
+        "load-balancers"
       ]
     },
     {
@@ -52,13 +52,23 @@
       "title": "Storage & Databases",
       "titleAr": "التخزين وقواعد البيانات",
       "chapters": [
-        "rds",
-        "ecr"
+        "s3",
+        "rds"
+      ]
+    },
+    {
+      "id": "containers",
+      "number": "06",
+      "title": "Containers & Serverless",
+      "titleAr": "الحاويات وبدون خوادم",
+      "chapters": [
+        "ecr",
+        "serverless"
       ]
     },
     {
       "id": "availability",
-      "number": "06",
+      "number": "07",
       "title": "High Availability & Scalability",
       "titleAr": "الإتاحة العالية وقابلية التوسع",
       "chapters": [
@@ -68,7 +78,7 @@
     },
     {
       "id": "iac",
-      "number": "07",
+      "number": "08",
       "title": "Infrastructure as Code",
       "titleAr": "البنية التحتية ككود",
       "chapters": [
@@ -78,7 +88,7 @@
     },
     {
       "id": "operations",
-      "number": "08",
+      "number": "09",
       "title": "Operations & Cost",
       "titleAr": "التشغيل والتكلفة",
       "chapters": [
@@ -100,9 +110,10 @@
     "repo": "Cloud-Native-DevOps-Platform"
   },
   "contentGaps": [
-    "AWS global infrastructure, regions and the Shared Responsibility Model",
-    "EC2 in depth: AMIs, EBS, launch templates, target groups",
-    "S3 and EFS as their own chapter (currently only referenced)",
-    "CloudWatch, CloudTrail and Cost Explorer as an operations chapter"
+    "AWS global infrastructure, regions, availability zones and the Shared Responsibility Model",
+    "CloudWatch, CloudTrail and Cost Explorer as a single operations chapter",
+    "Route 53, DNS and VPC connectivity (endpoints, peering)",
+    "KMS and encryption across S3, EBS and RDS",
+    "EBS and EFS as their own chapter alongside S3"
   ]
 }

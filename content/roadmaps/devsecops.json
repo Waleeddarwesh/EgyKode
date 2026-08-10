@@ -64,6 +64,7 @@
       "titleAr": "أمان البنية التحتية والتشغيل",
       "chapters": [
         "terraform",
+        "k8s-security",
         "network-policies",
         "service-mesh"
       ]
@@ -105,6 +106,6 @@
     "Threat modelling and the secure SDLC as an opening chapter",
     "Dependency scanning (SCA), secret scanning and SBOM generation",
     "Image signing and provenance (Sigstore / cosign)",
-    "Kubernetes admission control and Pod Security Standards"
+    "Security logging, audit trails and incident response as detection rather than general observability"
   ]
 }

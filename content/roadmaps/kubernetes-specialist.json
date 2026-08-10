@@ -20,19 +20,22 @@
     {
       "id": "architecture",
       "number": "02",
-      "title": "Cluster Architecture",
-      "titleAr": "بنية الكلاستر",
+      "title": "Cluster Architecture & Administration",
+      "titleAr": "بنية الكلاستر وإدارته",
       "chapters": [
-        "kubernetes"
+        "kubernetes",
+        "k8s-cluster-administration",
+        "kubeadm"
       ]
     },
     {
-      "id": "administration",
+      "id": "workloads",
       "number": "03",
-      "title": "Cluster Administration",
-      "titleAr": "إدارة الكلاستر",
+      "title": "Workloads & Configuration",
+      "titleAr": "أحمال العمل والإعداد",
       "chapters": [
-        "kubeadm"
+        "k8s-workloads",
+        "k8s-config-storage"
       ]
     },
     {
@@ -41,6 +44,7 @@
       "title": "Services & Networking",
       "titleAr": "الخدمات والشبكات",
       "chapters": [
+        "k8s-services-networking",
         "network-policies"
       ]
     },
@@ -50,12 +54,22 @@
       "title": "Traffic Management",
       "titleAr": "إدارة حركة المرور",
       "chapters": [
+        "gateway-api",
         "service-mesh"
       ]
     },
     {
-      "id": "packaging",
+      "id": "access",
       "number": "06",
+      "title": "Security & Access",
+      "titleAr": "الأمن والوصول",
+      "chapters": [
+        "k8s-security"
+      ]
+    },
+    {
+      "id": "packaging",
+      "number": "07",
       "title": "Packaging & Environments",
       "titleAr": "التحزيم والبيئات",
       "chapters": [
@@ -65,7 +79,7 @@
     },
     {
       "id": "delivery",
-      "number": "07",
+      "number": "08",
       "title": "Delivery",
       "titleAr": "النشر",
       "chapters": [
@@ -75,7 +89,7 @@
     },
     {
       "id": "operate",
-      "number": "08",
+      "number": "09",
       "title": "Observability & Operations",
       "titleAr": "المراقبة والتشغيل",
       "chapters": [
@@ -99,11 +113,9 @@
     "repo": "Cloud-Native-DevOps-Platform"
   },
   "contentGaps": [
-    "Multi-control-plane HA: the control-plane endpoint, etcd quorum and failure behaviour — required before this path can claim to teach HA",
-    "Gateway API: service networking → Ingress → Ingress controllers → Gateway, HTTPRoute and GatewayClass → migrating from Ingress. The Ingress API is frozen upstream, so Gateway is the direction, but it is only worth adding as that full progression",
-    "Workloads in depth: DaemonSets, StatefulSets, Jobs and CronJobs",
-    "Configuration & storage: ConfigMaps, Secrets, PV/PVC, StorageClasses",
-    "Scheduling: taints, tolerations, affinity, requests and limits",
-    "RBAC, ServiceAccounts, Pod Security Standards and admission control"
+    "Scheduling in depth: requests and limits, QoS classes, taints and tolerations, affinity and topology spread",
+    "CNI and pod networking below the Service layer",
+    "Progressive delivery: blue/green, canary and automated rollback",
+    "Operators and CRDs as the Kubernetes extension pattern"
   ]
 }

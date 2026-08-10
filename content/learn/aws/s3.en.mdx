@@ -1,0 +1,332 @@
+---
+contentId: s3
+title: "Amazon S3"
+titleAr: "Amazon S3"
+description: "Object storage, the access model that causes most cloud breaches, and the cost levers that matter"
+descriptionAr: "تخزين الكائنات، ونموذج الوصول الذي يسبّب أغلب التسريبات."
+domain: aws
+level: beginner
+type: concept
+phase: cloud
+order: 14
+readingTime: 45
+prerequisites: ["aws-overview", "iam"]
+relatedChapters: ["ec2", "iam", "cost-optimization", "disaster-recovery"]
+objectives:
+  - "Explain how S3 differs from a filesystem, and why that changes your design"
+  - "Work out why a request was allowed or denied across four policy layers"
+  - "Choose a storage class and a lifecycle rule from the access pattern"
+  - "Serve a private bucket through CloudFront without making it public"
+status: complete
+translationStatus: missing
+authors: [waleed]
+updated: 2026-08-10
+---
+
+## Introduction
+
+S3 stores objects, not files, and the difference is not pedantry. There are no
+directories, no partial writes, and no rename. Every operation is an HTTP
+request against a flat key space.
+
+It is also the service most often involved in a public data breach — not
+because it is insecure, but because its access model has four layers that
+interact, and people reason about one of them.
+
+This platform runs on S3: the site you are reading is objects behind
+CloudFront, and its Terraform state is a versioned bucket.
+
+---
+
+## Level 1 — Beginner
+
+### There are no folders
+
+```text
+s3://my-bucket/images/2026/logo.png
+                └──────────────────┘
+                  this is one key
+```
+
+The console draws folders because the key contains slashes. Nothing structural
+exists. "Renaming a folder" means copying every object to new keys and deleting
+the old ones — an O(n) operation that surprises people migrating from a
+filesystem.
+
+Objects are also **immutable**. You cannot append to one or modify a byte in
+the middle; you replace it entirely. If your design needs appends, you need a
+database or a log service, not S3.
+
+**Bucket names are globally unique across every AWS account on earth.** Not
+per-account, not per-region. This is why every example uses a suffix, and why
+`aws s3 mb s3://data` has failed since about 2007.
+
+```bash
+aws s3 mb s3://egykode-artifacts-$(date +%s) --region us-east-1
+aws s3 cp ./build s3://egykode-artifacts-123/ --recursive
+aws s3 ls s3://egykode-artifacts-123/ --recursive --human-readable --summarize
+```
+
+### Durability and availability are different numbers
+
+S3 Standard is designed for **eleven nines of durability** (99.999999999%) —
+the probability of losing an object, achieved by replicating across at least
+three availability zones.
+
+Availability is 99.99% — the probability that a request succeeds right now.
+
+Durability is not backup. S3 will faithfully preserve the object you
+overwrote, deleted, or encrypted with ransomware. That is what versioning is
+for.
+
+---
+
+## Level 2 — Intermediate
+
+### Four layers decide every request
+
+This is the part worth internalising, because it is where the breaches come
+from:
+
+```text
+1. Block Public Access      account and bucket level — overrides everything
+2. IAM policy               what the caller is allowed to do
+3. Bucket policy            what the bucket allows, from whom
+4. ACL                      legacy per-object permissions
+```
+
+**Block Public Access wins over everything.** With it on, a bucket policy
+granting `Principal: "*"` is ignored. It is enabled by default on new buckets
+and should stay on for essentially every bucket — including ones serving a
+public website, which should go through CloudFront instead.
+
+```bash
+aws s3api get-public-access-block --bucket my-bucket
+aws s3api put-public-access-block --bucket my-bucket \
+  --public-access-block-configuration \
+  BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+```
+
+**An explicit `Deny` anywhere wins.** The evaluation is: any explicit deny →
+denied; otherwise an allow in an applicable policy → allowed; otherwise denied.
+There is no "the bucket policy said yes so it is fine".
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "DenyUnencryptedTransport",
+    "Effect": "Deny",
+    "Principal": "*",
+    "Action": "s3:*",
+    "Resource": ["arn:aws:s3:::my-bucket", "arn:aws:s3:::my-bucket/*"],
+    "Condition": { "Bool": { "aws:SecureTransport": "false" } }
+  }]
+}
+```
+
+That statement — deny anything not over TLS — belongs on every bucket. Note
+both ARNs: bucket-level actions like `ListBucket` apply to
+`arn:aws:s3:::my-bucket`, object actions to `.../*`. Getting only one is the
+most common bucket policy bug.
+
+**ACLs are legacy.** New buckets default to `BucketOwnerEnforced`, which
+disables them entirely. If you meet a bucket where ACLs matter, the task is
+migrating off them, not learning them.
+
+### Versioning is the undo button
+
+```bash
+aws s3api put-bucket-versioning --bucket my-bucket \
+  --versioning-configuration Status=Enabled
+```
+
+With versioning on, deleting an object writes a **delete marker** and keeps
+every previous version. The object appears gone and is fully recoverable:
+
+```bash
+aws s3api list-object-versions --bucket my-bucket --prefix path/to/key
+aws s3api delete-object --bucket my-bucket --key path/to/key --version-id <marker-id>
+```
+
+Deleting the delete marker restores the object.
+
+**This is why the Terraform state bucket must have versioning enabled.** A
+deleted state file is one command from recovery with it, and a full manual
+re-import of every resource without it.
+
+Versioning cannot be turned off, only suspended, and every version bills.
+Without a lifecycle rule to expire old versions, a frequently rewritten object
+grows a bill nobody is watching.
+
+### Storage classes
+
+| Class | Retrieval | Minimum duration | For |
+| --- | --- | --- | --- |
+| Standard | Instant | — | Active data |
+| Intelligent-Tiering | Instant | — | Unknown or changing patterns |
+| Standard-IA | Instant | 30 days | Backups, older logs |
+| Glacier Instant | Instant | 90 days | Archives you still read |
+| Glacier Flexible | Minutes–hours | 90 days | Real archives |
+| Deep Archive | Up to 12 hours | 180 days | Compliance, cheapest |
+
+Two traps in the "minimum duration" column: deleting an IA object after 5 days
+bills for 30, and IA charges a **per-GB retrieval fee**. Data that turns out to
+be read frequently costs more in IA than in Standard.
+
+**Intelligent-Tiering is the honest default** when you do not know the access
+pattern. It moves objects between tiers automatically for a small monitoring
+fee per object — which makes it a poor fit for millions of tiny objects, where
+the fee dominates.
+
+```json
+{
+  "Rules": [{
+    "ID": "age-out",
+    "Status": "Enabled",
+    "Filter": { "Prefix": "logs/" },
+    "Transitions": [
+      { "Days": 30,  "StorageClass": "STANDARD_IA" },
+      { "Days": 90,  "StorageClass": "GLACIER_IR" }
+    ],
+    "Expiration": { "Days": 365 },
+    "NoncurrentVersionExpiration": { "NoncurrentDays": 30 },
+    "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
+  }]
+}
+```
+
+That last rule is worth setting on every bucket. Failed multipart uploads leave
+parts that are invisible to `aws s3 ls` and bill indefinitely — a classic
+"where is this charge coming from" mystery.
+
+---
+
+## Level 3 — Advanced
+
+### Serving a private bucket publicly
+
+The old pattern was a public bucket with static website hosting. The modern one
+keeps the bucket entirely private and puts CloudFront in front with **Origin
+Access Control**:
+
+```text
+Browser → CloudFront (TLS, caching, edge locations)
+              │  signed with OAC
+              ▼
+          S3 bucket — Block Public Access ON, no public policy
+```
+
+```json
+{
+  "Effect": "Allow",
+  "Principal": { "Service": "cloudfront.amazonaws.com" },
+  "Action": "s3:GetObject",
+  "Resource": "arn:aws:s3:::my-bucket/*",
+  "Condition": {
+    "StringEquals": {
+      "AWS:SourceArn": "arn:aws:cloudfront::111122223333:distribution/E1234"
+    }
+  }
+}
+```
+
+Nobody can reach the bucket directly. Only that specific distribution can, and
+the `SourceArn` condition is what makes it specific — without it, any
+CloudFront distribution in any account could read your bucket.
+
+Everything else follows: TLS via ACM, caching at the edge, and no per-request
+S3 cost for cached objects. This is exactly how the site you are reading is
+served.
+
+### Presigned URLs
+
+```bash
+aws s3 presign s3://my-bucket/private/report.pdf --expires-in 3600
+```
+
+A time-limited URL carrying a signature, generated with **your** credentials
+and usable by someone with none. Two directions:
+
+- **Download** — hand a customer one file without giving them an AWS identity.
+- **Upload** — let a browser `PUT` directly to S3 so the file never passes
+  through your servers, which removes a bandwidth and memory bottleneck.
+
+The URL cannot outlive the credentials that signed it. One signed by an
+instance role expires when that role's temporary credentials do, regardless of
+`--expires-in` — which is why a presigned URL "expires early" on EC2.
+
+### Encryption
+
+Every object is encrypted at rest; the question is who holds the key.
+
+| Mode | Key | When |
+| --- | --- | --- |
+| SSE-S3 | AWS-managed | The default. Fine for most data. |
+| SSE-KMS | Your KMS key | Audit trail per request, key policies, rotation |
+| SSE-C | You supply per request | Rare; you manage everything |
+| DSSE-KMS | Two layers | Regulatory requirements |
+
+SSE-KMS gives you a CloudTrail entry for every decrypt and lets a key policy
+deny access independently of S3 — a genuine second layer. It also costs per
+request and is subject to KMS rate limits, so enable **S3 Bucket Keys**, which
+reduce KMS calls by orders of magnitude.
+
+### Consistency, and what it changed
+
+S3 has been **strongly read-after-write consistent** since December 2020. A
+successful `PUT` is immediately visible to a subsequent `GET`, in every region.
+
+This matters because a great deal of older advice, and some still-running code,
+works around the previous eventual consistency with retry loops and "wait 5
+seconds" sleeps. Those workarounds are now pure latency.
+
+### Performance
+
+- **Request rates scale by prefix** — 3,500 writes and 5,500 reads per second
+  per prefix, and prefixes scale horizontally. Keys that all begin the same way
+  can bottleneck; adding entropy early in the key spreads the load.
+- **Multipart upload** above ~100 MB gives parallel parts and retry of a single
+  failed part rather than the whole object. The CLI does it automatically.
+- **S3 Transfer Acceleration** routes uploads via CloudFront edges — worth it
+  for genuinely distant clients, wasted money otherwise.
+- **A VPC Gateway Endpoint for S3 is free** and keeps traffic off the NAT
+  Gateway. On a private-subnet cluster pulling from S3, this is often the
+  single largest easy saving on the bill.
+
+---
+
+## Common failures
+
+**`BucketAlreadyExists`** — the name is taken globally, by any account. Add a
+suffix.
+
+**`AccessDenied` with a policy that looks correct** — work the four layers in
+order: Block Public Access, then an explicit `Deny` anywhere, then the IAM
+policy, then the bucket policy. `aws s3api get-bucket-policy` and the IAM
+policy simulator settle it.
+
+**Policy works for `GetObject`, fails for `ListBucket`** — bucket-level actions
+need the bucket ARN, object-level actions need `/*`. Most policies need both.
+
+**Deleted objects reappear, or storage keeps growing** — versioning is on with
+no lifecycle rule expiring noncurrent versions.
+
+**A charge you cannot account for** — incomplete multipart uploads.
+`aws s3api list-multipart-uploads --bucket <b>` shows them; a lifecycle rule
+prevents them.
+
+**Presigned URL expires early** — it was signed with temporary credentials that
+expired first.
+
+**Slow uploads from far away** — multipart plus Transfer Acceleration, or a
+bucket in a closer region.
+
+---
+
+## Practise this
+
+- Lab: **S3 & CloudFront Static Site** — private bucket, OAC, real TLS
+- Lab: **Terraform Remote State** — versioning as a recovery mechanism
+- Lab: **Terraform Drift & State Recovery** — restoring a deleted state file
+- Lab: **Backup & Disaster Recovery** — lifecycle rules and retention

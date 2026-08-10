@@ -1,0 +1,346 @@
+---
+contentId: k8s-services-networking
+title: "Services, DNS & Ingress"
+titleAr: "الخدمات وDNS وIngress"
+description: "Follow a request from outside the cluster to a container, and know which layer dropped it"
+descriptionAr: "تتبّع الطلب من خارج الكلاستر حتى الحاوية، واعرف أي طبقة أسقطته."
+domain: kubernetes
+level: intermediate
+type: concept
+phase: kubernetes
+order: 26
+readingTime: 55
+prerequisites: ["k8s-workloads", "networking-fundamentals"]
+relatedChapters: ["gateway-api", "network-policies", "load-balancers"]
+objectives:
+  - "Explain what a Service actually is, given that it is not a process"
+  - "Choose between ClusterIP, NodePort, LoadBalancer and headless"
+  - "Resolve a name inside the cluster and know which component answered"
+  - "Work an Ingress failure layer by layer instead of guessing"
+status: complete
+translationStatus: missing
+authors: [waleed]
+updated: 2026-08-10
+---
+
+## Introduction
+
+Pods get an IP address, and it changes every time one is replaced. Nothing can
+be built on an address that does not survive a rollout.
+
+A Service is the fixed point. What makes it confusing is that it is not a
+proxy, a process, or a load balancer sitting somewhere — it is a rule, written
+onto every node, that rewrites packet destinations.
+
+Understanding that one fact resolves most Kubernetes networking confusion.
+
+---
+
+## Level 1 — Beginner
+
+### A Service is a stable name for a moving set of Pods
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+spec:
+  selector:
+    app: api                  # any Pod with this label
+  ports:
+    - port: 80                # the Service's port
+      targetPort: 8080        # the container's port
+```
+
+```bash
+kubectl get svc api
+# NAME  TYPE       CLUSTER-IP      PORT(S)
+# api   ClusterIP  10.96.140.22    80/TCP
+```
+
+That `10.96.140.22` does not belong to anything. No process is listening on it.
+Nothing will answer a ping. It is a **virtual IP** that exists only as an entry
+in every node's iptables or IPVS tables, put there by `kube-proxy`.
+
+When a Pod sends a packet to `10.96.140.22:80`, the kernel rewrites the
+destination to one of the backing Pod IPs before the packet leaves the node.
+That is the entire mechanism.
+
+### Selector → EndpointSlice → Pods
+
+```bash
+kubectl get endpointslices -l kubernetes.io/service-name=api
+kubectl get endpointslices api-x7k2p -o yaml | grep -A3 addresses
+```
+
+The Service names a label selector. A controller watches for Pods matching it
+**and passing their readiness probe**, and writes their IPs into an
+EndpointSlice. `kube-proxy` watches EndpointSlices and rewrites the node's
+rules.
+
+**Readiness is the gate.** A Pod that is running but not ready is not in the
+EndpointSlice, so it receives no traffic. That is how a rolling update avoids
+sending requests to a Pod still starting up.
+
+An empty EndpointSlice is the single most common Service problem, and it always
+means one of two things: no Pod matches the selector, or the matching Pods are
+not ready.
+
+### The four types
+
+| Type | Reachable from | Use for |
+| --- | --- | --- |
+| `ClusterIP` | Inside the cluster only | Everything internal. The default. |
+| `NodePort` | `<any-node-ip>:30000-32767` | Bare-metal, or debugging |
+| `LoadBalancer` | A cloud load balancer | Entry points, on a cloud |
+| `ExternalName` | — (a CNAME) | Pointing at something outside |
+
+They nest: a `LoadBalancer` Service is a `NodePort` Service is a `ClusterIP`
+Service, with each type adding a layer on top of the one below.
+
+**A `LoadBalancer` Service provisions a real load balancer per Service.** On
+AWS that is an NLB or ALB with an hourly charge. Twenty microservices exposed
+this way is twenty load balancers — which is the cost argument for Ingress.
+
+---
+
+## Level 2 — Intermediate
+
+### DNS: what `api` actually resolves to
+
+CoreDNS runs in the cluster and holds a record for every Service.
+
+```text
+api                              → same namespace
+api.production                   → the production namespace
+api.production.svc               →
+api.production.svc.cluster.local → fully qualified
+```
+
+```bash
+kubectl run -it --rm dns --image=busybox:1.36 --restart=Never -- nslookup api.production
+```
+
+Every Pod's `/etc/resolv.conf` carries a search path:
+
+```text
+search production.svc.cluster.local svc.cluster.local cluster.local
+nameserver 10.96.0.10
+options ndots:5
+```
+
+`ndots:5` is worth understanding because it causes a performance problem people
+misdiagnose for weeks. Any name with fewer than five dots is tried against
+every search domain **first**. So `api.example.com` (two dots) generates
+lookups for `api.example.com.production.svc.cluster.local`, then
+`...svc.cluster.local`, then `...cluster.local`, and only then the real name —
+four queries where one was needed, on every external call.
+
+The fix is a trailing dot (`api.example.com.`) or a per-Pod `dnsConfig` with a
+lower `ndots`.
+
+### Headless Services: no virtual IP at all
+
+```yaml
+spec:
+  clusterIP: None       # this is what makes it headless
+  selector:
+    app: postgres
+```
+
+DNS returns the **Pod IPs directly** instead of a virtual IP. No rewriting, no
+load balancing — the client sees every backend and chooses.
+
+This is what StatefulSets need. With `serviceName: postgres-headless`, each Pod
+gets its own record:
+
+```text
+postgres-0.postgres-headless.production.svc.cluster.local
+postgres-1.postgres-headless.production.svc.cluster.local
+```
+
+Now a replica can be told to follow `postgres-0` specifically, which a
+load-balanced virtual IP makes impossible.
+
+### Ingress: one entry point, many services
+
+A `LoadBalancer` per Service does not scale in cost or in management. Ingress
+routes by hostname and path through a single one.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: platform
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["app.example.com"]
+      secretName: app-tls
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service: { name: api, port: { number: 80 } }
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: web, port: { number: 80 } }
+```
+
+**The Ingress object does nothing on its own.** It is configuration waiting for
+a controller. With no Ingress controller installed, `kubectl apply` succeeds,
+`kubectl get ingress` shows the object, and no traffic is ever routed — with no
+error anywhere. This is the most confusing failure in Kubernetes networking,
+because everything reports success.
+
+```bash
+kubectl get pods -A | grep -i ingress      # is a controller running?
+kubectl get ingressclass                   # what classes exist?
+kubectl get ingress platform               # does ADDRESS get populated?
+```
+
+The controller — NGINX, Traefik, or the AWS Load Balancer Controller — watches
+Ingress objects and configures a real proxy. On AWS, the ALB controller
+provisions an actual Application Load Balancer from the annotations.
+
+### The full path of one request
+
+```text
+   Client
+     │  DNS: app.example.com → 52.x.x.x
+     ▼
+   Cloud Load Balancer          ← provisioned by the Ingress controller
+     │  :443, TLS terminated here
+     ▼
+   Ingress controller Pod       ← reads Ingress rules, picks a backend
+     │  host + path match
+     ▼
+   Service (ClusterIP)          ← a virtual IP, no process
+     │  kube-proxy rewrites the destination
+     ▼
+   Pod IP : container port      ← must be in the EndpointSlice
+     │
+     ▼
+   Your process
+```
+
+**Six places a request can die, and each has a different symptom.** Learning to
+tell them apart is worth more than memorising any YAML:
+
+| Symptom | Layer |
+| --- | --- |
+| DNS does not resolve | Public DNS, before the cluster |
+| Connection times out | Security group, or no load balancer exists |
+| 502 / 503 from the LB | Ingress controller has no healthy backend |
+| 404 from the controller | No Ingress rule matched host or path |
+| 503 from the controller | Service exists, EndpointSlice is empty |
+| Connection refused inside | Wrong `targetPort`, or the app binds `127.0.0.1` |
+
+That last one catches people repeatedly: a process listening on `127.0.0.1`
+inside a container is unreachable from outside the container. It must bind
+`0.0.0.0`.
+
+---
+
+## Level 3 — Advanced
+
+### `kube-proxy` modes
+
+- **iptables** (the default) — one rule chain per Service, evaluated
+  sequentially. Simple and reliable, but rule updates are O(n) in the number of
+  Services; clusters with thousands of Services see noticeable propagation
+  delay.
+- **IPVS** — a hash table in the kernel, O(1) lookup, and real load-balancing
+  algorithms (`rr`, `lc`, `sh`). What you want above a few thousand Services.
+- **eBPF** (Cilium, and others) — replaces `kube-proxy` entirely, handling the
+  translation in the kernel datapath.
+
+```bash
+kubectl -n kube-system get cm kube-proxy -o yaml | grep mode
+```
+
+### Session affinity, and why it usually is not what you want
+
+```yaml
+spec:
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+```
+
+Pins a client IP to one Pod. This is a source-hash, not real sticky sessions —
+behind a NAT, every client shares an IP and lands on the same Pod. If you need
+real session affinity, do it at the Ingress or in the application; if you need
+neither, keep the application stateless and skip this entirely.
+
+### `externalTrafficPolicy`
+
+```yaml
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+```
+
+- `Cluster` (default) — any node accepts the traffic and may forward it to a
+  Pod on another node. Even distribution, one extra hop, and **the client IP is
+  lost to SNAT**.
+- `Local` — only nodes actually running a Pod accept traffic. The client IP is
+  preserved, but distribution follows nodes rather than Pods, so a node with
+  three replicas gets the same share as one with a single replica.
+
+If your logs show every request coming from a node IP, this setting is why.
+
+### Topology-aware routing
+
+```yaml
+metadata:
+  annotations:
+    service.kubernetes.io/topology-mode: Auto
+```
+
+Prefers endpoints in the same availability zone. On AWS, cross-AZ traffic is
+billed per GB in both directions — for a chatty service mesh this is a real
+line on the invoice, and this annotation is the cheapest way to reduce it.
+
+---
+
+## Common failures
+
+**503 from the Ingress controller** — the Service has no ready endpoints.
+`kubectl get endpointslices -l kubernetes.io/service-name=<svc>`. Either the
+selector matches nothing or the readiness probe is failing.
+
+**404 from the Ingress controller** — the request reached the proxy and no rule
+matched. Check the `Host` header, and check `pathType` — `Exact` does not match
+sub-paths.
+
+**Ingress has no ADDRESS** — no controller is watching that
+`ingressClassName`, or the cloud controller cannot provision. `kubectl describe
+ingress` shows the events.
+
+**Works by Pod IP, fails by Service name** — DNS. Check CoreDNS is running and
+that a NetworkPolicy is not blocking egress to `kube-dns` on port 53, which is
+a classic self-inflicted outage after adding default-deny.
+
+**Intermittent failures during a rollout** — Pods leave the EndpointSlice and
+receive `SIGTERM` concurrently. Add a `preStop` sleep of a few seconds so
+endpoint removal propagates before the process starts shutting down.
+
+**Cannot connect from another namespace** — the short name resolves in the
+*local* namespace. Use `svc.namespace` or the FQDN.
+
+---
+
+## Practise this
+
+- Lab: **Kubernetes Services** — every type, and the failure each one hides
+- Lab: **Application Routing with Ingress & the AWS Load Balancer Controller**
+- Lab: **From Ingress to Gateway API** — the same routing, expressed twice
+- Incident: **Ingress 502** — you get the status code and nothing else
+- Incident: **Cluster DNS** — service-to-service calls time out

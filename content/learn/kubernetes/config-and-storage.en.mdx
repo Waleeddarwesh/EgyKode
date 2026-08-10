@@ -1,0 +1,359 @@
+---
+contentId: k8s-config-storage
+title: "Configuration & Storage"
+titleAr: "الإعداد والتخزين في Kubernetes"
+description: "Keep configuration and state outside the image — ConfigMaps, Secrets, PVs, PVCs and StorageClasses"
+descriptionAr: "أبقِ الإعدادات والحالة خارج الصورة."
+domain: kubernetes
+level: intermediate
+type: concept
+phase: kubernetes
+order: 25
+readingTime: 50
+prerequisites: ["k8s-workloads"]
+relatedChapters: ["k8s-workloads", "secrets-manager", "k8s-security"]
+objectives:
+  - "Inject configuration as environment variables or files, and know when each is right"
+  - "Explain exactly what a Kubernetes Secret protects you from, and what it does not"
+  - "Trace a PersistentVolumeClaim through to real storage"
+  - "Choose an access mode and a reclaim policy deliberately"
+status: complete
+translationStatus: missing
+authors: [waleed]
+updated: 2026-08-10
+---
+
+## Introduction
+
+An image should be identical in every environment. The moment it contains a
+database hostname, it is no longer one artifact promoted through staging into
+production — it is three images that happen to share a Dockerfile, and you can
+no longer claim you tested what you shipped.
+
+The same argument applies to data. A container filesystem dies with the
+container, so anything that must survive a restart has to live somewhere else.
+
+This chapter is about those two "somewhere elses".
+
+---
+
+## Level 1 — Beginner
+
+### ConfigMap: non-secret configuration
+
+```bash
+kubectl create configmap app-config \
+  --from-literal=LOG_LEVEL=info \
+  --from-literal=FEATURE_CHECKOUT=true
+```
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  LOG_LEVEL: "info"
+  DB_HOST: "postgres.production.svc.cluster.local"
+  nginx.conf: |
+    server {
+      listen 8080;
+      location / { proxy_pass http://api:8080; }
+    }
+```
+
+Two shapes in one object: short key/value pairs, and whole files. Both are
+just strings — Kubernetes does not parse or validate them.
+
+### Two ways to consume it
+
+```yaml
+    spec:
+      containers:
+        - name: api
+          image: api:1.4.2
+          envFrom:
+            - configMapRef: { name: app-config }   # every key as an env var
+          env:
+            - name: LOG_LEVEL                       # or one at a time
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: LOG_LEVEL
+          volumeMounts:
+            - name: nginx-conf                      # or as files
+              mountPath: /etc/nginx/conf.d
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: app-config
+            items:
+              - key: nginx.conf
+                path: default.conf
+```
+
+**The difference matters at runtime.** Environment variables are read once, at
+process start — changing the ConfigMap does nothing until the Pod restarts.
+Mounted files are updated in place by the kubelet within a minute or so, so an
+application that watches its config file picks up changes without a restart.
+
+Neither triggers a rollout on its own. If you want a config change to redeploy,
+put a hash of the ConfigMap in the Pod template annotations — which is what
+Helm's `checksum/config` pattern does.
+
+---
+
+## Level 2 — Intermediate
+
+### Secret: the same thing, with different handling
+
+```bash
+kubectl create secret generic db-credentials \
+  --from-literal=username=api \
+  --from-literal=password='S3cur3!'
+```
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+type: Opaque
+data:
+  username: YXBp          # base64, NOT encryption
+  password: UzNjdXIzIQ==
+```
+
+**Base64 is an encoding, not a protection.** Anyone who can read the Secret can
+read the value:
+
+```bash
+kubectl get secret db-credentials -o jsonpath='{.data.password}' | base64 -d
+```
+
+Use `stringData:` when writing YAML by hand and let Kubernetes do the encoding —
+it removes a step where people paste the wrong thing.
+
+So what does a Secret actually give you over a ConfigMap?
+
+- **RBAC can be scoped to it separately.** Most roles grant ConfigMap access
+  freely; `secrets` is the resource you withhold.
+- **It is not printed by default.** `kubectl describe` shows sizes, not values.
+- **Encryption at rest is available.** etcd stores everything in plaintext
+  unless the API server is configured with `EncryptionConfiguration`. On a
+  self-managed cluster this is off by default — check before assuming.
+- **The kubelet mounts it as `tmpfs`**, so it never touches the node's disk.
+
+What it does *not* give you: rotation, an audit trail of reads, or protection
+from anyone with `get secrets` in the namespace. For those you reach outside
+the cluster — AWS Secrets Manager with the External Secrets Operator, or
+Vault — and let Kubernetes hold only a short-lived copy.
+
+### The volume model, in three objects
+
+```text
+        StorageClass          "how to make disks"      (cluster-wide)
+             │  dynamic provisioning
+             ▼
+       PersistentVolume       "an actual disk"         (cluster-wide)
+             │  bound 1:1
+             ▼
+   PersistentVolumeClaim      "I need 20Gi, RWO"       (namespaced)
+             │  mounted
+             ▼
+            Pod
+```
+
+The separation exists so an application can ask for storage without knowing
+whether it is EBS, EFS, Ceph or a directory on the node.
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 20Gi
+```
+
+```yaml
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: data
+```
+
+With a default StorageClass, that PVC causes a real EBS volume to be created,
+attached to whichever node the Pod lands on, and mounted. You never wrote a
+PersistentVolume — the provisioner did.
+
+### Access modes are about nodes, not Pods
+
+| Mode | Short | Meaning |
+| --- | --- | --- |
+| `ReadWriteOnce` | RWO | Mounted read-write by **one node** |
+| `ReadOnlyMany` | ROX | Mounted read-only by many nodes |
+| `ReadWriteMany` | RWX | Mounted read-write by many nodes |
+| `ReadWriteOncePod` | RWOP | Exactly one **Pod**, cluster-wide |
+
+The common misreading: RWO does not mean one Pod. Several Pods on the *same
+node* can share an RWO volume. It is only when they schedule onto different
+nodes that the second one hangs in `ContainerCreating` — which is why a
+Deployment with `replicas: 2` and an RWO claim works until the scheduler
+spreads it.
+
+**Most block storage is RWO only.** EBS cannot attach to two instances; if you
+need RWX you need a filesystem — EFS on AWS, NFS elsewhere. Discovering this
+after designing for shared storage is a common and expensive surprise.
+
+### Reclaim policy: what happens when the claim goes
+
+```bash
+kubectl get pv -o custom-columns=NAME:.metadata.name,POLICY:.spec.persistentVolumeReclaimPolicy,STATUS:.status.phase
+```
+
+- **`Delete`** — the PVC is deleted and the underlying disk is destroyed. This
+  is the default for dynamically provisioned volumes.
+- **`Retain`** — the disk survives, the PV goes to `Released`, and nothing can
+  bind to it until an administrator clears `spec.claimRef`.
+
+Default `Delete` plus `kubectl delete pvc` is a data-loss command with no
+confirmation prompt. For anything holding real data, set `Retain` on the
+StorageClass:
+
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3-retain
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  encrypted: "true"
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+```
+
+---
+
+## Level 3 — Advanced
+
+### `WaitForFirstConsumer` is not a minor setting
+
+The default, `Immediate`, provisions the volume as soon as the PVC is created —
+before the scheduler has chosen a node. On AWS, an EBS volume lives in one
+availability zone. If the volume is created in `us-east-1a` and the scheduler
+later puts the Pod on a node in `us-east-1b`, the Pod never starts, and the
+error is an obscure `node(s) had volume node affinity conflict`.
+
+`WaitForFirstConsumer` delays provisioning until a Pod is scheduled, so the
+volume is created in the right zone. On any multi-AZ cluster it should be the
+default you reach for.
+
+### `emptyDir` and the other ephemeral volumes
+
+Not everything that needs a filesystem needs to survive:
+
+```yaml
+      volumes:
+        - name: cache
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: scratch
+          emptyDir:
+            medium: Memory        # tmpfs — counts against the memory limit
+```
+
+`emptyDir` lives as long as the **Pod**, not the container — a container that
+crashes and restarts finds its files intact, which makes it right for caches
+and for handing data between containers in the same Pod. A Pod that is
+rescheduled starts empty.
+
+`medium: Memory` is worth knowing: it is RAM, it counts against the container's
+memory limit, and filling it gets the Pod OOM-killed.
+
+### Projected volumes: several sources, one directory
+
+```yaml
+      volumes:
+        - name: config
+          projected:
+            sources:
+              - configMap: { name: app-config }
+              - secret: { name: db-credentials }
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 3600
+                  audience: vault
+```
+
+The `serviceAccountToken` source is the modern way to get an API token: it is
+short-lived, audience-bound and rotated by the kubelet, unlike the permanent
+token Secrets that older clusters mounted everywhere.
+
+### Immutable ConfigMaps and Secrets
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config-v4
+immutable: true
+data:
+  LOG_LEVEL: "info"
+```
+
+An immutable object cannot be edited, only replaced. Two benefits: the kubelet
+stops watching it, which noticeably reduces API server load on large clusters,
+and a config change becomes a new object name — so it flows through a rollout
+like an image tag rather than mutating underneath running Pods.
+
+### Expanding a volume
+
+```bash
+kubectl patch pvc data -p '{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'
+kubectl get pvc data -w
+```
+
+Only works if the StorageClass sets `allowVolumeExpansion: true`. Volumes
+**cannot be shrunk** — the only path back is a new smaller volume and a copy,
+so err on the small side and grow.
+
+---
+
+## Common failures
+
+**Pod stuck in `ContainerCreating`** — `kubectl describe pod` names it. Usually
+a PVC that is still `Pending`, a Secret or ConfigMap that does not exist in
+that namespace, or an RWO volume already attached elsewhere.
+
+**PVC `Pending` forever** — no StorageClass matched. `kubectl get sc` shows
+whether a default exists; a PVC with no `storageClassName` on a cluster with no
+default class waits indefinitely, silently.
+
+**`node(s) had volume node affinity conflict`** — the volume is in one AZ and
+the schedulable nodes are in another. `WaitForFirstConsumer` prevents it.
+
+**Config change had no effect** — environment variables are read at process
+start. Either restart the Pods or mount the ConfigMap as a file and watch it.
+
+**Secret values visible in `kubectl describe deploy`** — you passed them as
+literal `env` values instead of `secretKeyRef`. The Pod spec is readable by
+anyone with `get pods`.
+
+**Data gone after deleting a StatefulSet's PVCs** — the reclaim policy was
+`Delete`. Nothing warned you, and there is no undo without a snapshot.
+
+---
+
+## Practise this
+
+- Lab: **Kubernetes Storage** — provision, mount, resize and lose a volume
+- Lab: **Core Kubernetes Workloads, ConfigMaps & Secrets**
+- Lab: **Docker Networking, Volumes & Health Checks** — the same ideas, simpler
+- Lab: **Backup & Disaster Recovery** — what a reclaim policy costs you

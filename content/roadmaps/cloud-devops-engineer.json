@@ -48,6 +48,8 @@
         "aws-overview",
         "vpc",
         "iam",
+        "ec2",
+        "s3",
         "rds",
         "load-balancers",
         "auto-scaling",
@@ -73,6 +75,12 @@
       "titleAr": "كوبرنيتس",
       "chapters": [
         "kubernetes",
+        "k8s-workloads",
+        "k8s-config-storage",
+        "k8s-services-networking",
+        "gateway-api",
+        "k8s-security",
+        "k8s-cluster-administration",
         "kubeadm",
         "helm",
         "kustomize",
@@ -151,7 +159,9 @@
     "repo": "Cloud-Native-DevOps-Platform"
   },
   "contentGaps": [
-    "Multi-control-plane HA: control-plane endpoint, etcd quorum and failure modes",
-    "Gateway API as the successor to Ingress, taught as a full progression"
+    "Software delivery fundamentals: artifacts, environments, versioning and rollback as the model CI/CD implements",
+    "CI/CD testing and quality gates as a concept, so Jenkins and Actions read as implementations of it",
+    "SRE fundamentals: SLIs, SLOs, error budgets and postmortems, before Chaos Engineering",
+    "Distributed tracing with OpenTelemetry — the third observability pillar"
   ]
 }

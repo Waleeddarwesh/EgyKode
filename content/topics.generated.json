@@ -71,13 +71,13 @@
       "coverage": "explained",
       "chapters": [
         "linux-foundations",
+        "ec2",
         "docker",
         "aws-overview",
+        "s3",
         "networking-fundamentals",
-        "logging",
-        "kubernetes",
-        "ansible",
-        "container-security"
+        "k8s-config-storage",
+        "logging"
       ],
       "labs": [
         "lab-20-linux-server-administration",
@@ -109,12 +109,12 @@
       "chapters": [
         "linux-foundations",
         "docker",
+        "ec2",
         "build-tools",
         "auto-scaling",
+        "k8s-cluster-administration",
         "service-mesh",
-        "container-security",
-        "hands-on-labs",
-        "troubleshooting"
+        "container-security"
       ],
       "labs": [
         "lab-linux-processes-services-logs",
@@ -144,13 +144,13 @@
       "coverage": "explained",
       "chapters": [
         "linux-foundations",
+        "ec2",
         "iam",
         "container-security",
         "aws-overview",
+        "s3",
         "ecr",
-        "github-actions",
-        "kubernetes",
-        "vpc"
+        "github-actions"
       ],
       "labs": [
         "lab-20-linux-server-administration",
@@ -181,8 +181,10 @@
       "coverage": "explained",
       "chapters": [
         "linux-foundations",
+        "ec2",
         "networking-fundamentals",
         "jenkins",
+        "k8s-cluster-administration",
         "troubleshooting",
         "hands-on-labs",
         "start-here"
@@ -217,11 +219,11 @@
         "linux-foundations",
         "terraform",
         "aws-overview",
+        "ec2",
         "github-actions",
         "auto-scaling",
         "gitops",
-        "glossary",
-        "requirements"
+        "glossary"
       ],
       "labs": [],
       "roadmaps": [
@@ -278,12 +280,12 @@
       "chapters": [
         "networking-fundamentals",
         "vpc",
+        "ec2",
+        "s3",
         "load-balancers",
         "rds",
         "auto-scaling",
-        "terraform",
-        "kubernetes",
-        "cost-optimization"
+        "terraform"
       ],
       "labs": [
         "lab-01-aws-vpc-subnets-gateways-route-tables",
@@ -312,13 +314,13 @@
       "coverage": "explained",
       "chapters": [
         "networking-fundamentals",
+        "k8s-services-networking",
         "aws-overview",
         "vpc",
+        "gateway-api",
         "kubernetes",
         "load-balancers",
-        "rds",
-        "disaster-recovery",
-        "network-policies"
+        "rds"
       ],
       "labs": [
         "lab-aws-route53-acm-dns",
@@ -347,12 +349,12 @@
       "chapters": [
         "networking-fundamentals",
         "vpc",
+        "gateway-api",
+        "k8s-services-networking",
+        "ec2",
         "git-and-github",
         "kubernetes",
-        "logging",
-        "service-mesh",
-        "network-policies",
-        "disaster-recovery"
+        "logging"
       ],
       "labs": [
         "lab-01-aws-vpc-subnets-gateways-route-tables",
@@ -380,11 +382,11 @@
         "networking-fundamentals",
         "load-balancers",
         "rds",
+        "k8s-cluster-administration",
         "kubeadm",
         "service-mesh",
-        "kubernetes",
-        "kustomize",
-        "container-security"
+        "s3",
+        "gateway-api"
       ],
       "labs": [
         "lab-http-tls-troubleshooting",
@@ -413,9 +415,9 @@
         "auto-scaling",
         "rds",
         "networking-fundamentals",
+        "k8s-services-networking",
         "kubernetes",
-        "ansible",
-        "terraform"
+        "gateway-api"
       ],
       "labs": [
         "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
@@ -545,10 +547,10 @@
         "build-tools",
         "linux-foundations",
         "serverless",
+        "k8s-config-storage",
         "container-security",
         "platform-engineering",
-        "hands-on-labs",
-        "interview-prep"
+        "hands-on-labs"
       ],
       "labs": [
         "lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack",
@@ -639,10 +641,10 @@
         "linux-foundations",
         "docker",
         "container-security",
+        "ec2",
         "iam",
         "vpc",
-        "build-tools",
-        "jenkins"
+        "build-tools"
       ],
       "labs": [
         "lab-github-actions-ecr-eks",
@@ -678,11 +680,11 @@
         "docker",
         "kubernetes",
         "logging",
+        "k8s-cluster-administration",
         "troubleshooting",
         "glossary",
         "architecture-summary",
-        "hands-on-labs",
-        "start-here"
+        "hands-on-labs"
       ],
       "labs": [
         "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
@@ -713,11 +715,11 @@
         "vpc",
         "aws-overview",
         "serverless",
+        "ec2",
+        "s3",
         "load-balancers",
         "networking-fundamentals",
-        "terraform",
-        "kubernetes",
-        "github-actions"
+        "terraform"
       ],
       "labs": [
         "lab-aws-vpc-console",
@@ -750,14 +752,14 @@
       "titleAr": "EC2",
       "coverage": "explained",
       "chapters": [
+        "ec2",
         "aws-overview",
+        "s3",
         "iam",
         "auto-scaling",
         "load-balancers",
         "vpc",
-        "serverless",
-        "rds",
-        "ecr"
+        "serverless"
       ],
       "labs": [
         "lab-aws-vpc-console",
@@ -792,11 +794,11 @@
         "iam",
         "aws-overview",
         "secrets-manager",
+        "ec2",
+        "s3",
         "ecr",
         "serverless",
-        "vpc",
-        "git-and-github",
-        "github-actions"
+        "vpc"
       ],
       "labs": [
         "lab-aws-iam-least-privilege",
@@ -828,12 +830,12 @@
       "chapters": [
         "vpc",
         "networking-fundamentals",
+        "k8s-security",
+        "ec2",
         "auto-scaling",
+        "k8s-services-networking",
         "kubernetes",
-        "network-policies",
-        "glossary",
-        "architecture-summary",
-        "start-here"
+        "network-policies"
       ],
       "labs": [
         "lab-02-iam-roles-irsa-policies-security-groups",
@@ -867,13 +869,13 @@
       "coverage": "explained",
       "chapters": [
         "vpc",
+        "ec2",
         "networking-fundamentals",
         "cost-optimization",
         "glossary",
         "hands-on-labs",
         "system-architecture",
-        "start-here",
-        "project-overview"
+        "start-here"
       ],
       "labs": [
         "lab-01-aws-vpc-subnets-gateways-route-tables",
@@ -903,13 +905,13 @@
       "coverage": "explained",
       "chapters": [
         "rds",
+        "s3",
         "disaster-recovery",
         "kubeadm",
+        "ec2",
         "auto-scaling",
         "vpc",
-        "load-balancers",
-        "networking-fundamentals",
-        "terraform"
+        "load-balancers"
       ],
       "labs": [
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
@@ -944,10 +946,10 @@
         "serverless",
         "disaster-recovery",
         "aws-overview",
+        "ec2",
         "vpc",
         "iam",
-        "secrets-manager",
-        "docker"
+        "secrets-manager"
       ],
       "labs": [
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
@@ -980,14 +982,14 @@
       "titleAr": "S3 والتخزين",
       "coverage": "explained",
       "chapters": [
+        "s3",
         "aws-overview",
+        "ec2",
         "iam",
         "vpc",
         "rds",
         "serverless",
-        "git-and-github",
-        "terraform",
-        "observability"
+        "git-and-github"
       ],
       "labs": [
         "lab-24-s3-cloudfront-static-site",
@@ -1002,8 +1004,7 @@
       "roadmaps": [
         "aws-cloud-engineer",
         "cloud-devops-engineer",
-        "devsecops",
-        "kubernetes-specialist"
+        "devsecops"
       ],
       "projects": [
         "cloud-native-devops-platform",
@@ -1021,13 +1022,13 @@
       "coverage": "explained",
       "chapters": [
         "secrets-manager",
+        "k8s-config-storage",
         "gitops",
         "kubernetes",
         "terraform",
+        "ec2",
         "ecr",
-        "rds",
-        "auto-scaling",
-        "iam"
+        "rds"
       ],
       "labs": [
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
@@ -1061,12 +1062,12 @@
       "chapters": [
         "auto-scaling",
         "kubernetes",
+        "ec2",
         "aws-overview",
         "rds",
         "serverless",
         "load-balancers",
-        "git-and-github",
-        "networking-fundamentals"
+        "git-and-github"
       ],
       "labs": [
         "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
@@ -1097,11 +1098,11 @@
         "cost-optimization",
         "aws-overview",
         "auto-scaling",
+        "ec2",
         "networking-fundamentals",
         "vpc",
         "serverless",
-        "observability",
-        "iam"
+        "observability"
       ],
       "labs": [
         "lab-01-aws-vpc-subnets-gateways-route-tables",
@@ -1219,6 +1220,7 @@
       "coverage": "explained",
       "chapters": [
         "terraform",
+        "s3",
         "aws-overview",
         "git-and-github",
         "rds",
@@ -1429,13 +1431,13 @@
       "coverage": "explained",
       "chapters": [
         "kubernetes",
+        "k8s-cluster-administration",
         "kubeadm",
         "service-mesh",
         "aws-overview",
         "docker",
         "auto-scaling",
-        "disaster-recovery",
-        "linux-foundations"
+        "disaster-recovery"
       ],
       "labs": [
         "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
@@ -1468,13 +1470,13 @@
       "coverage": "explained",
       "chapters": [
         "kubernetes",
+        "k8s-workloads",
+        "k8s-services-networking",
+        "k8s-config-storage",
+        "k8s-cluster-administration",
+        "k8s-security",
         "secrets-manager",
-        "service-mesh",
-        "kubeadm",
-        "networking-fundamentals",
-        "linux-foundations",
-        "git-and-github",
-        "logging"
+        "service-mesh"
       ],
       "labs": [
         "lab-k8s-workloads",
@@ -1508,14 +1510,14 @@
       "titleAr": "الـ Deployments",
       "coverage": "explained",
       "chapters": [
+        "k8s-workloads",
         "kubernetes",
         "kustomize",
+        "k8s-config-storage",
+        "k8s-services-networking",
+        "gateway-api",
         "kubeadm",
-        "git-and-github",
-        "docker",
-        "helm",
-        "gitops",
-        "serverless"
+        "k8s-cluster-administration"
       ],
       "labs": [
         "lab-k8s-workloads",
@@ -1528,9 +1530,7 @@
         "lab-github-actions-ecr-eks"
       ],
       "roadmaps": [
-        "aws-cloud-engineer",
         "cloud-devops-engineer",
-        "devsecops",
         "kubernetes-specialist"
       ],
       "projects": [
@@ -1549,14 +1549,14 @@
       "titleAr": "الـ Services",
       "coverage": "explained",
       "chapters": [
+        "k8s-services-networking",
         "kubernetes",
         "aws-overview",
+        "gateway-api",
         "service-mesh",
         "docker",
-        "git-and-github",
-        "linux-foundations",
-        "ansible",
-        "iam"
+        "ec2",
+        "git-and-github"
       ],
       "labs": [
         "lab-k8s-services",
@@ -1590,14 +1590,14 @@
       "titleAr": "الـ Ingress",
       "coverage": "explained",
       "chapters": [
+        "k8s-services-networking",
+        "gateway-api",
         "kubernetes",
         "network-policies",
         "networking-fundamentals",
         "load-balancers",
         "helm",
-        "kustomize",
-        "ansible",
-        "vpc"
+        "kustomize"
       ],
       "labs": [
         "lab-k8s-gateway-api",
@@ -1631,14 +1631,14 @@
       "titleAr": "ConfigMaps و Secrets",
       "coverage": "explained",
       "chapters": [
+        "k8s-config-storage",
         "kubernetes",
         "kustomize",
         "secrets-manager",
+        "gateway-api",
+        "k8s-cluster-administration",
         "grafana",
-        "helm",
-        "ecr",
-        "architecture-summary",
-        "troubleshooting"
+        "helm"
       ],
       "labs": [
         "lab-11-core-kubernetes-workloads-configmaps-secrets",
@@ -1667,11 +1667,14 @@
       "titleAr": "التخزين والـ Volumes",
       "coverage": "explained",
       "chapters": [
+        "k8s-config-storage",
         "kubernetes",
+        "s3",
+        "k8s-workloads",
+        "k8s-cluster-administration",
         "container-security",
         "disaster-recovery",
-        "troubleshooting",
-        "glossary"
+        "troubleshooting"
       ],
       "labs": [
         "lab-k8s-storage",
@@ -1702,13 +1705,13 @@
       "coverage": "explained",
       "chapters": [
         "kubernetes",
+        "k8s-cluster-administration",
         "networking-fundamentals",
         "network-policies",
+        "k8s-workloads",
         "git-and-github",
         "load-balancers",
-        "troubleshooting",
-        "glossary",
-        "architecture-summary"
+        "troubleshooting"
       ],
       "labs": [
         "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
@@ -1738,13 +1741,13 @@
       "coverage": "explained",
       "chapters": [
         "kubeadm",
+        "k8s-cluster-administration",
         "kubernetes",
         "aws-overview",
         "docker",
         "ansible",
         "auto-scaling",
-        "iam",
-        "load-balancers"
+        "iam"
       ],
       "labs": [
         "lab-k8s-node-drain-upgrade"
@@ -1773,12 +1776,12 @@
       "chapters": [
         "kubernetes",
         "grafana",
+        "k8s-security",
+        "k8s-config-storage",
         "kubeadm",
+        "k8s-cluster-administration",
         "helm",
-        "secrets-manager",
-        "container-security",
-        "glossary",
-        "hands-on-labs"
+        "secrets-manager"
       ],
       "labs": [
         "lab-k8s-rbac-service-accounts",
@@ -1809,12 +1812,12 @@
       "chapters": [
         "kubernetes",
         "load-balancers",
+        "k8s-workloads",
+        "k8s-services-networking",
+        "k8s-config-storage",
         "service-mesh",
         "git-and-github",
-        "networking-fundamentals",
-        "auto-scaling",
-        "disaster-recovery",
-        "troubleshooting"
+        "networking-fundamentals"
       ],
       "labs": [
         "lab-docker-networking-volumes-healthchecks",
@@ -1984,11 +1987,11 @@
         "argocd",
         "gitops",
         "git-and-github",
+        "ec2",
+        "s3",
         "terraform",
         "helm",
-        "jenkins",
-        "kustomize",
-        "troubleshooting"
+        "jenkins"
       ],
       "labs": [
         "lab-terraform-state-recovery",
@@ -2112,11 +2115,11 @@
         "nexus-and-artifacts",
         "build-tools",
         "docker",
+        "s3",
         "git-and-github",
         "linux-foundations",
         "ecr",
-        "jenkins",
-        "terraform"
+        "jenkins"
       ],
       "labs": [
         "lab-terraform-testing-ci",
@@ -2172,11 +2175,11 @@
         "prometheus",
         "observability",
         "aws-overview",
+        "ec2",
         "git-and-github",
         "grafana",
-        "auto-scaling",
-        "helm",
-        "load-balancers"
+        "k8s-workloads",
+        "auto-scaling"
       ],
       "labs": [
         "lab-17-deploying-kube-prometheus-stack-on-aws-eks",
@@ -2334,12 +2337,12 @@
       "chapters": [
         "disaster-recovery",
         "aws-overview",
+        "k8s-workloads",
+        "k8s-services-networking",
         "observability",
         "kubernetes",
         "terraform",
-        "platform-engineering",
-        "prometheus",
-        "argocd"
+        "platform-engineering"
       ],
       "labs": [
         "lab-terraform-state-recovery",
@@ -2369,12 +2372,12 @@
       "chapters": [
         "disaster-recovery",
         "aws-overview",
+        "k8s-cluster-administration",
         "kubeadm",
         "chaos-engineering",
+        "s3",
         "git-and-github",
-        "rds",
-        "gitops",
-        "kubernetes"
+        "rds"
       ],
       "labs": [
         "lab-sre-backup-disaster-recovery",
@@ -2428,11 +2431,11 @@
         "disaster-recovery",
         "kubernetes",
         "load-balancers",
+        "k8s-cluster-administration",
         "kubeadm",
         "prometheus",
         "chaos-engineering",
-        "networking-fundamentals",
-        "rds"
+        "networking-fundamentals"
       ],
       "labs": [
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
@@ -2491,11 +2494,11 @@
         "network-policies",
         "networking-fundamentals",
         "kubernetes",
+        "k8s-security",
         "git-and-github",
+        "k8s-services-networking",
         "service-mesh",
-        "glossary",
-        "hands-on-labs",
-        "project-overview"
+        "glossary"
       ],
       "labs": [
         "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
@@ -2546,11 +2549,11 @@
         "container-security",
         "docker",
         "iam",
+        "k8s-security",
         "linux-foundations",
         "aws-overview",
-        "gitops",
-        "glossary",
-        "interview-prep"
+        "ec2",
+        "gitops"
       ],
       "labs": [
         "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn"

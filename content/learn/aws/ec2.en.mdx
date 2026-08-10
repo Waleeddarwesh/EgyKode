@@ -1,0 +1,345 @@
+---
+contentId: ec2
+title: "Amazon EC2"
+titleAr: "Amazon EC2"
+description: "Instances, AMIs, EBS, launch templates and instance profiles — the compute everything else is built on"
+descriptionAr: "الحوسبة التي يُبنى عليها كل شيء آخر."
+domain: aws
+level: beginner
+type: concept
+phase: cloud
+order: 13
+readingTime: 50
+prerequisites: ["aws-overview", "vpc", "iam"]
+relatedChapters: ["auto-scaling", "load-balancers", "s3", "observability"]
+objectives:
+  - "Choose an instance type and size from what the workload actually needs"
+  - "Explain what an AMI contains and what user data does"
+  - "Give an instance permissions without putting a key on it"
+  - "Reach an instance that has no inbound ports open"
+status: complete
+translationStatus: missing
+authors: [waleed]
+updated: 2026-08-10
+---
+
+## Introduction
+
+EC2 is a virtual machine you rent by the second. Everything more convenient
+sits on top of it: EKS nodes are EC2, an RDS instance is EC2 you cannot log
+into, and a Lambda function runs on hardware you never see.
+
+It is also where most people's first AWS bill goes wrong, so the cost model is
+part of the chapter rather than an appendix.
+
+---
+
+## Level 1 — Beginner
+
+### The four things an instance is made of
+
+```text
+   AMI                    the disk image it boots from
+    +
+   Instance type          how much CPU and memory
+    +
+   Network                which VPC, subnet, and security group
+    +
+   Storage                EBS volumes attached to it
+    =
+   Instance
+```
+
+Change the instance type and you stop, resize and start — the disk survives.
+Change the AMI and you are building a new instance; there is no upgrade in
+place.
+
+### Instance families, decoded
+
+The name is not arbitrary. `t3.micro`, `m7g.large`, `c6i.4xlarge`:
+
+```text
+  m  7  g  .  large
+  │  │  │     └── size: nano → micro → small → medium → large → xlarge → 2xlarge …
+  │  │  └──────── g = AWS Graviton (ARM), i = Intel, a = AMD
+  │  └─────────── generation — higher is newer, usually cheaper per unit of work
+  └────────────── family
+```
+
+| Family | Balance | Typical use |
+| --- | --- | --- |
+| `t` | Burstable | Dev boxes, low-traffic services |
+| `m` | General purpose | Application servers, Kubernetes nodes |
+| `c` | Compute-optimised | Build agents, encoding, CPU-bound work |
+| `r` | Memory-optimised | Caches, in-memory databases |
+| `i` | Storage-optimised | Local NVMe, high IOPS |
+
+**`t` instances earn CPU credits.** They run at a baseline percentage of a full
+core and bank credits when idle, spending them to burst. Run one at 100% CPU
+for long enough and the credits run out — after which it is throttled to
+baseline, which for a `t3.micro` is 10% of a core. An application that is fine
+for an hour and then mysteriously crawls is almost always this.
+
+For anything with sustained load, use `m` or `c`. `t` is for workloads that are
+genuinely idle most of the time.
+
+**Graviton is worth a look.** ARM instances are typically 20% cheaper for
+similar performance. The catch is that your container images must be built for
+`arm64` — which is a `docker buildx` flag, not a rewrite.
+
+### The AMI
+
+An Amazon Machine Image is a snapshot of a root volume plus metadata. Booting
+from it gives you an exact copy every time, which is the whole point: a
+"golden AMI" built once by a pipeline removes configuration drift between
+instances.
+
+```bash
+aws ec2 describe-images --owners amazon \
+  --filters "Name=name,Values=al2023-ami-2023*x86_64" \
+  --query 'sort_by(Images,&CreationDate)[-1].[ImageId,Name]' --output text
+```
+
+**AMIs are region-specific.** The same Amazon Linux release has a different ID
+in every region, which is why hardcoding an AMI ID in Terraform breaks the
+moment someone deploys to another region. Use a data source that looks it up.
+
+### User data: the first-boot script
+
+```bash
+#!/bin/bash
+dnf install -y nginx
+systemctl enable --now nginx
+```
+
+Runs once, as root, on first boot. Two properties people trip over: it runs
+**once by default**, so rebooting does not re-run it, and it is retrievable by
+anything that can reach the metadata service — so **never put a secret in user
+data**.
+
+```bash
+sudo cat /var/log/cloud-init-output.log     # where user data failures go
+```
+
+That log is the first place to look when an instance boots but the application
+is not there.
+
+---
+
+## Level 2 — Intermediate
+
+### EBS: the disk
+
+| Type | Character | Use for |
+| --- | --- | --- |
+| `gp3` | 3,000 IOPS baseline, independent throughput | Default for nearly everything |
+| `gp2` | IOPS scale with size | Legacy — `gp3` is cheaper and faster |
+| `io2` | Provisioned IOPS, high durability | Demanding databases |
+| `st1` | Throughput-optimised HDD | Big sequential reads, logs |
+
+**`gp3` over `gp2`, essentially always.** With `gp2`, buying IOPS meant buying
+capacity you did not need — 3,000 IOPS required a 1,000 GB volume. `gp3`
+decouples them and costs about 20% less per GB.
+
+Three properties worth holding onto:
+
+- **An EBS volume lives in one availability zone.** It cannot attach to an
+  instance in another AZ. This is why a stateful workload pinned to a volume is
+  pinned to an AZ.
+- **It attaches to one instance at a time** (unless you enable Multi-Attach on
+  `io2`, which requires a cluster-aware filesystem).
+- **Volumes can grow, never shrink.** Expanding is online; shrinking means a
+  new volume and a copy.
+
+```bash
+aws ec2 modify-volume --volume-id vol-abc --size 100 --volume-type gp3
+sudo growpart /dev/nvme0n1 1 && sudo xfs_growfs /            # then in the OS
+```
+
+Resizing in AWS does not resize the filesystem. Forgetting the second step is
+why "I resized the disk and it is still full" happens.
+
+**Encryption is a create-time decision.** You cannot encrypt an existing volume
+in place — you snapshot it, copy the snapshot with encryption enabled, and
+create a new volume. Set the account-level default for EBS encryption and the
+problem disappears.
+
+### Instance profiles: permissions without keys
+
+An application on EC2 needs AWS credentials. The wrong answer is an access key
+in a config file — it never rotates, it ends up in Git, and it is valid until
+someone notices.
+
+The right answer is an **instance profile**: an IAM role attached to the
+instance, delivered as temporary credentials through the metadata service and
+rotated automatically.
+
+```bash
+aws ec2 associate-iam-instance-profile \
+  --instance-id i-abc --iam-instance-profile Name=app-profile
+```
+
+Every AWS SDK finds them without configuration. Your code contains no
+credentials at all.
+
+### IMDSv2 is not optional
+
+The metadata service lives at `169.254.169.254` and hands out those
+credentials. Version 1 answered any HTTP GET — so a server-side request forgery
+bug in your application could be used to read the instance's credentials. This
+is not theoretical; it is the shape of several large public breaches.
+
+IMDSv2 requires a PUT to obtain a token first, which a naive SSRF cannot do.
+
+```bash
+aws ec2 modify-instance-metadata-options \
+  --instance-id i-abc \
+  --http-tokens required \
+  --http-put-response-hop-limit 1
+```
+
+```bash
+TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" \
+  -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
+curl -sH "X-aws-ec2-metadata-token: $TOKEN" \
+  http://169.254.169.254/latest/meta-data/iam/security-credentials/
+```
+
+`--http-tokens required` on every instance. New AMIs increasingly default to
+it; older ones do not.
+
+### SSM Session Manager: no port 22
+
+The traditional pattern is a bastion host, a security group allowing SSH, and a
+private key someone has to keep. All three are liabilities.
+
+Session Manager gives you a shell over the AWS API instead:
+
+```bash
+aws ssm start-session --target i-abc
+```
+
+Requirements: the SSM Agent (present on modern Amazon Linux and Ubuntu AMIs),
+and `AmazonSSMManagedInstanceCore` on the instance profile. The instance can
+sit in a private subnet with **no inbound rules at all** — the agent connects
+outward.
+
+Every session is logged in CloudTrail, and access is IAM, so removing someone's
+access is removing a policy rather than rotating a key on every host.
+
+---
+
+## Level 3 — Advanced
+
+### Launch templates
+
+```bash
+aws ec2 create-launch-template --launch-template-name app \
+  --version-description v1 \
+  --launch-template-data '{
+    "ImageId":"ami-0abc",
+    "InstanceType":"m7g.large",
+    "IamInstanceProfile":{"Name":"app-profile"},
+    "MetadataOptions":{"HttpTokens":"required"},
+    "BlockDeviceMappings":[{"DeviceName":"/dev/xvda",
+      "Ebs":{"VolumeSize":50,"VolumeType":"gp3","Encrypted":true}}]
+  }'
+```
+
+A versioned definition of an instance. Auto Scaling groups reference a template
+version, so a deployment is "point the ASG at version 4 and refresh" rather
+than editing configuration in place.
+
+Launch templates supersede launch configurations, which are immutable and
+deprecated. If you meet one, replace it.
+
+### Purchase options, and where the money goes
+
+| Option | Discount | Trade |
+| --- | --- | --- |
+| On-Demand | — | Full price, no commitment |
+| Savings Plans | up to 72% | 1 or 3-year spend commitment |
+| Reserved Instances | up to 72% | Same, tied to a family/region |
+| **Spot** | up to 90% | Two minutes' notice before reclamation |
+| Dedicated Host | premium | Physical isolation, licence compliance |
+
+**Spot is the largest single saving available**, and it is a fine fit for
+Kubernetes worker nodes, CI runners and batch jobs — anything where losing an
+instance means rescheduling rather than an outage. The two-minute interruption
+notice arrives in the metadata service, and the Node Termination Handler turns
+it into a graceful drain.
+
+Savings Plans are the low-effort win for baseline capacity. A steady fleet
+running on-demand is usually the biggest avoidable line on an AWS bill.
+
+### What actually costs money
+
+Running an instance is often not the largest item:
+
+- **A stopped instance still bills for its EBS volumes.** Stopping is not free;
+  terminating is.
+- **Unattached volumes bill forever.** Delete a stack sloppily and orphaned
+  `gp3` volumes accumulate silently.
+- **Elastic IPs bill when not attached** — a small, permanent charge that
+  nobody notices.
+- **NAT Gateways are about $32/month plus per-GB processing.** In a private-subnet
+  architecture this is frequently the largest non-compute cost, and VPC
+  endpoints for S3 and ECR remove much of the traffic.
+- **Cross-AZ traffic is billed both ways.** Chatty services spread across zones
+  add up.
+
+```bash
+aws ec2 describe-volumes --filters Name=status,Values=available \
+  --query 'Volumes[].[VolumeId,Size,CreateTime]' --output table
+aws ec2 describe-addresses --query 'Addresses[?AssociationId==null].[PublicIp]'
+```
+
+Run both on any account you inherit.
+
+### Placement and resilience
+
+- **Spread** placement puts instances on distinct hardware — for small numbers
+  of critical instances.
+- **Cluster** placement packs them close for low latency — HPC, tightly coupled
+  workloads.
+- **Partition** placement isolates groups onto separate racks — for
+  distributed systems that already understand replicas, like Cassandra.
+
+The default is fine for most workloads. What is not optional is spreading
+across **availability zones**, which is a subnet choice rather than a placement
+group.
+
+---
+
+## Common failures
+
+**Cannot SSH to a new instance** — work outward: is it in a public subnet, does
+the route table have a route to the Internet Gateway, does it have a public IP,
+does the security group allow 22 from your address, and does the network ACL
+allow the return traffic? Or skip all five and use Session Manager.
+
+**Instance boots, application is missing** — read
+`/var/log/cloud-init-output.log`. A user-data script that fails leaves the
+instance running and healthy-looking.
+
+**Instance was fast, now it is slow** — CPU credits exhausted on a `t`
+instance. The `CPUCreditBalance` metric in CloudWatch shows it hitting zero.
+
+**"I resized the volume and it is still full"** — the filesystem was not grown.
+`growpart` then `resize2fs` or `xfs_growfs`.
+
+**SDK cannot find credentials on an instance with a role** — either no instance
+profile is attached, or the code uses IMDSv1 against an instance requiring v2.
+Old SDK versions do not speak v2; upgrade them.
+
+**Volume will not attach** — it is in a different availability zone. Snapshot
+it and create a new volume in the right one.
+
+---
+
+## Practise this
+
+- Lab: **EC2 Operations with CloudWatch & SSM** — an instance with no open ports
+- Lab: **AWS VPC in the Console** — the network EC2 lives in
+- Lab: **IAM Least Privilege** — instance profiles instead of keys
+- Lab: **Auto Scaling & Load Balancing** — many instances instead of one

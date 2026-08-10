@@ -1,0 +1,359 @@
+---
+contentId: k8s-security
+title: "Kubernetes Access & Workload Security"
+titleAr: "الوصول وأمن أحمال العمل في Kubernetes"
+description: "RBAC, ServiceAccounts, Pod Security Standards and admission control — who may do what, and what a workload may become"
+descriptionAr: "من يستطيع فعل ماذا، وما الذي يُسمح لحمل العمل أن يصبحه."
+domain: security
+level: advanced
+type: concept
+phase: kubernetes
+order: 28
+readingTime: 55
+prerequisites: ["k8s-workloads", "k8s-config-storage"]
+relatedChapters: ["network-policies", "container-security", "iam"]
+objectives:
+  - "Assemble Role, RoleBinding, ClusterRole and ClusterRoleBinding correctly"
+  - "Give a workload its own identity, and take away the one it does not need"
+  - "Apply Pod Security Standards and explain what each level forbids"
+  - "Enforce a policy the built-in levels cannot express"
+status: complete
+translationStatus: missing
+authors: [waleed]
+updated: 2026-08-10
+---
+
+## Introduction
+
+Kubernetes security has three questions, and they are answered by three
+different systems that people routinely confuse:
+
+- **Who are you, and what may you do?** → RBAC
+- **What may this container become once it is running?** → Pod Security
+- **What may it talk to?** → NetworkPolicy (its own chapter)
+
+A cluster with perfect NetworkPolicies and a ServiceAccount bound to
+`cluster-admin` is not secure. Anything that reaches that container reaches the
+API server with full rights, and the network rules are irrelevant because the
+attacker can change them.
+
+---
+
+## Level 1 — Beginner
+
+### Four objects, two questions
+
+| Object | Answers | Scope |
+| --- | --- | --- |
+| `Role` | What may be done? | One namespace |
+| `ClusterRole` | The same, cluster-wide | Whole cluster |
+| `RoleBinding` | Who gets it? | One namespace |
+| `ClusterRoleBinding` | Who gets it everywhere? | Whole cluster |
+
+Permissions and subjects are deliberately separate. That is what lets one
+`ClusterRole` be bound differently in twenty namespaces without twenty copies
+of the rules.
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: team-a
+  name: pod-reader
+rules:
+  - apiGroups: [""]                   # "" is the core group
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+```
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  namespace: team-a
+  name: team-a-read
+subjects:
+  - kind: ServiceAccount
+    name: viewer
+    namespace: team-a
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+```
+
+`pods/log` is a **subresource and a separate grant**. `get pods` does not
+include reading their logs, which surprises nearly everyone the first time.
+
+### Verify against the cluster, not against the YAML
+
+```bash
+kubectl auth can-i list pods -n team-a --as system:serviceaccount:team-a:viewer   # yes
+kubectl auth can-i list pods -n team-b --as system:serviceaccount:team-a:viewer   # no
+kubectl auth can-i delete pods -n team-a --as system:serviceaccount:team-a:viewer # no
+kubectl auth can-i --list -n team-a --as system:serviceaccount:team-a:viewer
+```
+
+`--as` makes the API server evaluate the real policy. Reading YAML tells you
+what you meant; this tells you what the cluster will do, and those differ more
+often than they should.
+
+### Two properties that catch people out
+
+**RBAC is purely additive. There is no deny rule.** A subject can do the union
+of everything its bindings grant. So when someone has too much access, the fix
+is always to find the extra binding — never to add a denial, because there is
+no such thing.
+
+**A namespaced RoleBinding may reference a ClusterRole.** This is the common
+production pattern: define `view` or `edit` once, cluster-wide, then bind it
+per namespace. The permissions apply only inside the binding's namespace.
+
+```bash
+kubectl get clusterrole view edit admin cluster-admin
+```
+
+---
+
+## Level 2 — Intermediate
+
+### ServiceAccounts: identity for workloads
+
+Every Pod runs as a ServiceAccount. If you do not name one, it is `default` in
+its namespace — and by default, its token is mounted into the container.
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api
+  namespace: production
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  template:
+    spec:
+      serviceAccountName: api
+      automountServiceAccountToken: false     # it never calls the API
+```
+
+That last line matters more than it looks. An application that does not talk to
+the Kubernetes API has no use for a token — but an attacker who reaches the
+container does.
+
+```bash
+kubectl exec deploy/api -- ls /var/run/secrets/kubernetes.io/serviceaccount
+# No such file or directory — correct
+```
+
+Modern clusters project **short-lived, audience-bound** tokens rather than the
+permanent Secret-backed tokens of older versions. A leaked projected token
+expires in an hour; a leaked legacy token is valid until someone notices.
+
+### Audit what you inherited
+
+```bash
+kubectl get clusterrolebindings -o json \
+  | jq -r '.items[] | select(.roleRef.name=="cluster-admin") | .metadata.name'
+
+kubectl get clusterrolebindings -o json \
+  | jq -r '.items[] | select(.subjects[]?.kind=="ServiceAccount")
+           | "\(.metadata.name) -> \(.roleRef.name)"'
+```
+
+Run these on any cluster you take over. A ServiceAccount bound to
+`cluster-admin` is the most common over-grant in existence, and it is almost
+always there because something did not work once and the fastest fix stuck.
+
+### Pod Security Standards
+
+RBAC governs the API. Pod Security governs what a Pod may *be* — and a
+privileged container can escape to the node regardless of RBAC.
+
+Three levels, defined upstream:
+
+| Level | Allows | For |
+| --- | --- | --- |
+| `privileged` | Everything | System components only |
+| `baseline` | Blocks known escapes | Most existing applications |
+| `restricted` | Enforces hardening | Anything you are writing now |
+
+`baseline` forbids host namespaces, host ports, privileged containers and
+dangerous capabilities. `restricted` adds: must run as non-root, drop `ALL`
+capabilities, no privilege escalation, and a seccomp profile.
+
+Applied per namespace, by label:
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.31
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+```
+
+**Roll it out with `warn` first.** `warn` returns a message to whoever applied
+the manifest and lets it through; `enforce` rejects it. Going straight to
+`enforce` on an existing namespace breaks deployments during the next rollout,
+not at the moment you apply the label — which makes the cause hard to spot.
+
+### A Pod that passes `restricted`
+
+```yaml
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: api:1.4.2
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+```
+
+`readOnlyRootFilesystem: true` is the one that breaks applications, and the
+`emptyDir` on `/tmp` is why — most runtimes need somewhere writable. Mount the
+few paths that genuinely need writing and leave the rest read-only.
+
+`allowPrivilegeEscalation: false` sets `no_new_privs`, so a setuid binary
+inside the container cannot gain rights the process did not start with.
+
+---
+
+## Level 3 — Advanced
+
+### Admission control: the gate before storage
+
+Every request that survives authentication and authorisation passes through
+admission:
+
+```text
+Request → Authentication → Authorization (RBAC) → Mutating admission
+        → Schema validation → Validating admission → etcd
+```
+
+Mutating webhooks change the object — this is how sidecars are injected and
+defaults are applied. Validating webhooks accept or reject it. Pod Security is
+itself a built-in validating admission plugin.
+
+The built-in levels cannot express organisation-specific rules: "every image
+must come from our registry", "every workload must set resource limits", "every
+namespace must carry a cost-centre label". Those need a policy engine.
+
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-registry
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: only-internal-registry
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      validate:
+        message: "Images must come from registry.example.com"
+        pattern:
+          spec:
+            containers:
+              - image: "registry.example.com/*"
+```
+
+Kyverno writes policies as Kubernetes resources; OPA Gatekeeper uses Rego and
+is more expressive at the cost of a second language. Either is far better than
+a code-review convention, because a convention is not enforced at 2am.
+
+**Start every policy in `Audit` mode.** A webhook with
+`failurePolicy: Fail` that is itself unavailable blocks every matching request
+in the cluster — including, potentially, the Pods that would restore the
+webhook. This is a well-known way to make a cluster unrecoverable.
+
+### Escalation paths that are easy to miss
+
+Some permissions grant more than they appear to:
+
+- **`create pods`** in a namespace lets you mount any Secret in it, and run as
+  any ServiceAccount in it — including a more privileged one.
+- **`escalate`** on roles lets a subject grant itself permissions it does not
+  have. Without it, RBAC prevents you from creating a role more powerful than
+  your own.
+- **`bind`** lets a subject attach an existing role to anyone.
+- **`create pods/exec`** is a shell in any container in the namespace.
+- **`get secrets`** across namespaces is, in practice, cluster-admin, because
+  somewhere there is a token that is.
+
+When reviewing a role, ask what the holder could reach *through* the
+permission, not just what the verb literally says.
+
+### Combining the layers
+
+A workload that is genuinely constrained needs all of these, and each one
+closes a hole the others leave open:
+
+```text
+RBAC                  → may not read Secrets it does not own
+ServiceAccount        → its own identity, token not mounted
+Pod Security          → non-root, no escalation, read-only root filesystem
+NetworkPolicy         → may only reach the database
+Admission policy      → image from our registry, limits set
+Resource limits       → cannot starve its neighbours
+```
+
+Missing any one of them makes the others weaker. Read-only filesystems do not
+help if the ServiceAccount can create a privileged Pod.
+
+---
+
+## Common failures
+
+**`auth can-i` says no when the YAML looks right** — check the ServiceAccount
+namespace in `subjects`. A RoleBinding can name a subject from another
+namespace, and a mismatch fails silently.
+
+**Permissions work in one namespace only** — that is a RoleBinding behaving
+correctly. Cluster-wide needs a ClusterRoleBinding.
+
+**`Forbidden` reading logs despite `get pods`** — `pods/log` is a separate
+resource.
+
+**Removing a binding did not revoke access** — something else still grants it.
+RBAC is additive; search every binding for the subject.
+
+**Deployment breaks after labelling a namespace `restricted`** — the running
+Pods are unaffected; the *next* rollout is rejected. `kubectl label ns x
+pod-security.kubernetes.io/warn=restricted` first and read the warnings.
+
+**Everything is rejected after installing a policy engine** — the webhook is
+unreachable and `failurePolicy: Fail`. Delete the `ValidatingWebhookConfiguration`
+to recover, then fix the controller.
+
+**A Pod cannot start under `restricted`** — usually `readOnlyRootFilesystem`.
+`kubectl describe pod` names the exact field that violated the policy.
+
+---
+
+## Practise this
+
+- Lab: **Kubernetes RBAC & Service Accounts** — build it and verify with `can-i`
+- Lab: **Kubernetes Security Hardening (NetworkPolicies) & HPA**
+- Lab: **IAM Roles, IRSA Policies & Security Groups** — the AWS half of identity
+- Lab: **Production Capstone** — where all six layers have to hold at once

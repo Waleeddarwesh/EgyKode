@@ -1,0 +1,338 @@
+---
+contentId: gateway-api
+title: "Gateway API"
+titleAr: "Gateway API"
+description: "The successor to Ingress — what it fixes, who owns which object, and how to migrate without a flag day"
+descriptionAr: "خليفة Ingress: ما الذي يصلحه، ومن يملك كل كائن، وكيف تنتقل تدريجيًا."
+domain: kubernetes
+level: intermediate
+type: concept
+phase: kubernetes
+order: 27
+readingTime: 45
+prerequisites: ["k8s-services-networking"]
+relatedChapters: ["k8s-services-networking", "service-mesh"]
+objectives:
+  - "Explain the role split between Gateway and HTTPRoute, and why it exists"
+  - "Express header matching and traffic splitting without vendor annotations"
+  - "Read a route's status to find out why it is not attached"
+  - "Migrate from Ingress incrementally rather than all at once"
+status: complete
+translationStatus: missing
+authors: [waleed]
+updated: 2026-08-10
+---
+
+## Introduction
+
+The Ingress API is frozen. It will keep working — there are far too many
+clusters depending on it for that to change — but it will not gain features,
+and everything it cannot express has already leaked into annotations.
+
+That is the actual problem. Ingress covers host and path routing. Header
+matching, traffic splitting, timeouts, retries, redirects and rewrites all live
+in annotations that differ per controller, so an Ingress written for NGINX does
+not work on Traefik or on the AWS Load Balancer Controller. The portable API
+stopped being portable.
+
+Gateway API is the replacement. **Learn Ingress first** — it is what existing
+clusters run, and you will maintain it for years. Learn this because new
+clusters will not.
+
+---
+
+## Level 1 — Beginner
+
+### Three objects instead of one
+
+```text
+GatewayClass     "this controller implements Gateways"     ← infrastructure
+      ▲
+   Gateway        "listeners, ports, certificates"          ← platform team
+      ▲
+  HTTPRoute       "this host and path go to my Service"     ← application team
+      │
+   Service
+```
+
+Ingress packs all three concerns into one object. Gateway API separates them,
+and **that separation is the point**, not a complication.
+
+Under Ingress, the certificate, the hostname and one team's path rules live in
+the same YAML. So either everyone can edit the shared entry point, or nobody
+can change their own routing without a ticket. Both outcomes are bad, and every
+organisation running Ingress at scale has hit one of them.
+
+### The same routing, expressed both ways
+
+**Ingress:**
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /     # NGINX only
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service: { name: api, port: { number: 80 } }
+```
+
+**Gateway API:**
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: platform
+  namespace: infra
+spec:
+  gatewayClassName: envoy
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      tls:
+        certificateRefs:
+          - name: platform-tls
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels: { gateway-access: "true" }
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: api
+  namespace: production
+spec:
+  parentRefs:
+    - name: platform
+      namespace: infra
+  hostnames: ["app.example.com"]
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: /api }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: / }
+      backendRefs:
+        - name: api
+          port: 80
+```
+
+The rewrite that was an NGINX annotation is now a typed field with a schema.
+Every conformant controller implements it identically.
+
+`allowedRoutes` is the security boundary: the platform team decides which
+namespaces may attach routes to the shared Gateway, and application teams are
+free within that.
+
+---
+
+## Level 2 — Intermediate
+
+### What Ingress could not say
+
+**Match on a header:**
+
+```yaml
+    - matches:
+        - path: { type: PathPrefix, value: / }
+          headers:
+            - name: x-canary
+              value: "true"
+      backendRefs:
+        - name: web-canary
+          port: 80
+```
+
+**Split traffic by weight:**
+
+```yaml
+    - backendRefs:
+        - name: web
+          port: 80
+          weight: 90
+        - name: web-canary
+          port: 80
+          weight: 10
+```
+
+That is a canary deployment in six lines of standard API, with no service mesh
+and no controller-specific annotation. It is the single most convincing
+argument for the new API.
+
+**Match on method, or on a query parameter:**
+
+```yaml
+    - matches:
+        - method: POST
+          queryParams:
+            - name: version
+              value: v2
+```
+
+**Redirect and rewrite as first-class filters:**
+
+```yaml
+      filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            set:
+              - name: x-forwarded-proto
+                value: https
+```
+
+### Read the status, not the spec
+
+This is the operational habit that matters most, and the biggest practical
+improvement over Ingress.
+
+```bash
+kubectl get gateway platform -n infra -o jsonpath='{.status.conditions}' | jq
+kubectl get httproute api -n production -o jsonpath='{.status.parents}' | jq
+```
+
+```json
+[{
+  "conditions": [{
+    "type": "Accepted",
+    "status": "False",
+    "reason": "NotAllowedByListeners",
+    "message": "No listener permits routes from namespace production"
+  }],
+  "controllerName": "gateway.envoyproxy.io/gatewayclass-controller"
+}]
+```
+
+An Ingress that does not work is silent — the object exists, the controller
+ignores it, and nothing anywhere says why. An HTTPRoute reports `Accepted:
+False` with a reason, on the object itself.
+
+### Beyond HTTP
+
+| Route kind | For |
+| --- | --- |
+| `HTTPRoute` | HTTP and HTTPS |
+| `GRPCRoute` | gRPC, matching on service and method |
+| `TLSRoute` | TLS passthrough, routing by SNI |
+| `TCPRoute` / `UDPRoute` | Raw connections |
+
+Ingress is HTTP-only. Anything else needed a `LoadBalancer` Service per port,
+or a controller-specific ConfigMap — the NGINX `tcp-services` map being the
+usual workaround.
+
+---
+
+## Level 3 — Advanced
+
+### Installing it
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.1.0/standard-install.yaml
+kubectl get gatewayclass
+```
+
+Two things must be present and they are separate: **the CRDs**, which ship with
+the Gateway API project rather than with Kubernetes, and **a controller** that
+implements them — Envoy Gateway, NGINX Gateway Fabric, Istio, Cilium, or a
+cloud one.
+
+`standard` versus `experimental` channels matters. Standard carries the graduated
+resources (`GatewayClass`, `Gateway`, `HTTPRoute`, `GRPCRoute`); TCP, UDP and
+TLS routes are still experimental. Installing the wrong channel produces `no
+matches for kind` on the resource you wanted.
+
+### Cross-namespace references need consent
+
+An HTTPRoute in `production` cannot send traffic to a Service in `payments`
+just by naming it. The target namespace must agree:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-production-routes
+  namespace: payments
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: production
+  to:
+    - group: ""
+      kind: Service
+```
+
+This closes a real hole in Ingress, where anyone who could create an Ingress
+could route traffic to any Service in the cluster, including ones they had no
+access to.
+
+### Migrating without a flag day
+
+Both APIs can run simultaneously — different controllers, or the same one
+handling both.
+
+1. Install the CRDs and a controller alongside the existing Ingress controller.
+2. Create a `Gateway` with its own load balancer and a temporary hostname.
+3. Port one HTTPRoute. Verify it against the temporary hostname.
+4. Move DNS for that hostname when you are satisfied.
+5. Repeat, then delete the Ingress objects that are no longer referenced.
+
+DNS is the switch, and it is reversible in one record. There is no point in the
+process where both are half-configured.
+
+### When Ingress is still the right answer
+
+- The cluster's controller does not implement Gateway API yet.
+- Simple host-and-path routing where the extra objects buy nothing.
+- Existing infrastructure that works, where the migration cost exceeds the
+  benefit. "Frozen" means stable, not deprecated — Ingress is not being removed.
+
+Adopt Gateway API for new routing and for anything currently held together with
+annotations. Do not rewrite a working Ingress for its own sake.
+
+---
+
+## Common failures
+
+**`no matches for kind "Gateway"`** — the CRDs are not installed, or you need
+the experimental channel for that route type.
+
+**The Gateway never gets an address** — no controller matches
+`gatewayClassName`, or a cloud load balancer is still provisioning. `kubectl
+describe gateway` shows the condition.
+
+**HTTPRoute exists, nothing routes** — read `status.parents`. Almost always
+`NotAllowedByListeners` (namespace not permitted) or `NoMatchingParent` (wrong
+name or namespace in `parentRefs`).
+
+**Weighted split looks wrong** — weights are statistical, and keep-alive reuses
+connections so one connection stays on one backend. Send more requests, without
+keep-alive.
+
+**Backend refused across namespaces** — a `ReferenceGrant` is missing in the
+target namespace.
+
+---
+
+## Practise this
+
+- Lab: **From Ingress to Gateway API** — express the same routing twice
+- Lab: **Application Routing with Ingress** — the API this one replaces
+- Lab: **Kubernetes Services** — the layer underneath both

@@ -1,0 +1,350 @@
+---
+contentId: k8s-cluster-administration
+title: "Cluster Administration & High Availability"
+titleAr: "إدارة الكلاستر والإتاحة العالية"
+description: "The control plane, etcd quorum, node lifecycle and upgrades — operating the cluster, not just using it"
+descriptionAr: "لوحة التحكم وetcd ودورة حياة العُقد والترقيات."
+domain: kubernetes
+level: advanced
+type: concept
+phase: kubernetes
+order: 29
+readingTime: 60
+prerequisites: ["kubernetes", "k8s-workloads"]
+relatedChapters: ["kubeadm", "disaster-recovery", "k8s-security"]
+objectives:
+  - "Name each control-plane component and what breaks when it stops"
+  - "Explain etcd quorum and why cluster sizes are odd numbers"
+  - "Take a node out of service and return it without an outage"
+  - "Plan a version upgrade, including the checks that come before it"
+status: complete
+translationStatus: missing
+authors: [waleed]
+updated: 2026-08-10
+---
+
+## Introduction
+
+Managed Kubernetes hides the control plane, and that is usually the right
+trade. But the production project on this platform runs a **self-managed
+kubeadm cluster**, and a cluster you did not build is one you cannot debug when
+the API server stops answering.
+
+This chapter is about the half of Kubernetes that has no `kubectl` verb.
+
+---
+
+## Level 1 — Beginner
+
+### The control plane, component by component
+
+```text
+┌──────────────────── control-plane node ────────────────────┐
+│                                                            │
+│   kube-apiserver ◄──── the only thing that talks to etcd   │
+│        │                                                   │
+│        ├── etcd                 the entire cluster state   │
+│        ├── kube-scheduler       assigns Pods to nodes      │
+│        └── kube-controller-manager  reconciliation loops   │
+│                                                            │
+└────────────────────────────┬───────────────────────────────┘
+                             │
+┌────────────────────────────▼───────────────────────────────┐
+│  worker node                                               │
+│    kubelet          starts containers, reports status      │
+│    kube-proxy       Service rules on this node             │
+│    container runtime (containerd)                          │
+└────────────────────────────────────────────────────────────┘
+```
+
+**What fails when each one stops** — this is the useful version of the diagram:
+
+| Component down | Running workloads | What breaks |
+| --- | --- | --- |
+| `kube-apiserver` | Keep running | No `kubectl`, no changes at all |
+| `etcd` | Keep running | API server goes read-only, then fails |
+| `kube-scheduler` | Keep running | New Pods stay `Pending` forever |
+| `controller-manager` | Keep running | Nothing self-heals; a dead Pod is not replaced |
+| `kubelet` on a node | **Keep running** | That node stops reporting; Pods evicted after 5 min |
+| `kube-proxy` on a node | Keep running | Service virtual IPs stop working on that node |
+
+The column that surprises people is the first one. **A control plane outage is
+not an application outage.** Containers keep running, `kube-proxy` keeps
+routing, and traffic keeps flowing. What you lose is the ability to change
+anything or to recover from a failure — which is why an outage that starts as
+"the API server is down" becomes serious only when a node also dies.
+
+### The kubelet is the only thing that starts a container
+
+The scheduler does not launch anything. It writes `nodeName` onto a Pod object,
+and the kubelet on that node notices, pulls the image and asks containerd to
+start it.
+
+This is why a node that loses connectivity keeps running its Pods: the kubelet
+already has its instructions and does not need the API server to keep going.
+
+---
+
+## Level 2 — Intermediate
+
+### etcd, and why quorum decides your cluster size
+
+etcd is a distributed key-value store using Raft. Every write must be
+acknowledged by **a majority** of members before it is committed.
+
+| Members | Quorum | Can lose | Notes |
+| --- | --- | --- | --- |
+| 1 | 1 | 0 | Fine for learning |
+| 2 | 2 | **0** | Worse than one node |
+| 3 | 2 | 1 | The standard |
+| 4 | 3 | 1 | No better than 3, slower |
+| 5 | 3 | 2 | Large clusters |
+
+Two members is the trap. Quorum of two means losing either one loses quorum —
+you have doubled the hardware and doubled the chance of an outage. **Even
+numbers never help**, which is why every recommendation says three or five.
+
+Losing quorum makes etcd read-only. The API server can still serve reads, so
+`kubectl get` works and every write fails — a confusing state that looks like a
+permissions problem until you check etcd.
+
+```bash
+kubectl -n kube-system exec etcd-cp-1 -- etcdctl \
+  --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key \
+  endpoint status --write-out=table
+```
+
+### High availability needs a stable control-plane endpoint
+
+Three control-plane nodes are useless if everything is configured to talk to
+the first one's IP. HA requires a single address in front of them:
+
+```text
+                    control-plane endpoint
+                  k8s-api.example.com:6443
+                            │
+              ┌─────────────┼─────────────┐
+              ▼             ▼             ▼
+           cp-1          cp-2          cp-3
+       apiserver     apiserver     apiserver
+         etcd          etcd          etcd        ← stacked
+```
+
+```yaml
+# kubeadm-config.yaml
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+controlPlaneEndpoint: "k8s-api.example.com:6443"
+```
+
+**`controlPlaneEndpoint` must be set at `kubeadm init`.** Adding it later means
+regenerating certificates and rewriting every kubeconfig — so a cluster
+initialised without it is effectively single-control-plane forever, even after
+you add nodes.
+
+The load balancer must be **TCP, not HTTP**. The API server does mutual TLS,
+and an HTTP load balancer that terminates TLS breaks client certificate
+authentication entirely.
+
+**Stacked versus external etcd:** stacked runs etcd on the control-plane nodes
+— simpler, fewer machines, and losing a node loses both an API server and an
+etcd member at once. External etcd runs on its own machines: more hardware,
+independent failure domains, and the choice for large clusters.
+
+### Node lifecycle
+
+```bash
+kubectl cordon node-1                      # no new Pods land here
+kubectl drain node-1 --ignore-daemonsets --delete-emptydir-data
+# ... maintenance ...
+kubectl uncordon node-1
+```
+
+`cordon` and `drain` are separate on purpose. Cordoning is harmless and can be
+done well before a maintenance window; draining evicts.
+
+- `--ignore-daemonsets` — DaemonSet Pods are recreated on the same node by
+  design, so a drain can never evict them and refuses to start without this.
+- `--delete-emptydir-data` — acknowledges that ephemeral data on this node is
+  destroyed.
+
+Protect availability while draining:
+
+```yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api
+spec:
+  minAvailable: 3
+  selector:
+    matchLabels: { app: api }
+```
+
+A drain that would breach the budget is refused rather than proceeding. This
+governs **voluntary** disruption only — it does nothing about a crash.
+
+**Nothing rebalances after `uncordon`.** Kubernetes does not move running Pods,
+so the drained node stays empty until something is rescheduled. `kubectl
+rollout restart` forces it.
+
+### Upgrades
+
+```text
+control plane (one at a time)  →  workers (one at a time)
+        │
+   cordon → drain → upgrade kubeadm/kubelet → uncordon → verify
+```
+
+```bash
+kubeadm upgrade plan                 # what is available, and what it will do
+kubeadm upgrade apply v1.31.4        # first control-plane node
+kubeadm upgrade node                 # the others
+```
+
+Three rules that are not optional:
+
+- **Never skip a minor version.** 1.29 → 1.31 is two upgrades. The version skew
+  policy permits kubelet to be at most three minors behind the API server, and
+  nothing at all ahead of it.
+- **Control plane first, always.** A kubelet newer than its API server is
+  unsupported and fails in ways nobody has debugged for you.
+- **Check deprecated APIs before you start**, because a removed API version
+  breaks workloads only on the upgraded nodes — which presents as a partial,
+  confusing outage.
+
+```bash
+kubectl get --raw /metrics | grep apiserver_requested_deprecated_apis
+```
+
+That metric names what is still calling a deprecated API. It is exactly the
+list you want a week before the upgrade, not during it.
+
+---
+
+## Level 3 — Advanced
+
+### Certificates expire, and kubeadm's default is one year
+
+This is the most common failure on a self-managed cluster that has been running
+quietly. Everything works, nobody touches it, and then `kubectl` returns
+`x509: certificate has expired` and the API server will not start.
+
+```bash
+kubeadm certs check-expiration
+kubeadm certs renew all
+systemctl restart kubelet
+```
+
+`kubeadm upgrade` renews certificates as a side effect, which is why clusters
+upgraded regularly never hit this and clusters left alone for thirteen months
+do.
+
+The **kubelet** client certificate rotates automatically when
+`rotateCertificates` is enabled. The control-plane certificates do not.
+
+### Backing up etcd — the only backup that matters
+
+```bash
+ETCDCTL_API=3 etcdctl snapshot save /backup/etcd-$(date +%F).db \
+  --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key
+
+ETCDCTL_API=3 etcdctl snapshot status /backup/etcd-2026-08-10.db -w table
+```
+
+An etcd snapshot is every object in the cluster. Restoring it recreates every
+Deployment, Secret, ConfigMap and RBAC rule.
+
+What it does **not** contain: your PersistentVolume data. Restoring etcd
+recreates the PVC objects; whether the underlying disks still exist is a
+separate question, answered by your storage snapshots.
+
+**Untested backups are not backups.** Restore into a scratch cluster on a
+schedule, or you will discover the problem on the day it matters.
+
+### Reading a node that is not Ready
+
+```bash
+kubectl describe node node-1 | grep -A10 Conditions
+```
+
+| Condition | `True` means |
+| --- | --- |
+| `Ready` | The kubelet is healthy and reporting |
+| `MemoryPressure` | Low memory — the kubelet will evict Pods |
+| `DiskPressure` | Low disk — evictions, and image pulls fail |
+| `PIDPressure` | Too many processes |
+| `NetworkUnavailable` | The CNI is not configured |
+
+`NotReady` almost always means the kubelet stopped or the CNI is broken:
+
+```bash
+systemctl status kubelet
+journalctl -u kubelet -n 100 --no-pager
+crictl ps                       # containerd's view, independent of Kubernetes
+```
+
+`crictl` is the tool to reach for when the API server cannot tell you anything.
+It talks to the container runtime directly, so it works on a node that has lost
+the control plane entirely.
+
+Disk pressure is worth singling out: a node whose disk fills with unused images
+starts evicting Pods, and the fix is `crictl rmi --prune` plus a look at the
+kubelet's garbage collection thresholds.
+
+### Static Pods, and how the control plane starts itself
+
+```bash
+ls /etc/kubernetes/manifests/
+# etcd.yaml  kube-apiserver.yaml  kube-controller-manager.yaml  kube-scheduler.yaml
+```
+
+The kubelet watches that directory and runs whatever it finds, with no API
+server involved. That is the bootstrap answer to the chicken-and-egg problem:
+the API server is a Pod, but Pods need an API server.
+
+It is also a recovery tool. Editing `kube-apiserver.yaml` restarts the API
+server within seconds, which is how you fix a control plane that will not come
+up — and how you lock yourself out, if you write invalid YAML on the only
+control-plane node.
+
+---
+
+## Common failures
+
+**`kubectl` hangs or refuses to connect** — the API server is down. Check the
+static Pod: `crictl ps -a | grep apiserver`, then `crictl logs <id>`.
+
+**`x509: certificate has expired`** — `kubeadm certs check-expiration`, then
+renew and restart the kubelet.
+
+**All writes fail, reads work** — etcd has lost quorum. `etcdctl endpoint
+status` on each member shows which are alive.
+
+**Pods stay `Pending` and there is capacity** — the scheduler is down, or the
+Pod has an unsatisfiable constraint. `kubectl describe pod` ends with the
+scheduler's reason.
+
+**Node `NotReady` after a reboot** — swap is enabled again, or the kubelet did
+not start. `journalctl -u kubelet` says which within a few lines.
+
+**Everything on a node is evicted** — disk or memory pressure. `kubectl
+describe node` shows the condition and the eviction events.
+
+**`kubeadm upgrade` refuses to run** — the version skew rules. `kubeadm upgrade
+plan` states exactly which jump it will permit.
+
+---
+
+## Practise this
+
+- Lab: **Node Drain, Upgrade & Recovery** — a real drain with a PDB in the way
+- Lab: **Backup & Disaster Recovery** — snapshot etcd and restore it
+- Lab: **Kubernetes Cluster Provisioning with kubeadm**
+- Incident: **Cluster DNS** — a control-plane component that fails partially
