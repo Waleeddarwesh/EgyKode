@@ -16,8 +16,9 @@
 import { readFileSync } from "node:fs";
 
 const LANGUAGES = new Set(["en", "ar"]);
-const KINDS = new Set(["course", "playlist", "channel"]);
+const KINDS = new Set(["course", "playlist", "channel", "talk"]);
 const REQUIRED = ["title", "url", "by", "language", "kind"];
+const LEVELS = new Set(["beginner", "intermediate", "advanced"]);
 
 const errors = [];
 const notes = [];
@@ -52,6 +53,12 @@ for (const [domain, list] of Object.entries(domains)) {
       errors.push(`${domain}: unknown kind "${entry.kind}"`);
     if (entry.url && !/^https:\/\//.test(entry.url))
       errors.push(`${domain}: url must be https — ${entry.url}`);
+    if (entry.level && !LEVELS.has(entry.level))
+      errors.push(`${domain}: unknown level "${entry.level}"`);
+    if (entry.minutes !== undefined && !(Number.isInteger(entry.minutes) && entry.minutes > 0))
+      errors.push(`${domain}: minutes must be a positive integer — ${entry.url}`);
+    if (entry.videos !== undefined && !(Number.isInteger(entry.videos) && entry.videos > 0))
+      errors.push(`${domain}: videos must be a positive integer — ${entry.url}`);
     if (entry.url && seen.has(entry.url))
       errors.push(`${domain}: the same url is listed twice — ${entry.url}`);
     seen.add(entry.url);

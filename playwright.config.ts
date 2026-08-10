@@ -41,7 +41,10 @@ export default defineConfig({
     cwd: "apps/web",
     env: { NEXT_DIST_DIR: process.env.NEXT_DIST_DIR ?? ".next-verify" },
     url: "http://127.0.0.1:3210/en",
-    reuseExistingServer: !process.env.CI,
+    // Never reuse: a server left running from an earlier build is adopted
+    // silently, and then the suite passes against pages that do not contain
+    // the change under test. That cost three wrong conclusions in one session.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

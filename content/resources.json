@@ -3,6 +3,22 @@
   "domains": {
     "ansible": [
       {
+        "title": "Ansible Administration Course",
+        "url": "https://www.youtube.com/playlist?list=PLOeEp3fYj7rojjhsYYgtM_iOOaPnigrmT",
+        "by": "محمد الدسوقى",
+        "language": "ar",
+        "kind": "playlist",
+        "videos": 66
+      },
+      {
+        "title": "RHCE 8 (Ansible Automation) — Arabic",
+        "url": "https://www.youtube.com/playlist?list=PLdTZTP1X_y5o3p7mpMy4T-3X8ukgFg9kJ",
+        "by": "Learn Linux with Keroles",
+        "language": "ar",
+        "kind": "playlist",
+        "videos": 27
+      },
+      {
         "title": "Jeff Geerling",
         "url": "https://www.youtube.com/@JeffGeerling",
         "by": "Jeff Geerling",
@@ -16,7 +32,9 @@
         "url": "https://www.youtube.com/watch?v=C0xRfrNIRak",
         "by": "Ahmed Elfakharany",
         "language": "ar",
-        "kind": "course"
+        "kind": "course",
+        "minutes": 41,
+        "level": "beginner"
       },
       {
         "title": "DevOps Toolkit",
@@ -32,14 +50,25 @@
         "url": "https://www.youtube.com/playlist?list=PLOoZRfEtk6kWSM_l9xMjDh-_MJXl03-pf",
         "by": "AWS Riyadh User Group",
         "language": "ar",
-        "kind": "playlist"
+        "kind": "playlist",
+        "videos": 18
       },
       {
         "title": "كورس \"(CLF-C02) AWS Cloud Practitioner Full Course\" كامل بالعربي",
         "url": "https://www.youtube.com/playlist?list=PLJZLxa-J0VZSEVmKS8HQQoi09yB6IHigK",
         "by": "Cloud Simplified",
         "language": "ar",
-        "kind": "playlist"
+        "kind": "playlist",
+        "videos": 46
+      },
+      {
+        "title": "AWS for Beginners | خدمات اي دبليو اس للمبتدئين",
+        "url": "https://www.youtube.com/watch?v=ECPcHdvWBJY",
+        "by": "DolfinED",
+        "language": "ar",
+        "kind": "course",
+        "minutes": 559,
+        "level": "beginner"
       },
       {
         "title": "Amazon Web Services",
@@ -55,14 +84,17 @@
         "url": "https://www.youtube.com/watch?v=PrusdhS2lmo",
         "by": "بالعربي Big Data",
         "language": "ar",
-        "kind": "course"
+        "kind": "course",
+        "minutes": 620
       },
       {
-        "title": "TechWorld with Nana",
-        "url": "https://www.youtube.com/@TechWorldwithNana",
+        "title": "Docker Tutorial for Beginners — full course (2h46m)",
+        "url": "https://www.youtube.com/watch?v=3c-iBn73dDE",
         "by": "TechWorld with Nana",
         "language": "en",
-        "kind": "channel"
+        "kind": "course",
+        "minutes": 166,
+        "level": "beginner"
       }
     ],
     "git": [
@@ -71,14 +103,17 @@
         "url": "https://www.youtube.com/watch?v=Q6G-J54vgKc",
         "by": "بالعربي Big Data",
         "language": "ar",
-        "kind": "course"
+        "kind": "course",
+        "minutes": 360
       },
       {
-        "title": "freeCodeCamp.org — full-length free courses",
-        "url": "https://www.youtube.com/@freecodecamp",
+        "title": "Learn Git — full course for beginners (3h43m)",
+        "url": "https://www.youtube.com/watch?v=zTjRZNkhiEU",
         "by": "freeCodeCamp.org",
         "language": "en",
-        "kind": "channel"
+        "kind": "course",
+        "minutes": 224,
+        "level": "beginner"
       }
     ],
     "github-actions": [
@@ -87,7 +122,8 @@
         "url": "https://www.youtube.com/watch?v=7gJFHjXscr8",
         "by": "Ahmed Elfakharany",
         "language": "ar",
-        "kind": "course"
+        "kind": "course",
+        "minutes": 192
       },
       {
         "title": "TechWorld with Nana",
@@ -108,6 +144,14 @@
     ],
     "grafana": [
       {
+        "title": "Prometheus and Grafana for Monitoring and Observability",
+        "url": "https://www.youtube.com/watch?v=L-dDeZjZUiA",
+        "by": "DolfinED",
+        "language": "ar",
+        "kind": "course",
+        "minutes": 155
+      },
+      {
         "title": "Grafana Labs",
         "url": "https://www.youtube.com/@GrafanaLabs",
         "by": "grafana labs",
@@ -121,17 +165,29 @@
         "url": "https://www.youtube.com/watch?v=Zb1agTzXpAw",
         "by": "Kube-ops Academy",
         "language": "ar",
-        "kind": "course"
+        "kind": "course",
+        "minutes": 164,
+        "level": "beginner"
       },
       {
         "title": "Helm vs Kustomize (Arabic)",
         "url": "https://www.youtube.com/watch?v=yHICGHaSRoo",
         "by": "Ahmed Elfakharany",
         "language": "ar",
-        "kind": "course"
+        "kind": "course",
+        "minutes": 42
       }
     ],
     "jenkins": [
+      {
+        "title": "Jenkins Crash Course | كورس Jenkins للمبتدئين",
+        "url": "https://www.youtube.com/watch?v=CdMjaoeZ5EY",
+        "by": "Mostafa Magdy",
+        "language": "ar",
+        "kind": "course",
+        "minutes": 94,
+        "level": "beginner"
+      },
       {
         "title": "TechWorld with Nana",
         "url": "https://www.youtube.com/@TechWorldwithNana",
@@ -146,42 +202,25 @@
         "url": "https://www.youtube.com/watch?v=PrusdhS2lmo",
         "by": "بالعربي Big Data",
         "language": "ar",
-        "kind": "course"
+        "kind": "course",
+        "minutes": 620
       },
       {
         "title": "What is Kubernetes? (Arabic)",
         "url": "https://www.youtube.com/watch?v=-ezhA_YALDs",
         "by": "Ahmed Elfakharany",
         "language": "ar",
-        "kind": "course"
+        "kind": "course",
+        "minutes": 33
       },
       {
-        "title": "TechWorld with Nana",
-        "url": "https://www.youtube.com/@TechWorldwithNana",
+        "title": "Kubernetes Tutorial for Beginners — full course (3h36m)",
+        "url": "https://www.youtube.com/watch?v=X48VuDVv0do",
         "by": "TechWorld with Nana",
         "language": "en",
-        "kind": "channel"
-      },
-      {
-        "title": "KodeKloud",
-        "url": "https://www.youtube.com/@KodeKloud",
-        "by": "KodeKloud",
-        "language": "en",
-        "kind": "channel"
-      },
-      {
-        "title": "DevOps Toolkit",
-        "url": "https://www.youtube.com/@DevOpsToolkit",
-        "by": "DevOps & AI Toolkit",
-        "language": "en",
-        "kind": "channel"
-      },
-      {
-        "title": "CNCF — conference talks and project deep dives",
-        "url": "https://www.youtube.com/@cncf",
-        "by": "CNCF [Cloud Native Computing Foundation]",
-        "language": "en",
-        "kind": "channel"
+        "kind": "course",
+        "minutes": 217,
+        "level": "beginner"
       }
     ],
     "kustomize": [
@@ -190,7 +229,8 @@
         "url": "https://www.youtube.com/watch?v=yHICGHaSRoo",
         "by": "Ahmed Elfakharany",
         "language": "ar",
-        "kind": "course"
+        "kind": "course",
+        "minutes": 42
       }
     ],
     "linux": [
@@ -210,18 +250,24 @@
         "titleFromPage": false
       },
       {
-        "title": "Learn Linux TV",
-        "url": "https://www.youtube.com/@LearnLinuxTV",
-        "by": "Learn Linux TV",
+        "title": "Introduction to Linux — full course for beginners (6h07m)",
+        "url": "https://www.youtube.com/watch?v=sWbUDq4S6Y8",
+        "by": "freeCodeCamp.org",
         "language": "en",
-        "kind": "channel"
-      },
+        "kind": "course",
+        "minutes": 368,
+        "level": "beginner"
+      }
+    ],
+    "logging": [
       {
-        "title": "NetworkChuck",
-        "url": "https://www.youtube.com/@NetworkChuck",
-        "by": "NetworkChuck",
+        "title": "Introduction to Fluentd",
+        "url": "https://www.youtube.com/watch?v=Jl-F9azcyow",
+        "by": "Oracle Learning",
         "language": "en",
-        "kind": "channel"
+        "kind": "talk",
+        "minutes": 10,
+        "level": "beginner"
       }
     ],
     "networking": [
@@ -230,7 +276,9 @@
         "url": "https://www.youtube.com/watch?v=-7A4_v6Uhuk",
         "by": "DolfinED",
         "language": "ar",
-        "kind": "course"
+        "kind": "course",
+        "minutes": 179,
+        "level": "beginner"
       },
       {
         "title": "NetworkChuck",
@@ -241,6 +289,14 @@
       }
     ],
     "observability": [
+      {
+        "title": "Prometheus and Grafana for Monitoring and Observability",
+        "url": "https://www.youtube.com/watch?v=L-dDeZjZUiA",
+        "by": "DolfinED",
+        "language": "ar",
+        "kind": "course",
+        "minutes": 155
+      },
       {
         "title": "Grafana Labs",
         "url": "https://www.youtube.com/@GrafanaLabs",
@@ -255,10 +311,19 @@
         "url": "https://www.youtube.com/watch?v=QEY7DzkLAEE",
         "by": "Ahmed Elfakharany",
         "language": "ar",
-        "kind": "course"
+        "kind": "course",
+        "minutes": 20
       }
     ],
     "prometheus": [
+      {
+        "title": "Prometheus and Grafana for Monitoring and Observability",
+        "url": "https://www.youtube.com/watch?v=L-dDeZjZUiA",
+        "by": "DolfinED",
+        "language": "ar",
+        "kind": "course",
+        "minutes": 155
+      },
       {
         "title": "Prometheus Monitoring",
         "url": "https://www.youtube.com/@PrometheusIo",
@@ -273,7 +338,8 @@
         "url": "https://www.youtube.com/watch?v=swJNs0Opg6E",
         "by": "Ahmed Elfakharany",
         "language": "ar",
-        "kind": "course"
+        "kind": "course",
+        "minutes": 22
       }
     ],
     "sre": [
@@ -282,23 +348,28 @@
         "url": "https://www.youtube.com/watch?v=QEY7DzkLAEE",
         "by": "Ahmed Elfakharany",
         "language": "ar",
-        "kind": "course"
+        "kind": "course",
+        "minutes": 20
       }
     ],
     "terraform": [
       {
-        "title": "HashiCorp",
-        "url": "https://www.youtube.com/@HashiCorp",
-        "by": "HashiCorp, an IBM Company",
-        "language": "en",
-        "kind": "channel"
+        "title": "Terraform for beginners | تيرافورم للمبتدئين",
+        "url": "https://www.youtube.com/watch?v=6f2i70oVuiY",
+        "by": "DolfinED",
+        "language": "ar",
+        "kind": "course",
+        "minutes": 189,
+        "level": "beginner"
       },
       {
-        "title": "TechWorld with Nana",
-        "url": "https://www.youtube.com/@TechWorldwithNana",
-        "by": "TechWorld with Nana",
+        "title": "Terraform Tutorial — full course for beginners (3h29m)",
+        "url": "https://www.youtube.com/watch?v=Bzccj0jjRBM",
+        "by": "ProgrammingKnowledge",
         "language": "en",
-        "kind": "channel"
+        "kind": "course",
+        "minutes": 210,
+        "level": "beginner"
       }
     ]
   }

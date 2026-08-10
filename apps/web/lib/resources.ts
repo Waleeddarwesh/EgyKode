@@ -19,7 +19,48 @@ export interface Resource {
   /** BCP-47 primary subtag. Arabic entries render RTL and are labelled. */
   language: "en" | "ar";
   /** What you are actually opening. A channel is not a course. */
-  kind: "course" | "playlist" | "channel";
+  kind: "course" | "playlist" | "channel" | "talk";
+  /** Runtime, read from the page. Absent where the source does not expose it. */
+  minutes?: number;
+  /** For playlists: how many videos, read from the page. */
+  videos?: number;
+  /**
+   * Only set where the material itself says so — a title containing
+   * "for beginners", "crash course", "مقدمة". Deciding a level on no evidence
+   * would be putting words in the author's mouth.
+   */
+  level?: "beginner" | "intermediate" | "advanced";
+  /** False when the page is login-gated and its title cannot be read. */
+  titleFromPage?: boolean;
+}
+
+/** Every reference, flattened, with the domain it belongs to. */
+export function getAllResources(): (Resource & { domain: string })[] {
+  const all = load();
+  const seen = new Set<string>();
+  const out: (Resource & { domain: string })[] = [];
+  for (const [domain, list] of Object.entries(all)) {
+    for (const resource of list) {
+      // The same course can serve several domains — Helm vs Kustomize belongs
+      // to both. On a catalogue page it should appear once.
+      const key = `${resource.url}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ ...resource, domain });
+    }
+  }
+  return out.sort(
+    (a, b) =>
+      Number(b.language === "ar") - Number(a.language === "ar") ||
+      a.domain.localeCompare(b.domain),
+  );
+}
+
+/** Which domains a given url is listed under, for the catalogue's tags. */
+export function domainsFor(url: string): string[] {
+  return Object.entries(load())
+    .filter(([, list]) => list.some((r) => r.url === url))
+    .map(([domain]) => domain);
 }
 
 let cache: Record<string, Resource[]> | null = null;

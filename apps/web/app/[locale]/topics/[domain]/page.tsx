@@ -288,10 +288,12 @@ export default async function TopicPage({
           "Kubernetes", not "kubernetes-networkpolicy". */}
       <Resources
         resources={getResources(topic.domain)}
+        coursesHref={`/${typed}/courses`}
         labels={{
           heading: t("resources.heading"),
           body: t("resources.body"),
           arabic: t("resources.arabic"),
+          more: t("resources.more"),
         }}
       />
     </div>

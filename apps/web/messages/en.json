@@ -158,7 +158,7 @@
   "roadmap.remaining": "About {time} of reading left",
   "roadmap.privacyNote": "Progress is stored in this browser only. Sign-in sync is coming with accounts.",
   "upcoming.phase5": "Phase 5 — planned",
-  "courses.title": "Courses",
+  "courses.title": "Free courses",
   "courses.intent": "Guided video paths over the same chapters — for when reading is not how you want to start.",
   "courses.videoTitle": "Video, embedded not hosted",
   "courses.videoBody": "Hosted on YouTube and embedded behind a click-to-load facade. Self-hosting video is the fastest way to a bill, and it buys nothing a learner can feel.",
@@ -302,7 +302,15 @@
   "labs.pathEnd": "You have reached the end of the project path.",
   "labs.pathEndBody": "Everything after this is the library — pick what you need, or go back and do the challenge versions without the steps.",
   "labs.browseLibrary": "Browse the lab library",
-  "resources.heading": "Free courses elsewhere",
-  "resources.body": "Good free material from other people. External links — EgyKode is not affiliated with them, and they are listed because they are worth your time.",
-  "resources.arabic": "العربية"
+  "resources.heading": "Recommended free courses",
+  "resources.body": "Another way to learn this — external, free, and not affiliated with EgyKode.",
+  "resources.arabic": "العربية",
+  "nav.courses": "Courses",
+  "courses.subtitle": "Curated courses from creators and platforms worth your time. They complement the EgyKode curriculum — another way to learn the same concepts, not a replacement for building it yourself.",
+  "courses.provenance": "{count} references, {arabic} of them in Arabic. Every link was checked against its source page; nothing here was recommended from memory.",
+  "courses.language": "Language",
+  "courses.arabicOnly": "Arabic",
+  "courses.englishOnly": "English",
+  "resources.more": "All courses",
+  "seo.coursesDescription": "Free Cloud and DevOps courses in Arabic and English — curated, verified, and mapped to the topics they teach. Linux, Docker, Kubernetes, AWS, Terraform, Ansible and more."
 }

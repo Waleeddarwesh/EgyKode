@@ -30,7 +30,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // placeholders, and advertising a page that says "planned" spends crawl
     // budget to rank a promise. Account pages are excluded for the obvious
     // reason.
-    for (const path of ["", "/learn", "/roadmaps", "/projects", "/labs", "/topics",
+    for (const path of ["", "/learn", "/roadmaps", "/projects", "/labs", "/topics", "/courses",
                         "/prepare/questions"]) {
       entries.push({
         url: `${SITE}/${locale}${path}`,

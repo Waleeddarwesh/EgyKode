@@ -377,10 +377,12 @@ export default async function ChapterPage({
           watch someone build it if that helps. */}
       <Resources
         resources={getResources(chapter.domain)}
+        coursesHref={`/${typed}/courses`}
         labels={{
           heading: t("resources.heading"),
           body: t("resources.body"),
           arabic: t("resources.arabic"),
+          more: t("resources.more"),
         }}
       />
       </article>
