@@ -75,12 +75,23 @@ export default async function HomePage({
               {t("home.heroBody")}
             </p>
 
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Link href={`/${locale}/learn`} className="btn btn-primary h-11 px-5">
+            {/* Full width and stacked on a phone. Side by side they wrapped to
+                two unequal widths with dead space beside them, and the outline
+                button read as an afterthought rather than the alternative it
+                is. Taller too: 44px is the floor for a touch target, and these
+                are the first thing anyone taps. */}
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Link
+                href={`/${locale}/learn`}
+                className="btn btn-primary h-12 w-full px-5 text-base sm:h-11 sm:w-auto sm:text-sm"
+              >
                 {t("action.startLearning")}
                 <ArrowRight size={17} className="icon-directional" aria-hidden />
               </Link>
-              <Link href={`/${locale}/projects`} className="btn btn-outline h-11 px-5">
+              <Link
+                href={`/${locale}/projects`}
+                className="btn btn-outline h-12 w-full px-5 text-base sm:h-11 sm:w-auto sm:text-sm"
+              >
                 {t("action.seePlatform")}
               </Link>
             </div>
