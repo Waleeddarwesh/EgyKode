@@ -12,8 +12,8 @@
     "node": ">=20.11.0"
   },
   "scripts": {
-    "dev": "npm run tokens && npm run topics && npm run search && npm run dev --workspace=@egykode/web",
-    "build": "npm run tokens && npm run topics && npm run search && npm run build --workspace=@egykode/web",
+    "dev": "npm run build:id && npm run tokens && npm run topics && npm run search && npm run dev --workspace=@egykode/web",
+    "build": "npm run build:id && npm run tokens && npm run topics && npm run search && npm run build --workspace=@egykode/web",
     "start": "npm run start --workspace=@egykode/web",
     "lint": "npm run lint --workspace=@egykode/web",
     "typecheck": "npm run typecheck --workspace=@egykode/web",
@@ -34,7 +34,8 @@
     "lint:refs": "node scripts/check-references.mjs",
     "check:live": "node scripts/check-live.mjs",
     "lint:resources": "node scripts/check-resources.mjs",
-    "check:links": "node scripts/check-resources.mjs --live"
+    "check:links": "node scripts/check-resources.mjs --live",
+    "build:id": "node scripts/write-build-id.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

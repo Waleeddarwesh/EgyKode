@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { StaleBuildGuard } from "@/components/layout/stale-build-guard";
 import { TopBar } from "@/components/layout/topbar";
 import { fontVariables } from "@/lib/fonts";
 import { PUBLIC_LOCALES, dir, getTranslations, isLocale, type Locale, languageAlternates } from "@/lib/i18n";
@@ -85,6 +86,8 @@ export default async function LocaleLayout({
         <main id="main" className="animate-page pb-20 md:pb-0">
           {children}
         </main>
+
+        <StaleBuildGuard />
 
         <MobileNav
           locale={typed}
