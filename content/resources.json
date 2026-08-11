@@ -75,7 +75,8 @@
         "by": "Cloud Simplified",
         "language": "ar",
         "kind": "playlist",
-        "videos": 46
+        "videos": 46,
+        "extra": true
       },
       {
         "title": "AWS for Beginners | خدمات اي دبليو اس للمبتدئين",
@@ -84,7 +85,8 @@
         "language": "ar",
         "kind": "course",
         "minutes": 559,
-        "level": "beginner"
+        "level": "beginner",
+        "extra": true
       },
       {
         "title": "AWS Solutions Architect Associate (SAA-C03) — full course",

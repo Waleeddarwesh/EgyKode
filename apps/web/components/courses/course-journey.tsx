@@ -80,7 +80,11 @@ export function CourseJourney({
     start: string;
   };
 }) {
-  const [choice, setChoice] = useState<Choice>("all");
+  // Arabic by default. It is the scarce half of the collection and the reason
+  // most of this audience is here — someone who wants English is one click
+  // away, while someone who needs Arabic would otherwise have to find the
+  // filter before the page is useful to them. A stored preference still wins.
+  const [choice, setChoice] = useState<Choice>("ar");
   const [ready, setReady] = useState(false);
   const [open, setOpen] = useState<Set<string>>(new Set());
 
