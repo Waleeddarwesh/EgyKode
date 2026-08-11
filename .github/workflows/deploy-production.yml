@@ -79,6 +79,11 @@ jobs:
           NEXT_DIST_DIR: .next-export
           NEXT_PUBLIC_SITE_URL: https://egykode.com
         run: |
+          # Must run here, not only in the root `build` script: this step calls
+          # the workspace build directly, so the root script's prerequisites are
+          # skipped. Missing it shipped a guard that fetched a 404 and silently
+          # did nothing.
+          npm run build:id
           npm run tokens
           npm run topics
           npm run search
@@ -156,8 +161,19 @@ jobs:
 
       - name: Smoke test
         run: |
-          for path in / /en/ /en/learn/ /en/topics/ /en/roadmaps/; do
+          for path in / /en/ /en/learn/ /en/topics/ /en/roadmaps/ /en/courses/; do
             code=$(curl -s -o /dev/null -w '%{http_code}' -L "https://egykode.com$path")
             echo "$path -> $code"
             [ "$code" = "200" ] || exit 1
           done
+
+          # The stale-tab guard fetches this and stays silent if it 404s, so a
+          # missing file ships a feature that does nothing and says nothing.
+          # That is exactly what happened once: the guard was live for a deploy
+          # while this file was absent. Assert the content, not just the status.
+          deployed=$(curl -sf "https://egykode.com/build-id.txt" || echo "MISSING")
+          echo "build-id.txt -> $deployed"
+          [ "$deployed" = "${GITHUB_SHA:0:40}" ] || {
+            echo "::error::build-id.txt is '$deployed', expected '${GITHUB_SHA:0:40}'"
+            exit 1
+          }
