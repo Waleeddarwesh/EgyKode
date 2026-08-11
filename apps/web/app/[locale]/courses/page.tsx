@@ -104,6 +104,12 @@ export default async function CoursesPage({
           phases={journey}
           tail={getPathTail()}
           tailLabel={t("courses.projectsStep")}
+          project={{
+            href: `/${typed}/projects/${roadmap?.productionProject?.id ?? "ivolve-cloud-devops-capstone"}`,
+            title: t("courses.projectTitle"),
+            body: t("courses.projectBody"),
+            cta: t("courses.projectCta"),
+          }}
           labels={{
             heading: t("courses.journeyHeading"),
             body: t("courses.journeyBody"),

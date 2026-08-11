@@ -326,5 +326,8 @@
   "courses.showAllLanguages": "Show every language",
   "courses.browseHeading": "Browse everything",
   "courses.browseBody": "The full catalogue, if you would rather search than follow the path.",
-  "courses.projectsStep": "Projects — put it all together"
+  "courses.projectsStep": "Projects — put it all together",
+  "courses.projectTitle": "Now build it",
+  "courses.projectBody": "You have reached the end of the learning material. Watching is how you learn it; building it is how you prove you did.",
+  "courses.projectCta": "Start the production project"
 }

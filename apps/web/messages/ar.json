@@ -326,5 +326,8 @@
   "courses.showAllLanguages": "اعرض كل اللغات",
   "courses.browseHeading": "تصفّح كل شيء",
   "courses.browseBody": "الفهرس الكامل، إن كنت تفضّل البحث على اتّباع المسار.",
-  "courses.projectsStep": "مشاريع — اجمع كل ما سبق"
+  "courses.projectsStep": "مشاريع — اجمع كل ما سبق",
+  "courses.projectTitle": "الآن ابنِه",
+  "courses.projectBody": "وصلت إلى نهاية المادة التعليمية. المشاهدة هي كيف تتعلّم؛ والبناء هو كيف تُثبت أنك تعلّمت.",
+  "courses.projectCta": "ابدأ مشروع الإنتاج"
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, ChevronDown, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { runtime } from "@/components/content/course-card";
@@ -16,6 +17,8 @@ export interface JourneyResource {
   minutes?: number;
   videos?: number;
   level?: string;
+  /** Kept behind the disclosure rather than shown by default. */
+  extra?: boolean;
 }
 
 export interface JourneyStep {
@@ -51,12 +54,15 @@ export function CourseJourney({
   phases,
   tail,
   tailLabel,
+  project,
   labels,
 }: {
   phases: JourneyPhase[];
   /** Project references that close the path. */
   tail?: JourneyResource[];
   tailLabel?: string;
+  /** EgyKode's own project — the real ending of the path. */
+  project?: { href: string; title: string; body: string; cta: string };
   labels: {
     heading: string;
     body: string;
@@ -182,8 +188,16 @@ export function CourseJourney({
               {mergeAdjacent(phase.steps, matching).map((group) => {
                 const step = group.steps[0]!;
                 const shown = group.resources;
-                const primary = shown[0];
-                const rest = shown.slice(1);
+                // Entries flagged `extra` are continuations. They stay behind
+                // the disclosure so the default view answers "what do I start
+                // with", not "here is everything we have".
+                const visible = shown.filter((r) => !r.extra);
+                const hidden = shown.filter((r) => r.extra);
+                const primary = visible[0] ?? shown[0];
+                const alsoVisible = (visible[0] ? visible.slice(1) : shown.slice(1)).filter(
+                  (r) => !r.extra,
+                );
+                const rest = hidden;
                 const expanded = open.has(step.domain);
                 const otherLanguage = shown.length === 0 && step.resources.length > 0;
 
@@ -200,13 +214,21 @@ export function CourseJourney({
 
                     {primary ? (
                       <>
-                        <div className="mt-2">
+                        <div className="mt-2 space-y-2">
                           <ResourceRow
                             resource={primary}
                             recommendedLabel={labels.recommended}
                             startLabel={labels.start}
                             recommended
                           />
+                          {alsoVisible.map((resource) => (
+                            <ResourceRow
+                              key={resource.url}
+                              resource={resource}
+                              recommendedLabel={labels.recommended}
+                              startLabel={labels.start}
+                            />
+                          ))}
                         </div>
 
                         {rest.length > 0 && (
@@ -295,10 +317,22 @@ export function CourseJourney({
                   />
                 ))}
               </div>
-            ) : (
-              <p className="rounded-lg border border-dashed p-3 text-sm text-content-secondary">
-                {labels.none}
-              </p>
+            ) : null}
+
+            {/* The path does not end at someone else's video. Watching is how
+                you learn it; building it is how you prove you did. */}
+            {project && (
+              <div
+                className="mt-2 rounded-lg border p-4"
+                style={{ background: "var(--clr-success-bg)", borderColor: "var(--clr-primary)" }}
+              >
+                <p className="font-medium text-content">{project.title}</p>
+                <p className="mt-1 text-sm text-content-secondary">{project.body}</p>
+                <Link href={project.href} className="btn btn-primary mt-3 h-10 px-4">
+                  {project.cta}
+                  <ArrowRight size={15} aria-hidden className="icon-directional" />
+                </Link>
+              </div>
             )}
           </div>
         </div>

@@ -87,11 +87,12 @@
         "level": "beginner"
       },
       {
-        "title": "Amazon Web Services",
-        "url": "https://www.youtube.com/@amazonwebservices",
-        "by": "Amazon Web Services",
+        "title": "AWS Solutions Architect Associate (SAA-C03) — full course",
+        "url": "https://www.youtube.com/watch?v=c3Cn4xYfxJY",
+        "by": "freeCodeCamp.org",
         "language": "en",
-        "kind": "channel"
+        "kind": "course",
+        "minutes": 3029
       }
     ],
     "docker": [
@@ -201,6 +202,14 @@
         "language": "ar",
         "kind": "course",
         "minutes": 42
+      },
+      {
+        "title": "What is Helm in Kubernetes? Helm and Helm charts explained",
+        "url": "https://www.youtube.com/watch?v=-ykwb1d0DXU",
+        "by": "TechWorld with Nana",
+        "language": "en",
+        "kind": "talk",
+        "minutes": 14
       }
     ],
     "jenkins": [
@@ -276,20 +285,21 @@
         "kind": "course"
       },
       {
-        "title": "Red Hat System Administration — II",
-        "url": "https://maharatech.gov.eg/course/view.php?id=2205",
-        "by": "Mahara-Tech (ITI)",
-        "language": "ar",
-        "kind": "course",
-        "titleFromPage": false
-      },
-      {
         "title": "Bash scripting for DevOps masterclass (Arabic)",
         "url": "https://www.youtube.com/watch?v=Ba65frCLQ-Y",
         "by": "Ahmed Elfakharany",
         "language": "ar",
         "kind": "course",
         "minutes": 129
+      },
+      {
+        "title": "Red Hat System Administration — II",
+        "url": "https://maharatech.gov.eg/course/view.php?id=2205",
+        "by": "Mahara-Tech (ITI)",
+        "language": "ar",
+        "kind": "course",
+        "titleFromPage": false,
+        "extra": true
       },
       {
         "title": "Introduction to Linux — full course for beginners (6h07m)",
@@ -355,6 +365,14 @@
         "language": "ar",
         "kind": "course",
         "minutes": 20
+      },
+      {
+        "title": "DevOps, Cloud, SRE and Platform Engineering — how they differ",
+        "url": "https://www.youtube.com/watch?v=2IWT79btvuA",
+        "by": "Abhishek Veeramalla",
+        "language": "en",
+        "kind": "talk",
+        "minutes": 102
       }
     ],
     "prometheus": [
@@ -382,6 +400,14 @@
         "language": "ar",
         "kind": "course",
         "minutes": 22
+      },
+      {
+        "title": "DevSecOps — full 8-hour course, beginner to expert",
+        "url": "https://www.youtube.com/watch?v=7tcX_ndqD68",
+        "by": "MartinY Tech",
+        "language": "en",
+        "kind": "course",
+        "minutes": 475
       }
     ],
     "sre": [
@@ -392,6 +418,14 @@
         "language": "ar",
         "kind": "course",
         "minutes": 20
+      },
+      {
+        "title": "DevOps, Cloud, SRE and Platform Engineering — how they differ",
+        "url": "https://www.youtube.com/watch?v=2IWT79btvuA",
+        "by": "Abhishek Veeramalla",
+        "language": "en",
+        "kind": "talk",
+        "minutes": 102
       }
     ],
     "terraform": [

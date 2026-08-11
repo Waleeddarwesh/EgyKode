@@ -32,6 +32,12 @@ export interface Resource {
   level?: "beginner" | "intermediate" | "advanced";
   /** False when the page is login-gated and its title cannot be read. */
   titleFromPage?: boolean;
+  /**
+   * Hidden behind the disclosure on the path. For a continuation — Red Hat
+   * Administration II after I — which is worth listing but should not compete
+   * with the entries a newcomer actually needs first.
+   */
+  extra?: boolean;
 }
 
 /** Every reference, flattened, with the domain it belongs to. */

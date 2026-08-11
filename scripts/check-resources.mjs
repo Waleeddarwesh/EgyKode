@@ -59,6 +59,8 @@ for (const [domain, list] of Object.entries(domains)) {
       errors.push(`${domain}: minutes must be a positive integer — ${entry.url}`);
     if (entry.videos !== undefined && !(Number.isInteger(entry.videos) && entry.videos > 0))
       errors.push(`${domain}: videos must be a positive integer — ${entry.url}`);
+    if (entry.extra !== undefined && typeof entry.extra !== "boolean")
+      errors.push(`${domain}: extra must be a boolean — ${entry.url}`);
     if (entry.url && seen.has(entry.url))
       errors.push(`${domain}: the same url is listed twice — ${entry.url}`);
     seen.add(entry.url);
