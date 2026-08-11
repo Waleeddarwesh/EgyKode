@@ -30,7 +30,7 @@ export function hostOf(url: string): string {
 /** "6h 07m" reads faster than "367 minutes". */
 export function runtime(minutes?: number): string | null {
   if (!minutes) return null;
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m ? `${h}h ${String(m).padStart(2, "0")}m` : `${h}h`;
@@ -82,12 +82,9 @@ export function CourseCard({
           {facts.map((fact, index) => (
             <span key={fact + index} className="flex items-center gap-2">
               {index > 0 && <span aria-hidden>·</span>}
-              <span
-                dir={index === 0 && isArabic ? "rtl" : undefined}
-                lang={index === 0 && isArabic ? "ar" : undefined}
-              >
-                {fact}
-              </span>
+              {/* <bdi> per fact: without isolation the Arabic publisher name
+                  reorders its neighbours and breaks a duration in half. */}
+              <bdi lang={index === 0 && isArabic ? "ar" : undefined}>{fact}</bdi>
             </span>
           ))}
           {isArabic && (

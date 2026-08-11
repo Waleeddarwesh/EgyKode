@@ -3,6 +3,8 @@
 import { ArrowRight, ChevronDown, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { runtime } from "@/components/content/course-card";
+
 const LANGUAGE_KEY = "egykode_course_language";
 
 export interface JourneyResource {
@@ -47,9 +49,14 @@ type Choice = "all" | "ar" | "en";
  */
 export function CourseJourney({
   phases,
+  tail,
+  tailLabel,
   labels,
 }: {
   phases: JourneyPhase[];
+  /** Project references that close the path. */
+  tail?: JourneyResource[];
+  tailLabel?: string;
   labels: {
     heading: string;
     body: string;
@@ -85,7 +92,9 @@ export function CourseJourney({
   const matching = (step: JourneyStep) =>
     choice === "all" ? step.resources : step.resources.filter((r) => r.language === choice);
 
-  const steps = phases.flatMap((p) => p.steps);
+  const tailStep: JourneyStep | null =
+    tail && tail.length ? { domain: "__projects", label: tailLabel ?? "Projects", resources: tail } : null;
+  const steps = [...phases.flatMap((p) => p.steps), ...(tailStep ? [tailStep] : [])];
   const withCourses = steps.filter((s) => matching(s).length > 0).length;
   const percent = steps.length ? Math.round((withCourses / steps.length) * 100) : 0;
 
@@ -166,21 +175,28 @@ export function CourseJourney({
             </p>
 
             <ol className="mt-4 space-y-3 border-s ps-5">
-              {phase.steps.map((step) => {
-                const shown = matching(step);
+              {/* A course can legitimately serve two steps in a row — a
+                  "Helm vs Kustomize" comparison, or a DevOps/SRE/Platform
+                  debate. Showing it twice reads as a bug; merging the step
+                  names says what it actually covers. */}
+              {mergeAdjacent(phase.steps, matching).map((group) => {
+                const step = group.steps[0]!;
+                const shown = group.resources;
                 const primary = shown[0];
                 const rest = shown.slice(1);
                 const expanded = open.has(step.domain);
                 const otherLanguage = shown.length === 0 && step.resources.length > 0;
 
                 return (
-                  <li key={step.domain} className="relative">
+                  <li key={group.steps.map((s) => s.domain).join("+")} className="relative">
                     <span
                       className="absolute -start-[1.42rem] top-2 h-2 w-2 rounded-full"
                       style={{ background: primary ? "var(--clr-primary)" : "var(--clr-surface-border)" }}
                       aria-hidden
                     />
-                    <p className="font-medium text-content">{step.label}</p>
+                    <p className="font-medium text-content">
+                      {group.steps.map((s) => s.label).join(" · ")}
+                    </p>
 
                     {primary ? (
                       <>
@@ -257,6 +273,37 @@ export function CourseJourney({
         ))}
       </ol>
 
+      {/* The path ends where the roadmap does: in a project. */}
+      {tailStep && (
+        <div className="mt-10">
+          <p className="flex items-baseline gap-3">
+            <span className="font-mono text-sm tabular-nums text-content-muted">→</span>
+            <span className="font-display text-sm font-semibold uppercase tracking-wide text-content">
+              {tailStep.label}
+            </span>
+          </p>
+          <div className="mt-4 border-s ps-5">
+            {matching(tailStep).length > 0 ? (
+              <div className="space-y-2">
+                {matching(tailStep).map((resource) => (
+                  <ResourceRow
+                    key={resource.url}
+                    resource={resource}
+                    recommendedLabel={labels.recommended}
+                    startLabel={labels.start}
+                    recommended
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-dashed p-3 text-sm text-content-secondary">
+                {labels.none}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {!ready && <span className="sr-only">loading</span>}
     </section>
   );
@@ -274,17 +321,12 @@ function ResourceRow({
   startLabel: string;
 }) {
   const isArabic = resource.language === "ar";
-  const hours = resource.minutes
-    ? resource.minutes >= 60
-      ? `${Math.floor(resource.minutes / 60)}h ${String(resource.minutes % 60).padStart(2, "0")}m`
-      : `${resource.minutes}m`
-    : null;
 
   const facts = [
     resource.by,
     isArabic ? "العربية" : "English",
     resource.level,
-    hours,
+    runtime(resource.minutes),
     resource.videos ? `${resource.videos} videos` : null,
   ].filter(Boolean) as string[];
 
@@ -304,14 +346,28 @@ function ResourceRow({
             ★ {recommendedLabel}
           </span>
         )}
+        {/* `dir="auto"` infers direction from the first strong character.
+            Deriving it from `language` right-aligned an English title that
+            happened to belong to an Arabic course, which is common: creators
+            write Arabic content under English titles. */}
         <span
-          dir={isArabic ? "rtl" : undefined}
+          dir="auto"
           lang={isArabic ? "ar" : undefined}
           className="block font-medium leading-snug text-content"
         >
           {resource.title}
         </span>
-        <span className="mt-1 block text-xs text-content-muted">{facts.join(" · ")}</span>
+        {/* Each fact is isolated. Joined into one string, the bidi algorithm
+            reorders around the Arabic label and splits its neighbours — a
+            20-minute video rendered as "20العربية · m". */}
+        <span className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-content-muted">
+          {facts.map((fact, index) => (
+            <span key={fact + index} className="flex items-center gap-1.5">
+              {index > 0 && <span aria-hidden>·</span>}
+              <bdi>{fact}</bdi>
+            </span>
+          ))}
+        </span>
       </span>
       <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-sm text-content-secondary transition-colors group-hover:text-content">
         {startLabel}
@@ -319,4 +375,45 @@ function ResourceRow({
       </span>
     </a>
   );
+}
+
+interface MergedGroup {
+  steps: JourneyStep[];
+  resources: JourneyResource[];
+}
+
+/**
+ * Collapse consecutive steps whose recommended course is the same one.
+ *
+ * Only consecutive steps merge: a course shared by two distant parts of the
+ * path is a different situation, and joining them would imply an adjacency the
+ * roadmap does not claim.
+ */
+function mergeAdjacent(
+  steps: JourneyStep[],
+  matching: (step: JourneyStep) => JourneyResource[],
+): MergedGroup[] {
+  const groups: MergedGroup[] = [];
+  for (const step of steps) {
+    const resources = matching(step);
+    const previous = groups.at(-1);
+    const sameTop =
+      previous &&
+      previous.resources[0] &&
+      resources[0] &&
+      previous.resources[0].url === resources[0].url;
+
+    if (sameTop) {
+      previous.steps.push(step);
+      // Keep any alternative the merged step adds, without duplicating.
+      for (const resource of resources) {
+        if (!previous.resources.some((r) => r.url === resource.url)) {
+          previous.resources.push(resource);
+        }
+      }
+      continue;
+    }
+    groups.push({ steps: [step], resources });
+  }
+  return groups;
 }

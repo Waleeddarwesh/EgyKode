@@ -8,7 +8,7 @@ import { CourseJourney } from "@/components/courses/course-journey";
 import { getChapterMeta } from "@/lib/content";
 import { getDomainMeta } from "@/lib/domains";
 import { getRoadmaps } from "@/lib/projects";
-import { domainsFor, getAllResources, getCoursePath } from "@/lib/resources";
+import { domainsFor, getAllResources, getCoursePath, getPathTail } from "@/lib/resources";
 import {
   PUBLIC_LOCALES,
   formatNumber,
@@ -102,6 +102,8 @@ export default async function CoursesPage({
       {journey.length > 0 && (
         <CourseJourney
           phases={journey}
+          tail={getPathTail()}
+          tailLabel={t("courses.projectsStep")}
           labels={{
             heading: t("courses.journeyHeading"),
             body: t("courses.journeyBody"),

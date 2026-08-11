@@ -1,7 +1,23 @@
 {
   "$comment": "Free external references, keyed by domain. Every URL here was verified to resolve and its title read from the live page, not from memory — scripts/check-resources.mjs re-checks them and fails when one rots. Video and playlist ids are only added when someone supplies them: they are opaque, so a guessed id is either a dead link or the wrong content. Channels are listed as channels rather than courses, because that is what they are. Arabic entries were confirmed by the maintainer; the checker can verify a URL and a title but not a spoken language.",
+  "excludeFromPath": [
+    "platform",
+    "build",
+    "nexus",
+    "cost"
+  ],
+  "$excludeComment": "Steps the guided path skips. These are covered well enough by EgyKode's own chapters that sending a learner to someone else's video would be noise — orientation, build tools, artifact registries and cost. Excluding them is a curation decision, not a gap: leaving them in would show four permanent empty steps and make the path look unfinished.",
   "domains": {
     "ansible": [
+      {
+        "title": "Ansible Arabic شرح عربي",
+        "url": "https://www.youtube.com/watch?v=OTV31UiSmy4",
+        "by": "CloudKode",
+        "language": "ar",
+        "kind": "course",
+        "minutes": 108,
+        "level": "beginner"
+      },
       {
         "title": "Ansible Administration Course",
         "url": "https://www.youtube.com/playlist?list=PLOeEp3fYj7rojjhsYYgtM_iOOaPnigrmT",
@@ -135,6 +151,15 @@
     ],
     "gitops": [
       {
+        "title": "Argo CD Crash Course (Arabic)",
+        "url": "https://www.youtube.com/watch?v=C0xRfrNIRak",
+        "by": "Ahmed Elfakharany",
+        "language": "ar",
+        "kind": "course",
+        "minutes": 41,
+        "level": "beginner"
+      },
+      {
         "title": "DevOps Toolkit",
         "url": "https://www.youtube.com/@DevOpsToolkit",
         "by": "DevOps & AI Toolkit",
@@ -198,6 +223,15 @@
     ],
     "kubernetes": [
       {
+        "title": "Kubernetes for beginners | تعلم كوبرنيتس للمبتدئين",
+        "url": "https://www.youtube.com/watch?v=-LF0O8T5sOI",
+        "by": "DolfinED",
+        "language": "ar",
+        "kind": "course",
+        "minutes": 287,
+        "level": "beginner"
+      },
+      {
         "title": "Docker and Kubernetes | العلبة دي فيها سوعبان",
         "url": "https://www.youtube.com/watch?v=PrusdhS2lmo",
         "by": "بالعربي Big Data",
@@ -248,6 +282,14 @@
         "language": "ar",
         "kind": "course",
         "titleFromPage": false
+      },
+      {
+        "title": "Bash scripting for DevOps masterclass (Arabic)",
+        "url": "https://www.youtube.com/watch?v=Ba65frCLQ-Y",
+        "by": "Ahmed Elfakharany",
+        "language": "ar",
+        "kind": "course",
+        "minutes": 129
       },
       {
         "title": "Introduction to Linux — full course for beginners (6h07m)",
@@ -371,6 +413,27 @@
         "minutes": 210,
         "level": "beginner"
       }
+    ],
+    "nexus": [
+      {
+        "title": "Sonatype Nexus Introduction — Artifacts & Repository Manager",
+        "url": "https://www.youtube.com/watch?v=JilcY0eqMFE",
+        "by": "DevOps Made Easy",
+        "language": "en",
+        "kind": "talk",
+        "minutes": 16
+      }
     ]
-  }
+  },
+  "pathTail": [
+    {
+      "title": "Cloud / DevOps Projects",
+      "url": "https://www.youtube.com/playlist?list=PLZmPGUyBFvUo6rHIVCFgJd87Fm8S2S0qo",
+      "by": "CloudKode",
+      "language": "ar",
+      "kind": "playlist",
+      "videos": 11
+    }
+  ],
+  "$pathTailComment": "Shown as a final step after the last roadmap phase. Projects are where the path ends rather than another technology to file under a domain."
 }

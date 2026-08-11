@@ -64,6 +64,10 @@ export function domainsFor(url: string): string[] {
 }
 
 let cache: Record<string, Resource[]> | null = null;
+/** Steps the guided path skips — a curation decision, kept in the data. */
+let excluded = new Set<string>();
+/** Project references, shown as the final step of the path. */
+let tail: Resource[] = [];
 
 function load(): Record<string, Resource[]> {
   if (cache) return cache;
@@ -71,7 +75,11 @@ function load(): Record<string, Resource[]> {
   if (!existsSync(file)) return (cache = {});
   const parsed = JSON.parse(readFileSync(file, "utf8")) as {
     domains?: Record<string, Resource[]>;
+    excludeFromPath?: string[];
+    pathTail?: Resource[];
   };
+  excluded = new Set(parsed.excludeFromPath ?? []);
+  tail = parsed.pathTail ?? [];
   return (cache = parsed.domains ?? {});
 }
 
@@ -116,7 +124,7 @@ export function getCoursePath(
   roadmap: { phases: { number: string; title: string; chapters?: string[] }[] },
   domainOf: (contentId: string) => string | undefined,
 ): PathPhase[] {
-  const all = load();
+  const all = load(); // also populates `excluded`
   const seen = new Set<string>();
   const phases: PathPhase[] = [];
 
@@ -124,11 +132,23 @@ export function getCoursePath(
     const steps: PathStep[] = [];
     for (const contentId of phase.chapters ?? []) {
       const domain = domainOf(contentId);
-      if (!domain || seen.has(domain)) continue;
+      if (!domain || seen.has(domain) || excluded.has(domain)) continue;
       seen.add(domain);
       steps.push({ domain, resources: all[domain] ?? [] });
     }
     if (steps.length) phases.push({ number: phase.number, title: phase.title, steps });
   }
   return phases;
+}
+
+/**
+ * References that close the path.
+ *
+ * The roadmap ends in a project, so the course path should too — otherwise it
+ * stops at "Platform Engineering" and leaves the learner without the step that
+ * ties everything together.
+ */
+export function getPathTail(): Resource[] {
+  load();
+  return tail;
 }

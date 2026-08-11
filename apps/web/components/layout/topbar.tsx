@@ -17,12 +17,11 @@ export function TopBar({ locale }: { locale: Locale }) {
     { href: `/${locale}/roadmaps`, label: t("nav.roadmaps") },
     { href: `/${locale}/learn`, label: t("nav.learn") },
     { href: `/${locale}/topics`, label: t("nav.topics") },
+    // Before labs: watching a course and then practising is a common order,
+    // so it sits between reading and doing rather than after the projects.
+    { href: `/${locale}/courses`, label: t("nav.courses") },
     { href: `/${locale}/labs`, label: t("nav.labs") },
     { href: `/${locale}/projects`, label: t("nav.projects") },
-    // After projects, not before learn: EgyKode teaches first, and external
-    // courses are an alternative route through the same material rather than
-    // the front door. Putting them earlier would read as an aggregator.
-    { href: `/${locale}/courses`, label: t("nav.courses") },
     { href: `/${locale}/prepare/questions`, label: t("nav.interview") },
     { href: `/${locale}/jobs`, label: t("nav.jobs") },
     { href: `/${locale}/community`, label: t("nav.community") },

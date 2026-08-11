@@ -91,6 +91,7 @@ export default async function LocaleLayout({
           items={[
             { key: "roadmaps", label: t("nav.roadmaps") },
             { key: "learn", label: t("nav.learn") },
+            { key: "courses", label: t("nav.courses") },
             { key: "labs", label: t("nav.labs") },
             { key: "projects", label: t("nav.projects") },
             { key: "interview", label: t("nav.interview"), path: "prepare/questions" },

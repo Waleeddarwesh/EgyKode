@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Compass, FolderGit2, HelpCircle, Map, Wrench } from "lucide-react";
+import { BookOpen, Compass, FolderGit2, GraduationCap, HelpCircle, Map, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -8,6 +8,7 @@ import type { Locale } from "@/lib/i18n";
 
 const ICONS = {
   topics: Compass,
+  courses: GraduationCap,
   learn: BookOpen,
   labs: Wrench,
   roadmaps: Map,
@@ -67,7 +68,10 @@ export function MobileNav({
                     change works in both themes, and satisfies WCAG 1.4.1:
                     colour is never the only signal. */}
                 <span
-                  className="flex h-7 w-12 items-center justify-center rounded-full transition-colors"
+                  // The pill is fixed-width, so six destinations at 320px overflowed the
+                  // bar and pushed two of them off-screen. Narrower below 360px;
+                  // roomier once there is space for it.
+                  className="flex h-7 w-10 items-center justify-center rounded-full transition-colors sm:w-12"
                   style={active ? { background: "var(--clr-success-bg)" } : undefined}
                 >
                   <Icon

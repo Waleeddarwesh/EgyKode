@@ -325,5 +325,6 @@
   "courses.noneYet": "لم تُختَر دورة لهذه الخطوة بعد.",
   "courses.showAllLanguages": "اعرض كل اللغات",
   "courses.browseHeading": "تصفّح كل شيء",
-  "courses.browseBody": "الفهرس الكامل، إن كنت تفضّل البحث على اتّباع المسار."
+  "courses.browseBody": "الفهرس الكامل، إن كنت تفضّل البحث على اتّباع المسار.",
+  "courses.projectsStep": "مشاريع — اجمع كل ما سبق"
 }

@@ -325,5 +325,6 @@
   "courses.noneYet": "No course curated for this step yet.",
   "courses.showAllLanguages": "Show every language",
   "courses.browseHeading": "Browse everything",
-  "courses.browseBody": "The full catalogue, if you would rather search than follow the path."
+  "courses.browseBody": "The full catalogue, if you would rather search than follow the path.",
+  "courses.projectsStep": "Projects — put it all together"
 }
