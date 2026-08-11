@@ -56,7 +56,6 @@ apps/web/.next-export/
 # Screenshots
 tests/screenshots/
 
-# Written by scripts/write-build-id.mjs on every build. Committing them would
+# Written by scripts/write-build-id.mjs on every build. Committing it would
 # mean the repo carries one build's id while the deploy carries another.
 apps/web/public/build-id.txt
-apps/web/lib/build-id.ts
