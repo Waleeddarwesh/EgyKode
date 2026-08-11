@@ -85,12 +85,21 @@ const NO_H1_EXPECTED = /(^|\/)(404|_not-found)([./]|$)/;
 const FONT_PRELOAD = /<link[^>]+rel="preload"[^>]+\.woff2?"/;
 const checkPreload = process.platform !== "win32";
 let preloadPages = 0;
+let preloadEligible = 0;
 
 for (const file of html) {
   const source = readFileSync(file, "utf8");
   const page = relative(DIR, file).replaceAll("\\", "/");
 
-  if (FONT_PRELOAD.test(source)) preloadPages += 1;
+  // The not-found pages are rendered by the root layout, not the locale one,
+  // and it is the locale layout that applies the font variables — it owns
+  // <html>, because that is where `lang` and `dir` belong. So those two pages
+  // carry no font and no preload by construction, and are not evidence of a
+  // fault. Same exemption as the <h1> rule above, for the same reason.
+  if (!NO_H1_EXPECTED.test(page)) {
+    preloadEligible += 1;
+    if (FONT_PRELOAD.test(source)) preloadPages += 1;
+  }
 
   if (!HAS_H1.test(source) && !NO_H1_EXPECTED.test(page)) {
     errors.push(
@@ -126,17 +135,18 @@ if (checkPreload && preloadPages === 0) {
       "    lib/fonts.ts is imported by a layout under app/, and that this build ran\n" +
       "    on Linux — the manifest plugin matches module paths with forward slashes.",
   );
-} else if (checkPreload && preloadPages < html.length) {
+} else if (checkPreload && preloadPages < preloadEligible) {
   errors.push(
-    `only ${preloadPages} of ${html.length} pages preload a font\n` +
-      "    Fonts are applied by the locale layout, so this should be every page.",
+    `only ${preloadPages} of ${preloadEligible} pages preload a font\n` +
+      "    Fonts are applied by the locale layout, so every page it renders should\n" +
+      "    preload them. The not-found pages are already excluded.",
   );
 }
 
 console.log(
   `export check — ${html.length} pages, ${checked} unique assets` +
     (checkPreload
-      ? `, ${preloadPages} preloading fonts`
+      ? `, ${preloadPages}/${preloadEligible} preloading fonts`
       : ", font preload not checked on win32"),
 );
 
