@@ -88,14 +88,23 @@ export default async function LocaleLayout({
 
         <MobileNav
           locale={typed}
+          // Four primary destinations plus "More". Roadmaps and Learn are how
+          // people arrive; Courses and Labs are how they get through it.
           items={[
             { key: "roadmaps", label: t("nav.roadmaps") },
             { key: "learn", label: t("nav.learn") },
             { key: "courses", label: t("nav.courses") },
             { key: "labs", label: t("nav.labs") },
+          ]}
+          // Topics, Jobs and Community had no mobile route at all before this.
+          more={[
+            { key: "topics", label: t("nav.topics") },
             { key: "projects", label: t("nav.projects") },
             { key: "interview", label: t("nav.interview"), path: "prepare/questions" },
+            { key: "jobs", label: t("nav.jobs") },
+            { key: "community", label: t("nav.community") },
           ]}
+          moreLabel={t("nav.more")}
         />
 
         <footer className="mt-24 border-t">

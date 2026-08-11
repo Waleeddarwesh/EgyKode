@@ -329,5 +329,6 @@
   "courses.projectsStep": "Projects — put it all together",
   "courses.projectTitle": "Now build it",
   "courses.projectBody": "You have reached the end of the learning material. Watching is how you learn it; building it is how you prove you did.",
-  "courses.projectCta": "Start the production project"
+  "courses.projectCta": "Start the production project",
+  "nav.more": "More"
 }
