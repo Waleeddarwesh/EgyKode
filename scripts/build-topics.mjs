@@ -176,6 +176,10 @@ for (const concept of concepts) {
     hits += local;
   }
 
+  // Labs had no intent test at all: one incidental match anywhere in the body
+  // listed the lab. Every lab that pastes a path under /etc or tails
+  // /var/log therefore claimed to practise the Linux filesystem, which is how
+  // a Jenkins/S3 lab ended up under that topic.
   const matchedLabs = [];
   for (const { meta, text } of labs) {
     let local = 0;
@@ -183,7 +187,15 @@ for (const concept of concepts) {
       re.lastIndex = 0;
       local += (text.match(re) ?? []).length;
     }
-    if (local > 0) matchedLabs.push({ id: meta.labId, weight: local });
+    if (local === 0) continue;
+
+    const onTopic = meta.domain === concept.domain;
+    const named = count(`${meta.title ?? ""} ${meta.description ?? ""}`) > 0;
+    // Practising a topic means the lab is either in its domain or says so in
+    // its title or mission. A mention in step four is not practice.
+    if (!onTopic && !named) continue;
+
+    matchedLabs.push({ id: meta.labId, weight: local, rank: onTopic && named ? 2 : 1 });
   }
 
   // Explained by a chapter that owns the subject, or practised in a lab.
@@ -203,9 +215,18 @@ for (const concept of concepts) {
   matchedChapters.sort(
     (a, b) => b.rank - a.rank || a.depth - b.depth || b.weight - a.weight,
   );
-  matchedLabs.sort((a, b) => b.weight - a.weight);
+  matchedLabs.sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0) || b.weight - a.weight);
 
-  const chapterIds = matchedChapters.slice(0, 8).map((c) => c.id);
+  // Sorting by rank put the good matches first and then listed the rest
+  // anyway: `slice(0, 8)` filled the remaining slots with rank-1 chapters that
+  // merely mention the topic in passing. Rank 2 is the same bar `explained`
+  // already uses — the right domain discussing it in prose, or a dedicated
+  // section from a neighbouring one. Below that is not coverage.
+  const LIST_RANK = 2;
+  const listable = matchedChapters.filter((c) => c.rank >= LIST_RANK);
+  const chapterIds = (listable.length ? listable : matchedChapters.slice(0, 1))
+    .slice(0, 8)
+    .map((c) => c.id);
   const relatedRoadmaps = roadmaps
     .filter((r) => r.phases.some((p) => p.chapters.some((id) => chapterIds.includes(id))))
     .map((r) => r.id);
