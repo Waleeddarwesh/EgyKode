@@ -148,6 +148,19 @@ samp,
   .list-virtual > * {
     content-visibility: auto;
     contain-intrinsic-size: auto 190px;
+    /* `content-visibility: auto` implies paint containment, which clips
+       anything drawn outside the box. A `.card-lift` inside translates up 2px
+       on hover, so its top border and shadow were being cut off — the hover
+       state looked broken on exactly the cards it was meant to highlight.
+       Padding enlarges the paint box; the negative margin cancels it, so
+       spacing is unchanged.
+
+       4px is the ceiling, not a guess: the negative margin eats into the grid
+       gap from both sides, and these grids use gap-3/gap-4 (12-16px). Going to
+       8px would leave adjacent cells touching and let one card's hover shadow
+       bleed into its neighbour. */
+    padding: 4px;
+    margin: -4px;
   }
 }
 

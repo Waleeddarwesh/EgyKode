@@ -24,7 +24,8 @@
         "by": "محمد الدسوقى",
         "language": "ar",
         "kind": "playlist",
-        "videos": 66
+        "videos": 66,
+        "extra": true
       },
       {
         "title": "RHCE 8 (Ansible Automation) — Arabic",
@@ -32,7 +33,8 @@
         "by": "Learn Linux with Keroles",
         "language": "ar",
         "kind": "playlist",
-        "videos": 27
+        "videos": 27,
+        "extra": true
       },
       {
         "title": "Jeff Geerling",
@@ -203,7 +205,8 @@
         "by": "Ahmed Elfakharany",
         "language": "ar",
         "kind": "course",
-        "minutes": 42
+        "minutes": 42,
+        "extra": true
       },
       {
         "title": "What is Helm in Kubernetes? Helm and Helm charts explained",
@@ -248,7 +251,8 @@
         "by": "بالعربي Big Data",
         "language": "ar",
         "kind": "course",
-        "minutes": 620
+        "minutes": 620,
+        "extra": true
       },
       {
         "title": "What is Kubernetes? (Arabic)",
@@ -256,7 +260,8 @@
         "by": "Ahmed Elfakharany",
         "language": "ar",
         "kind": "course",
-        "minutes": 33
+        "minutes": 33,
+        "extra": true
       },
       {
         "title": "Kubernetes Tutorial for Beginners — full course (3h36m)",
