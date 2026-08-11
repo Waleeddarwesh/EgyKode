@@ -45,6 +45,10 @@ jobs:
       - run: npm run content:lint
       - run: npm run lint:rtl
       - run: npm run check:translation
+      # The edge function is the site's only router — `output: export` removes
+      # middleware, so every locale redirect, legacy URL and directory-index
+      # rewrite happens there. A mistake in it does not break one page.
+      - run: npm run test:edge
       - run: npm run typecheck
       - run: npm run lint
 
@@ -88,25 +92,23 @@ jobs:
           npm run topics
           npm run search
 
-          # `next/font/google` fetches every family from fonts.gstatic.com at
-          # build time, so a transient network failure on the runner fails the
-          # whole release even though nothing is wrong with the commit. That is
-          # exactly what happened to e190ce6: three retries inside next/font,
-          # all timing out, on a build that passed everything else.
-          #
-          # This makes a flake a non-event. It does NOT remove the dependency —
-          # the durable fix is self-hosting the four families with
-          # next/font/local, and until that lands a long Google outage still
-          # blocks a deploy.
-          for attempt in 1 2 3; do
-            if npm run build --workspace=@egykode/web; then
-              exit 0
-            fi
-            echo "::warning::build attempt $attempt failed; retrying in $((attempt * 20))s"
-            sleep $((attempt * 20))
-          done
-          echo "::error::build failed three times — this is unlikely to be a flake"
-          exit 1
+          # No retry loop here any more. It existed because `next/font/google`
+          # fetched four families from fonts.gstatic.com during the build, and
+          # a timeout there failed a release with nothing wrong with the commit
+          # (e190ce6). The families are now committed under app/fonts and read
+          # by next/font/local, so the build makes no outbound request and a
+          # failure here means the commit is genuinely broken — retrying it
+          # three times would only delay that answer by a minute.
+          npm run build --workspace=@egykode/web
+
+      # Between building and publishing, because everything after this writes
+      # to the bucket. Run afterwards, it reports a fault that is already live.
+      #
+      # This catches what a status check cannot: a static export writes a page
+      # that called `notFound()` to disk as ordinary HTML, and the CDN serves it
+      # 200. Five chapters shipped blank that way and the deploy was green.
+      - name: Verify export before publishing
+        run: node scripts/check-export.mjs apps/web/.next-export
 
       # What GitHub will actually present. `Not authorized to perform
       # sts:AssumeRoleWithWebIdentity` never tells you which claim failed, so

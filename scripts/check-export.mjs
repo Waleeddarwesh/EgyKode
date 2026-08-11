@@ -64,9 +64,33 @@ const HAS_H1 = /<h1[\s>]/;
 /** Pages that legitimately have no heading of their own. */
 const NO_H1_EXPECTED = /(^|\/)(404|_not-found)([./]|$)/;
 
+/**
+ * Fonts must be preloaded, not merely discovered through the stylesheet.
+ *
+ * Without a preload the browser cannot request a face until it has downloaded
+ * and parsed the CSS that names it — an extra round trip before any text can
+ * paint in its real font.
+ *
+ * Checked on Linux only, and the reason is worth recording. Next decides what
+ * to preload in `next-font-manifest-plugin`, which collects modules by testing
+ * `mod.request.includes("/next-font-loader/index.js?")` — a forward-slash
+ * match. On Windows that same request reads `…\node_modules\next\dist\…`, so it
+ * never matches, the manifest comes out empty, and every page is emitted with
+ * no preload at all. That is a property of the build host, not of the commit:
+ * the font files are still stamped `.p` by the loader, and a Linux build
+ * preloads them. Asserting it on Windows would fail every local run over a
+ * fault that cannot reach production; skipping it in CI would leave the real
+ * risk unguarded — and CI is Linux, which is exactly where it must hold.
+ */
+const FONT_PRELOAD = /<link[^>]+rel="preload"[^>]+\.woff2?"/;
+const checkPreload = process.platform !== "win32";
+let preloadPages = 0;
+
 for (const file of html) {
   const source = readFileSync(file, "utf8");
   const page = relative(DIR, file).replaceAll("\\", "/");
+
+  if (FONT_PRELOAD.test(source)) preloadPages += 1;
 
   if (!HAS_H1.test(source) && !NO_H1_EXPECTED.test(page)) {
     errors.push(
@@ -94,7 +118,27 @@ for (const file of html) {
   }
 }
 
-console.log(`export check — ${html.length} pages, ${checked} unique assets`);
+if (checkPreload && preloadPages === 0) {
+  errors.push(
+    "no page preloads a font\n" +
+      "    Every face is still stamped `.p` by next/font, so the loader intends to\n" +
+      "    preload them and it is the manifest that came out empty. Check that\n" +
+      "    lib/fonts.ts is imported by a layout under app/, and that this build ran\n" +
+      "    on Linux — the manifest plugin matches module paths with forward slashes.",
+  );
+} else if (checkPreload && preloadPages < html.length) {
+  errors.push(
+    `only ${preloadPages} of ${html.length} pages preload a font\n` +
+      "    Fonts are applied by the locale layout, so this should be every page.",
+  );
+}
+
+console.log(
+  `export check — ${html.length} pages, ${checked} unique assets` +
+    (checkPreload
+      ? `, ${preloadPages} preloading fonts`
+      : ", font preload not checked on win32"),
+);
 
 if (errors.length) {
   console.log(`\n${errors.length} problem(s):\n`);

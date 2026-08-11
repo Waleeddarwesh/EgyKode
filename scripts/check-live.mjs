@@ -78,6 +78,50 @@ for (let i = 0; i < urls.length; i += CONCURRENCY) {
   await Promise.all(urls.slice(i, i + CONCURRENCY).map(check));
 }
 
+/**
+ * One canonical host.
+ *
+ * The distribution answers on both the apex and www, so before this redirect
+ * existed the whole site was reachable twice — duplicate content, with the
+ * ranking signals split across the two hostnames.
+ *
+ * Checked here rather than in the deploy smoke test because it lives in the
+ * CloudFront function, which only changes on `terraform apply`. Asserting it
+ * on every push would block deploys of the site over an unrelated piece of
+ * infrastructure.
+ */
+async function checkCanonicalHost() {
+  const url = new URL(ORIGIN);
+  if (url.hostname.startsWith("www.") || !url.hostname.includes(".")) return;
+
+  const www = `${url.protocol}//www.${url.hostname}/en/`;
+  let res;
+  try {
+    res = await fetch(www, { redirect: "manual" });
+  } catch {
+    return; // www may simply not resolve, which is fine
+  }
+
+  if (res.status === 301) {
+    const to = res.headers.get("location") ?? "";
+    if (to.startsWith(`${url.protocol}//${url.hostname}`)) {
+      console.log(`\nwww redirects 301 to the apex host`);
+      return;
+    }
+    problems.push(`www.${url.hostname}\n    redirects 301 to ${to}, not to ${url.hostname}`);
+    return;
+  }
+
+  problems.push(
+    `www.${url.hostname}/en/\n` +
+      `    answers ${res.status} instead of redirecting 301 to the apex, so every\n` +
+      `    page is reachable on two hostnames. Apply the CloudFront function:\n` +
+      `    cd infrastructure/terraform/production && terraform apply`,
+  );
+}
+
+await checkCanonicalHost();
+
 const duplicated = [...titles.entries()].filter(([, paths]) => paths.length > 1);
 
 console.log(`\n${urls.length} pages checked`);

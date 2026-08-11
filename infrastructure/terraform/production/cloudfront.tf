@@ -17,6 +17,39 @@ resource "aws_cloudfront_function" "router" {
       var request = event.request;
       var uri = request.uri;
 
+      // One canonical host. The distribution answers on both the apex and
+      // www, which served the entire site twice — the same page on two URLs,
+      // which is what Google treats as duplicate content, and it splits the
+      // ranking signals between them.
+      //
+      // 301 rather than 308: this is the redirect search engines are built
+      // around, and there is no request body to preserve on a GET-only site.
+      //
+      // Safe despite the cache policy forwarding no headers. A viewer-request
+      // function runs on every request, ahead of the cache lookup, so this
+      // response is produced per request and is never stored — an apex visitor
+      // cannot be served a cached redirect meant for a www one.
+      var host = request.headers.host && request.headers.host.value;
+      if (host && host.indexOf('www.') === 0) {
+        return {
+          statusCode: 301,
+          statusDescription: 'Moved Permanently',
+          headers: {
+            location: {
+              value: 'https://' + host.slice(4) + uri +
+                (request.querystring && Object.keys(request.querystring).length
+                  ? '?' + Object.keys(request.querystring)
+                      .map(function (k) {
+                        var v = request.querystring[k].value;
+                        return v ? k + '=' + v : k;
+                      })
+                      .join('&')
+                  : ''),
+            },
+          },
+        };
+      }
+
       // A bare path has no locale. Send it to the published one.
       // This replaces apps/web/middleware.ts, which cannot run in an export.
       if (uri === '/' || uri === '') {

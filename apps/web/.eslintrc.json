@@ -2,7 +2,18 @@
   "root": true,
   "extends": ["next/core-web-vitals"],
   "rules": {
-    "@next/next/no-img-element": "error"
+    "@next/next/no-img-element": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "next/font/google",
+            "message": "Fonts are self-hosted from app/fonts via next/font/local. next/font/google downloads from fonts.gstatic.com during the build, which put the network on the release path and once failed a deploy on a healthy commit. See app/fonts/NOTICE.md."
+          }
+        ]
+      }
+    ]
   },
   "ignorePatterns": ["node_modules", ".next", "styles/tokens.css"]
 }
