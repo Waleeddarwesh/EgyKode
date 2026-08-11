@@ -82,7 +82,26 @@ jobs:
           npm run tokens
           npm run topics
           npm run search
-          npm run build --workspace=@egykode/web
+
+          # `next/font/google` fetches every family from fonts.gstatic.com at
+          # build time, so a transient network failure on the runner fails the
+          # whole release even though nothing is wrong with the commit. That is
+          # exactly what happened to e190ce6: three retries inside next/font,
+          # all timing out, on a build that passed everything else.
+          #
+          # This makes a flake a non-event. It does NOT remove the dependency —
+          # the durable fix is self-hosting the four families with
+          # next/font/local, and until that lands a long Google outage still
+          # blocks a deploy.
+          for attempt in 1 2 3; do
+            if npm run build --workspace=@egykode/web; then
+              exit 0
+            fi
+            echo "::warning::build attempt $attempt failed; retrying in $((attempt * 20))s"
+            sleep $((attempt * 20))
+          done
+          echo "::error::build failed three times — this is unlikely to be a flake"
+          exit 1
 
       # What GitHub will actually present. `Not authorized to perform
       # sts:AssumeRoleWithWebIdentity` never tells you which claim failed, so
