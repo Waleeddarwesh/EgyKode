@@ -25,7 +25,7 @@ updated: 2026-08-08
 
 Before building a skyscraper, you must ensure the ground is solid, you have the right materials, and you have enough money to pay the construction workers. 
 
-In Platform Engineering, we call these **Requirements**. You cannot build this Cloud-Native DevOps Platform unless your local laptop, your cloud account, and your personal knowledge base meet certain prerequisites.
+In Platform Engineering, we call these **Requirements**. You cannot build this platform unless your local laptop, your cloud account, and your personal knowledge base meet certain prerequisites.
 
 ---
 
@@ -60,7 +60,9 @@ To deploy this project, your local workstation (or a dedicated jump-server) must
 |------|---------|---------|
 | **AWS CLI** | `v2.x` | Authenticates your terminal session with Amazon Web Services. |
 | **Terraform** | `>= 1.5.0` | Parses our `.tf` files and provisions the AWS infrastructure. |
-| **Ansible** | `>= 2.15` | Runs the `site.yml` playbook over SSH to configure the raw EC2 instances. |
+| **Ansible** | `>= 2.15` | Runs `playbook.yml` over SSH to turn the bare EC2 instance into a Jenkins host. |
+| **Docker** | `>= 24` | Builds the three service images, and runs the whole stack locally in Module 01. |
+| **Helm** | `>= 3.12` | Installs `kube-prometheus-stack` and the AWS Load Balancer Controller. |
 | **kubectl** | `>= 1.28` | The command-line tool for talking to the Kubernetes API server once it's built. |
 | **Git** | `>= 2.0` | For cloning the repository and managing ArgoCD GitOps configurations. |
 
@@ -72,9 +74,20 @@ To deploy this project, your local workstation (or a dedicated jump-server) must
 
 ### Financial Requirements (Cost Warning)
 > [!WARNING]
-> This platform provisions **Production-Grade Infrastructure** including multiple EC2 instances (`t3.large`, `t3.xlarge`), multiple NAT Gateways, an Application Load Balancer, and an RDS instance. 
-> **THIS IS NOT COVERED BY THE AWS FREE TIER.** 
-> Running this platform 24/7 will cost approximately $300 - $500 per month depending on the worker node count. You must destroy the infrastructure (`terraform destroy`) when you are done learning.
+> This provisions **real, billable infrastructure**: an EKS control plane, two `t3.medium` worker nodes, a `t3.medium` Jenkins host, a NAT Gateway and an Application Load Balancer.
+>
+> **NONE OF IT IS FREE-TIER ELIGIBLE.** EKS has no free tier at all.
+>
+> | Resource | Rate | Left running for a month |
+> |---|---|---|
+> | EKS control plane | $0.10/hr | ~$73 |
+> | 2 × t3.medium nodes | $0.083/hr | ~$60 |
+> | Jenkins t3.medium | $0.042/hr | ~$30 |
+> | NAT Gateway | $0.045/hr | ~$33 |
+> | ALB | $0.023/hr | ~$17 |
+> | **Total** | **~$0.30/hr** | **~$215** |
+>
+> That is roughly **$7 a day if you forget**. Set a budget alarm before you start, and run `terraform destroy` at the end of every session — rebuilding takes about twenty minutes, and being comfortable doing it is itself the skill.
 
 ---
 

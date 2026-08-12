@@ -25,9 +25,9 @@ updated: 2026-08-08
 
 Congratulations. If you have read from Chapter 01 to Chapter 45, you have just completed the equivalent of a Master's Degree in Cloud Engineering. 
 
-You started with a blank Linux terminal. You learned how to provision raw AWS hardware using Terraform. You learned how to configure operating systems immutably with Ansible. You built a distributed Kubernetes brain from scratch using `kubeadm`. 
+You started with a blank Linux terminal. You learned how to provision an AWS account with Terraform, how to configure a server repeatably with Ansible, and how to run three microservices and a stateful database on an EKS cluster.
 
-You deployed applications securely using zero-trust Calico Network Policies, built automated CI/CD pipelines with Jenkins and GitHub Actions, and mastered the absolute source of truth that is GitOps with ArgoCD.
+You deployed them behind default-deny NetworkPolicies and an admission policy that refuses a container running as root, built a CI pipeline that scans an image before it is allowed near the registry, and handed the deploy itself to Argo CD — so that what runs is whatever Git says runs.
 
 Finally, you learned the financial, operational, and disaster recovery strategies that turn a side-project into a Fortune 500 Enterprise architecture.
 
@@ -38,7 +38,9 @@ Finally, you learned the financial, operational, and disaster recovery strategie
 ### What happens now?
 You now know the vocabulary. When someone says, *"The Pod is Pending because the ASG didn't scale,"* you actually know what that means.
 Your next step is to **build it**. 
-Do not just read this encyclopedia. Go into the `infrastructure/terraform` folder of this repository, run `terraform apply`, and watch the magic happen on your own screen. Break the cluster. Fix the cluster. That is how you become an engineer.
+Do not just read this. Go into `02-Terraform/`, run `terraform apply`, and watch it happen on your own screen. Then break it and fix it — delete a pod and watch it come back, `kubectl edit` a Deployment and watch Argo CD revert you. That is how you become an engineer.
+
+If you would rather build it than read it, [the guided version](https://github.com/Waleeddarwesh/CloudDevOpsProject-Manual) starts from an empty workspace and has you write every file yourself.
 
 ---
 

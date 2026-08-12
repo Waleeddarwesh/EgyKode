@@ -21,11 +21,11 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to the Cloud-Native DevOps Platform
+## Introduction to the Cloud DevOps Capstone
 
-Welcome to the Cloud-Native DevOps Platform. This is not just a tutorial; this is a fully functional, enterprise-grade Infrastructure-as-a-Service (IaaS) and Platform-as-a-Service (PaaS) engine.
+Welcome to the [Cloud DevOps Capstone](https://github.com/Waleeddarwesh/CloudDevOpsProject) — three microservices carried from source code to a monitored, GitOps-managed deployment on AWS EKS. It is the project every roadmap on this site ends at, and it is a working system rather than a demonstration.
 
-This documentation serves as the ultimate handbook for mastering DevOps. We will dissect every layer of this repository, from the bare-metal Cloud networks up to the highest level of automated GitOps deployments. 
+These chapters dissect every layer of that repository, from the VPC up to the reconciliation loop that deploys into it. 
 
 Before we dive into the specific tools (Terraform, Kubernetes, Jenkins), we must first understand the *Project* itself. What are we actually building?
 
@@ -99,47 +99,49 @@ Let's look at how this platform is designed for a true production environment.
 
 When we say "Cloud-Native", we mean the system is designed to embrace failure. Servers *will* die. Networks *will* partition. Our architecture handles this autonomously.
 
-1. **High Availability (HA):** Our Terraform modules spread the Kubernetes worker nodes across three physically separate data centers (Availability Zones: `us-east-1a`, `us-east-1b`, `us-east-1c`). If a flood destroys `us-east-1a`, the Application Load Balancer instantly reroutes traffic to `1b` and `1c`.
-2. **Horizontal Scaling:** When CPU utilization spikes above 70%, the Kubernetes Horizontal Pod Autoscaler (HPA) commands the AWS Auto Scaling Group (ASG) to dynamically provision new EC2 instances, absorbing the traffic spike without human intervention.
-3. **Disaster Recovery (DR):** The state of our cluster is not stored on the cluster itself. It is stored in a Git repository (GitOps). In a total disaster scenario, we bootstrap a new cluster and point ArgoCD to our GitHub repo; the cluster perfectly recreates its own state.
+1. **High Availability (HA):** The Terraform `network` module spreads the subnets across two Availability Zones, and the EKS managed node group places workers in both. If `us-east-1a` fails, the Application Load Balancer routes to what remains in `1b`. Three PodDisruptionBudgets make sure a *voluntary* disruption — a node drain during an upgrade — cannot take all replicas of a service at once either.
+2. **Horizontal Scaling:** Three HorizontalPodAutoscalers add pods when CPU rises. When the cluster runs out of room to place them, the Cluster Autoscaler — granted its AWS permissions through IRSA, not a stored key — grows the node group.
+3. **Disaster Recovery (DR):** The state of the cluster is not stored on the cluster. It is in Git. In a total loss you rebuild the account with `terraform apply` and point Argo CD back at the repository; it reconciles the cluster to what the manifests say.
 
-### Cost Optimization
-Enterprise architecture is not just about technology; it's about money.
-- **Why Self-Managed Kubernetes (`kubeadm`) instead of EKS?** AWS EKS charges ~$73/month just for the Control Plane (the API server). By using `kubeadm` on basic EC2 instances, we bypass the managed service fee, saving thousands of dollars at scale while maximizing our operational learning.
+### The managed-service trade-off
+Enterprise architecture is not just about technology; it is about where you
+spend your attention.
+- **Why EKS rather than `kubeadm` on EC2?** The control plane is roughly $73/month, and running your own is genuinely cheaper on paper. What you buy for that money is the part nobody enjoys: `etcd` backups, certificate rotation, and control-plane upgrades. This project spends its complexity budget on the delivery pipeline and the security posture instead.
+- **Where the same logic goes the other way:** MySQL runs *in* the cluster as a StatefulSet rather than on RDS. Managed would be the production answer; here the point is to meet volumes, ordering and stable identity directly, because those are the concepts that make stateful Kubernetes hard.
 
-### Mermaid Diagram: High-Level Platform Architecture
+### ASCII Diagram: High-Level Platform Architecture
 
-```mermaid
-graph TD
-    subgraph "AWS Cloud (Region: us-east-1)"
-        subgraph "VPC (Virtual Private Cloud)"
-            ALB[Application Load Balancer]
-            
-            subgraph "Public Subnets"
-                NAT[NAT Gateway]
-            end
-            
-            subgraph "Private Subnets (Compute)"
-                K8s_CP[Kubernetes Control Plane]
-                K8s_W1[Worker Node AZ-1]
-                K8s_W2[Worker Node AZ-2]
-                
-                K8s_CP --- K8s_W1
-                K8s_CP --- K8s_W2
-            end
-            
-            subgraph "Private Subnets (Data)"
-                RDS[(Amazon RDS MySQL)]
-            end
-            
-            ALB --> K8s_W1
-            ALB --> K8s_W2
-            K8s_W1 --> RDS
-            K8s_W2 --> RDS
-        end
-    end
-    
-    User((User)) -->|HTTPS| ALB
+```text
+                              [ User ]
+                                 | HTTPS
+   AWS Cloud (us-east-1)         v
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  VPC 10.0.0.0/16                                                 │
+  │  ┌────────────────────────────────────────────────────────────┐  │
+  │  │ PUBLIC SUBNETS      [ ALB ]   [ NAT GW ]   [ Jenkins EC2 ] │  │
+  │  └────────────────────────────────────────────────────────────┘  │
+  │           |                                        |             │
+  │           v                                        | push image  │
+  │  ┌────────────────────────────────────────────┐    v             │
+  │  │ PRIVATE SUBNETS — EKS node group           │  [ ECR ]         │
+  │  │                                            │                  │
+  │  │   node AZ-a                node AZ-b       │                  │
+  │  │  ┌──────────────────────────────────────┐  │                  │
+  │  │  │ namespace: ivolve                    │  │                  │
+  │  │  │   frontend  (Node.js)  <-- only this │  │                  │
+  │  │  │      |         |          is exposed │  │                  │
+  │  │  │      v         v                     │  │                  │
+  │  │  │   auth      roadmap                  │  │                  │
+  │  │  │  (Python)    (Java)                  │  │                  │
+  │  │  │      |         |                     │  │                  │
+  │  │  │      +----+----+                     │  │                  │
+  │  │  │           v                          │  │                  │
+  │  │  │      mysql-0  (StatefulSet + PVC)    │  │                  │
+  │  │  └──────────────────────────────────────┘  │                  │
+  │  └────────────────────────────────────────────┘                  │
+  └──────────────────────────────────────────────────────────────────┘
+
+      [ EKS control plane ] — run by AWS, in an account you never see
 ```
 
 ---
@@ -157,8 +159,9 @@ This repository *is* the foundation of an IDP. We provide **"Golden Paths."** If
 Enterprise platforms must adhere to strict regulatory compliance frameworks like **SOC2** (System and Organization Controls) and **ISO27001**.
 How does this repository achieve that?
 1. **No Public IP Addresses:** Worker nodes reside strictly in Private Subnets. They are completely invisible to the public internet, satisfying SOC2 Network Security requirements.
-2. **Zero Trust Networking:** Inside the Kubernetes cluster, we do not assume the network is safe. We use Calico Network Policies to enforce a default-deny stance. The Frontend pod is explicitly allowed to talk to the Backend pod, but if the Frontend pod is hacked, it is cryptographically blocked from scanning the rest of the cluster.
-3. **Immutable Infrastructure:** We never SSH into a server to run `apt-get upgrade`. If a server needs patching, we update the AMI (Amazon Machine Image) in Terraform and roll out brand new servers, terminating the old ones. This eliminates "Configuration Drift."
+2. **Zero Trust Networking:** Inside the cluster we do not assume the network is safe. Six NetworkPolicies enforce a default-deny stance. The frontend is explicitly allowed to reach the two backends, and the backends the database — but a compromised frontend pod cannot scan the namespace, because sharing a namespace grants it nothing.
+3. **Enforced at admission, not by convention:** The Pod Security Standard `restricted` is applied to the namespace, so a container asking to run as root, or for a writable root filesystem, or for extra capabilities, is rejected before it starts. A rule that is checked in review gets forgotten; a rule the API server enforces does not.
+4. **Immutable Infrastructure:** Nobody SSHes in to run `apt-get upgrade`. Node images are replaced by rolling the managed node group, and the workloads survive it because of the PodDisruptionBudgets. This is what eliminates configuration drift.
 
 ### Incident Response (SRE)
 In a Site Reliability Engineering (SRE) culture, we measure success in **SLIs (Service Level Indicators)** and **SLOs (Service Level Objectives)**.
@@ -180,10 +183,10 @@ A: IaaS (Infrastructure as a Service) is renting the raw hardware (like AWS EC2)
 A: They serve different purposes. Terraform is an Infrastructure Provisioner (it declares the existence of a server, network, or database in AWS). Ansible is a Configuration Manager (it connects to the server Terraform created and installs software on it). While they have overlapping features, using Terraform for hardware and Ansible for software is the industry standard.
 
 ### Senior
-**Q: How does this platform handle the "Split-Brain" problem in a Multi-AZ disaster scenario?**
-A: Our Control Plane utilizes `etcd` as its distributed key-value store. `etcd` requires a strict quorum (majority) to elect a leader and commit changes (using the Raft consensus algorithm). By distributing exactly 3 Control Plane nodes across 3 Availability Zones, the system can sustain the total loss of 1 AZ. The remaining 2 nodes maintain a quorum (2/3) and the cluster remains fully operational and writeable.
+**Q: This runs a database as a StatefulSet rather than on RDS. Defend that, then argue against it.**
+A: For it: a StatefulSet gives each pod a stable identity and a volume that survives rescheduling, and the headless Service gives it a stable DNS name — which is exactly the machinery you must understand to run anything stateful on Kubernetes. Doing it by hand also makes the failure modes visible: delete the pod and watch the same PVC reattach. Against it: in production you would almost certainly use RDS. Backups, patching, failover and point-in-time recovery are solved problems that you are choosing to re-solve, and a single replica on one volume is a single point of failure regardless of how good the manifest is. The honest framing is that this is a *teaching* decision, not a production one.
 
 ### Principal/Architect
-**Q: Compare the operational overhead of a GitOps-driven Self-Managed Kubernetes cluster vs. a Managed Service like EKS integrated with a traditional push-based CI pipeline.**
-A: A GitOps-driven Self-Managed cluster (our architecture) shifts the operational burden to the Platform team (managing etcd backups, API certificate rotations, and kubelet upgrades). However, it guarantees absolute configuration synchronization; the cluster continuously pulls state from Git, neutralizing configuration drift and ensuring disaster recovery is deterministic. EKS reduces the control plane management burden significantly, but if paired with a push-based CI (e.g., Jenkins running `kubectl apply`), it introduces security vulnerabilities (CI requires cluster admin credentials) and risks drift if engineers manually edit cluster state via the AWS console. The architectural tradeoff is Operational Effort (Self-Managed) vs. Security/Determinism (GitOps).
+**Q: The pipeline ends by committing a manifest rather than by running `kubectl apply`. What does that buy, and what does it cost?**
+A: It buys three things. Credentials: a push-based pipeline needs cluster-admin from CI, so anyone who compromises the build server owns the cluster; here Jenkins only needs write access to a Git repository and to ECR, while Argo CD's authority stays inside the cluster. Determinism: the cluster continuously reconciles against Git, so manual `kubectl edit` drift is reverted instead of accumulating quietly until the next incident. Recovery: rebuilding is `terraform apply` plus pointing Argo CD at the repository. It costs latency and a harder debugging story — the deploy is now asynchronous, so "my build passed, where is my change?" becomes a question about sync state rather than a pipeline log, and you need sync waves to express ordering the pipeline used to enforce implicitly.
 [Contents](/learn) | [02 — System Architecture](/learn/platform/system-architecture) |

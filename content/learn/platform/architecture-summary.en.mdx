@@ -25,59 +25,78 @@ updated: 2026-08-08
 
 If you are a Recruiter, a Hiring Manager, or a Senior Engineer looking at this GitHub repository, this document serves as the **Executive Summary** of the platform architecture.
 
-This project is not a tutorial. It is a fully functional, production-grade Cloud-Native DevOps Platform built from scratch using Enterprise best practices.
+This project is not a tutorial. It is a working, production-shaped platform —
+three microservices carried from source code to a monitored, GitOps-managed
+deployment on AWS EKS. The numbers below are measured, not aspirational: the
+Terraform plans clean against a live account at 81 resources, and all 37
+Kubernetes objects pass `kubeconform --strict` against the real 1.31 schemas.
 
 ---
 
 ## High-Level Architecture Overview
 
-This platform is divided into four strictly segregated operational layers:
+The platform is divided into four strictly segregated operational layers:
 
 ### 1. The Infrastructure Layer (AWS + Terraform)
-We do not use AWS "ClickOps". The entire AWS footprint is provisioned immutably using **Terraform**.
-- **Networking:** A custom AWS Virtual Private Cloud (VPC) spanning 3 Availability Zones. It utilizes Public Subnets for Edge routing (ALB/NAT) and strictly isolated Private Subnets for Compute (EC2) and Data (RDS).
-- **Compute:** Auto Scaling Groups (ASGs) using custom Ubuntu AMIs. The ASGs are dynamically provisioned across the private subnets. Bootstrapping is handled via `cloud-init` userdata scripts to ensure immutable infrastructure.
-- **Data:** Amazon RDS (Relational Database Service) deployed in Multi-AZ mode for synchronous replication and zero-data-loss failover. 
-- **Security:** Strict IAM Roles (IRSA ready) and Security Groups implementing default-deny architectures.
+No ClickOps. The entire AWS footprint is provisioned from four Terraform
+modules — `network`, `eks`, `ecr` and `server` — with state in S3.
+- **Networking:** A VPC on `10.0.0.0/16` across two Availability Zones. Public subnets carry the internet-facing ALB, the NAT Gateway and the Jenkins host; the EKS worker nodes sit in private subnets with no route in. Twenty network ACL rules and VPC Flow Logs sit underneath.
+- **Compute:** An Amazon EKS cluster with a managed node group across both AZs, and a single `t3.medium` EC2 instance for Jenkins with IMDSv2 enforced.
+- **Data:** MySQL runs *inside* the cluster as a StatefulSet with a `gp3` volume and a headless Service — not RDS. That is a deliberate teaching choice: it forces you to meet identity, ordering and storage in Kubernetes rather than hiding them behind a managed service.
+- **Security:** An OIDC provider on the cluster and three IRSA roles — EBS CSI driver, AWS Load Balancer Controller, Cluster Autoscaler — so no pod holds a static AWS credential.
 
 ### 2. The Configuration Management Layer (Ansible)
-We do not manually SSH into servers. We use **Ansible** to transform raw EC2 instances into a functional Kubernetes cluster.
-- **Idempotency:** Custom Ansible playbooks install container runtimes (containerd), configure the Linux kernel (disabling swap, enabling IP forwarding), and execute `kubeadm init` / `kubeadm join` automatically.
-- **Control Plane:** Automates the provisioning of a stacked `etcd` highly-available Kubernetes Control Plane.
+The cluster's control plane is managed by AWS, so Ansible's job here is the
+part that *is* yours: the build host.
+- **Nine roles** — `aws_cli`, `common`, `docker`, `java`, `jenkins`, `kubectl`, `helm`, `sonarqube`, `trivy` — turn a bare Ubuntu instance into a working Jenkins server with the whole toolchain on it.
+- **Dynamic inventory** through the `aws_ec2` plugin, so hosts are discovered by tag rather than written into a file that goes stale the first time an instance is replaced.
+- **Vault** for the values that must not be in the repository.
 
-### 3. The Continuous Integration Layer (Jenkins / GitHub Actions / ECR)
-We implement automated, secure software supply chains.
-- **Pipeline-as-Code:** Declarative CI pipelines trigger on Git push.
-- **Build Isolation:** Builds execute inside ephemeral Kubernetes Pods, ensuring clean, predictable compilation without bloating a central master server.
-- **DevSecOps:** Docker images are continuously scanned for CVE vulnerabilities using Trivy. Vulnerable builds are actively blocked from reaching the registry.
-- **Registry:** Successfully built images are pushed to Amazon ECR using short-lived IAM credentials, tagged immutably with their Git commit SHA.
+### 3. The Continuous Integration Layer (Jenkins + ECR)
+An automated, secure software supply chain, one pipeline per microservice.
+- **Pipeline-as-Code:** Nine declarative stages — checkout, unit tests, SonarQube analysis, build, Trivy scan, push to ECR, remove the local image, update the manifests, push them back to Git.
+- **Shared library:** The logic lives in a Groovy shared library under `vars/`, so three services share one implementation instead of three copies of the same `Jenkinsfile`.
+- **DevSecOps:** Trivy runs *before* the push. An image with a fixable CRITICAL CVE never reaches the registry — the gate is enforced, not advisory. SonarQube's quality gate can fail the build at stage 3.
+- **Registry:** Images land in Amazon ECR with immutable tags, so a tag cannot be quietly repointed at different bytes.
 
-### 4. The Continuous Delivery Layer (GitOps / ArgoCD)
-We enforce the absolute GitOps philosophy. Humans do not deploy code.
-- **ArgoCD:** The deployment engine running inside the cluster. It polls the Git repository for changes.
-- **The App-of-Apps Pattern:** A root ArgoCD Application manages all child applications, allowing developers to provision new microservices simply by opening a Pull Request with a new YAML file.
-- **Self-Healing:** ArgoCD aggressively overwrites configuration drift. Any manual `kubectl` alterations are instantly reversed to match the Git Source of Truth.
-- **Package Management:** Heavy reliance on **Helm** charts for complex deployments (Prometheus, Ingress), rendering the templates securely via ArgoCD.
+### 4. The Continuous Delivery Layer (GitOps / Argo CD)
+Humans do not deploy code. The pipeline's last act is a commit.
+- **Argo CD** runs in the cluster and reconciles it against `04-Kubernetes/manifests/` in the same repository.
+- **Sync waves** order the rollout deliberately: database first, then the backends, then the frontend, then the load balancer — because starting them all at once means the services that need the database crash-loop until it happens to be ready.
+- **Self-healing:** Automated sync with `prune` and `selfHeal`, so configuration drift is reverted rather than accumulating. A manual `kubectl edit` does not survive.
+- **Kustomize** renders the manifests, keeping one base with overlays rather than templating everything.
 
 ---
 
 ## Security & Observability
 
-### Zero-Trust Networking (Calico)
-The cluster utilizes the Calico CNI to enforce strict Network Policies. Every namespace defaults to a Deny-All posture. Egress and Ingress are explicitly whitelisted, preventing lateral movement during a potential breach.
+### Default-deny networking
+Six NetworkPolicies put the namespace in a deny-by-default posture, with each
+allowed path written down explicitly. A compromised frontend pod cannot reach
+the database simply because it shares a namespace with it.
 
-### Secrets Management (External Secrets Operator)
-Zero static passwords exist in the GitHub repository or the cluster YAML. 
-The External Secrets Operator (ESO) integrates directly with AWS Secrets Manager. It pulls encrypted RDS passwords and injects them dynamically into native Kubernetes Secrets in memory, allowing for automated password rotation without redeployment.
+### Admission-enforced hardening
+The Pod Security Standard `restricted` is enforced at admission: pods run as
+non-root with a read-only root filesystem and every capability dropped. Four
+RBAC ServiceAccounts, a ResourceQuota and a LimitRange bound what the namespace
+can do and consume; three PodDisruptionBudgets keep a voluntary node drain from
+taking a service down, and three HorizontalPodAutoscalers handle load.
 
-### The Observability Stack (Prometheus + Grafana + Loki)
-- **Metrics:** The Prometheus Operator dynamically manages `ServiceMonitors`, utilizing a Pull architecture to scrape time-series metrics from every node and pod.
-- **Logs:** Promtail DaemonSets scrape `stdout` logs across the cluster and ship them to Grafana Loki. Loki minimizes compute costs by exclusively indexing metadata labels, storing compressed log chunks in cheap object storage.
-- **Dashboards:** Dashboards-as-Code. JSON definitions are injected into Grafana via Kubernetes ConfigMaps, ensuring the visualization layer is as immutable as the infrastructure.
+### Secrets and credentials
+No static AWS credentials exist anywhere in the system — the cluster gets its
+permissions through IRSA, and the Jenkins host through an EC2 instance profile.
+KMS handles encryption at rest.
+
+### The Observability Stack (Prometheus + Grafana)
+- **Metrics:** `kube-prometheus-stack` scrapes pods, nodes and endpoints, plus black-box probes that test the application from outside, the way a user meets it.
+- **Alerts:** Twelve alert rules, each annotated with a link to a runbook. An alert that tells you something is broken without telling you what to do about it is a pager that trains people to ignore it.
+- **Dashboards:** JSON definitions committed to the repository and loaded from ConfigMaps, so the visualisation layer is versioned like everything else.
 
 ---
 
 ## Conclusion
 
-This repository demonstrates the ability to architect, provision, secure, and monitor a distributed microservice ecosystem. It bridges the gap between traditional IT infrastructure and modern, elastic, cloud-native software delivery.
+This repository demonstrates the ability to architect, provision, secure and
+monitor a distributed microservice system — and, more usefully, to prove that
+it works rather than assert it.
 [Contents](/learn) | [46 — Conclusion](/learn/platform/conclusion) |

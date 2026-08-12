@@ -25,15 +25,15 @@ updated: 2026-08-08
 
 By the end you will have, running and reachable on the public internet:
 
-- A **three-tier AWS network** across three availability zones
-- A **self-managed Kubernetes cluster** — 3 control plane nodes, autoscaling workers, built with `kubeadm`
+- A **VPC across two availability zones**, with the cluster's nodes in private subnets and nothing reachable that does not need to be
+- An **Amazon EKS cluster** running three microservices in three languages, plus MySQL as a StatefulSet with a real volume
 - A **CI pipeline** that builds, tests, scans and refuses to publish insecure images
 - A **GitOps delivery loop** where a `git push` becomes a running rolling update with no human touching the cluster
 - **Observability** that tells you when it breaks, and runbooks that tell you what to do
 
 Not a demo. Each piece is the version you would defend in a design review.
 
-![iVolve Cloud-Native DevOps Platform — full architecture](/diagrams/architecture.png)
+![Cloud DevOps Capstone — the full architecture: Jenkins CI on EC2, an EKS cluster running three microservices and MySQL, delivered by Argo CD and watched by Prometheus](/diagrams/clouddevops-architecture.png)
 
 *This is the destination. It is supposed to look like a lot right now — by the
 end of Phase 7 you will have built every box on it, and you will know why each
@@ -61,7 +61,7 @@ taught here from zero.
 
 - **An AWS account with billing enabled.** The free tier does not cover this.
 - **A domain name** in a Route53 hosted zone. ~$12/year.
-- **A credit card you are willing to put ~$180 on.** See the cost section below.
+- **A credit card you are willing to put ~$215 on.** See the cost section below.
 - **~40 hours.** Spread over 3–6 weeks is better than a single sprint.
 
 ### Install these locally
@@ -89,31 +89,41 @@ done
 **Read this before Phase 2.** More people abandon this kind of project because
 of a surprise bill than because of a technical wall.
 
-| Environment | Monthly | What you get |
-|-------------|--------:|--------------|
-| `dev` | **~$180** | 1 control plane, 2 small workers, shared NAT, `db.t3.small` |
-| `staging` | ~$600 | production topology, smaller instances |
-| `prod` | **~$1,300** | 3 control planes, 4 large workers, Multi-AZ RDS + replica |
+| Resource | Rate | A month, left running |
+|---|--------:|--------:|
+| EKS control plane | $0.10/hr | ~$73 |
+| 2 × `t3.medium` worker nodes | $0.083/hr | ~$60 |
+| Jenkins `t3.medium` | $0.042/hr | ~$30 |
+| NAT Gateway | $0.045/hr | ~$33 |
+| Application Load Balancer | $0.023/hr | ~$17 |
+| **Total** | **~$0.30/hr** | **~$215** |
 
-**Build `dev` only.** It exercises every code path in this course. Nothing in
-the learning is gated behind production sizing.
+**About $7 a day if you forget.** None of it is free-tier eligible — EKS has no
+free tier at all.
 
-The three things that actually cost money, in order:
+The things that actually cost money, in order:
 
-1. **EC2 instances** — the biggest line item. `dev` uses `t3.medium`.
-2. **NAT gateways** — ~$32/month *each*, plus data. `dev` shares one; `prod`
-   runs three. This surprises everyone.
-3. **RDS Multi-AZ** — doubles the instance cost. `dev` runs single-AZ.
+1. **The EKS control plane** — $73/month whether you use it or not, from the
+   moment it exists. It is the one charge you cannot shrink by choosing smaller
+   instances.
+2. **EC2 instances** — two workers plus the Jenkins host. This is where
+   instance sizing shows up.
+3. **NAT gateway** — ~$33/month *each*, plus data transfer. One gateway here;
+   an AZ-redundant setup runs one per zone, which surprises everyone.
+
+**Modules 00 and 01 are free and use no AWS at all.** Do them first: you will
+have the application running on your laptop before spending anything, and if
+something breaks later you will know it is infrastructure rather than code.
 
 ### Destroy what you are not using
 
 ```bash
-cd Cloud-Native-DevOps-Platform/infrastructure/terraform/environments/dev
+cd CloudDevOpsProject/02-Terraform
 terraform destroy
 ```
 
 Make this a habit at the end of every session. Rebuilding takes 45 minutes and
-costs nothing; leaving `dev` running for a forgotten month costs $180.
+costs nothing; leaving it running for a forgotten month costs about $215.
 
 Set a billing alarm **before** Phase 2:
 
@@ -133,8 +143,8 @@ produces failures three phases later that look like something else entirely.
 ```
 Phase 0  Foundations         ~6h   read + local practice, no AWS spend
 Phase 1  Containerize        ~4h   Docker, the app, local Compose
-Phase 2  Infrastructure      ~6h   Terraform → VPC, EC2, RDS      ← spend starts
-Phase 3  The cluster         ~8h   Ansible → kubeadm, Calico, ingress
+Phase 2  Infrastructure      ~6h   Terraform → VPC, EKS, ECR, EC2 ← spend starts
+Phase 3  The build host      ~5h   Ansible → Jenkins and its toolchain
 Phase 4  Deploy manually     ~5h   kubectl, manifests, Helm — feel the pain first
 Phase 5  CI                  ~6h   Jenkins, SonarQube, Trivy
 Phase 6  GitOps              ~4h   ArgoCD — remove yourself from the deploy path
@@ -155,12 +165,12 @@ hour here saves three later.
 | [05 — Linux](/learn/linux/linux-foundations) | SSH into anything. Read a `systemd` unit. Follow a log with `journalctl -f`. |
 | [07 — Git & GitHub](/learn/git/git-and-github) | Branch, commit, open a PR, revert a commit. You will do all four constantly. |
 | [06 — Networking](/learn/networking/networking-fundamentals) | Explain to yourself what a `/16` and a `/20` are, and what NAT does. |
-| [01 — Project Overview](/learn/platform/project-overview) · [02 — Architecture](/learn/platform/system-architecture) | Look at `diagrams/architecture.txt` and find each component in it. |
+| [01 — Project Overview](/learn/platform/project-overview) · [02 — Architecture](/learn/platform/system-architecture) | Look at the architecture diagram in Chapter 02 and find each component in it. |
 | [10 — AWS](/learn/aws/aws-overview) | Create an IAM user with MFA. Stop using the root account. |
 
 **Checkpoint** — you can answer, without looking:
 
-- What does `10.20.0.0/16` mean, and roughly how many addresses is it?
+- What does `10.0.0.0/16` mean, and roughly how many addresses is it?
 - Why can a server in a private subnet reach the internet, but the internet cannot reach it?
 - What is the difference between `git revert` and `git reset --hard`?
 
@@ -181,7 +191,7 @@ Kubernetes if you cannot debug it on your own machine.
 | [09 — Docker](/learn/docker/docker) | Read `application/ivolve-api/Dockerfile`. Explain why it has two `FROM` lines. |
 
 ```bash
-cd Cloud-Native-DevOps-Platform/application/ivolve-api
+cd CloudDevOpsProject/src/frontend
 
 mvn -B clean package                      # produces target/ivolve-api.jar
 docker build -t ivolve-api:local .
@@ -212,13 +222,13 @@ Security Standard in Phase 4 will reject it. Fix it now, not then.
 
 ## Phase 2 · Infrastructure
 
-**~6 hours · spend starts here · ~$180/month once running**
+**~6 hours · spend starts here · ~$215/month once running**
 
 | Read first | Why |
 |------------|-----|
 | [13 — Terraform](/learn/terraform/terraform) | you are about to run it against a real account |
 | [11 — VPC](/learn/aws/vpc) · [12 — IAM](/learn/aws/iam) | you need to understand what you are creating |
-| [15 — RDS](/learn/aws/rds) · [17 — Auto Scaling](/learn/aws/auto-scaling) | the expensive parts |
+| [18 — ECR](/learn/aws/ecr) · [17 — Auto Scaling](/learn/aws/auto-scaling) | the registry, and what scales |
 
 ### 2.1 The state backend, once per account
 
@@ -226,7 +236,7 @@ State cannot live in the bucket that holds state. This bootstraps that
 chicken-and-egg.
 
 ```bash
-cd Cloud-Native-DevOps-Platform/infrastructure/terraform/bootstrap
+cd CloudDevOpsProject/02-Terraform/bootstrap
 terraform init
 terraform apply
 ```
@@ -234,8 +244,9 @@ terraform apply
 ### 2.2 Configure the environment
 
 ```bash
-cd ../environments/dev
+cd ..
 cp terraform.tfvars.example terraform.tfvars
+cp backend.hcl.example backend.hcl   # point it at the bucket you just created
 ```
 
 Fill in four values:
@@ -254,51 +265,64 @@ acm_certificate_arn = "arn:aws:acm:us-east-1:...:certificate/..."
 ### 2.3 Plan, read the plan, apply
 
 ```bash
-terraform init
+terraform init -backend-config=backend.hcl
 terraform plan -out=tfplan
 ```
 
 **Actually read the plan.** Not as a ritual — find these things in it:
 
-- How many resources? (Should be ~80.)
-- Find the `aws_db_instance`. What is its `instance_class`?
-- Find the `aws_nat_gateway`. How many? (`dev` = 1; that is the cost decision.)
+- How many resources? (81.)
+- Find the `aws_eks_node_group`. How many nodes, and what instance type?
+- Find the `aws_nat_gateway`. How many? (One — that is the cost decision.)
+- Find the `aws_ecr_repository` and look for `image_tag_mutability`. It is `IMMUTABLE`, which means a tag can never be repointed at different bytes later.
 
 ```bash
-terraform apply tfplan     # ~15 minutes, mostly RDS
+terraform apply tfplan     # ~15 minutes, mostly the EKS control plane
 terraform output
 ```
 
 **Checkpoint**
 
 ```bash
-terraform output bastion_public_ip
-ssh ubuntu@$(terraform output -raw bastion_public_ip) 'echo reachable'
+terraform output jenkins_public_ip
+ssh ubuntu@$(terraform output -raw jenkins_public_ip) 'echo reachable'
+aws eks list-clusters --query 'clusters'
 ```
 
 If SSH hangs, your public IP changed or is not in `trusted_admin_cidrs`. That
 is the security group working correctly.
 
 **What you just built** — go look at it in the console, then find each one in
-`infrastructure/terraform/modules/`:
+`02-Terraform/modules/`:
 
-- a VPC with public, private and database subnets in 2 AZs
-- EC2 instances with *no public IP* except the bastion
-- an RDS instance with a password you have never seen, in Secrets Manager
-- an ALB with nothing behind it yet (that comes in Phase 3)
+- a VPC with public and private subnets across 2 AZs
+- an EKS cluster whose control plane you do not own, and a node group in the private subnets
+- an ECR repository with immutable tags, empty until Phase 5 fills it
+- a Jenkins EC2 instance — the only host with a public IP, and bare until Phase 3 configures it
 
 ---
 
-## Phase 3 · The cluster
+## Phase 3 · The build host
 
-**~8 hours · the heart of the project**
+**~5 hours · the machine that is genuinely yours**
+
+The cluster already exists — Terraform created it in Phase 2, and AWS runs its
+control plane. What Terraform handed you here is a bare Ubuntu instance, and
+this phase turns it into a Jenkins server with Docker, kubectl, Helm, Trivy
+and SonarQube on it, without you ever running `apt install` by hand.
+
+> **If you came expecting `kubeadm` here**, that is the other shape of this
+> project: on a self-managed cluster, Ansible is what turns EC2 instances into
+> a control plane and joins the workers. With EKS that work belongs to AWS, so
+> Ansible's remaining job is the build host. Chapter 20 still covers `kubeadm`,
+> because knowing how a cluster is actually born is what makes the managed one
+> comprehensible rather than magic.
 
 | Read first |
 |------------|
-| [19 — Kubernetes](/learn/kubernetes/kubernetes) — the concepts |
-| [20 — Kubeadm](/learn/kubernetes/kubeadm) — how a cluster is actually born |
-| [14 — Ansible](/learn/ansible/ansible) — how we drive it |
-| [34 — Network Policies](/learn/security/network-policies) — why Calico, not Flannel |
+| [14 — Ansible](/learn/ansible/ansible) — roles, idempotency, dynamic inventory |
+| [20 — Kubeadm](/learn/kubernetes/kubeadm) — what EKS is doing for you |
+| [23 — Jenkins](/learn/jenkins/jenkins) — what you are installing, and why |
 
 ### 3.1 Secrets
 
@@ -313,58 +337,72 @@ echo 'your-vault-password' > .vault_pass && chmod 600 .vault_pass
 ### 3.2 Prove connectivity before running anything
 
 ```bash
-export IVOLVE_BASTION_IP=$(cd ../terraform/environments/dev && terraform output -raw bastion_public_ip)
-
 ansible-galaxy collection install -r requirements.yml
-ansible-inventory --graph     # must list control_plane, worker, cicd
-ansible all -m ping           # must be green for every host
+ansible-inventory --graph     # must list the Jenkins host
+ansible all -m ping           # must be green
 ```
 
-> **If `--graph` is empty**, the dynamic inventory found no hosts. Check the
-> EC2 tags: the plugin filters on `Project=ivolve`. This is the single most
-> common Phase 3 failure and it looks like an Ansible bug when it is a tagging
-> problem.
+> **If `--graph` is empty**, the dynamic inventory found no hosts. It is the
+> `aws_ec2` plugin filtering on tags, so an instance with the wrong tag is
+> invisible to it. This is the single most common failure here, and it reads
+> like an Ansible bug when it is a tagging problem.
+>
+> The reason to use dynamic inventory at all: a static file of IP addresses is
+> wrong the first time an instance is replaced, and nobody remembers to update
+> it.
 
-### 3.3 Build the cluster
+### 3.3 Configure the host
 
-Run it in stages the first time. You will learn far more than from one 25-minute
-`site.yml` run, and a failure tells you exactly which stage broke.
+Run it once, then read what it did. The playbook calls nine roles, one per
+tool, and each is idempotent — the second run should report no changes at all.
 
 ```bash
-ansible-playbook playbooks/site.yml --tags baseline     # hardening, ~3 min
-ansible-playbook playbooks/site.yml --tags kubernetes   # kubeadm, ~10 min
-ansible-playbook playbooks/site.yml --tags addons       # ingress, storage, certs
+ansible-playbook playbook.yml
 ```
 
-While `--tags kubernetes` runs, watch what it does. It is doing, in order:
-disable swap → load kernel modules → install containerd → set the systemd
-cgroup driver → install kubeadm → `kubeadm init` → install Calico → `kubeadm join`.
+That single command installs the AWS CLI, Docker, Java, Jenkins, kubectl, Helm,
+Trivy and SonarQube, and applies the baseline hardening in `common`. Every one
+of those roles is a chapter's worth of material; this is where the reading pays
+off.
 
-Every one of those steps is a chapter. This is where the reading pays off.
-
-### 3.4 Get access
+**Then prove idempotency, which is the whole point of configuration
+management:**
 
 ```bash
-cd ../..
-./scripts/get-kubeconfig.sh dev
+ansible-playbook playbook.yml        # again
+# changed=0 — if anything reports changed, a task is not idempotent
+```
+
+A playbook that keeps reporting changes is one you cannot trust to run safely,
+because you can no longer tell "nothing needed doing" from "something drifted".
+
+### 3.4 Get cluster access
+
+The cluster came from Terraform, so you ask AWS for the credentials rather than
+copying a file off a control-plane node:
+
+```bash
+aws eks update-kubeconfig --name <cluster-name> --region us-east-1
 kubectl get nodes -o wide
 ```
 
 **Checkpoint**
 
 ```bash
-kubectl get nodes                     # all Ready
+kubectl get nodes                     # both Ready
 kubectl -n kube-system get pods       # all Running, no CrashLoopBackOff
 kubectl get --raw /readyz             # ok
 ```
 
-**If nodes are `NotReady`** — almost always the CNI. `kubectl -n calico-system
-get pods`. If `calico-node` crash-loops, your `pod_network_cidr` overlaps the
-VPC CIDR.
+**If `kubectl` returns `error: You must be logged in to the server
+(Unauthorized)`** — your IAM identity has no access entry on the cluster.
+Creating an EKS cluster does not automatically grant *your user* permission to
+use it; that is a separate grant, and it catches everyone once.
 
-**If pods hang in `ContainerCreating`** — containerd's cgroup driver does not
-match the kubelet's. `grep SystemdCgroup /etc/containerd/config.toml` must say
-`true`. This is *the* classic kubeadm failure.
+**If nodes never become `Ready`** — check that the node group's subnets have a
+route to the NAT gateway. A node that cannot reach the internet cannot pull the
+CNI image, and a node without a CNI stays `NotReady` forever while looking, in
+the console, perfectly healthy.
 
 ---
 
@@ -382,7 +420,7 @@ by hand produces someone who can run a pipeline but cannot fix one.
 | [22 — Kustomize](/learn/kustomize/kustomize) | see how overlays differ from templating |
 
 ```bash
-cd Cloud-Native-DevOps-Platform
+cd CloudDevOpsProject
 
 # One at a time. Read each file before applying it.
 kubectl apply -f kubernetes/base/namespace.yaml
@@ -434,7 +472,7 @@ kubectl -n ivolve run probe --rm -it --restart=Never --image=curlimages/curl:8.8
 
 ```bash
 cd infrastructure/ansible
-ansible-playbook playbooks/site.yml --tags cicd     # ~15 min
+# Jenkins was installed in Phase 3; this is where you configure the pipeline
 ```
 
 Then wire the GitHub webhook: repository → Settings → Webhooks →
@@ -465,7 +503,7 @@ commit in `git log`. That commit *is* the deployment.
 | [28 — ArgoCD](/learn/argocd/argocd) · [27 — GitOps](/learn/gitops/gitops) |
 
 ```bash
-ansible-playbook playbooks/site.yml --tags gitops
+kubectl apply -f 06-ArgoCD/
 ```
 
 Then do the demonstration that makes GitOps click:
@@ -507,7 +545,7 @@ and `git log` shows who, what and when.
 | [42 — Troubleshooting](/learn/troubleshooting/troubleshooting) — keep this open forever |
 
 ```bash
-ansible-playbook playbooks/site.yml --tags monitoring
+helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \n  -n monitoring --create-namespace -f 07-Monitoring/kube-prometheus-stack-values.yaml
 kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80
 ```
 
@@ -553,7 +591,7 @@ bites teams at 2am.
 
 - **Screenshots** while it is running. See `screenshots/README.md` for the ten
   worth taking. Once you `terraform destroy`, they are gone.
-- **Write the ADRs in your own words.** `docs/adr/` explains five decisions.
+- **Write the decisions in your own words.** `docs/ARCHITECTURE.md` and `docs/SECURITY.md` explain the ones that were made for you.
   Being able to argue them out loud is what an interview actually tests.
 - **Read [44 — Interview Prep](/learn/interview/interview-prep)** with the platform
   still running, so the answers are concrete rather than remembered.

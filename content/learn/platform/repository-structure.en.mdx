@@ -34,28 +34,46 @@ This chapter dissects the exact folder structure of this project, explaining why
 ### What is a Repository Structure?
 Imagine a massive library. If you just dumped 10,000 books into the middle of the room, nobody could find anything. You need shelves labeled "History", "Science", and "Fiction". 
 
-Our code repository is exactly the same. We have distinct "shelves" for:
-1. **Infrastructure:** The hardware (Terraform/Ansible).
-2. **Kubernetes:** The engine (YAML manifests).
-3. **Jenkins:** The testing robot (Groovy pipelines).
-4. **GitOps:** The deployment robot (ArgoCD).
+This repository takes that idea further than most: the shelves are **numbered
+in the order you build them**. `01` is the application in containers, `07` is
+watching it in production, and the numbers in between are the journey from one
+to the other. You can read the repository top to bottom and it tells you the
+story in sequence.
 
 ### ASCII Diagram: The Folder Tree
 
 ```text
-Cloud-Native-DevOps-Platform/
-├── infrastructure/     <-- The Hardware (Building the City)
-│   ├── terraform/      <-- AWS Servers and Networks
-│   └── ansible/        <-- Installing software on the servers
-├── kubernetes/         <-- The Engine (Running the Apps)
-│   ├── base/           <-- Default rules for our apps
-│   └── policies/       <-- Security rules (who can talk to who)
-├── jenkins/            <-- The Tester (CI)
-│   ├── pipelines/      <-- The testing instructions
-│   └── pod-templates/  <-- The clean rooms for testing
-└── gitops/             <-- The Deployer (CD)
-    └── argocd/         <-- The robot that pushes code to production
+CloudDevOpsProject/
+├── src/                <-- The application itself (three services)
+│   ├── frontend/           Node.js — the only one users reach
+│   ├── auth-service/       Python — logins
+│   └── roadmap-service/    Java — the domain logic
+│
+├── 01-Docker/          <-- Containerise it, and run the stack locally
+├── 02-Terraform/       <-- Build the AWS account
+│   ├── modules/            network · eks · ecr · server
+│   └── bootstrap/          the S3 state backend, created once
+├── 03-Ansible/         <-- Configure the Jenkins host
+│   ├── roles/              nine of them, one per tool
+│   └── playbook.yml        the entry point
+├── 04-Kubernetes/      <-- Run it on the cluster
+│   └── manifests/          00-namespace … 09-network-policies
+├── 05-Jenkins/         <-- Build, test and scan it (CI)
+│   ├── vars/               the shared library — logic lives here
+│   └── Jenkinsfiles/       one per service, thin
+├── 06-ArgoCD/          <-- Deploy it (CD)
+│   └── applications/       what Argo CD reconciles
+├── 07-Monitoring/      <-- Watch it
+│   ├── dashboards/         committed JSON, not clicked in the UI
+│   └── manifests/          alert rules and probes
+│
+├── docs/               <-- Architecture and decisions
+└── scripts/            <-- The helpers you would otherwise retype
 ```
+
+Notice what the numbering encodes: **you cannot deploy to a cluster that does
+not exist, and you cannot build an image of an application you have not
+containerised.** The order is the dependency graph.
 
 ---
 
@@ -65,26 +83,27 @@ Cloud-Native-DevOps-Platform/
 
 Let's look at the intermediate mechanics of why these folders exist.
 
-#### 1. `infrastructure/terraform/`
-- **What it does:** Contains HashiCorp Configuration Language (HCL) files.
+#### 1. `02-Terraform/`
+- **What it does:** HashiCorp Configuration Language (HCL) describing the AWS account — 81 resources in total.
 - **Subfolders:**
-  - `modules/`: The reusable Lego blocks (e.g., a generic `vpc` block).
-  - `environments/`: The specific implementations of those blocks (e.g., `prod` uses large servers, `dev` uses small servers).
+  - `modules/`: four reusable blocks — `network` (VPC, subnets, NAT, route tables, NACLs, flow logs), `eks` (the cluster, its node group, OIDC and the IRSA roles), `ecr` (the registry, with immutable tags) and `server` (the Jenkins instance and its IAM profile).
+  - `bootstrap/`: the S3 bucket that holds the state. It is separate for a reason — the thing that stores your state cannot itself be stored in that state, so it is created once, first, on its own.
 
-#### 2. `infrastructure/ansible/`
-- **What it does:** Contains YAML playbooks that configure Linux over SSH.
+#### 2. `03-Ansible/`
+- **What it does:** Turns the bare EC2 instance Terraform created into a working Jenkins host.
 - **Subfolders:**
-  - `inventories/`: A list of IP addresses that Ansible should connect to.
-  - `roles/`: Reusable software installation tasks (e.g., a role just for installing Docker).
-  - `playbooks/`: The master scripts that call the roles in a specific order (e.g., `site.yml`).
+  - `inventory/`: not a list of IP addresses. It uses the `aws_ec2` plugin to *discover* hosts by tag, so replacing an instance does not mean editing a file.
+  - `roles/`: nine of them — `aws_cli`, `common`, `docker`, `java`, `jenkins`, `kubectl`, `helm`, `sonarqube`, `trivy`. One tool each, so they can be reordered or reused.
+  - `playbook.yml`: the entry point that calls the roles in order.
+- **Why isn't Ansible building the cluster?** On a self-managed cluster it would — that is what `kubeadm` is for. Here the control plane is AWS's responsibility and the node group comes from Terraform, so Ansible's remaining job is the machine that is genuinely yours: the build host.
 
-#### 3. `kubernetes/`
-- **What it does:** Contains YAML manifests defining Pods, Services, and Deployments.
-- **Why separate it from Terraform?** Terraform builds the *cluster*. Kubernetes YAML runs *inside* the cluster. Mixing them together causes a "chicken-and-egg" problem (Terraform fails because the cluster doesn't exist yet).
+#### 3. `04-Kubernetes/`
+- **What it does:** The manifests, numbered in apply order: namespace, RBAC, config, storage, database, the two backends, the frontend, ingress, network policies.
+- **Why separate it from Terraform?** Terraform builds the *cluster*. These manifests run *inside* it. Mixing them creates a chicken-and-egg problem — Terraform would need a cluster that its own run is still creating.
 
-#### 4. `gitops/`
-- **What it does:** Holds the ArgoCD `Application` Custom Resources.
-- **The Concept:** This folder watches the `kubernetes/` folder. When you change a file in `kubernetes/`, ArgoCD (configured by this folder) detects the change and applies it.
+#### 4. `06-ArgoCD/`
+- **What it does:** Holds the Argo CD `Application` resources and the project definition.
+- **The Concept:** It watches `04-Kubernetes/manifests/`. Change a file there, and Argo CD notices and reconciles the cluster to match — with `prune` and `selfHeal` on, so removals are applied and manual edits are reverted.
 
 ---
 
@@ -98,7 +117,7 @@ This repository is a **Monorepo** (Monolithic Repository). We put the Infrastruc
 - **Disadvantage:** As the team grows to 500 engineers, the Monorepo becomes chaotic. CI pipelines take hours to figure out which folder changed. At that scale, companies often migrate to Polyrepos or use advanced build systems like Bazel.
 
 ### The "App-of-Apps" Directory Pattern
-Notice the `gitops/argocd/applications/` directory. 
+Notice the `06-ArgoCD/applications/` directory. 
 This is not an accident; it is the **App-of-Apps pattern**.
 Instead of writing a complex deployment script, our Root ArgoCD application literally points to this directory and says: *"Deploy every YAML file inside this folder."* 
 If we want to add a new microservice to our company, we don't touch Kubernetes or AWS. We just drop a new 10-line YAML file into this folder, commit it to Git, and ArgoCD instantly deploys it.
@@ -110,11 +129,11 @@ If we want to add a new microservice to our company, we don't touch Kubernetes o
 ### Enterprise Directory Structure Best Practices
 In a Fortune 500 company, repository structure is enforced by Compliance teams. 
 
-1. **Separation of Duties (SoD):** A junior developer should be able to edit `kubernetes/base/api-deployment.yaml`, but they should be physically blocked from editing `infrastructure/terraform/environments/prod/main.tf`. We enforce this using **GitHub CODEOWNERS**.
+1. **Separation of Duties (SoD):** A junior developer should be able to edit `04-Kubernetes/manifests/07-frontend.yaml`, but be blocked from editing `02-Terraform/modules/eks/main.tf`. We enforce this using **GitHub CODEOWNERS**.
 2. **The `CODEOWNERS` file:** We place a `.github/CODEOWNERS` file at the root of the repo:
    ```text
-   /infrastructure/terraform/environments/prod/ @company/senior-cloud-architects
-   /kubernetes/policies/                        @company/security-team
+   /02-Terraform/ @company/senior-cloud-architects
+   /04-Kubernetes/manifests/09-network-policies.yaml @company/security-team
    ```
    If a developer tries to modify a production Terraform file, GitHub will automatically block the Pull Request until a Senior Cloud Architect explicitly approves it. This satisfies SOC2 access control requirements.
 
@@ -137,7 +156,7 @@ A: `modules` contains generic, reusable templates (like a blueprint for a house)
 
 ### Senior
 **Q: Explain the chicken-and-egg problem of mixing Terraform and Kubernetes YAML in the same state file.**
-A: If you use the Terraform `kubernetes` provider to apply YAML manifests in the exact same `main.tf` file that builds the EKS/kubeadm cluster, Terraform will evaluate the plan before creating anything. It will try to connect to the Kubernetes API to plan the YAML changes, but the API doesn't exist yet because the cluster hasn't been built. This causes Terraform to crash. This is why we physically separate `infrastructure/` from `kubernetes/` in the repository structure.
+A: If you use the Terraform `kubernetes` provider to apply YAML manifests in the exact same `main.tf` file that builds the EKS cluster, Terraform will evaluate the plan before creating anything. It will try to connect to the Kubernetes API to plan the YAML changes, but the API doesn't exist yet because the cluster hasn't been built. This causes Terraform to crash. This is why `02-Terraform/` and `04-Kubernetes/` are separate directories applied in separate steps.
 
 ### Principal/Architect
 **Q: In an enterprise setting, how do you handle secrets management across a Monorepo that contains multiple environments (Dev/Stage/Prod)?**
