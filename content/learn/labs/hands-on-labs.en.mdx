@@ -106,8 +106,8 @@ Learn to spot a destructive change before it destroys something.
 ```bash
 cd CloudDevOpsProject/02-Terraform
 terraform init
-make tf-plan
-terraform show -json .terraform/tfplan | jq -r '
+terraform plan -out=tfplan
+terraform show -json tfplan | jq -r '
   .resource_changes[] | select(.change.actions[0] != "no-op") |
   "\(.change.actions|join(","))  \(.address)"' | sort | head -30
 ```
@@ -154,7 +154,7 @@ Experience what a managed service actually abstracts away from you.
 Build the EKS infrastructure using Terraform:
 
 ```bash
-cd 02-Terraform
+cd CloudDevOpsProject
 make tf-apply
 ```
 
@@ -454,7 +454,7 @@ The GitOps loop is now dead. If someone makes a manual change to the cluster wit
 
 To recover, simply re-apply the installation manifest:
 ```bash
-cd 06-ArgoCD
+cd CloudDevOpsProject
 make argo-install
 make argo-apply
 ```
@@ -485,7 +485,7 @@ Follow the **[START-HERE.md](https://github.com/Waleeddarwesh/CloudDevOpsProject
 When you are done, tear it all down with a single command to prove it's automated:
 
 ```bash
-cd 02-Terraform
+cd CloudDevOpsProject
 make tf-destroy
 ```
 
