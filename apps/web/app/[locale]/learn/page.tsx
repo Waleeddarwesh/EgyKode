@@ -18,7 +18,12 @@ export async function generateMetadata({
   const t = getTranslations(locale);
   return {
     title: t("learn.title"),
-    description: t("seo.learnDescription"),
+    // Counted, not written down. This string said "47 chapters" while the page
+    // itself rendered 55 — and the description is the line Google shows, so the
+    // stale number was the one readers saw in results.
+    description: t("seo.learnDescription", {
+      count: formatNumber(getAllChapters().length, locale),
+    }),
     alternates: {
       canonical: `/${locale}/learn`,
       languages: languageAlternates((locale) => `/${locale}/learn`),

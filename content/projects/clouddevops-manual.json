@@ -1,0 +1,51 @@
+{
+  "id": "clouddevops-manual",
+  "title": "Build It Yourself — Cloud DevOps Capstone",
+  "titleAr": "ابنِه بنفسك — مشروع Cloud DevOps الختامي",
+  "summary": "The same production platform, with the files removed. Eight guided modules where you write every line, and the finished repository is the answer key rather than the starting point.",
+  "summaryAr": "نفس منصة الإنتاج، بعد إزالة الملفات. ثمانية modules موجّهة تكتب فيها كل سطر بنفسك، والمستودع المكتمل هو ورقة الإجابة لا نقطة البداية.",
+  "why": "Most tutorials hand you a finished 200-line file and call it the config. You copy it, it works, and you have learned nothing you could reproduce a week later.\n\nThis is the inverse. The workspace ships empty on purpose — seven phase directories and `src`, and nothing in them. Every module states the problem first, shows why the naive approach fails, and only then has you write the file. The finished platform sits in a separate repository as the answer key, to check yourself against when you have been stuck for fifteen minutes.\n\nIt is the same system either way: EKS provisioned by Terraform, a build host configured by Ansible, Jenkins building and scanning, Argo CD reconciling, Prometheus watching. One route hands you the answer; this one makes you derive it.",
+  "author": "waleed",
+  "repo": "https://github.com/Waleeddarwesh/CloudDevOpsProject-Manual",
+  "license": "MIT",
+  "level": "intermediate",
+  "featured": false,
+  "roadmap": "cloud-devops-engineer",
+  "stack": [
+    "terraform",
+    "ansible",
+    "aws",
+    "kubernetes",
+    "kustomize",
+    "docker",
+    "jenkins",
+    "argocd",
+    "trivy",
+    "sonarqube",
+    "prometheus",
+    "grafana"
+  ],
+  "highlights": [
+    "00 Prerequisites — the account, the tooling and the keys, before anything is built",
+    "01 Docker — the application containerised, multi-stage and non-root",
+    "02 Terraform — the AWS account described as code, with remote locked state",
+    "03 Ansible — the build host configured with no manual step",
+    "04 Kubernetes — workloads, storage, routing and policy on EKS",
+    "05 Jenkins — a pipeline that scans before it ships",
+    "06 Argo CD — GitOps reconciliation, in sync waves",
+    "07 Monitoring — Prometheus and Grafana, with alerts a human can act on",
+    "A cheatsheet and an errors reference for when a command does not do what the guide said it would"
+  ],
+  "highlightsAr": [
+    "00 المتطلبات — الحساب والأدوات والمفاتيح قبل أي بناء",
+    "01 Docker — التطبيق داخل حاويات متعددة المراحل وبدون صلاحيات root",
+    "02 Terraform — وصف حساب AWS كشيفرة مع state بعيد ومقفل",
+    "03 Ansible — تهيئة خادم البناء دون أي خطوة يدوية",
+    "04 Kubernetes — الأحمال والتخزين والتوجيه والسياسات على EKS",
+    "05 Jenkins — خط إنتاج يفحص قبل أن ينشر",
+    "06 Argo CD — مزامنة GitOps على موجات",
+    "07 المراقبة — Prometheus و Grafana بتنبيهات قابلة للتنفيذ",
+    "مرجع أوامر ومرجع أخطاء لحين لا ينفّذ الأمر ما قال الدليل إنه سينفّذه"
+  ],
+  "updated": "2026-08-12"
+}

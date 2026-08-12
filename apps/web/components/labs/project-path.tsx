@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, Circle, Flag, TriangleAlert } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Circle, Flag, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -40,11 +40,26 @@ export interface PathPhase {
  * A lab counts as complete when its success criteria are ticked, reusing the
  * store the lab pages already write to. Nothing new is tracked.
  */
+/** The production platform the whole path is building toward. */
+export interface PathProject {
+  /** "Build it yourself" / "The reference" — which of the two routes this is. */
+  kicker: string;
+  title: string;
+  summary: string;
+  cta: string;
+  href: string;
+}
+
 export function ProjectPath({
   phases,
+  build,
+  project,
   labels,
 }: {
   phases: PathPhase[];
+  /** The guided build. Rendered first: the promise is that you build it. */
+  build?: PathProject;
+  project?: PathProject;
   labels: {
     heading: string;
     summary: string;
@@ -55,6 +70,7 @@ export function ProjectPath({
     milestone: string;
     complete: string;
     billable: string;
+    projectEyebrow: string;
   };
 }) {
   const [done, setDone] = useState<Set<string> | null>(null);
@@ -275,6 +291,59 @@ export function ProjectPath({
           );
         })}
       </ol>
+
+      {/* Where the path lands.
+          The site's promise is one production platform, not a catalogue, and
+          the phases above end at a milestone — the last thing a reader saw was
+          "you built it once with no instructions", with nothing to go to next.
+          Every roadmap already ends at this project; the labs route to the
+          same place, so both journeys converge rather than stopping. It is
+          deliberately the *last* thing here: read afterwards as a reference,
+          not copied from while you work. */}
+      {(build || project) && (
+        <div className="mt-6">
+          <p
+            className="mb-3 text-xs font-semibold uppercase tracking-wide"
+            style={{ color: "var(--clr-primary-dark)" }}
+          >
+            <Flag size={12} className="me-1 inline" aria-hidden />
+            {labels.projectEyebrow}
+          </p>
+
+          {/* Two routes to the same platform, and the order is the argument:
+              build it yourself first, and treat the finished repository as the
+              answer key rather than the starting point. Handing over a working
+              repo is what turns "you build it" into "you read it". */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {[build, project].filter((p): p is PathProject => Boolean(p)).map((p) => (
+              <Link
+                key={p.href}
+                href={p.href}
+                className="card group flex flex-col p-6 transition-colors hover:border-[var(--clr-primary)]"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-content-muted">
+                  {p.kicker}
+                </p>
+                <h3 className="mt-1.5 font-display text-lg font-bold text-content">{p.title}</h3>
+                <p className="mt-2 flex-1 text-sm leading-relaxed text-content-secondary">
+                  {p.summary}
+                </p>
+                <span
+                  className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold"
+                  style={{ color: "var(--clr-primary-dark)" }}
+                >
+                  {p.cta}
+                  <ArrowRight
+                    size={15}
+                    className="transition-transform group-hover:translate-x-0.5 rtl:-scale-x-100"
+                    aria-hidden
+                  />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -162,9 +162,34 @@ export interface LabPhase {
   labs: string[];
 }
 
+/**
+ * The platform the path is building toward.
+ *
+ * The site's promise is one production platform rather than a catalogue, so
+ * the path has to arrive somewhere. Every roadmap already carries the same
+ * block, and both routes point at the same project — a reader who came through
+ * the labs and a reader who came through a roadmap end up in the same place.
+ */
+export interface LabPathProject {
+  id: string;
+  title: string;
+  titleAr: string;
+  summary: string;
+  summaryAr: string;
+  repo: string;
+}
+
 export interface LabPath {
   title: string;
   summary: string;
+  /**
+   * The same platform with the files removed, offered ahead of the reference
+   * implementation. The site promises "you build it, phase by phase", and a
+   * link to a finished repository is not that — it is the answer key. Both are
+   * shown, in that order: derive it first, check yourself second.
+   */
+  guidedBuild?: LabPathProject;
+  productionProject?: LabPathProject;
   phases: LabPhase[];
 }
 

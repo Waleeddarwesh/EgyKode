@@ -7,7 +7,7 @@ import { FilterBar } from "@/components/filters/filter-bar";
 import { domainColor } from "@/lib/content";
 import { getDomainMeta } from "@/lib/domains";
 import { ProjectPath } from "@/components/labs/project-path";
-import { costTierOf, getGuidedLabs, getResolvedPath, labNeedsLtr } from "@/lib/labs";
+import { costTierOf, getGuidedLabs, getLabPath, getResolvedPath, labNeedsLtr } from "@/lib/labs";
 import { formatNumber, getTranslations, isLocale, type Locale, languageAlternates } from "@/lib/i18n";
 
 export async function generateMetadata({
@@ -60,6 +60,12 @@ export default async function LabsPage({
     })),
   }));
 
+  // Where the path lands. The phases end at a milestone; without this the last
+  // thing a reader sees is "you built it once with no instructions", with
+  // nowhere to go. The roadmaps already end at this same project.
+  const pathBuild = getLabPath()?.guidedBuild;
+  const pathProject = getLabPath()?.productionProject;
+
   const count = <T extends string>(key: (l: (typeof labs)[number]) => T) =>
     labs.reduce<Record<string, number>>((acc, lab) => {
       const k = key(lab);
@@ -83,6 +89,24 @@ export default async function LabsPage({
       {pathPhases.length > 0 && (
         <ProjectPath
           phases={pathPhases}
+          build={
+            pathBuild && {
+              kicker: t("labs.pathBuildKicker"),
+              title: isAr ? pathBuild.titleAr : pathBuild.title,
+              summary: isAr ? pathBuild.summaryAr : pathBuild.summary,
+              cta: t("labs.pathBuildCta"),
+              href: `/${typed}/projects/${pathBuild.id}`,
+            }
+          }
+          project={
+            pathProject && {
+              kicker: t("labs.pathReferenceKicker"),
+              title: isAr ? pathProject.titleAr : pathProject.title,
+              summary: isAr ? pathProject.summaryAr : pathProject.summary,
+              cta: t("labs.pathReferenceCta"),
+              href: `/${typed}/projects/${pathProject.id}`,
+            }
+          }
           labels={{
             heading: t("labs.pathHeading"),
             summary: t("labs.pathSummary"),
@@ -93,6 +117,7 @@ export default async function LabsPage({
             milestone: t("labs.pathMilestone"),
             complete: t("labs.allDone"),
             billable: t("labs.pathBillable"),
+            projectEyebrow: t("labs.pathProjectEyebrow"),
           }}
         />
       )}

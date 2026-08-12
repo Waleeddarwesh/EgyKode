@@ -179,13 +179,22 @@ test.describe("projects and roadmaps", () => {
    *
    * Following the link and comparing headings is what catches both.
    */
-  for (const path of ["/en", "/en/learn"]) {
+  /* `/en/labs` is in this list because the promise is one production platform
+     rather than a catalogue, and the labs path used to stop at a milestone —
+     the last thing a reader saw was "you built it once with no instructions",
+     with nowhere to go. The roadmaps and Learn already landed here; the labs
+     now do too, so every route converges on the same project. */
+  for (const path of ["/en", "/en/learn", "/en/labs"]) {
     test(`the production project card on ${path} opens the project it names`, async ({ page }) => {
       await page.goto(path);
-      const link = page.locator('a[href^="/en/projects/"]').first();
+      // Not `.first()` — on the labs page the first project link is the "all
+      // projects" index in the nav; the card is the one naming a project.
+      const link = page.locator('a[href^="/en/projects/"][href$="/"], a[href^="/en/projects/"]')
+        .filter({ has: page.locator("h2, h3, .font-medium") })
+        .first();
       await expect(link).toBeVisible();
 
-      const named = (await link.locator("h2, .font-medium").first().textContent())?.trim();
+      const named = (await link.locator("h2, h3, .font-medium").first().textContent())?.trim();
       expect(named).toBeTruthy();
 
       await link.click();
