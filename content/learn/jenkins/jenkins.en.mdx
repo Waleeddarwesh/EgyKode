@@ -16,7 +16,6 @@ objectives:
   - "Write a declarative pipeline with a blocking quality gate"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/23_Jenkins.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -167,7 +166,7 @@ pipeline {
 
     environment {
         SERVICE_NAME  = 'ivolve-api'
-        APP_DIR       = 'application/ivolve-api'
+        APP_DIR       = 'src/roadmap-service'
         REGISTRY      = '111122223333.dkr.ecr.us-east-1.amazonaws.com/ivolve-prod'
         SONAR_PROJECT = 'ivolve-api'
 
@@ -240,7 +239,7 @@ do not rotate themselves and are the single most commonly leaked AWS credential.
 The CI host runs with an **EC2 instance profile**. The AWS SDK and CLI find
 credentials automatically from instance metadata, and those credentials are
 short-lived and rotated by AWS. See
-`infrastructure/terraform/modules/iam/main.tf`:
+`02-Terraform/modules/iam/main.tf`:
 
 ```hcl
 resource "aws_iam_policy" "cicd" {

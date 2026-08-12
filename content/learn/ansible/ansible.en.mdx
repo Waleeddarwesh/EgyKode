@@ -16,7 +16,6 @@ objectives:
   - "Write an idempotent role and prove a second run changes nothing"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/14_Ansible.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -137,7 +136,7 @@ Like Terraform, Ansible is declarative. If you run a task that says "Ensure Dock
 Let's look at how we build our entire Kubernetes cluster using Ansible. 
 
 #### 1. The Dynamic Inventory
-In AWS, IP addresses change constantly. We can't hardcode IP addresses into a text file. Instead, we use `infrastructure/ansible/inventories/aws_ec2.yml`.
+In AWS, IP addresses change constantly. We can't hardcode IP addresses into a text file. Instead, we use `03-Ansible/inventories/aws_ec2.yml`.
 
 ```yaml
 plugin: amazon.aws.aws_ec2
@@ -179,7 +178,7 @@ hostnames:
 > an Ansible bug and it is a tagging problem.
 
 #### 2. The Master Playbook
-Look at `infrastructure/ansible/playbooks/site.yml` — note that it contains no
+Look at `03-Ansible/playbooks/site.yml` — note that it contains no
 tasks at all:
 ```yaml
 - import_playbook: 00-baseline.yml
@@ -212,9 +211,11 @@ tasks at all:
 
 #### 3. Real idempotency — a guard, not error suppression
 `kubeadm init` cannot run twice. Run it on a node that is already a control
-plane and it fails. So how is the playbook safe to re-run?
+plane and it fails. So how would a self-managed playbook be safe to re-run?
+(The capstone uses EKS, so its Ansible provisions the Jenkins host instead —
+but the idempotency pattern below is identical.)
 
-Look inside `infrastructure/ansible/roles/control-plane/tasks/main.yml`:
+A control-plane role would look like this:
 ```yaml
 - name: Check whether this node is already part of a cluster
   ansible.builtin.stat:
@@ -259,7 +260,7 @@ In an enterprise, you never store the database password in plaintext in GitHub.
 How does Ansible know the password to configure the RDS database?
 We use **Ansible Vault**.
 
-Look at `infrastructure/ansible/group_vars/vault.yml`:
+Look at `03-Ansible/group_vars/vault.yml`:
 ```text
 $ANSIBLE_VAULT;1.1;AES256
 66316233383063386638333230626330366635396561333734616238653264663564613264353463

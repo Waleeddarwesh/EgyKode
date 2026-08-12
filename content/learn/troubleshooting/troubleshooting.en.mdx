@@ -16,7 +16,6 @@ objectives:
   - "Diagnose the failures this platform actually produces, in the order they occur"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/42_Troubleshooting.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -175,7 +174,7 @@ Three causes, in order of likelihood:
 1. **`IVOLVE_BASTION_IP` is not exported.** The inventory builds a
    `ProxyCommand` from it; unset, Ansible tries to reach private IPs directly.
    ```bash
-   export IVOLVE_BASTION_IP=$(cd infrastructure/terraform/environments/dev \
+   export IVOLVE_BASTION_IP=$(cd 02-Terraform \
      && terraform output -raw bastion_public_ip)
    ```
 2. **Your public IP changed.** Home connections rotate. Re-check
@@ -184,8 +183,12 @@ Three causes, in order of likelihood:
 
 ### Nodes stay `NotReady` after `kubeadm init`
 
+> *This section applies to self-managed clusters. The capstone uses EKS, where
+> the VPC CNI is pre-installed on every node. But if you ever build with kubeadm,
+> this is the first wall you will hit.*
+
 **Means** the CNI is not working. A node without a functioning CNI never
-becomes Ready — this is expected until Calico is installed, and a problem after.
+becomes Ready — this is expected until a CNI plugin is installed, and a problem after.
 
 ```bash
 kubectl -n calico-system get pods

@@ -16,7 +16,6 @@ objectives:
   - "Write a default-deny policy and know why the CNI must enforce it"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/34_Network_Policies.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -150,7 +149,7 @@ Kubernetes itself does not actually enforce Network Policies. If you write a Net
 
 You must install a **CNI Plugin** that supports Network Policies.
 - **Flannel:** Does NOT support Network Policies. If you use Flannel, your network policies will be silently ignored.
-- **Calico / Cilium:** These are enterprise CNIs. They read the Network Policy from the Kubernetes API and implement actual firewall rules (using iptables or eBPF) directly on the Linux Worker Nodes. In our project, we use **Calico**.
+- **Calico / Cilium:** These are enterprise CNIs. They read the Network Policy from the Kubernetes API and implement actual firewall rules (using iptables or eBPF) directly on the Linux Worker Nodes. The capstone uses the **AWS VPC CNI** (the EKS default), which supports Network Policies natively since 2023. On a self-managed cluster, Calico is the most common choice.
 
 ### Ingress vs. Egress
 - **Ingress:** Traffic coming *IN* to the Pod.

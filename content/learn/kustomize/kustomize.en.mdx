@@ -16,7 +16,6 @@ objectives:
   - "Explain when to use Kustomize instead of Helm, and why the GitOps commit edits an overlay rather than a Deployment"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/22_Kustomize.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -283,7 +282,7 @@ happens inside the cluster, from the committed source.
 ## Hands-on
 
 ```bash
-cd Cloud-Native-DevOps-Platform
+cd CloudDevOpsProject
 
 # 1. Render all three. Diff them against each other.
 kustomize build kubernetes/overlays/dev  > /tmp/dev.yaml

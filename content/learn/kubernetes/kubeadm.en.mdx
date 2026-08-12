@@ -16,7 +16,6 @@ objectives:
   - "Bootstrap an HA control plane and explain controlPlaneEndpoint"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/20_Kubeadm.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -25,7 +24,7 @@ updated: 2026-08-08
 
 In Chapter 19, we talked about the magic of Kubernetes. But how does Kubernetes actually get installed? 
 
-If you use a managed service like Amazon EKS, AWS installs it for you (and charges you $73 a month for the privilege). In this project, we are building a **Self-Managed** cluster from raw EC2 instances. To do this, we use the official Kubernetes bootstrapping tool: **`kubeadm`**.
+If you use a managed service like Amazon EKS, AWS installs it for you (and charges you $73 a month for the privilege). The capstone project uses EKS — but understanding what EKS abstracts away is what separates a button-clicker from an engineer. **`kubeadm`** is the official Kubernetes bootstrapping tool that builds a cluster from raw Linux servers, and knowing it means you can debug any cluster, managed or not.
 
 ---
 
@@ -81,9 +80,9 @@ actually matter in production: a rolling upgrade, a node drain, and a restore.
 
 ### Analyzing the Actual Code (Line-by-Line Breakdown)
 
-In our project, we never type `kubeadm init` by hand. Ansible does it.
+On a self-managed cluster, you would never type `kubeadm init` by hand — Ansible does it. The following playbook excerpt shows the pattern (the capstone uses EKS, so the Ansible role there provisions the Jenkins build host instead, but the idempotency technique is identical).
 
-Open the real file: **`infrastructure/ansible/roles/control-plane/tasks/main.yml`**
+The file below would live at **`roles/control-plane/tasks/main.yml`**:
 
 ```yaml
 - name: Check whether this node is already part of a cluster
@@ -124,7 +123,7 @@ Open the real file: **`infrastructure/ansible/roles/control-plane/tasks/main.yml
 
 `kubeadm init` can take twenty command-line flags, or one declarative file.
 We use the file — see
-`infrastructure/ansible/roles/control-plane/templates/kubeadm-config.yaml.j2`:
+`03-Ansible/roles/control-plane/templates/kubeadm-config.yaml.j2`:
 
 ```yaml
 apiVersion: kubeadm.k8s.io/v1beta3

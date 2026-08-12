@@ -16,7 +16,6 @@ objectives:
   - "Branch, commit, open a PR, and undo a mistake safely \u2014 the four operations GitOps depends on"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/07_Git_And_GitHub.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -259,9 +258,9 @@ write access to production.** Branch protection is production access control.
 
 ```
 # .github/CODEOWNERS
-/infrastructure/terraform/   @platform-team
+/02-Terraform/              @platform-team
 /kubernetes/policies/        @security-team
-/gitops/argocd/projects/     @platform-team @security-team
+/06-ArgoCD/     @platform-team @security-team
 ```
 
 A PR touching network policy automatically requires security review. The

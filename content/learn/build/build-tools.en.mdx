@@ -16,7 +16,6 @@ objectives:
   - "Explain what any build tool does, read a lockfile, and know why a CI cache and a pinned dependency are the same problem"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/08_Build_Tools.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -185,7 +184,7 @@ previous build — a genuinely confusing bug.
 
 ### Reading the platform's `pom.xml`
 
-Open `application/ivolve-api/pom.xml`:
+Open `src/roadmap-service/pom.xml`:
 
 ```xml
 <parent>
@@ -349,7 +348,7 @@ rescanning everything you have ever shipped.
 ## Hands-on
 
 ```bash
-cd Cloud-Native-DevOps-Platform/application/ivolve-api
+cd CloudDevOpsProject/src/roadmap-service
 
 # 1. Build it. Watch the phases go past.
 mvn -B clean package

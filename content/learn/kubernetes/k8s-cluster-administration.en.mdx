@@ -26,9 +26,9 @@ updated: 2026-08-10
 ## Introduction
 
 Managed Kubernetes hides the control plane, and that is usually the right
-trade. But the production project on this platform runs a **self-managed
-kubeadm cluster**, and a cluster you did not build is one you cannot debug when
-the API server stops answering.
+trade — the capstone project uses **EKS** for exactly that reason. But a cluster
+you cannot look inside is one you cannot debug when the API server stops
+answering. This chapter teaches the internals that EKS abstracts away.
 
 This chapter is about the half of Kubernetes that has no `kubectl` verb.
 

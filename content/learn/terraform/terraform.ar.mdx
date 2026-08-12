@@ -14,7 +14,6 @@ objectives:
   - "اكتب module، واقرأ خطة plan، واشرح لماذا يُقفَل الـ State"
 status: complete
 translationStatus: machine-draft
-sourceFile: "Cloud-Native-DevOps-Handbook/13_Terraform.md"
 authors: [waleed]
 updated: 2026-08-09
 ---
@@ -283,13 +282,13 @@ modules/vpc/
 
 ### Analyzing the Actual Code (Line-by-Line Breakdown)
 
-لننظر إلى طريقة تنظيم الكود في `infrastructure/terraform`.
+لننظر إلى طريقة تنظيم الكود في `02-Terraform`.
 
 #### 1. The Resource Dependency Graph
 
 Terraform ذكي إلى حدّ بعيد؛ لست مضطرًا لإخباره بترتيب البناء. فهو يبني في الذاكرة رسمًا بيانيًا موجّهًا غير دوري (Directed Acyclic Graph — DAG).
 
-وإذا نظرت إلى `infrastructure/terraform/environments/prod/main.tf` ستجد التالي:
+وإذا نظرت إلى `02-Terraform/main.tf` ستجد التالي:
 
 ```hcl
 module "network" {
@@ -306,7 +305,7 @@ module "network" {
 
 إذا شغّلت Terraform على جهازك، فسيُحفَظ ملف `terraform.tfstate` على جهازك أنت. وعندما يحاول زميلك تحديث البنية التحتية، لن يكون لديه ملف الذاكرة هذا، وقد يحذف خوادمك دون قصد.
 
-انظر إلى `infrastructure/terraform/environments/prod/backend.tf`:
+انظر إلى `02-Terraform/backend.tf`:
 
 ```hcl
 terraform {
@@ -346,7 +345,7 @@ terraform {
 في شركة كبيرة، لا تضع كل موارد AWS في ملف `main.tf` واحد. فخطأ إملائي واحد قد يدمّر البنية التحتية للشركة بأكملها.
 
 1. **Modules (مبدأ DRY — Don't Repeat Yourself):**
-   أنشأنا modules قابلة لإعادة الاستخدام داخل `infrastructure/terraform/modules/`. والـ module المسمّى `compute` يحدّد مواصفات الأمان الدقيقة لـ EC2 Auto Scaling Group.
+   أنشأنا modules قابلة لإعادة الاستخدام داخل `02-Terraform/modules/`. والـ module المسمّى `compute` يحدّد مواصفات الأمان الدقيقة لـ EC2 Auto Scaling Group.
    فعندما يحتاج فريق Dev إلى cluster يستدعي `module "compute"`، وكذلك فريق Prod. وهذا يضمن أن البيئتين متطابقتان تمامًا، بما يحقق متطلبات الاتساق في SOC2.
 
 2. **Blast Radius Isolation:**

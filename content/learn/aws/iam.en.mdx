@@ -16,7 +16,6 @@ objectives:
   - "Write a least-privilege policy and explain why no static keys exist"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/12_IAM.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -145,7 +144,7 @@ If Alice's computer is hacked, the hacker can only read files. They cannot delet
 
 How do our Kubernetes Worker Nodes know they are allowed to pull images from ECR? We define this in Terraform using IAM Roles.
 
-Look at `infrastructure/terraform/modules/iam/main.tf`:
+Look at `02-Terraform/modules/iam/main.tf`:
 
 ```hcl
 locals {

@@ -16,7 +16,6 @@ objectives:
   - "Read a CIDR block, explain why a private subnet can reach the internet but not be reached, and debug a connection that hangs"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/06_Networking_Fundamentals.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -512,7 +511,7 @@ ip addr                              # Linux
 curl -s ifconfig.me                  # your public IP — put this in trusted_admin_cidrs
 
 # 2. Read the platform's CIDR math
-grep -A3 'cidrsubnet' Cloud-Native-DevOps-Platform/infrastructure/terraform/modules/vpc/main.tf
+grep -A3 'cidrsubnet' CloudDevOpsProject/02-Terraform/modules/vpc/main.tf
 #    Work out by hand which /20 the third private subnet gets.
 
 # 3. Prove the refused/timeout difference

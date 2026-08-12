@@ -16,7 +16,6 @@ objectives:
   - "Choose Multi-AZ vs read replica and know what each protects"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/15_RDS.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -76,7 +75,7 @@ You *can* run a database inside Kubernetes using a `StatefulSet`. But you should
 
 ### Analyzing the Actual Code (Line-by-Line Breakdown)
 
-Let's look at how we provision the database in Terraform. Open `infrastructure/terraform/modules/rds/main.tf`.
+Let's look at how we provision the database in Terraform. Open `02-Terraform/modules/rds/main.tf`.
 
 ```hcl
 resource "aws_db_instance" "this" {

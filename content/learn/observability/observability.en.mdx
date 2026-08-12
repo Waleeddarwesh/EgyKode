@@ -16,14 +16,13 @@ objectives:
   - "Distinguish metrics, logs and traces, and know what each answers"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/29_Monitoring.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
 
 ## Introduction to Observability
 
-We have built a massive system. We have Jenkins compiling code, ArgoCD deploying it, Kubernetes running it, Auto Scaling Groups managing the servers, and RDS storing the data.
+We have built a massive system. We have Jenkins compiling code, ArgoCD deploying it, Kubernetes running it, Auto Scaling Groups managing the servers, and a MySQL StatefulSet storing the data.
 
 But what happens when the website goes down at 2:00 AM?
 If you have no visibility into the system, you are flying blind. **Observability** is the practice of understanding the internal state of a complex system based on its external outputs.

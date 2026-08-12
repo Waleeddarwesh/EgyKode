@@ -16,7 +16,6 @@ objectives:
   - "Explain why a build should not depend on the public internet, and what write-once repositories protect against"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/26_Nexus_And_Artifacts.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -70,7 +69,7 @@ infrastructure you control.
 
 ### The configuration in this platform
 
-`infrastructure/ansible/roles/nexus/defaults/main.yml`:
+`03-Ansible/roles/nexus/defaults/main.yml`:
 
 ```yaml
 nexus_repositories:
@@ -179,7 +178,7 @@ thousands of artifacts a year.
   build from two years ago during an audit is not.
 
 The equivalent for images is the ECR lifecycle policy in
-`infrastructure/terraform/modules/ecr/main.tf` — expire untagged layers after 7
+`02-Terraform/modules/ecr/main.tf` — expire untagged layers after 7
 days, keep the last 30 release tags.
 
 ### Nexus is a single point of failure
@@ -247,7 +246,7 @@ kubectl -n ivolve port-forward svc/nexus 8081:8081    # or via the bastion
 open http://localhost:8081
 
 # 2. Publish something, then try to overwrite it
-cd Cloud-Native-DevOps-Platform/application/ivolve-api
+cd CloudDevOpsProject/src/roadmap-service
 mvn deploy -DaltDeploymentRepository=nexus::default::http://localhost:8081/repository/ivolve-releases/
 mvn deploy -DaltDeploymentRepository=nexus::default::http://localhost:8081/repository/ivolve-releases/
 #    The second one FAILS. That is ALLOW_ONCE doing its job.

@@ -16,7 +16,6 @@ objectives:
   - "Create an IAM user with MFA and stop using the root account"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/10_AWS.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -219,7 +218,7 @@ Before AWS (launched in 2006), companies used "On-Premises" datacenters.
 
 How do we actually interact with AWS? We don't click the website. We use the **AWS CLI** (Command Line Interface) and the **Terraform AWS Provider**.
 
-If you look in our code at `infrastructure/terraform/environments/prod/main.tf`, you'll see the VPC creation module. But how does Terraform know *which* AWS account to build it in?
+If you look in our code at `02-Terraform/main.tf`, you'll see the VPC creation module. But how does Terraform know *which* AWS account to build it in?
 
 It relies on the Provider configuration. 
 ```hcl

@@ -16,7 +16,6 @@ objectives:
   - "Configure an Application with selfHeal and sync waves"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/28_ArgoCD.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -178,7 +177,7 @@ how GitOps acquires a reputation for deleting things.
 
 ### Analyzing the Actual Code (Line-by-Line Breakdown)
 
-Look at `gitops/argocd/app-of-apps.yaml` in our repository. This is the master file that controls the entire platform.
+Look at `06-ArgoCD/project.yaml` in our repository. This is the master file that controls the entire platform.
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
@@ -189,8 +188,8 @@ metadata:
 spec:
   project: ivolve
   source:
-    repoURL: https://github.com/WaleedDarwesh/cloud-native-devops-platform.git
-    path: gitops/argocd/applications
+    repoURL: https://github.com/Waleeddarwesh/CloudDevOpsProject.git
+    path: 06-ArgoCD/applications
     targetRevision: main
   destination:
     server: https://kubernetes.default.svc
@@ -203,7 +202,7 @@ spec:
 
 **Line-by-Line Breakdown:**
 - **`apiVersion: argoproj.io/v1alpha1`**: We are defining a Custom Resource Definition (CRD) that ArgoCD installed into the cluster.
-- **`repoURL:` & `path:`**: We are telling ArgoCD to watch this specific Git repository, and only look inside the `gitops/argocd/applications` folder.
+- **`repoURL:` & `path:`**: We are telling ArgoCD to watch this specific Git repository, and only look inside the `06-ArgoCD/applications` folder.
 - **`targetRevision: main`**: Watch the main branch. The moment a commit merges to main, deploy it.
 - **`server: https://kubernetes.default.svc`**: Deploy the files into the cluster that ArgoCD is currently running inside (the local cluster).
 - **`syncPolicy: automated:`**: Do not wait for a human to click a button. Deploy automatically.

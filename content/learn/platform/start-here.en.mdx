@@ -16,7 +16,6 @@ objectives:
   - "Understand Start Here \u2014 Zero to Production"
 status: partial
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/00_START_HERE.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -188,7 +187,7 @@ Kubernetes if you cannot debug it on your own machine.
 | Read | Then do |
 |------|---------|
 | [08 — Build tools](/learn/build/build-tools) | `mvn clean package` the API. Understand what a `.jar` is. |
-| [09 — Docker](/learn/docker/docker) | Read `application/ivolve-api/Dockerfile`. Explain why it has two `FROM` lines. |
+| [09 — Docker](/learn/docker/docker) | Read `src/roadmap-service/Dockerfile`. Explain why it has two `FROM` lines. |
 
 ```bash
 cd CloudDevOpsProject/src/frontend
@@ -471,7 +470,7 @@ kubectl -n ivolve run probe --rm -it --restart=Never --image=curlimages/curl:8.8
 | [26 — Nexus](/learn/nexus/nexus-and-artifacts) |
 
 ```bash
-cd infrastructure/ansible
+cd 03-Ansible
 # Jenkins was installed in Phase 3; this is where you configure the pipeline
 ```
 

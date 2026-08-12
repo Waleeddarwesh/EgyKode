@@ -16,7 +16,6 @@ objectives:
   - "Demonstrate \u2014 not just describe \u2014 every claim this platform makes"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/41_Hands_On_Labs.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -52,7 +51,7 @@ Prove you understand what a multi-stage build actually removes.
 ### Do
 
 ```bash
-cd Cloud-Native-DevOps-Platform/application/ivolve-api
+cd CloudDevOpsProject/src/roadmap-service
 docker build -t ivolve-api:multi .
 
 # Now build a deliberately bad single-stage version
@@ -105,7 +104,7 @@ Learn to spot a destructive change before it destroys something.
 ### Do
 
 ```bash
-cd Cloud-Native-DevOps-Platform/infrastructure/terraform/environments/dev
+cd CloudDevOpsProject/02-Terraform
 terraform init
 terraform plan -out=tfplan
 terraform show -json tfplan | jq -r '
@@ -155,7 +154,7 @@ See a Kubernetes cluster being born, rather than appearing.
 Run the cluster stage with maximum verbosity and watch:
 
 ```bash
-cd infrastructure/ansible
+cd 03-Ansible
 export IVOLVE_BASTION_IP=$(cd ../terraform/environments/dev && terraform output -raw bastion_public_ip)
 
 ansible-playbook playbooks/site.yml --tags kubernetes --diff
@@ -486,7 +485,7 @@ For each experiment: hypothesis, what actually happened, what surprised you.
 Prove the whole thing is genuinely automated:
 
 ```bash
-cd infrastructure/terraform/environments/dev
+cd 02-Terraform
 terraform destroy
 
 cd ../../../..

@@ -16,7 +16,6 @@ objectives:
   - "Write a module, read a plan, and explain why state is locked"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/13_Terraform.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -333,12 +332,12 @@ Terraform is **Declarative** (I want 3 servers). You can run `terraform apply` 1
 
 ### Analyzing the Actual Code (Line-by-Line Breakdown)
 
-Let's look at how we organized our code in `infrastructure/terraform`.
+Let's look at how we organized our code in `02-Terraform`.
 
 #### 1. The Resource Dependency Graph
 Terraform is incredibly smart. You don't have to tell it what order to build things in. It builds a mathematical Directed Acyclic Graph (DAG) in memory.
 
-If you look at `infrastructure/terraform/environments/prod/main.tf`, you'll see this:
+If you look at `02-Terraform/main.tf`, you'll see this:
 ```hcl
 module "network" {
   source = "../../modules/vpc"
@@ -351,7 +350,7 @@ module "network" {
 #### 2. The Remote Backend (State Management)
 If you run Terraform on your laptop, the `terraform.tfstate` file is saved on your laptop. If your coworker tries to update the infrastructure, they don't have your memory file! They might accidentally delete your servers.
 
-Look at `infrastructure/terraform/environments/prod/backend.tf`:
+Look at `02-Terraform/backend.tf`:
 ```hcl
 terraform {
   backend "s3" {
@@ -396,7 +395,7 @@ coupling you split them up to avoid.
 In a Fortune 500 company, you never put all your AWS resources into a single `main.tf` file. If you have a typo, you might destroy the entire company.
 
 1. **Modules (DRY - Don't Repeat Yourself):**
-   We created reusable modules in `infrastructure/terraform/modules/`. Our `compute` module defines the exact security specifications for an EC2 Auto Scaling Group. 
+   We created reusable modules in `02-Terraform/modules/`. Our `compute` module defines the exact security specifications for an EC2 Auto Scaling Group. 
    When the Dev team needs a cluster, they call `module "compute"`. When the Prod team needs a cluster, they call `module "compute"`. This ensures both environments are mathematically identical, satisfying SOC2 consistency compliance.
 
 2. **Blast Radius Isolation:**

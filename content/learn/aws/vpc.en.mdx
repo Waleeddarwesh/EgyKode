@@ -16,7 +16,6 @@ objectives:
   - "Design a three-tier network and justify every route table"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/11_VPC.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -100,7 +99,7 @@ single largest saving available in a small AWS account.
 
 ### Analyzing the Actual Code (Line-by-Line Breakdown)
 
-Let's look at how we build this in `infrastructure/terraform/modules/vpc/main.tf`.
+Let's look at how we build this in `02-Terraform/modules/vpc/main.tf`.
 
 This module is written from raw resources rather than wrapping the community
 `terraform-aws-modules/vpc/aws` module. That is deliberate: the community module

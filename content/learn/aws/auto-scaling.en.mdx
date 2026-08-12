@@ -16,7 +16,6 @@ objectives:
   - "Configure an ASG and explain instance refresh"
 status: complete
 translationStatus: missing
-sourceFile: "Cloud-Native-DevOps-Handbook/17_AutoScaling.md"
 authors: [waleed]
 updated: 2026-08-08
 ---
@@ -80,7 +79,7 @@ You create a policy: *"If the average CPU utilization across all servers exceeds
 
 ### Analyzing the Actual Code (Line-by-Line Breakdown)
 
-Let's look at how we provision the Kubernetes Worker Nodes using Terraform in `infrastructure/terraform/modules/compute/main.tf`.
+Let's look at how we provision the Kubernetes Worker Nodes using Terraform in `02-Terraform/modules/compute/main.tf`.
 
 ```hcl
 resource "aws_launch_template" "worker" {
@@ -148,7 +147,7 @@ resource "aws_autoscaling_group" "worker" {
 ```
 
 **Line-by-Line Breakdown:**
-- **`user_data = base64encode(...)`**: This is brilliant. When the ASG launches a new server, the server is blank. How does it know it's supposed to join a Kubernetes cluster? We inject a bash script (`userdata.sh`) into the server at boot. The script runs `kubeadm join` automatically. 
+- **`user_data = base64encode(...)`**: This is brilliant. When the ASG launches a new server, the server is blank. How does it know it's supposed to join a Kubernetes cluster? We inject a bash script (`userdata.sh`) into the server at boot. On a self-managed cluster, this script would run `kubeadm join`; with EKS managed node groups, the bootstrap script registers the node with the EKS API server. 
 - **`vpc_zone_identifier = var.private_subnet_ids`**: The ASG is mathematically bound to our 3 Private Subnets. It will inherently balance the EC2 instances across the 3 Availability Zones.
 - **`version = "$Latest"`**: If we decide to upgrade from `t3.large` to `t3.xlarge`, we update the Launch Template. The ASG automatically detects the `$Latest` version and begins replacing the old servers with new ones.
 
