@@ -52,19 +52,19 @@ Prove you understand what a multi-stage build actually removes.
 
 ```bash
 cd CloudDevOpsProject/src/roadmap-service
-docker build -t ivolve-api:multi .
+docker build -t roadmap-service:multi .
 
 # Now build a deliberately bad single-stage version
 cat > /tmp/Dockerfile.bad <<'EOF'
-FROM maven:3.9.8-eclipse-temurin-17
+FROM maven:3.9.11-eclipse-temurin-21
 WORKDIR /app
 COPY . .
 RUN mvn -B clean package -DskipTests
-CMD ["java", "-jar", "target/ivolve-api.jar"]
+CMD ["java", "-jar", "target/roadmap-service-1.0.0.jar"]
 EOF
 
-docker build -f /tmp/Dockerfile.bad -t ivolve-api:single .
-docker image ls | grep ivolve-api
+docker build -f /tmp/Dockerfile.bad -t roadmap-service:single .
+docker image ls | grep roadmap-service
 ```
 
 ### Observe
@@ -72,10 +72,10 @@ docker image ls | grep ivolve-api
 The single-stage image is roughly **3× larger**. Find out what is in it:
 
 ```bash
-docker run --rm ivolve-api:single  which mvn git   # present
-docker run --rm ivolve-api:multi   which mvn git   # absent
-docker run --rm ivolve-api:single  id              # uid=0(root)
-docker run --rm ivolve-api:multi   id              # uid=1001
+docker run --rm roadmap-service:single  which mvn git   # present
+docker run --rm roadmap-service:multi   which mvn git   # absent
+docker run --rm roadmap-service:single  id              # uid=0(root)
+docker run --rm roadmap-service:multi   id              # uid=10001
 ```
 
 The single-stage image ships Maven, Git, a JDK and your source code into
@@ -84,7 +84,7 @@ production. Every one of those is attack surface that does nothing at runtime.
 ### Verify
 
 ```bash
-docker run --rm ivolve-api:multi id | grep -q 'uid=0' && echo FAIL || echo PASS
+docker run --rm roadmap-service:multi id | grep -q 'uid=0' && echo FAIL || echo PASS
 ```
 
 ### Break it
@@ -106,8 +106,8 @@ Learn to spot a destructive change before it destroys something.
 ```bash
 cd CloudDevOpsProject/02-Terraform
 terraform init
-terraform plan -out=tfplan
-terraform show -json tfplan | jq -r '
+make tf-plan
+terraform show -json .terraform/tfplan | jq -r '
   .resource_changes[] | select(.change.actions[0] != "no-op") |
   "\(.change.actions|join(","))  \(.address)"' | sort | head -30
 ```
@@ -117,7 +117,7 @@ terraform show -json tfplan | jq -r '
 Answer these from the plan, not from the code:
 
 - How many resources will be created?
-- What `instance_class` is the RDS instance?
+- What `instance_types` is the EKS node group configured to use?
 - How many NAT gateways? (This is the cost decision.)
 
 ### Break it — the important half
@@ -129,7 +129,7 @@ Change something immutable and see what Terraform proposes:
 terraform plan | grep -E '^\s+#.*must be replaced' | head
 ```
 
-You should see `must be replaced` on the database. In production that is your
+You should see `must be replaced` on the VPC or EKS cluster depending on the change. In production that is your
 data. **`-/+` means destroy-then-create** — this is exactly the diff people miss
 by skimming a plan.
 
@@ -142,57 +142,52 @@ destroy-and-recreate rather than update-in-place.
 
 ---
 
-## Lab 3 · Build the cluster and watch it happen
+## Lab 3 · Observe the EKS control plane abstraction
 
-**~90 min · Chapters 07, 11**
+**~20 min · Chapters 07, 11**
 
 ### Goal
-See a Kubernetes cluster being born, rather than appearing.
+Experience what a managed service actually abstracts away from you.
 
 ### Do
 
-Run the cluster stage with maximum verbosity and watch:
+Build the EKS infrastructure using Terraform:
 
 ```bash
-cd 03-Ansible
-export IVOLVE_BASTION_IP=$(cd ../terraform/environments/dev && terraform output -raw bastion_public_ip)
-
-ansible-playbook playbooks/site.yml --tags kubernetes --diff
+cd 02-Terraform
+make tf-apply
 ```
 
-In a second terminal, SSH to the first control plane node and follow along:
-
-```bash
-ssh -J ubuntu@$IVOLVE_BASTION_IP ubuntu@<control-plane-ip>
-watch -n2 'sudo crictl ps 2>/dev/null | head -20'
-```
+While it builds (it takes ~15 minutes), read `02-Terraform/modules/eks/main.tf`.
 
 ### Observe
 
-You will see, in order: containerd start → the pause container → etcd →
-kube-apiserver → controller-manager → scheduler. **That order is not arbitrary**
-— etcd must exist before the API server has anywhere to write.
+Notice what you *didn't* do. You didn't configure `etcd`, you didn't disable swap on worker nodes, you didn't generate TLS certificates for the API server, and you didn't write an Ansible playbook to run `kubeadm init`. EKS handled the entire control plane. 
 
 ### Verify
 
+When Terraform finishes, connect to the cluster:
+
 ```bash
-./scripts/get-kubeconfig.sh dev
+aws eks update-kubeconfig --region us-east-1 --name ivolve-dev-eks
 kubectl get nodes
-kubectl get --raw /readyz
 ```
+
+The nodes are immediately `Ready` because the AWS VPC CNI was pre-installed by the managed service.
 
 ### Break it
 
+What happens if you accidentally delete a node?
+
 ```bash
-# On a worker: re-enable swap, then restart kubelet
-sudo swapon -a
-sudo systemctl restart kubelet
-sudo systemctl status kubelet     # read the error
-sudo swapoff -a && sudo systemctl restart kubelet
+# Terminate an EC2 worker node directly from AWS
+aws autoscaling terminate-instance-in-auto-scaling-group \
+  --instance-id <worker-instance-id> --no-should-decrement-desired-capacity
+
+watch kubectl get nodes
 ```
 
-Read the actual error message. This is *why* every kubeadm guide starts with
-`swapoff -a`, and now you have seen the failure rather than trusted the advice.
+The EKS Managed Node Group detects the failure and automatically spins up a replacement EC2 instance to maintain the desired capacity. You did not have to run `kubeadm join` on the new server.
 
 ---
 
@@ -206,14 +201,14 @@ Prove that a bad deploy cannot take down the service.
 ### Do
 
 ```bash
-kubectl -n ivolve get pods -w   # leave this running in terminal 2
+kubectl -n ivolve get pods -l app.kubernetes.io/name=roadmap-service -w   # leave this running in terminal 2
 ```
 
 Terminal 1 — deploy an image that does not exist:
 
 ```bash
-kubectl -n ivolve set image deploy/ivolve-api ivolve-api=ivolve-api:does-not-exist
-kubectl -n ivolve rollout status deploy/ivolve-api --timeout=60s
+kubectl -n ivolve set image deploy/roadmap-service roadmap-service=roadmap-service:does-not-exist
+kubectl -n ivolve rollout status deploy/roadmap-service --timeout=60s
 ```
 
 ### Observe
@@ -222,7 +217,7 @@ The rollout **stalls**. It does not fail catastrophically:
 
 ```bash
 kubectl -n ivolve get rs          # two ReplicaSets: old at 3, new at 1
-kubectl -n ivolve get endpoints ivolve-api    # still 3 healthy pod IPs
+kubectl -n ivolve get endpoints roadmap-service    # still 3 healthy pod IPs
 curl -sf https://dev.<your-domain>/api/v1/status   # still works
 ```
 
@@ -232,10 +227,10 @@ so no old pod is removed. Users see nothing.
 Now try it with a *working* image but a broken readiness probe:
 
 ```bash
-kubectl -n ivolve rollout undo deploy/ivolve-api
-kubectl -n ivolve patch deploy ivolve-api --type=json \
+kubectl -n ivolve rollout undo deploy/roadmap-service
+kubectl -n ivolve patch deploy roadmap-service --type=json \
   -p='[{"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe/httpGet/path","value":"/nope"}]'
-kubectl -n ivolve get endpoints ivolve-api -w
+kubectl -n ivolve get endpoints roadmap-service -w
 ```
 
 Watch the endpoint list empty as pods fail readiness. That is Kubernetes
@@ -244,8 +239,8 @@ draining traffic from pods that say they cannot serve.
 ### Verify
 
 ```bash
-kubectl -n ivolve rollout undo deploy/ivolve-api
-kubectl -n ivolve rollout status deploy/ivolve-api
+kubectl -n ivolve rollout undo deploy/roadmap-service
+kubectl -n ivolve rollout status deploy/roadmap-service
 ```
 
 ### Understand before moving on
@@ -266,7 +261,7 @@ Confirm each control actually blocks what it claims to.
 
 ```bash
 # The root image from Lab 1
-kubectl -n ivolve run rooty --image=ivolve-api:rootful --restart=Never
+kubectl -n ivolve run rooty --image=busybox:1.36 --restart=Never
 ```
 
 **It is rejected at admission** with a message naming the violated policy. Not
@@ -277,13 +272,13 @@ reported later — refused.
 ```bash
 # A pod that is not the storefront or the API tries to reach the database
 kubectl -n ivolve run intruder --rm -it --restart=Never \
-  --image=busybox:1.36 -- sh -c 'nc -zv -w5 ivolve-mysql 3306'
+  --image=busybox:1.36 -- sh -c 'nc -zv -w5 mysql-0.mysql.ivolve.svc.cluster.local 3306'
 ```
 
 It hangs and times out. Compare with the legitimate path:
 
 ```bash
-kubectl -n ivolve exec deploy/ivolve-storefront -- nc -zv -w5 ivolve-mysql 3306
+kubectl -n ivolve exec deploy/frontend -- nc -zv -w5 mysql-0.mysql.ivolve.svc.cluster.local 3306
 ```
 
 **Note the difference between "timed out" and "connection refused."** Timed out
@@ -292,7 +287,7 @@ means a firewall silently dropped it — a NetworkPolicy working correctly.
 ### Do — metadata endpoint
 
 ```bash
-kubectl -n ivolve exec deploy/ivolve-api -- \
+kubectl -n ivolve exec deploy/roadmap-service -- \
   timeout 5 wget -qO- http://169.254.169.254/latest/meta-data/ || echo "BLOCKED"
 ```
 
@@ -332,22 +327,22 @@ Watch every stage in Jenkins. Note how long each takes.
 
 ### Break it — three ways, one at a time
 
-**1. Failing test**
+**1. Syntax error**
 
 ```java
-// in IvolveApiApplicationTests.java
-@Test void deliberateFailure() { assertThat(1).isEqualTo(2); }
+// in src/roadmap-service/src/main/java/com/ivolve/roadmapservice/RoadmapServiceApplication.java
+// Delete a semicolon at the end of a line
 ```
 
-Push. The pipeline stops at Build & Test. **Nothing is built.**
+Push. The Jenkins pipeline stops at the Build stage. **Nothing is pushed.**
 
 **2. Vulnerable dependency**
 
 ```xml
 <dependency>
-  <groupId>org.apache.logging.log4j</groupId>
-  <artifactId>log4j-core</artifactId>
-  <version>2.14.1</version>   <!-- Log4Shell -->
+    <groupId>org.apache.logging.log4j</groupId>
+    <artifactId>log4j-core</artifactId>
+    <version>2.14.1</version>   <!-- Log4Shell -->
 </dependency>
 ```
 
@@ -380,12 +375,12 @@ Experience `selfHeal` reverting you.
 ### Do
 
 ```bash
-kubectl -n ivolve get deploy ivolve-api    # note the replicas
-kubectl -n ivolve scale deploy ivolve-api --replicas=7
-kubectl -n ivolve get deploy ivolve-api    # 7
+kubectl -n ivolve get deploy roadmap-service    # note the replicas
+kubectl -n ivolve scale deploy roadmap-service --replicas=7
+kubectl -n ivolve get deploy roadmap-service    # 7
 
 # Wait up to 3 minutes
-watch kubectl -n ivolve get deploy ivolve-api
+watch kubectl -n ivolve get deploy roadmap-service
 ```
 
 ### Observe
@@ -397,15 +392,15 @@ Watch ArgoCD notice:
 
 ```bash
 kubectl -n argocd logs deploy/argocd-application-controller --tail=30 | grep -i sync
-argocd app diff ivolve-dev
+argocd app diff ivolve-app
 ```
 
 ### Then do it the right way
 
 ```bash
-$EDITOR kubernetes/overlays/dev/replicas-patch.yaml   # set replicas: 3
+$EDITOR 04-Kubernetes/manifests/06-roadmap-service.yaml   # set replicas: 3
 git commit -am "chore: scale api to 3 in dev" && git push
-watch kubectl -n ivolve get deploy ivolve-api
+watch kubectl -n ivolve get deploy roadmap-service
 ```
 
 Same outcome. Completely different property: this one has an author, a diff, a
@@ -414,7 +409,7 @@ review and a revert.
 ### Verify
 
 ```bash
-git log --oneline -3 -- kubernetes/overlays/dev/
+git log --oneline -3 -- 04-Kubernetes/manifests/
 ```
 
 That output is your deployment history.
@@ -428,44 +423,42 @@ That output is your deployment history.
 ### Goal
 Survive failures you have caused deliberately, so the real ones are familiar.
 
-### Experiment 1 — kill a worker
+### Experiment 1 — Kill the database
 
-**Hypothesis:** pods reschedule, the ASG replaces the node, users see nothing.
-
-```bash
-kubectl get nodes
-aws autoscaling terminate-instance-in-auto-scaling-group \
-  --instance-id <worker-instance-id> --no-should-decrement-desired-capacity
-
-# In another terminal, hammer the endpoint throughout
-while true; do curl -so /dev/null -w "%{http_code} " https://dev.<domain>/; sleep 1; done
-```
-
-Record: how many requests failed? How long until a replacement node was Ready?
-
-### Experiment 2 — fill a disk
+**Hypothesis:** The StatefulSet controller brings it back, and the EBS CSI driver automatically reattaches the exact same volume to the new Pod. No data is lost.
 
 ```bash
-ssh -J ubuntu@$IVOLVE_BASTION_IP ubuntu@<worker>
-sudo fallocate -l 20G /tmp/balloon
-kubectl describe node <worker> | grep -A5 Conditions   # DiskPressure
-sudo rm /tmp/balloon
+# Insert a test row first
+kubectl -n ivolve exec -it mysql-0 -- mysql -u root -p ivolve -e "CREATE TABLE test (id INT); INSERT INTO test VALUES (1);"
+
+# Murder the pod
+kubectl -n ivolve delete pod mysql-0 --force --grace-period=0
+
+watch kubectl -n ivolve get pods
 ```
 
-Watch the kubelet evict pods. This is the failure `NodeFilesystemFillingUp`
-predicts before it happens.
+When it returns to `Running`, check if your data survived:
+```bash
+kubectl -n ivolve exec -it mysql-0 -- mysql -u root -p ivolve -e "SELECT * FROM test;"
+```
 
-### Experiment 3 — snapshot and inspect etcd
+### Experiment 2 — Break the GitOps loop
+
+ArgoCD enforces the desired state. What happens if you delete ArgoCD itself?
 
 ```bash
-ssh -J ubuntu@$IVOLVE_BASTION_IP ubuntu@<control-plane>
-sudo ./scripts/backup-etcd.sh dev
-sudo ETCDCTL_API=3 etcdctl --write-out=table snapshot status /tmp/etcd-snapshot-*.db
+kubectl delete namespace argocd
 ```
 
-Then **read `docs/runbooks.md#etcd-restore` until you could follow it under
-pressure.** Do not perform the restore on a cluster you still want, unless you
-have time to rebuild.
+The GitOps loop is now dead. If someone makes a manual change to the cluster with `kubectl edit`, it will no longer be reverted. 
+
+To recover, simply re-apply the installation manifest:
+```bash
+cd 06-ArgoCD
+make argo-install
+make argo-apply
+```
+ArgoCD spins back up, reads its configuration from the cluster, immediately notices any drift that happened while it was offline, and syncs everything back to the Git state.
 
 ### Verify
 
@@ -482,20 +475,21 @@ For each experiment: hypothesis, what actually happened, what surprised you.
 
 ## Capstone
 
-Prove the whole thing is genuinely automated:
+If you haven't built the **Cloud DevOps Capstone** yet, now is the time.
+
+Follow the **[START-HERE.md](https://github.com/Waleeddarwesh/CloudDevOpsProject/blob/main/START-HERE.md)** guide in the repository to build the entire production system end-to-end:
+1. `make tf-apply` (Terraform EKS)
+2. `make ansible-run` (Jenkins build host)
+3. `make k8s-apply` and `make argo-apply` (GitOps Workloads)
+
+When you are done, tear it all down with a single command to prove it's automated:
 
 ```bash
 cd 02-Terraform
-terraform destroy
-
-cd ../../../..
-./scripts/bootstrap-platform.sh dev
-./scripts/health-check.sh dev
+make tf-destroy
 ```
 
-If that succeeds unattended, you have automated the platform. If it does not,
-you have just found the manual step you forgot you performed — which is exactly
-the step that bites a team at 2am.
+If you can destroy and rebuild it reliably, you have automated the platform. If you cannot, you have found a manual step you forgot you performed — which is exactly what bites a team at 2am.
 
 **Before you destroy anything for the last time: take the screenshots.** See
 `screenshots/README.md`. Once the environment is gone, they are gone.
