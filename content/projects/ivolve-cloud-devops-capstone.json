@@ -49,8 +49,8 @@
   ],
   "decisions": [
     {
-      "question": "Why EKS here, when the platform project uses kubeadm?",
-      "answer": "Because they answer different questions. kubeadm teaches you what a control plane is; EKS is what most teams should actually run. Having built both, you can say why you would pick one — which is the question an interviewer asks, and the one a single project cannot answer."
+      "question": "Why use EKS here, rather than building a self-managed cluster with kubeadm?",
+      "answer": "Because they answer different questions. kubeadm teaches you what a control plane is; EKS is what most teams should actually run. Having learned both, you can say why you would pick one — which is the question an interviewer asks."
     },
     {
       "question": "Why Kustomize rather than Helm for the applications?",

@@ -2,7 +2,7 @@
   "id": "nti-step-by-step",
   "title": "NTI Cloud DevOps Capstone — Step by Step",
   "summary": "The same AWS capstone taught as 19 reproducible labs across eight numbered modules, each with its own README so it can be followed in order.",
-  "why": "The platform project shows the finished system; this one shows how it is built. Eight numbered directories run from Terraform infrastructure to operational documentation, and the 19 labs inside them are reproducible from an empty AWS account — you can start at 01 without reading the whole repository first.\n\nUse this one to build it, and the platform repository to see how the pieces sit together once they are done.",
+  "why": "The Cloud DevOps Capstone shows the finished system; this one shows how it is built. Eight numbered directories run from Terraform infrastructure to operational documentation, and the 19 labs inside them are reproducible from an empty AWS account — you can start at 01 without reading the whole repository first.\n\nUse this one to build it, and the Capstone repository to see how the pieces sit together once they are done.",
   "author": "waleed",
   "repo": "https://github.com/Waleeddarwesh/StepByStep_Final_NTI_Project",
   "license": "No licence declared",
