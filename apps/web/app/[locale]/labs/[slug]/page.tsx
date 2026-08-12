@@ -177,6 +177,7 @@ export default async function LabPage({
             terminal: t("code.terminal"),
             destructive: t("code.destructive"),
             destructiveBody: t("code.destructiveBody"),
+            locale: typed,
           })}
         />
       </div>

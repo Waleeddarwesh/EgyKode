@@ -236,6 +236,7 @@ export default async function ChapterPage({
             terminal: t("code.terminal"),
             destructive: t("code.destructive"),
             destructiveBody: t("code.destructiveBody"),
+            locale: typed,
           })}
         />
       </div>

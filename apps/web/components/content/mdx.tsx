@@ -34,6 +34,7 @@ export interface MdxLabels {
   terminal: string;
   destructive: string;
   destructiveBody: string;
+  locale: string;
 }
 
 /**
@@ -159,17 +160,30 @@ function Blockquote({ children }: { children?: ReactNode }) {
   );
 }
 
-/** External links leave the site — say so, and do it safely. */
-function Anchor({ href, children }: { href?: string; children?: ReactNode }) {
+import Link from "next/link";
+
+/** External links leave the site — say so, and do it safely. Internal links get locale-prefixed. */
+function Anchor({ href, children, locale }: { href?: string; children?: ReactNode; locale: string }) {
   const external = href?.startsWith("http");
-  return (
-    <a
-      href={href}
-      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-    >
-      {children}
-    </a>
-  );
+
+  if (external || !href) {
+    return (
+      <a
+        href={href}
+        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      >
+        {children}
+      </a>
+    );
+  }
+
+  // Internal links: if they start with "/" but don't start with the locale, prefix it.
+  let localizedHref = href;
+  if (href.startsWith("/") && !href.startsWith(`/${locale}/`) && href !== `/${locale}`) {
+    localizedHref = `/${locale}${href}`;
+  }
+
+  return <Link href={localizedHref}>{children}</Link>;
 }
 
 /** Wide tables must scroll inside their own box, never the page (§12.6). */
@@ -185,7 +199,7 @@ export function mdxComponents(labels: MdxLabels) {
   return {
     pre: (props: { children?: ReactNode }) => <Pre {...props} labels={labels} />,
     blockquote: Blockquote,
-    a: Anchor,
+    a: (props: { href?: string; children?: ReactNode }) => <Anchor {...props} locale={labels.locale} />,
     table: Table,
   };
 }
