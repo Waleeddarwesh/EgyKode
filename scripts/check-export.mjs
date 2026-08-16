@@ -127,6 +127,51 @@ for (const file of html) {
   }
 }
 
+/**
+ * Every sitemap URL must be the page itself, not a redirect to it.
+ *
+ * The export is built with `trailingSlash: true`, so `/en/learn` answers 308
+ * and only `/en/learn/` is indexable. A sitemap listing the slashless form
+ * submits 288 URLs that all redirect — Search Console reports it as "Page
+ * with redirect", and none of the URLs you submitted is the one that can be
+ * indexed. That is exactly what happened, and nothing in the build could see
+ * it: the sitemap was valid XML, every page returned 200, and the redirect is
+ * correct behaviour. Only the *relationship* between the two was wrong.
+ *
+ * Checked against files on disk rather than over HTTP, so it fails at build
+ * time rather than after a crawl.
+ */
+{
+  const sitemapPath = join(DIR, "sitemap.xml");
+  if (existsSync(sitemapPath)) {
+    const xml = readFileSync(sitemapPath, "utf8");
+    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    const slashless = locs.filter((u) => !u.endsWith("/"));
+
+    if (slashless.length) {
+      errors.push(
+        `${slashless.length} of ${locs.length} sitemap URLs have no trailing slash\n` +
+          `    The export uses trailingSlash: true, so each of these answers 308 and\n` +
+          `    the URL you submitted is never the one Google can index.\n` +
+          `    e.g. ${slashless[0]}`,
+      );
+    }
+
+    // And the destination must actually exist on disk.
+    const missing = locs.filter((u) => {
+      const path = u.replace(/^https?:\/\/[^/]+/, "");
+      return !existsSync(join(DIR, decodeURIComponent(path), "index.html"));
+    });
+    if (missing.length) {
+      errors.push(
+        `${missing.length} sitemap URL(s) have no page in the export\n` +
+          `    A sitemap that advertises a 404 spends crawl budget on nothing.\n` +
+          `    e.g. ${missing[0]}`,
+      );
+    }
+  }
+}
+
 if (checkPreload && preloadPages === 0) {
   errors.push(
     "no page preloads a font\n" +

@@ -37,6 +37,18 @@ export async function generateMetadata({
       title: t("seo.homeTitle"),
       description: t("seo.homeDescription"),
       url: `/${locale}`,
+      // The dimensions must match the file. Scrapers lay the card out from
+      // these numbers before the image arrives, so declaring 800x800 for a
+      // 1408x768 file gets the preview cropped or letterboxed by whoever
+      // trusted the declaration.
+      images: [
+        {
+          url: "/brand/mark-dark-source.png",
+          width: 1408,
+          height: 768,
+          alt: "EgyKode — Cloud & DevOps, free and in the open",
+        },
+      ],
     },
   };
 }
@@ -67,10 +79,36 @@ export default async function LocaleLayout({
   const typed = locale as Locale;
   const t = getTranslations(typed);
 
+  // Built from SITE rather than a literal, so a preview deployment describes
+  // itself instead of claiming to be the production site.
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "EgyKode",
+    url: SITE.url,
+    description: t("seo.homeDescription"),
+    inLanguage: typed,
+    publisher: {
+      "@type": "Organization",
+      name: "EgyKode",
+      url: SITE.url,
+      logo: {
+        "@type": "ImageObject",
+        url: `${SITE.url}/brand/mark-dark-source.png`,
+        width: 1408,
+        height: 768,
+      },
+    },
+  };
+
   return (
     <html lang={typed} dir={dir(typed)} className={fontVariables} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </head>
       <body className={typed === "ar" ? "font-arabic antialiased" : "font-sans antialiased"}>
         <a

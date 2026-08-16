@@ -15,6 +15,21 @@ export const dynamic = "force-static";
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://egykode.com";
 
 /**
+ * The canonical form of a URL, which is the only form that belongs in a
+ * sitemap.
+ *
+ * The export is built with `trailingSlash: true`, so `/en/learn` answers 308
+ * and every page's own `<link rel="canonical">` carries the slash. Submitting
+ * the slashless form therefore hands Google 288 URLs that all redirect —
+ * which Search Console reports, correctly, as "Page with redirect", and none
+ * of the submitted URLs is the one that can be indexed.
+ *
+ * A sitemap is a list of pages you want indexed. Every entry must be the
+ * destination, never a step on the way to it.
+ */
+const canonical = (locale: string, path: string) => `${SITE}/${locale}${path}/`;
+
+/**
  * Machine-drafted translations are excluded until a human has reviewed them
  * (§4.4b): indexing unreviewed Arabic would damage exactly the audience the
  * Arabic corpus exists to serve.
@@ -22,7 +37,7 @@ const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://egykode.com";
 export default function sitemap(): MetadataRoute.Sitemap {
   const entries: MetadataRoute.Sitemap = [];
   const alternates = (path: string) => ({
-    languages: Object.fromEntries(PUBLIC_LOCALES.map((l) => [l, `${SITE}/${l}${path}`])),
+    languages: Object.fromEntries(PUBLIC_LOCALES.map((l) => [l, canonical(l, path)])),
   });
 
   for (const locale of PUBLIC_LOCALES) {
@@ -33,7 +48,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     for (const path of ["", "/learn", "/roadmaps", "/projects", "/labs", "/topics", "/courses",
                         "/prepare/questions"]) {
       entries.push({
-        url: `${SITE}/${locale}${path}`,
+        url: canonical(locale, path),
         changeFrequency: "weekly",
         priority: path === "" ? 1 : 0.8,
         alternates: alternates(path),
@@ -44,7 +59,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       if (locale === "ar" && chapter.translationStatus === "machine-draft") continue;
       const path = `/learn/${chapter.domain}/${chapter.contentId}`;
       entries.push({
-        url: `${SITE}/${locale}${path}`,
+        url: canonical(locale, path),
         lastModified: chapter.updated,
         changeFrequency: "monthly",
         priority: 0.7,
@@ -55,7 +70,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     for (const project of getProjects()) {
       const path = `/projects/${project.id}`;
       entries.push({
-        url: `${SITE}/${locale}${path}`,
+        url: canonical(locale, path),
         lastModified: project.updated,
         changeFrequency: "monthly",
         priority: 0.6,
@@ -68,7 +83,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     for (const roadmap of getRoadmaps()) {
       const path = `/roadmaps/${roadmap.id}`;
       entries.push({
-        url: `${SITE}/${locale}${path}`,
+        url: canonical(locale, path),
         changeFrequency: "monthly",
         priority: 0.9,
         alternates: alternates(path),
@@ -81,7 +96,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     for (const id of [...getAllDomains(), ...getGeneratedTopics().map((t) => t.id)]) {
       const path = `/topics/${id}`;
       entries.push({
-        url: `${SITE}/${locale}${path}`,
+        url: canonical(locale, path),
         changeFrequency: "weekly",
         priority: 0.5,
         alternates: alternates(path),
@@ -93,7 +108,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     for (const lab of getAllLabs()) {
       const path = `/labs/${lab.labId}`;
       entries.push({
-        url: `${SITE}/${locale}${path}`,
+        url: canonical(locale, path),
         changeFrequency: "monthly",
         priority: lab.tier === "guided" ? 0.7 : 0.5,
         alternates: alternates(path),

@@ -39,6 +39,17 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
+  // No `verification` block, deliberately.
+  //
+  // Search Console ownership is proved by a DNS TXT record on the apex
+  // (`google-site-verification=…`), which is what a `sc-domain:` property
+  // requires and what is live today. A meta tag would verify a *different*,
+  // URL-prefix property with a *different* token, so adding one here would be
+  // a second mechanism for something already done — and, wired to an unset
+  // env var, one that silently emits nothing while looking configured.
+  //
+  // If a URL-prefix property is ever wanted: Search Console → Settings →
+  // Ownership verification → HTML tag, then add `verification: { google: … }`.
   twitter: { card: "summary_large_image", title: "EgyKode", creator: "@Waleeddarwesh" },
 };
 
