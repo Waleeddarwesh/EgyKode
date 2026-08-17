@@ -115,14 +115,14 @@ export function MobileNav({
           type="button"
           aria-label={moreLabel}
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          className="fixed inset-0 z-40 bg-black/40 xl:hidden"
         />
       )}
 
       {open && hasMore && (
         <div
           id="mobile-more"
-          className="fixed inset-x-0 bottom-[3.6rem] z-40 border-t bg-bg md:hidden"
+          className="fixed inset-x-0 bottom-[3.6rem] z-40 border-t bg-bg xl:hidden"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           <ul className="mx-auto grid max-w-lg grid-cols-3 gap-1 p-3">
@@ -158,7 +158,7 @@ export function MobileNav({
       <nav
         aria-label="Primary"
         // pb-safe keeps the bar clear of the iOS home indicator.
-        className="fixed inset-x-0 bottom-0 z-50 border-t bg-bg/95 backdrop-blur-md md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 border-t bg-bg/95 backdrop-blur-md xl:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <ul className="mx-auto flex max-w-lg items-stretch">

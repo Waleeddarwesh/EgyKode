@@ -41,7 +41,12 @@ export function TopBar({ locale }: { locale: Locale }) {
           </span>
         </Link>
 
-        <nav aria-label="Main" className="hidden md:block">
+        {/* xl, not md. The header content measures ~1136px — the logo, nine nav links,
+            search and the two toggles. It overflowed at 768px by 368px and, after
+            a first move to lg, still overflowed at 1024px by 132px. The bottom
+            navigation covers everything below, so the two must switch at the same
+            breakpoint or a viewport band gets no navigation at all. */}
+        <nav aria-label="Main" className="hidden xl:block">
           <NavLinks items={nav} className="flex items-center gap-1" />
         </nav>
 
