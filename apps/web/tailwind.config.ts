@@ -71,7 +71,11 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         display: ["var(--font-display)", "var(--font-sans)", "sans-serif"],
-        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        // --font-mono-drawing is a unicode-range-scoped face carrying the box
+        // characters the Latin subset omits. It must sit *after* --font-mono so
+        // Latin still comes from the main file, and *before* the generics so a
+        // box glyph never reaches a system font with a different advance.
+        mono: ["var(--font-mono)", "var(--font-mono-drawing)", "ui-monospace", "monospace"],
         arabic: ["var(--font-arabic)", "Tahoma", "sans-serif"],
       },
       borderRadius: {

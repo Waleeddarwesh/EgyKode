@@ -324,7 +324,7 @@
   "resources.arabic": "العربية",
   "nav.courses": "Courses",
   "courses.subtitle": "Curated courses from creators and platforms worth your time. They complement the EgyKode curriculum — another way to learn the same concepts, not a replacement for building it yourself.",
-  "courses.provenance": "{count} references, {arabic} of them in Arabic. Every link was checked against its source page; nothing here was recommended from memory.",
+  "courses.provenance": "{count} courses, {arabic} of them in Arabic. Every link was checked against its source page; nothing here was recommended from memory.",
   "courses.language": "Language",
   "courses.arabicOnly": "Arabic",
   "courses.englishOnly": "English",

@@ -65,3 +65,8 @@ tests/screenshots/
 # Written by scripts/write-build-id.mjs on every build. Committing it would
 # mean the repo carries one build's id while the deploy carries another.
 apps/web/public/build-id.txt
+
+# TypeScript's incremental cache. It was tracked, so every build rewrote it and
+# every commit carried the churn — a machine-local artifact in the diff of
+# changes that had nothing to do with it.
+*.tsbuildinfo

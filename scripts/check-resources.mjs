@@ -97,7 +97,15 @@ if (process.argv.includes("--live")) {
   }
 }
 
-console.log(`resource check — ${count} reference(s) across ${Object.keys(domains).length} domain(s)`);
+// Both numbers, because they are different facts and reporting only the first
+// made the site look wrong: a course that serves two domains — Helm and
+// Kustomize, say — is referenced twice and listed once, so this printed 50
+// while /courses correctly said 40. Nine of the entries are cross-listed.
+const uniqueUrls = new Set(entries.map((e) => e.url)).size;
+console.log(
+  `resource check — ${count} reference(s) across ${Object.keys(domains).length} domain(s), ` +
+    `${uniqueUrls} unique course(s)`,
+);
 const byLang = entries.reduce((acc, e) => ({ ...acc, [e.language]: (acc[e.language] ?? 0) + 1 }), {});
 console.log(`  by language: ${Object.entries(byLang).map(([l, n]) => `${l}=${n}`).join(", ")}`);
 

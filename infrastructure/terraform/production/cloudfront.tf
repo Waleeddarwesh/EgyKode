@@ -77,6 +77,14 @@ resource "aws_cloudfront_function" "router" {
       // so map "/en/learn/" to "/en/learn/index.html" here.
       if (uri.endsWith('/')) {
         request.uri = uri + 'index.html';
+      } else if (/\/(opengraph-image|twitter-image|icon|apple-icon)$/.test(uri)) {
+        // Next writes its metadata images as extensionless *files* —
+        // "/en/learn/aws/vpc/opengraph-image" is a PNG, not a directory. They
+        // have no dot, so the rule below treated all 58 of them as pages and
+        // redirected to a trailing slash that resolves to no index.html: every
+        // chapter advertised an og:image that 404'd, and every share of a
+        // chapter on LinkedIn or WhatsApp lost its preview. Serve them as-is.
+        return request;
       } else if (!uri.includes('.')) {
         // A path with no extension is a page; keep the canonical trailing
         // slash rather than serving the same content on two URLs.

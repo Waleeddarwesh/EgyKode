@@ -45,6 +45,43 @@ const jetbrains = localFont({
   src: [{ path: "../app/fonts/jetbrains-mono-400-700.woff2", weight: "400 700", style: "normal" }],
   variable: "--font-mono",
   display: "swap",
+  // `--font-mono` otherwise expands to `jetbrains, "jetbrains Fallback"`, and
+  // that auto-generated fallback family covers every codepoint — including the
+  // box-drawing glyphs this file lacks. It therefore answered for them at
+  // system-font widths before the scoped drawing face below was ever consulted,
+  // and the drawing woff2 was never even fetched. Turning it off lets the
+  // per-character fallback reach the right face.
+  adjustFontFallback: false,
+});
+
+/**
+ * The box-drawing and arrow glyphs the ASCII diagrams are made of.
+ *
+ * The main file is Google's latin subset, which does not contain U+2500–U+259F.
+ * The browser therefore fell back to whatever system font had them, where a
+ * `─` measures 12.67px against 8.16px for a latin character — 55% wider. Every
+ * diagram built from box characters lost its column alignment and overflowed
+ * its container, across 22 content files.
+ *
+ * This is the same typeface, subset to exactly the sixteen glyphs the content
+ * uses (1.3KB), scoped by `unicode-range` so it is fetched only when a page
+ * actually draws a diagram. `next/font/local` hashes and serves it like any
+ * other face; the `unicode-range` descriptor is what makes the browser reach
+ * for it per character rather than per element.
+ */
+const jetbrainsDrawing = localFont({
+  src: [{ path: "../app/fonts/jetbrains-mono-drawing.woff2", weight: "400 700", style: "normal" }],
+  variable: "--font-mono-drawing",
+  display: "swap",
+  // One string literal, not a concatenation: `next/font` reads this config
+  // statically at build time and cannot evaluate an expression, which fails
+  // the build with a parse error rather than a helpful message.
+  declarations: [
+    {
+      prop: "unicode-range",
+      value: "U+2190, U+2192-2193, U+2500, U+2502, U+250c, U+2510, U+2514, U+2518, U+251c, U+2524, U+252c, U+2534, U+253c, U+2550, U+25b6",
+    },
+  ],
 });
 
 // Plex genuinely ships four distinct faces — their checksums differ — so these
@@ -64,5 +101,6 @@ export const fontVariables = [
   inter.variable,
   spaceGrotesk.variable,
   jetbrains.variable,
+  jetbrainsDrawing.variable,
   plexArabic.variable,
 ].join(" ");

@@ -58,6 +58,16 @@ const cases = [
   ["directory gets an index", event("/en/learn/"), { uri: "/en/learn/index.html" }],
   ["extensionless path gains a trailing slash", event("/en/learn"), { status: 308, location: "/en/learn/" }],
   ["asset passes through untouched", event("/_next/static/chunks/main.js"), { uri: "/_next/static/chunks/main.js" }],
+
+  // Metadata images are extensionless *files*. Redirecting them to a trailing
+  // slash is what broke every chapter's og:image in production, so each of the
+  // four route names is pinned, along with a page that merely ends in a
+  // similar word — "…/icon" is a file, "…/build-an-icon" is a page.
+  ["opengraph-image is served, not redirected", event("/en/learn/aws/vpc/opengraph-image"), { uri: "/en/learn/aws/vpc/opengraph-image" }],
+  ["twitter-image is served", event("/en/learn/aws/vpc/twitter-image"), { uri: "/en/learn/aws/vpc/twitter-image" }],
+  ["icon is served", event("/icon"), { uri: "/icon" }],
+  ["apple-icon is served", event("/apple-icon"), { uri: "/apple-icon" }],
+  ["a page ending in a similar word still redirects", event("/en/learn/how-to-build-an-icon"), { status: 308, location: "/en/learn/how-to-build-an-icon/" }],
   ["renamed /build keeps working", event("/en/build/foo/"), { status: 308, location: "/en/projects/foo/" }],
   ["renamed /build bare", event("/en/build"), { status: 308, location: "/en/projects/" }],
 

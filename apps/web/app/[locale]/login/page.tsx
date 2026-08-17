@@ -1,7 +1,18 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { AuthForm } from "@/components/auth/auth-form";
 import { getTranslations, isLocale, type Locale } from "@/lib/i18n";
+
+/**
+ * Not indexed. The root layout marks the whole site `index: true`, which is
+ * right for content and wrong for an account form — there is nothing here to
+ * rank for, and the property already has a backlog of real pages waiting to
+ * be crawled. Links are still followed.
+ */
+export const metadata: Metadata = {
+  robots: { index: false, follow: true },
+};
 
 export default async function LoginPage({
   params,

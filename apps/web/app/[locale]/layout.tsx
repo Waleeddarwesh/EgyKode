@@ -8,6 +8,7 @@ import { TopBar } from "@/components/layout/topbar";
 import { fontVariables } from "@/lib/fonts";
 import { PUBLIC_LOCALES, dir, getTranslations, isLocale, type Locale, languageAlternates } from "@/lib/i18n";
 import { SITE } from "@/lib/site";
+import { organization } from "@/lib/structured-data";
 
 export function generateStaticParams() {
   return PUBLIC_LOCALES.map((locale) => ({ locale }));
@@ -88,17 +89,15 @@ export default async function LocaleLayout({
     url: SITE.url,
     description: t("seo.homeDescription"),
     inLanguage: typed,
-    publisher: {
-      "@type": "Organization",
-      name: "EgyKode",
-      url: SITE.url,
-      logo: {
-        "@type": "ImageObject",
-        url: `${SITE.url}/brand/mark-dark-source.png`,
-        width: 1408,
-        height: 768,
-      },
-    },
+    // The canonical Organization node, not a second thinner copy of it.
+    //
+    // This block used to declare its own publisher with a name, a url and a
+    // logo — and nothing else. `organization()` carries the description and
+    // the `sameAs` profile links, which are the properties a search engine
+    // uses to decide that "EgyKode" is an entity rather than a misspelling of
+    // a better-known word. Google was substituting the query outright, so the
+    // signals that establish the brand are worth emitting everywhere.
+    publisher: organization(),
   };
 
   return (

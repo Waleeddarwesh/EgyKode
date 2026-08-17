@@ -1706,6 +1706,7 @@
       "coverage": "explained",
       "chapters": [
         "jenkins",
+        "gitops",
         "logging",
         "container-security"
       ],
@@ -1717,7 +1718,8 @@
       ],
       "roadmaps": [
         "cloud-devops-engineer",
-        "devsecops"
+        "devsecops",
+        "kubernetes-specialist"
       ],
       "projects": [
         "cloud-native-devops-platform",

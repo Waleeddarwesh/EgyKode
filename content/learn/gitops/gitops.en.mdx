@@ -24,6 +24,20 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
+## Why this comes after the pipeline
+
+The pipeline you built in [Continuous Integration (Jenkins)](/learn/jenkins/jenkins/)
+stops one step short of the cluster. It compiles, tests, scans, pushes an image
+to a registry — and then something still has to put that image on Kubernetes.
+
+So far that something has been you, running `kubectl` with credentials that can
+change anything in the cluster. Which means your pipeline needs those
+credentials too, and that whatever is running is whatever the last person to
+run a command left behind. There is no record of why the cluster looks the way
+it does.
+
+This phase moves that last step, and moves the authority with it.
+
 ## Introduction to GitOps
 
 The next chapter covers [Argo CD](/learn/argocd/argocd/), the tool. This one is about **GitOps**, the philosophy it implements.

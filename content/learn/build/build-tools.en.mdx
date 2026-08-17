@@ -24,7 +24,16 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Why a DevOps engineer needs this
+## Why this comes after Git
+
+[Version Control (Git & GitHub)](/learn/git/git-and-github/) gave you a place
+to keep source code and a way to change it safely with other people. The next
+thing that happens to source code is that it stops being source code: something
+compiles it, resolves its dependencies and produces one artifact you can ship.
+
+That step sits between every commit and every deployment on this platform, so
+when it breaks — and it breaks in CI more often than anywhere else — you are
+the one who has to read the failure.
 
 You are not going to write Java. But you are going to:
 

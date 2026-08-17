@@ -147,8 +147,29 @@ jobs:
           aws s3 sync apps/web/.next-export \
             s3://${{ secrets.AWS_SITE_BUCKET }} \
             --exclude "_next/static/*" \
+            --exclude "*/opengraph-image" \
+            --exclude "*/twitter-image" \
             --cache-control "public,max-age=0,must-revalidate" \
             --delete \
+            --only-show-errors
+
+      # Next writes metadata images as extensionless files, so `s3 sync` infers
+      # `binary/octet-stream` from the missing suffix and every social scraper
+      # refuses the image. They are excluded above and uploaded here with the
+      # type declared explicitly — `contentType` in opengraph-image.tsx only
+      # sets the header Next itself would send, which a static export never does.
+      #
+      # `--delete` is deliberately absent: it is scoped by the includes above,
+      # and a sync that deletes everything it did not match would empty the site.
+      - name: Upload metadata images with an explicit content type
+        run: |
+          aws s3 sync apps/web/.next-export \
+            s3://${{ secrets.AWS_SITE_BUCKET }} \
+            --exclude "*" \
+            --include "*/opengraph-image" \
+            --include "*/twitter-image" \
+            --content-type "image/png" \
+            --cache-control "public,max-age=0,must-revalidate" \
             --only-show-errors
 
       # Only the mutable half needs invalidating. `/_next/static/*` is

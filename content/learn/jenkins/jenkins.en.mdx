@@ -24,6 +24,20 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
+## Why this comes after Kubernetes
+
+You can now run containers across a cluster and keep them alive. But look at
+how every image got there: you built it on your machine, tagged it by hand, and
+pushed it yourself. That works exactly once, and only while you are the only
+person touching the repository.
+
+It breaks the moment somebody else pushes code — because nothing tests it,
+nothing scans it, and nothing records which commit produced the image that is
+now serving traffic. The cluster is automated. The path *to* the cluster is
+still a person remembering the right commands in the right order.
+
+This phase automates that path.
+
 ## Introduction to Jenkins
 
 When a developer finishes writing code, how do we know if it actually works? 

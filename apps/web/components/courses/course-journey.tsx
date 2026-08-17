@@ -108,13 +108,17 @@ export function CourseJourney({
   const withCourses = steps.filter((s) => matching(s).length > 0).length;
   const percent = steps.length ? Math.round((withCourses / steps.length) * 100) : 0;
 
-  const count = (language: Choice) =>
-    steps.reduce(
-      (n, s) =>
-        n + (language === "all" ? s.resources.length : s.resources.filter((r) => r.language === language).length),
-      0,
-    );
-
+  // No count on these buttons, deliberately.
+  //
+  // It used to sum resources per roadmap step, so a course recommended at two
+  // steps counted twice — "All 50" against a catalogue of 40 courses, three
+  // lines below a sentence that said "40 courses". Two true numbers measuring
+  // different things, side by side, reading as a contradiction.
+  //
+  // The number was also answering a question nobody asks: how many
+  // course-slots exist across all steps. What a reader wants to know is how
+  // much of the journey this language actually covers, and that is the
+  // coverage bar directly beneath — which recomputes on every choice.
   const options: { value: Choice; label: string }[] = [
     { value: "all", label: labels.all },
     { value: "ar", label: labels.arabic },
@@ -145,7 +149,6 @@ export function CourseJourney({
                 className={`btn h-10 px-4 ${active ? "btn-primary" : "btn-outline"}`}
               >
                 {option.label}
-                <span className="ms-1.5 tabular-nums opacity-70">{count(option.value)}</span>
               </button>
             );
           })}
