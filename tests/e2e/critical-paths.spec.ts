@@ -297,3 +297,72 @@ test.describe("accessibility basics", () => {
     }
   });
 });
+
+/**
+ * ASCII diagrams are made of box-drawing characters, and the site ships a
+ * subset of JetBrains Mono. Google's default subset omits U+2500–U+259F, so
+ * the browser silently fell back to a system font where `─` measures 12.67px
+ * against 8.16px for a latin character — every diagram across 22 content files
+ * lost its column alignment and overflowed its container.
+ *
+ * `lint:diagrams` cannot catch this: it counts characters in the source, which
+ * were correctly aligned. The defect only exists once a font is applied, so it
+ * has to be asserted in a browser.
+ *
+ * Three layers, because any one alone would have passed while broken:
+ *   1. the glyphs resolve to a font that has them
+ *   2. their advance matches a latin character exactly
+ *   3. a real diagram fits its container
+ */
+test.describe("diagram fonts", () => {
+  // Every non-latin glyph the content draws with.
+  const GLYPHS = ["─", "│", "┌", "┐", "└", "┘", "├", "┤", "┬", "┴", "┼", "═", "←", "→", "↓", "▶"];
+
+  test("box-drawing glyphs use the monospace advance", async ({ page }) => {
+    await page.goto("/en/learn/platform/system-architecture");
+    const measured = await page.evaluate(async (glyphs) => {
+      await document.fonts.ready;
+      const pre = document.querySelector("pre");
+      if (!pre) return null;
+      const style = getComputedStyle(pre);
+      const ctx = document.createElement("canvas").getContext("2d");
+      if (!ctx) return null;
+      ctx.font = `${style.fontSize} ${style.fontFamily}`;
+      const width = (ch: string) => ctx.measureText(ch).width;
+      return { latin: width("M"), glyphs: glyphs.map((g) => ({ g, w: width(g) })) };
+    }, GLYPHS);
+
+    expect(measured, "no <pre> found to measure").not.toBeNull();
+    // A latin advance of 0 would make every comparison trivially pass.
+    expect(measured!.latin).toBeGreaterThan(0);
+
+    for (const { g, w } of measured!.glyphs) {
+      expect(
+        Math.abs(w - measured!.latin),
+        `"${g}" advances ${w.toFixed(2)}px against ${measured!.latin.toFixed(2)}px for "M" — ` +
+          "the shipped mono subset is missing this glyph and the browser fell back",
+      ).toBeLessThan(0.05);
+    }
+  });
+
+  test("diagrams fit their container", async ({ page }) => {
+    // The pages carrying the most box-drawing content.
+    for (const path of [
+      "/en/learn/platform/system-architecture",
+      "/en/learn/platform/project-overview",
+      "/en/learn/platform/repository-structure",
+    ]) {
+      await page.goto(path);
+      const worst = await page.evaluate(async () => {
+        await document.fonts.ready;
+        // Array.from, not spread: this tsconfig targets a lib where a NodeList
+        // is not iterable.
+        const diagrams = Array.from(document.querySelectorAll("pre")).filter((el) =>
+          /[─-▟]/.test(el.textContent ?? ""),
+        );
+        return diagrams.reduce((n, el) => Math.max(n, el.scrollWidth - el.clientWidth), 0);
+      });
+      expect(worst, `a diagram on ${path} overflows by ${worst}px`).toBeLessThanOrEqual(1);
+    }
+  });
+});
