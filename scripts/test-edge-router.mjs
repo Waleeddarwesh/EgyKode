@@ -68,6 +68,9 @@ const cases = [
   ["icon is served", event("/icon"), { uri: "/icon" }],
   ["apple-icon is served", event("/apple-icon"), { uri: "/apple-icon" }],
   ["a page ending in a similar word still redirects", event("/en/learn/how-to-build-an-icon"), { status: 308, location: "/en/learn/how-to-build-an-icon/" }],
+  ["the removed /learn/courses placeholder redirects to the real page", event("/en/learn/courses/"), { status: 308, location: "/en/courses/" }],
+  ["…and without the trailing slash", event("/en/learn/courses"), { status: 308, location: "/en/courses/" }],
+  ["a real chapter under /learn is untouched", event("/en/learn/docker/docker/"), { uri: "/en/learn/docker/docker/index.html" }],
   ["renamed /build keeps working", event("/en/build/foo/"), { status: 308, location: "/en/projects/foo/" }],
   ["renamed /build bare", event("/en/build"), { status: 308, location: "/en/projects/" }],
 

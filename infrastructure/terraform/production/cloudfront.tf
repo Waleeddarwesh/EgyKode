@@ -63,6 +63,20 @@ resource "aws_cloudfront_function" "router" {
       // /build was renamed to /projects. URLs are permanent, so the old ones
       // keep working — this mirrors the redirects() block in next.config.mjs,
       // which `output: export` cannot apply.
+      // /learn/courses was a placeholder that shipped before the real /courses
+      // page existed. It rendered "coming soon" for a feature that is live, and
+      // named the homepage as its canonical, so it was indexed as a duplicate.
+      // The page is deleted; anything already pointing at it lands on the real
+      // one instead of a new 404.
+      var oldCourses = uri.match(/^\/(en|ar)\/learn\/courses\/?$/);
+      if (oldCourses) {
+        return {
+          statusCode: 308,
+          statusDescription: 'Permanent Redirect',
+          headers: { location: { value: '/' + oldCourses[1] + '/courses/' } },
+        };
+      }
+
       var renamed = uri.match(/^\/(en|ar)\/build(\/.*)?$/);
       if (renamed) {
         return {
