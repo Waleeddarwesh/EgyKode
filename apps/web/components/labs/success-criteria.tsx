@@ -60,9 +60,22 @@ export function SuccessCriteria({
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [loaded, setLoaded] = useState(false);
 
+  // Subscribed, not read once.
+  //
+  // The same criteria are now tickable from the sticky rail beside the work,
+  // and this list read the store only on mount — so ticking there left the
+  // checklist at the top of the page showing the old count until a reload. The
+  // store already broadcasts; this listens.
   useEffect(() => {
-    setChecked(new Set(readLabCriteria()[labId] ?? []));
+    const sync = () => setChecked(new Set(readLabCriteria()[labId] ?? []));
+    sync();
+    window.addEventListener("egykode:lab-criteria", sync);
+    window.addEventListener("storage", sync);
     setLoaded(true);
+    return () => {
+      window.removeEventListener("egykode:lab-criteria", sync);
+      window.removeEventListener("storage", sync);
+    };
   }, [labId]);
 
   const toggle = useCallback(

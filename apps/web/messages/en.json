@@ -290,6 +290,7 @@
   "labs.completeEvidence": "Evidence captured",
   "labs.completeNext": "Next in the project",
   "labs.stepsHeading": "Lab sections",
+  "labs.railHint": "Click a number to mark it done",
   "labs.stepPosition": "Step {n} of {total}",
   "labs.whyNext": "Why next:",
   "labs.pathProjectEyebrow": "Where this lands",

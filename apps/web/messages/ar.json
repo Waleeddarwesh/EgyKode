@@ -290,6 +290,7 @@
   "labs.completeEvidence": "الأدلة المسجلة",
   "labs.completeNext": "التالي في المشروع",
   "labs.stepsHeading": "أقسام المعمل",
+  "labs.railHint": "اضغط رقماً لوضع علامة اكتمال",
   "labs.stepPosition": "خطوة {n} من {total}",
   "labs.whyNext": "لماذا التالي:",
   "labs.pathProjectEyebrow": "إلى أين يصل هذا",

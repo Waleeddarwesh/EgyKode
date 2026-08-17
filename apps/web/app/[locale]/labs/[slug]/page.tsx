@@ -280,7 +280,17 @@ export default async function LabPage({
           single sticky line on a narrow one. */}
       <LabSteps
         steps={steps}
-        labels={{ heading: t("labs.stepsHeading"), position: t("labs.stepPosition") }}
+        labId={lab.labId}
+        // Text only: the evidence label belongs with the full checklist above,
+        // where there is room to say what actually settles the criterion.
+        criteria={(lab.successCriteria ?? []).map((c) => (typeof c === "string" ? c : c.text))}
+        labels={{
+          heading: t("labs.stepsHeading"),
+          position: t("labs.stepPosition"),
+          criteria: t("labs.criteria"),
+          of: t("roadmap.of"),
+          railHint: t("labs.railHint"),
+        }}
       />
 
       <div id="build" className="prose mt-10" lang={contentLang} dir={contentDir}>
