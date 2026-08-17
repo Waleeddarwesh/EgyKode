@@ -5,6 +5,10 @@ titleAr: "شبكات السحابة — AWS VPC"
 description: "Design a three-tier network and justify every route table"
 descriptionAr: "الـ VPC والـ Subnets والـ Route Tables والـ Internet و NAT Gateway."
 domain: aws
+capstoneRole: core
+capstonePhase: aws
+capstoneComponent: network
+capstonePurpose: "the VPC, subnets, NAT and routing the Terraform network module builds"
 level: intermediate
 type: concept
 phase: cloud
@@ -22,7 +26,7 @@ updated: 2026-08-08
 
 ## Introduction to AWS VPC
 
-In Chapter 02, we looked at the high-level System Architecture of our city. In this chapter, we are going to look at the exact concrete we use to build the roads and walls.
+In [System Architecture](/learn/platform/system-architecture/), we looked at the high-level design of our city. In this chapter, we are going to look at the exact concrete we use to build the roads and walls.
 
 The foundation of AWS Security is the **Virtual Private Cloud (VPC)**. If you do not understand CIDR blocks, Subnets, and Routing Tables, you cannot be a Cloud Engineer.
 
@@ -323,4 +327,4 @@ The architectural solution is **AWS PrivateLink**.
 2. You expose that NLB as an AWS VPC Endpoint Service.
 3. In VPC A, you create a VPC Interface Endpoint connecting to that service. 
 AWS will inject an Elastic Network Interface (ENI) into VPC A with a local `10.0.x.x` IP address. The Kubernetes cluster connects to that local IP, and AWS magically transports the packets to the NLB in VPC B, completely bypassing the CIDR overlap routing problem.
-[Contents](/learn) | [12 — Security & Identity (AWS IAM)](/learn/aws/iam) |
+[Contents](/learn) | [Security & Identity (AWS IAM)](/learn/aws/iam) |

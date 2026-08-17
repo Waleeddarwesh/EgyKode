@@ -21,7 +21,8 @@ tools:
   - "kubectl 1.28+"
 successCriteria:
   - "A ClusterIP Service routes traffic to three Pods, verified by repeated requests hitting different ones."
-  - "`kubectl get endpoints` lists three addresses."
+  - text: "`kubectl get endpoints` lists three addresses."
+    verify: command
   - "Another Pod reaches the Service by name, not by IP."
   - "You can make the endpoint list empty in two different ways, and explain each."
 challengeId: lab-k8s-services-challenge

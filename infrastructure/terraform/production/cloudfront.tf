@@ -134,9 +134,42 @@ resource "aws_cloudfront_cache_policy" "html" {
 # ── Security headers ────────────────────────────────────────────────────────
 resource "aws_cloudfront_response_headers_policy" "security" {
   name    = "egykode-security-headers"
-  comment = "HSTS, framing, referrer and MIME-sniffing protection"
+  comment = "CSP, HSTS, framing, referrer and MIME-sniffing protection"
 
   security_headers_config {
+    # The site is a static export whose every subresource is same-origin —
+    # verified by scanning the built output for external script/img/iframe/font
+    # loads and finding none. That makes a restrictive policy safe.
+    #
+    # `unsafe-inline` is unavoidable on both axes and is not an oversight:
+    # there is no server to mint a nonce, Next streams its Flight payload
+    # through inline `<script>`, the pre-paint theme script must run inline to
+    # avoid a flash, and Shiki emits per-token inline `style` attributes. The
+    # value is in the other directives — an injected tag still cannot pull code
+    # from another origin, retarget relative URLs, post a form off-site, embed
+    # a plugin, or frame the site.
+    #
+    # Verified against the built export on the ten main page types, exercising
+    # the search palette and theme toggle: zero violations.
+    content_security_policy {
+      override = true
+      content_security_policy = join("; ", [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline'",
+        # data: for inline SVG icons; https: so an author can reference an
+        # external image in MDX without the page silently losing it. Images
+        # cannot execute, so the widening costs nothing that matters.
+        "img-src 'self' data: https:",
+        "font-src 'self'",
+        "connect-src 'self'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "upgrade-insecure-requests",
+      ])
+    }
     strict_transport_security {
       access_control_max_age_sec = 63072000
       include_subdomains         = true

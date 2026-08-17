@@ -5,6 +5,10 @@ titleAr: "هيكل المستودع"
 description: "Find any file in the platform without searching"
 descriptionAr: "أين يقع كل شيء في المستودع، ولماذا نُظّم بهذا الشكل."
 domain: platform
+capstoneRole: core
+capstonePhase: foundations
+capstoneComponent: orientation
+capstonePurpose: "where each phase of the build lives in the repository"
 level: beginner
 type: concept
 phase: orientation
@@ -56,7 +60,7 @@ CloudDevOpsProject/
 │   ├── roles/              nine of them, one per tool
 │   └── playbook.yml        the entry point
 ├── 04-Kubernetes/      <-- Run it on the cluster
-│   └── manifests/          00-namespace … 09-network-policies
+│   └── manifests/          00-namespace … 12-network-policies
 ├── 05-Jenkins/         <-- Build, test and scan it (CI)
 │   ├── vars/               the shared library — logic lives here
 │   └── Jenkinsfiles/       one per service, thin
@@ -83,7 +87,7 @@ containerised.** The order is the dependency graph.
 Let's look at the intermediate mechanics of why these folders exist.
 
 #### 1. `02-Terraform/`
-- **What it does:** HashiCorp Configuration Language (HCL) describing the AWS account — 81 resources in total.
+- **What it does:** HashiCorp Configuration Language (HCL) describing the AWS account — around eighty resources, including the ACM certificate that puts the load balancer on HTTPS.
 - **Subfolders:**
   - `modules/`: four reusable blocks — `network` (VPC, subnets, NAT, route tables, NACLs, flow logs), `eks` (the cluster, its node group, OIDC and the IRSA roles), `ecr` (the registry, with immutable tags) and `server` (the Jenkins instance and its IAM profile).
   - `bootstrap/`: the S3 bucket that holds the state. It is separate for a reason — the thing that stores your state cannot itself be stored in that state, so it is created once, first, on its own.
@@ -97,7 +101,7 @@ Let's look at the intermediate mechanics of why these folders exist.
 - **Why isn't Ansible building the cluster?** On a self-managed cluster it would — that is what `kubeadm` is for. Here the control plane is AWS's responsibility and the node group comes from Terraform, so Ansible's remaining job is the machine that is genuinely yours: the build host.
 
 #### 3. `04-Kubernetes/`
-- **What it does:** The manifests, numbered in apply order: namespace, RBAC, config, storage, database, the two backends, the frontend, ingress, network policies.
+- **What it does:** The manifests, numbered in apply order: namespace, RBAC, config, storage, database, the two backends, the frontend, ingress, the Jenkins and SonarQube proxies, the Argo CD ingress, and the network policies last.
 - **Why separate it from Terraform?** Terraform builds the *cluster*. These manifests run *inside* it. Mixing them creates a chicken-and-egg problem — Terraform would need a cluster that its own run is still creating.
 
 #### 4. `06-ArgoCD/`
@@ -132,7 +136,7 @@ In a Fortune 500 company, repository structure is enforced by Compliance teams.
 2. **The `CODEOWNERS` file:** We place a `.github/CODEOWNERS` file at the root of the repo:
    ```text
    /02-Terraform/ @company/senior-cloud-architects
-   /04-Kubernetes/manifests/09-network-policies.yaml @company/security-team
+   /04-Kubernetes/manifests/12-network-policies.yaml @company/security-team
    ```
    If a developer tries to modify a production Terraform file, GitHub will automatically block the Pull Request until a Senior Cloud Architect explicitly approves it. This satisfies SOC2 access control requirements.
 
@@ -160,4 +164,4 @@ A: If you use the Terraform `kubernetes` provider to apply YAML manifests in the
 ### Principal/Architect
 **Q: In an enterprise setting, how do you handle secrets management across a Monorepo that contains multiple environments (Dev/Stage/Prod)?**
 A: You never store plaintext secrets in the repo. You structure the repo to integrate with a dynamic secrets manager (like HashiCorp Vault or AWS Secrets Manager). For Terraform, you use data sources to fetch secrets at runtime. For Kubernetes, you use the External Secrets Operator (ESO) configured in the `kubernetes/` directory. ESO authenticates with AWS Secrets Manager via IRSA (IAM Roles for Service Accounts) and dynamically injects the secrets into the cluster memory, keeping the Git repository completely devoid of sensitive data while maintaining a unified directory structure.
-[Contents](/learn) | [05 — The Foundation (Linux)](/learn/linux/linux-foundations) |
+[Contents](/learn) | [The Foundation (Linux)](/learn/linux/linux-foundations) |

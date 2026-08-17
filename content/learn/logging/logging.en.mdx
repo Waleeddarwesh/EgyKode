@@ -5,6 +5,11 @@ titleAr: "السجلات المركزية — Fluentd و Loki"
 description: "Explain why Loki indexes labels and not log content"
 descriptionAr: "سجلات يمكن البحث فيها فعليًا أثناء العطل."
 domain: logging
+capstoneRole: extension
+capstonePhase: observability
+capstoneComponent: logs
+capstonePurpose: "extends observability from metrics to searchable logs"
+capstoneWhy: "The capstone ships metrics, alerts and dashboards. Centralised logging is the next layer of the same problem."
 level: intermediate
 type: concept
 phase: observability
@@ -24,7 +29,7 @@ updated: 2026-08-08
 
 If an application crashes in a normal Linux server, you SSH into the server, run `cat /var/log/syslog`, and read the error message.
 
-If an application crashes in Kubernetes, the Pod is instantly deleted by the Auto Scaling Group, and a new Pod takes its place. If you try to read the logs, they are gone forever. The error message is destroyed.
+If an application crashes in Kubernetes, its Deployment (through the ReplicaSet it owns) replaces the Pod, and the new one takes its place. If you try to read the logs, they are gone forever. The error message is destroyed.
 
 To fix this, we need **Centralized Logging**.
 
@@ -150,4 +155,4 @@ The pipeline uses dynamic routing rules:
 1. High-value logs (ERROR, WARN, Security Events) are routed to the expensive Elasticsearch/Splunk cluster for real-time querying by engineers.
 2. Low-value logs (INFO, TRACE, DEBUG) are stripped of unnecessary JSON whitespace and routed directly to a cheap AWS S3 bucket (or Glacier) in Parquet format. 
 You satisfy the 7-year compliance requirement for pennies, while drastically reducing the license and compute costs of your primary logging database.
-[Contents](/learn) | [33 — DevSecOps (Container Security)](/learn/security/container-security) |
+[Contents](/learn) | [DevSecOps (Container Security)](/learn/security/container-security) |

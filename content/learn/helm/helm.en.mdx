@@ -5,6 +5,10 @@ titleAr: "إدارة الحزم — Helm"
 description: "Template a chart and know when Helm beats Kustomize"
 descriptionAr: "تحزيم ملفات Kubernetes بحيث يمكن إصدارها وإعادة استخدامها."
 domain: helm
+capstoneRole: core
+capstonePhase: kubernetes
+capstoneComponent: packaging
+capstonePurpose: "installs kube-prometheus-stack and the AWS Load Balancer Controller"
 level: intermediate
 type: concept
 phase: kubernetes
@@ -22,7 +26,7 @@ updated: 2026-08-08
 
 ## Introduction to Helm
 
-In Chapter 19, we saw that deploying a simple API to Kubernetes requires a massive YAML file. 
+In [Kubernetes Workloads](/learn/kubernetes/k8s-workloads/), we saw that deploying a simple API to Kubernetes requires a massive YAML file. 
 Now imagine you want to install something complex, like a Prometheus Monitoring stack. It requires **40 different YAML files** (Deployments, Services, ConfigMaps, Secrets, RBAC Roles, DaemonSets). 
 
 If you try to write and manage 40 YAML files by hand, you will go insane.
@@ -259,4 +263,4 @@ A: `helm install` talks directly to the Kubernetes API and deploys the applicati
 ### Principal/Architect
 **Q: In an ArgoCD GitOps architecture, why is it considered an anti-pattern to use Helm's `lookup` function or lifecycle hooks (like `pre-install` Jobs)?**
 A: Helm's `lookup` function attempts to query the live Kubernetes API during template rendering to fetch data (like an existing Secret). GitOps tools like ArgoCD render Helm charts purely deterministically, often in a vacuum without live cluster access, causing `lookup` to fail or produce non-deterministic results (Configuration Drift). Similarly, Helm lifecycle hooks rely on the Helm binary orchestrating the deployment order. ArgoCD bypasses the Helm binary, using it only for rendering, and applies the YAML using its own synchronization waves. Therefore, Helm hooks are often ignored or mishandled by GitOps tools, requiring a migration to ArgoCD SyncHooks instead.
-[Contents](/learn) | [22 — Environment Overlays (Kustomize)](/learn/kustomize/kustomize) |
+[Contents](/learn) | [Environment Overlays (Kustomize)](/learn/kustomize/kustomize) |

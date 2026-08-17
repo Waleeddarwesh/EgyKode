@@ -20,7 +20,7 @@ updated: 2026-08-09
 
 ## Introduction to Terraform
 
-في الفصل 10 عرفنا أن AWS مستودع ضخم من الأجهزة يمكن استئجارها. لكن كيف نستأجرها فعليًا؟
+في [خدمات أمازون السحابية](/learn/aws/aws-overview/) عرفنا أن AWS مستودع ضخم من الأجهزة يمكن استئجارها. لكن كيف نستأجرها فعليًا؟
 لو استخدمت الماوس للضغط على أزرار موقع AWS لبناء 50 خادمًا، ستقع في خطأ حتمًا. ستنسى فتح منفذ في الـ firewall على الخادم رقم 37.
 
 ولحل هذه المشكلة نستخدم **Infrastructure as Code (IaC)**: نكتب ملفًا نصيًا يصف بدقة ما نريده، ثم يقوم برنامج ببنائه بالشكل نفسه في كل مرة. و**Terraform** هو ذلك البرنامج.
@@ -310,11 +310,11 @@ module "network" {
 ```hcl
 terraform {
   backend "s3" {
-    bucket         = "ivolve-terraform-state"
-    key            = "environments/prod/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "ivolve-terraform-locks"
-    encrypt        = true
+    bucket       = "ivolve-terraform-state"
+    key          = "environments/prod/terraform.tfstate"
+    region       = "us-east-1"
+    use_lockfile = true
+    encrypt      = true
   }
 }
 ```
@@ -322,7 +322,10 @@ terraform {
 **شرح سطرًا بسطر:**
 
 - **`backend "s3"`**: ننقل «الذاكرة» من جهازك إلى S3 bucket على AWS، فتصبح أنت وزميلك تشتركان في الذاكرة نفسها.
-- **`dynamodb_table = "ivolve-terraform-locks"`**: ماذا لو كتبت أنت وزميلك `terraform apply` في اللحظة نفسها؟ سيتلف ملف الـ state. هنا يعمل DynamoDB بوصفه **State Lock**: من يضغط Enter أولًا يقفل قاعدة البيانات، ويحصل الثاني على رسالة خطأ تخبره أن مهندسًا آخر يشغّل Terraform حاليًا.
+- **`use_lockfile = true`**: ماذا لو نفّذت أنت وزميلك `terraform apply` في اللحظة نفسها؟ سيقرأ كلاكما الحالة نفسها ويكتب نتائج متعارضة. هذا الخيار يفعّل **قفل الحالة (State Lock)** داخل S3 نفسه: من يبدأ أولًا يأخذ القفل، ويُطلب من الثاني الانتظار.
+- **`encrypt = true`**: تُكتب الحالة مشفّرة، وهذا أهم مما يبدو لأن ملف الحالة قد يحتوي على قيم حسّاسة.
+
+> **عن القفل عبر DynamoDB.** المصادر الأقدم تستخدم `dynamodb_table`، وكان يتطلب جدولًا منفصلًا تنشئه وتدفع تكلفته. أصبح الآن قفل S3 المدمج عبر `use_lockfile` هو الطريقة الموصى بها، والآلية القديمة مهملة — ستقابلها في مشاريع قائمة، لكن لا تبدأ بها.
 
 **وكيفية تقسيم الـ state هي القرار الذي يبقى بعد الكود.** فملف state لكل بيئة هو الحد الأدنى؛ وما بعد ذلك تختار مدى دقة التقسيم:
 
@@ -381,4 +384,4 @@ A: تشغّل `terraform plan`. سيتواصل Terraform مع الـ AWS API و�
 **Q: اشرح كيف تعيد هيكلة terraform state أحادي ضخم إلى micro-states بأمان، دون تدمير البنية التحتية وإعادة إنشائها.**
 A: يجب فصل ملف الـ state باستخدام الأمر `terraform state mv`. تعرّف إعدادات الـ backend الجديدة، ثم تنقل عناوين الموارد بدقة من ملف الـ state الأحادي إلى ملفات الـ micro-state الجديدة. هذا يحدّث خريطة الذاكرة دون المساس بـ AWS APIs فعليًا، بما يضمن عدم توقف موارد الإنتاج إطلاقًا.
 
-[Contents](/learn) | [14 — Configuration Management (Ansible)](/learn/ansible/ansible) |
+[Contents](/learn) | [Configuration Management (Ansible)](/learn/ansible/ansible) |

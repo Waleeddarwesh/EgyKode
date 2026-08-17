@@ -21,11 +21,15 @@ tools:
   - "Terraform >= 1.6"
   - "AWS CLI v2, configured"
 successCriteria:
-  - "`terraform apply` creates an EC2 instance and an S3 bucket from a single configuration."
-  - "Running `terraform apply` a second time reports `No changes` — you can explain why."
+  - text: "`terraform apply` creates an EC2 instance and an S3 bucket from a single configuration."
+    verify: command
+  - text: "Running `terraform apply` a second time reports `No changes` — you can explain why."
+    verify: command
   - "The instance type comes from a variable, and the public IP leaves through an output."
-  - "You can point at the line in `terraform.tfstate` that maps your resource to its real AWS id."
-  - "`terraform destroy` removes everything, verified with the AWS CLI."
+  - text: "You can point at the line in `terraform.tfstate` that maps your resource to its real AWS id."
+    verify: command
+  - text: "`terraform destroy` removes everything, verified with the AWS CLI."
+    verify: command
 cleanup:
   - "terraform destroy -auto-approve"
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"

@@ -5,6 +5,10 @@ titleAr: "مقدمة في قابلية الرصد (Observability)"
 description: "Distinguish metrics, logs and traces, and know what each answers"
 descriptionAr: "المقاييس والسجلات والتتبّع — والفرق بينها وبين المراقبة."
 domain: observability
+capstoneRole: core
+capstonePhase: observability
+capstoneComponent: metrics
+capstonePurpose: "what the platform must answer about its own health"
 level: intermediate
 type: concept
 phase: observability
@@ -198,4 +202,4 @@ A: You must decouple local ingestion from global querying.
 1. Run a local Prometheus and Loki instance inside every cluster. Their only job is to aggressively scrape local Pods.
 2. Use **Thanos** or **Cortex** (for metrics) and **Loki's Gateway** (for logs). Configure the local instances to asynchronously ship their compressed data blocks to a central AWS S3 bucket.
 3. In a central Management Cluster, deploy a global Grafana instance connected to a Thanos Querier. The Querier federates queries across the S3 bucket and the live edge clusters, so one endpoint answers for every cluster and long-term data costs S3 prices rather than EBS prices.
-[Contents](/learn) | [30 — Metrics (Prometheus)](/learn/prometheus/prometheus) |
+[Contents](/learn) | [Metrics (Prometheus)](/learn/prometheus/prometheus) |

@@ -21,9 +21,11 @@ tools:
   - "An AWS account"
 successCriteria:
   - "A user can read one specific S3 bucket and nothing else, proven by an allowed call and a denied one."
-  - "You can explain why `s3:ListBucket` and `s3:GetObject` need different resource ARNs."
+  - text: "You can explain why `s3:ListBucket` and `s3:GetObject` need different resource ARNs."
+    verify: reasoning
   - "A role is assumed with `sts assume-role`, returning credentials that expire."
-  - "You can name what an explicit `Deny` does to an `Allow`."
+  - text: "You can name what an explicit `Deny` does to an `Allow`."
+    verify: reasoning
 cleanup:
   - "aws iam detach-user-policy --user-name lab-reader --policy-arn <arn>"
   - "aws iam delete-policy --policy-arn <arn>"

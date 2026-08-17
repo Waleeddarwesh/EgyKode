@@ -22,7 +22,8 @@ tools:
   - "sudo access"
 successCriteria:
   - "You can state the IP a hostname resolves to and the remaining TTL on that answer."
-  - "You can name the interface and gateway a packet to 1.1.1.1 would leave by."
+  - text: "You can name the interface and gateway a packet to 1.1.1.1 would leave by."
+    verify: reasoning
   - "You can distinguish 'connection refused' from 'timed out' and say what each implies."
   - "Given a failing connection, you can name which layer is at fault before changing anything."
 challengeId: lab-21-linux-networking-troubleshooting-challenge

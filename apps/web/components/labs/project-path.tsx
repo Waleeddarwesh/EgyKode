@@ -2,9 +2,9 @@
 
 import { ArrowRight, Check, ChevronDown, Circle, Flag, TriangleAlert } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-const CRITERIA_KEY = "egykode_lab_criteria";
+import { useLabCriteria } from "@/lib/lab-progress";
 
 export interface PathLab {
   labId: string;
@@ -71,31 +71,32 @@ export function ProjectPath({
     complete: string;
     billable: string;
     projectEyebrow: string;
+    /** Templates containing `{title}`, for the tick control on each row. */
+    markDone: string;
+    markNotDone: string;
+    /** Says the circle is pressable — otherwise nobody discovers it. */
+    tickHint: string;
+    /** Badges the one phase the build is currently in. */
+    phaseCurrent: string;
   };
 }) {
-  const [done, setDone] = useState<Set<string> | null>(null);
+  const { criteria, setDone } = useLabCriteria();
   const [open, setOpen] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    const read = () => {
-      try {
-        const all = JSON.parse(localStorage.getItem(CRITERIA_KEY) ?? "{}") as Record<string, number[]>;
-        const complete = new Set<string>();
-        for (const phase of phases) {
-          for (const lab of phase.labs) {
-            const ticked = all[lab.labId]?.length ?? 0;
-            if (lab.criteriaCount > 0 && ticked >= lab.criteriaCount) complete.add(lab.labId);
-          }
-        }
-        setDone(complete);
-      } catch {
-        setDone(new Set());
+  // Which labs are complete, derived from the same record the lab pages write.
+  // `null` while the store is unread, so nothing renders as "not started" to
+  // someone who is half way through.
+  const done = useMemo(() => {
+    if (!criteria) return null;
+    const complete = new Set<string>();
+    for (const phase of phases) {
+      for (const lab of phase.labs) {
+        const ticked = criteria[lab.labId]?.length ?? 0;
+        if (ticked >= Math.max(lab.criteriaCount, 1)) complete.add(lab.labId);
       }
-    };
-    read();
-    window.addEventListener("storage", read);
-    return () => window.removeEventListener("storage", read);
-  }, [phases]);
+    }
+    return complete;
+  }, [criteria, phases]);
 
   const all = phases.flatMap((p) => p.labs);
   const completed = done ? all.filter((l) => done.has(l.labId)).length : 0;
@@ -108,6 +109,23 @@ export function ProjectPath({
     const phase = phases.find((p) => p.labs.some((l) => l.labId === next.labId));
     if (phase) setOpen((current) => new Set(current).add(phase.id));
   }, [next, phases]);
+
+  // Arriving from a lab's breadcrumb (`/labs#phase-foundations`) should open
+  // that phase, not just scroll to a collapsed bar. The browser has already
+  // jumped by the time this runs, so scroll again once the panel exists.
+  useEffect(() => {
+    const fromHash = () => {
+      const id = window.location.hash.replace(/^#phase-/, "");
+      if (!id || !phases.some((p) => p.id === id)) return;
+      setOpen((current) => new Set(current).add(id));
+      requestAnimationFrame(() =>
+        document.getElementById(`phase-${id}`)?.scrollIntoView({ block: "start" }),
+      );
+    };
+    fromHash();
+    window.addEventListener("hashchange", fromHash);
+    return () => window.removeEventListener("hashchange", fromHash);
+  }, [phases]);
 
   return (
     <section className="mb-14" aria-labelledby="project-path">
@@ -171,9 +189,18 @@ export function ProjectPath({
           const phaseDone = done ? phase.labs.filter((l) => done.has(l.labId)).length : 0;
           const phaseComplete = done !== null && phaseDone === phase.labs.length;
           const isOpen = open.has(phase.id);
+          const phasePercent = phase.labs.length
+            ? Math.round((phaseDone / phase.labs.length) * 100)
+            : 0;
+          // The phase holding the next unfinished lab — where the build is.
+          const isCurrent =
+            !phaseComplete && Boolean(next) && phase.labs.some((l) => l.labId === next?.labId);
 
           return (
-            <li key={phase.id} className="card overflow-hidden">
+            // The anchor lives on the card, not on the panel inside it: the
+            // panel is only rendered while the phase is open, so a link to a
+            // collapsed phase resolved to nothing.
+            <li key={phase.id} id={`phase-${phase.id}`} className="card overflow-hidden">
               <h3>
                 <button
                   type="button"
@@ -186,7 +213,7 @@ export function ProjectPath({
                     })
                   }
                   aria-expanded={isOpen}
-                  aria-controls={`phase-${phase.id}`}
+                  aria-controls={`panel-${phase.id}`}
                   className="flex w-full items-center gap-4 p-5 text-start transition-colors hover:bg-surface-hover"
                 >
                   <span
@@ -201,13 +228,55 @@ export function ProjectPath({
                   </span>
 
                   <span className="min-w-0 flex-1">
-                    <span className="block font-display font-semibold text-content">
-                      {phase.title}
+                    <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                      <span className="font-display font-semibold text-content">{phase.title}</span>
+                      {/* Only the phase you are actually in is badged. A row of
+                          eleven identical cards answers "what exists" and never
+                          "where am I". */}
+                      {isCurrent && (
+                        <span
+                          className="badge px-1.5 text-[10px] font-semibold uppercase tracking-wide"
+                          style={{ background: "var(--clr-success-bg)", color: "var(--clr-primary-dark)" }}
+                        >
+                          {labels.phaseCurrent}
+                        </span>
+                      )}
                     </span>
-                    <span className="mt-0.5 block text-xs text-content-muted">
+
+                    {/* Deliberately thin and unlabelled. The number to the
+                        right is the fact; this only carries its shape at a
+                        glance, and a heavier bar would turn the page into a
+                        completion score rather than a build. */}
+                    <span
+                      className="mt-2 block h-0.5 w-full max-w-[15rem] overflow-hidden rounded-full"
+                      style={{ background: "var(--clr-surface-active)" }}
+                      aria-hidden
+                    >
+                      <span
+                        className="block h-full rounded-full transition-[width] duration-300"
+                        style={{
+                          width: `${phasePercent}%`,
+                          background: "var(--clr-primary)",
+                        }}
+                      />
+                    </span>
+
+                    <span className="mt-1.5 block text-xs text-content-muted">
                       {phase.labs.length} labs
-                      {done && phaseDone > 0 && ` · ${phaseDone}/${phase.labs.length}`}
                     </span>
+                  </span>
+
+                  {/* The count, not a percentage: "3 / 8" is how far through
+                      the build you are; "37%" is how much content you read. */}
+                  <span
+                    className="shrink-0 text-sm font-medium tabular-nums"
+                    style={
+                      phaseComplete
+                        ? { color: "var(--clr-primary)" }
+                        : { color: "var(--clr-text-secondary)" }
+                    }
+                  >
+                    {done ? `${phaseDone} / ${phase.labs.length}` : `— / ${phase.labs.length}`}
                   </span>
 
                   <ChevronDown
@@ -219,29 +288,70 @@ export function ProjectPath({
               </h3>
 
               {isOpen && (
-                <div id={`phase-${phase.id}`} className="border-t px-5 pb-5 pt-4">
+                <div id={`panel-${phase.id}`} className="border-t px-5 pb-5 pt-4">
                   {/* Why this phase exists at all — the question a linear list
                       never answers. */}
                   <p className="mb-4 max-w-2xl text-sm leading-relaxed text-content-secondary">
                     {phase.why}
                   </p>
 
+                  {/* Says the circle is pressable. Without this the control is
+                      invisible — a circle in a list reads as a bullet, and the
+                      only discovered route to "done" stays the criteria
+                      checklist inside the lab. */}
+                  <p className="mb-2 flex items-center gap-1.5 text-xs text-content-muted">
+                    <Circle size={11} aria-hidden />
+                    {labels.tickHint}
+                  </p>
+
                   <ol className="space-y-1">
                     {phase.labs.map((lab, index) => {
                       const isDone = done?.has(lab.labId) ?? false;
                       return (
-                        <li key={lab.labId}>
+                        <li
+                          key={lab.labId}
+                          className="group flex min-w-0 items-center gap-3 rounded-md px-2 py-2.5 transition-colors hover:bg-surface-hover"
+                        >
+                          {/* The circle is its own control, not part of the
+                              link. Marking a lab done previously meant opening
+                              it and ticking every criterion one at a time;
+                              this is the same record written in one click.
+                              It cannot live inside the <Link> — a button
+                              nested in an anchor is invalid and swallows the
+                              click on the row. */}
+                          <button
+                            type="button"
+                            onClick={() => setDone(lab.labId, lab.criteriaCount, !isDone)}
+                            aria-pressed={isDone}
+                            aria-label={(isDone ? labels.markNotDone : labels.markDone).replace(
+                              "{title}",
+                              lab.title,
+                            )}
+                            title={(isDone ? labels.markNotDone : labels.markDone).replace(
+                              "{title}",
+                              lab.title,
+                            )}
+                            // Negative margin widens the tap target to ~28px
+                            // without changing the row's height or spacing.
+                            className="-m-1.5 shrink-0 rounded-full p-1.5 transition-colors hover:bg-surface-active"
+                          >
+                            {isDone ? (
+                              <Check size={16} style={{ color: "var(--clr-primary)" }} aria-hidden />
+                            ) : (
+                              // Darkens on hover so the circle reads as
+                              // something you can press, not just a bullet.
+                              <Circle
+                                size={16}
+                                className="text-content-muted transition-colors group-hover:text-content-secondary"
+                                aria-hidden
+                              />
+                            )}
+                          </button>
+
                           <Link
                             href={lab.href}
-                            className="group flex min-w-0 items-center gap-3 rounded-md px-2 py-2.5 transition-colors hover:bg-surface-hover"
+                            className="flex min-w-0 flex-1 items-center gap-3"
                           >
-                            <span className="shrink-0">
-                              {isDone ? (
-                                <Check size={16} style={{ color: "var(--clr-primary)" }} aria-hidden />
-                              ) : (
-                                <Circle size={16} className="text-content-muted" aria-hidden />
-                              )}
-                            </span>
                             <span
                               className="h-4 w-1 shrink-0 rounded-full"
                               style={{ background: lab.colour }}

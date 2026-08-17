@@ -5,6 +5,10 @@ titleAr: "الثقة الصفرية (Zero Trust) — Network Policies"
 description: "Write a default-deny policy and know why the CNI must enforce it"
 descriptionAr: "الرفض الافتراضي داخل الكلاستر، ولماذا هو الوضع الصحيح."
 domain: security
+capstoneRole: core
+capstonePhase: kubernetes
+capstoneComponent: security
+capstonePurpose: "the eight default-deny NetworkPolicies in the namespace"
 level: advanced
 type: concept
 phase: security
@@ -243,4 +247,4 @@ A: When you block all Egress traffic, you also block outbound UDP Port 53 traffi
 **Q: Contrast iptables-based CNIs (like traditional Calico) with eBPF-based CNIs (like Cilium) for enforcing Network Policies in a 5,000-node cluster.**
 A: In a traditional iptables CNI, every Network Policy translates into sequential iptables rules on the Linux node. In a massive cluster, evaluating a packet against 50,000 iptables rules takes a long time, causing severe CPU spikes and network latency (the `iptables` bottleneck). 
 Cilium uses eBPF (Extended Berkeley Packet Filter). eBPF compiles the network policies into highly optimized, safe bytecode that executes directly inside the Linux Kernel using O(1) hash tables. It completely bypasses the iptables stack. This results in incredibly low latency, vastly lower CPU usage, and the ability to enforce Layer 7 (HTTP-aware) network policies, making eBPF the clear choice for hyper-scale enterprise environments.
-[Contents](/learn) | [35 — Advanced Networking (Service Mesh)](/learn/kubernetes/service-mesh) |
+[Contents](/learn) | [Advanced Networking (Service Mesh)](/learn/kubernetes/service-mesh) |

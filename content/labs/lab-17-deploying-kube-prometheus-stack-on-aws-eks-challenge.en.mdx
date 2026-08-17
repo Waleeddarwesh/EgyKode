@@ -17,10 +17,13 @@ cleanup:
   - "kubectl delete pvc --all -n monitoring   # PVCs are NOT removed by uninstall"
   - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
 successCriteria:
-  - "Prometheus is scraping the cluster and your application, verified in Targets."
+  - text: "Prometheus is scraping the cluster and your application, verified in Targets."
+    verify: state
   - "A ServiceMonitor picks up the application without editing Prometheus configuration."
-  - "Grafana shows CPU and memory for your workload."
-  - "Metrics survive a Prometheus Pod restart."
+  - text: "Grafana shows CPU and memory for your workload."
+    verify: state
+  - text: "Metrics survive a Prometheus Pod restart."
+    verify: state
 guidedLabId: lab-17-deploying-kube-prometheus-stack-on-aws-eks
 authors: [waleed]
 updated: 2026-08-09

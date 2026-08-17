@@ -1,0 +1,319 @@
+---
+contentId: sre-fundamentals
+title: "Site Reliability Engineering"
+titleAr: "هندسة موثوقية الأنظمة"
+description: "Decide what reliable means, alert on it honestly, and run an incident without guessing"
+descriptionAr: "تعريف الموثوقية، والتنبيه الصادق، وإدارة الحوادث دون تخمين."
+domain: sre
+capstoneRole: core
+capstonePhase: operations
+capstoneComponent: reliability
+capstonePurpose: "turns the platform's twelve alert rules and runbooks into a way of working — deciding what to page on, and what to do when it fires"
+level: intermediate
+type: concept
+phase: production
+order: 44
+readingTime: 45
+prerequisites: ["observability"]
+relatedChapters: ["prometheus", "grafana", "chaos-engineering", "disaster-recovery"]
+objectives:
+  - "Choose an SLI that reflects what a user actually experiences"
+  - "Decide what deserves a page, and what deserves a ticket"
+  - "Run an incident with a role, a timeline and a hypothesis"
+  - "Write a postmortem that changes the system rather than blaming a person"
+status: complete
+translationStatus: missing
+authors: [waleed]
+updated: 2026-08-17
+---
+
+## Why this comes before breaking things
+
+You have Prometheus scraping the platform, Grafana showing it, and twelve alert
+rules that fire. What you do not yet have is a way of deciding **which failures
+matter, how much unreliability is acceptable, and what happens when the pager
+goes off at 3am.**
+
+That is what this chapter is for, and it has to come before Chaos Engineering
+and Disaster Recovery. Breaking a system on purpose is only useful if you can
+already tell whether it is healthy, and restoring from backup is only a
+*recovery* if you know how quickly it had to happen.
+
+> [Observability](/learn/observability/observability) defines SLI, SLO, SLA and
+> the error budget, and shows what each nine costs you in downtime. This chapter
+> assumes those definitions and covers what you *do* with them.
+
+---
+
+## Level 1 — Reliability as an engineering decision
+
+### 100% is the wrong target
+
+The instinct is that more reliable is always better. It is not, and the reason
+is economic rather than technical: each additional nine costs disproportionately
+more than the last, and past a point the user cannot tell the difference. Their
+phone drops connections more often than your service does.
+
+So reliability becomes a **decision**: how unreliable are we willing to be, and
+what do we spend to get there? An SLO is that decision, written down, in
+advance, by the people who will be woken up by it.
+
+### What makes a good indicator
+
+An SLI should measure what a *user* experiences, not what a *server* is doing.
+
+| A weak indicator | A better one | Why |
+|---|---|---|
+| CPU above 90% | Requests failing | CPU at 90% with everyone served is a healthy machine |
+| Pod restarted | Requests failing during the restart | A restart nobody noticed is not an incident |
+| Disk 80% full | Writes rejected | 80% is a warning, not a symptom |
+| Average latency | p95 or p99 latency | The mean hides the users having the worst time |
+
+The capstone's alerts follow this: `IvolveServiceDown` and `IvolveServiceSlow`
+come from black-box probes that call the application the way a user would, from
+outside. That is deliberate — a probe that tests the thing users touch cannot
+be fooled by a component that is technically up.
+
+### The error budget makes the argument for you
+
+If the SLO is 99.9%, you have about 43 minutes of failure per month to spend.
+That is the **error budget**, and it converts an argument about feelings into
+arithmetic:
+
+- **Budget remaining?** Ship. Take the risk. That is what the budget is for.
+- **Budget exhausted?** Reliability work takes priority over features until it recovers.
+
+This is the useful part. "We should slow down and fix stability" is a matter of
+opinion. "We have spent 41 of our 43 minutes and it is the 12th" is a number
+everyone can see, and it removes the personality from the decision.
+
+---
+
+## Level 2 — Alerting that people trust
+
+### The only test that matters
+
+**A page must require a human to act, now.** If the answer to "what do I do
+about this?" is "nothing, it clears itself", it should never have woken anyone.
+
+This is not a style preference. Alerts that do not need action train people to
+ignore alerts — and the alert they ignore is eventually the real one. A pager
+that cries wolf is worse than no pager, because it costs the same sleep and buys
+none of the safety.
+
+| Signal | Where it goes | Example |
+|---|---|---|
+| Users affected now, action needed | **Page** | The service is not answering |
+| Will affect users soon, action needed | **Ticket** | Certificate expires in seven days |
+| Interesting, no action | **Dashboard** | Traffic is up 20% this week |
+
+### Why every alert has a `for:`
+
+Look at the capstone's rules and every one carries a duration:
+
+```yaml
+- alert: IvolveServiceDown
+  for: 2m          # the condition must hold continuously for two minutes
+- alert: IvolveServiceSlow
+  for: 5m
+- alert: IvolveDeploymentReplicasMismatch
+  for: 15m         # a rollout is *supposed* to mismatch briefly
+```
+
+That duration is what separates an alert from noise. Almost everything in a
+distributed system is briefly wrong: a pod restarts, a probe times out once, a
+deployment rolls. Firing on the instant reading pages someone for normal
+behaviour. The `for:` window asks "is it *still* wrong?" — and the right value
+comes from how long the condition takes to matter, not from a habit.
+
+Fifteen minutes on a replica mismatch is not laziness. A rolling update
+legitimately runs with fewer ready replicas for a while; paging at thirty
+seconds would page on every single deploy.
+
+### An alert without a runbook is half an alert
+
+Every capstone rule carries a `runbook_url` annotation pointing into
+`docs/RUNBOOK.md`. That is the difference between waking someone up with a
+problem and waking them up with a problem *and a starting point*.
+
+At 3am, the responder is not at their best, may not have written the service,
+and needs three things: what this alert means, how to confirm it, and the first
+safe action. A runbook entry that says only "investigate the service" has told
+them nothing they did not know from the alert name.
+
+---
+
+## Level 3 — Running an incident
+
+### Roles before heroics
+
+The failure mode of an unstructured incident is five engineers in a channel all
+investigating the same theory, nobody writing anything down, and a manager
+asking for updates that interrupt the people fixing it.
+
+Even at small scale, name two roles:
+
+- **Incident lead** — decides, coordinates, keeps the timeline. Does *not* debug.
+- **Responder** — investigates and changes things, one at a time.
+
+Separating them matters because the lead's job is the thing that gets dropped
+under pressure: noticing that a theory has been disproved, that thirty minutes
+have passed, or that it is time to escalate.
+
+### The measurements that improve
+
+Two numbers describe how an organisation handles failure:
+
+- **MTTD** — mean time to *detect*. Between the failure starting and anyone knowing.
+- **MTTR** — mean time to *recover*. Between knowing and it being resolved.
+
+MTTD is an observability problem: better probes and honest alerts shrink it.
+MTTR is a preparation problem: runbooks, safe rollback and rehearsal shrink it.
+A team that only invests in prevention keeps both numbers high, because the
+failure it did not predict is the one that happens.
+
+### The loop, in order
+
+```text
+Detect        the alert fires — MTTD ends here
+   |
+Triage        how bad, who is affected, does it need a page?
+   |
+Mitigate      STOP THE BLEEDING FIRST — this is not the same as fixing
+   |
+Diagnose      now find out why, with the pressure off
+   |
+Resolve       the real fix, reviewed like any other change
+   |
+Learn         postmortem — MTTR ended at Mitigate, learning did not
+```
+
+**Mitigate before you diagnose.** The instinct of a good engineer is to
+understand the problem first, and in an incident that instinct is wrong. If
+rolling back restores service, roll back — then investigate at leisure with the
+users no longer affected. Argo CD makes this concrete: reverting the manifest
+commit puts the previous state back, and the investigation continues against a
+healthy system.
+
+### The one question that finds most causes
+
+**What changed?**
+
+Most incidents follow a change — a deploy, a config edit, a certificate expiry,
+a dependency's own incident. The platform is built so this question has an
+answer: every deploy is a commit, so `git log` on the GitOps repository is a
+timeline of everything that changed and when.
+
+That is not a side effect of GitOps. It is one of the main reasons to adopt it.
+
+---
+
+## Level 4 — Learning from failure
+
+### Postmortems are about systems, not people
+
+A postmortem asks **how the system allowed this**, not who did it. This is
+practical rather than kind: in a culture that assigns blame, people stop
+reporting near-misses, and near-misses are the cheapest information you will
+ever get about your own reliability.
+
+"The engineer applied the wrong manifest" is not a cause. It is a starting
+point:
+
+- Why was applying it possible without review?
+- Why did nothing catch it before it reached production?
+- Why did it take eleven minutes to notice?
+- Why was the rollback unclear?
+
+Each answer is a defect in the system, and each is fixable. The engineer is not.
+
+### What a postmortem must contain
+
+| Section | The point |
+|---|---|
+| Timeline | What happened, with timestamps, including when you *knew* |
+| Impact | Users affected, duration, error budget consumed |
+| Root cause | The systemic reason, not the last action |
+| What went well | Preserve it deliberately — it is fragile |
+| What did not | Where the process failed, honestly |
+| Actions | Owned, dated, and small enough to actually happen |
+
+The actions are the entire output. A postmortem that ends in a document nobody
+implements has converted an outage into paperwork.
+
+### When reliability work should stop
+
+An error budget with *nothing* consumed is not a triumph — it usually means you
+are too cautious, shipping too slowly, or over-provisioned. The budget exists to
+be spent. Consistently finishing the month at 100% is a signal to take more
+risk, or to lower the objective to one you will actually use.
+
+---
+
+## Where this appears in the capstone
+
+| Concept | The implementation |
+|---|---|
+| SLI | Black-box probes calling the application from outside |
+| Alerting | Twelve Prometheus rules, each with a `for:` window |
+| Runbooks | `runbook_url` annotations into `docs/RUNBOOK.md` |
+| Mitigation | Revert the manifest commit; Argo CD reconciles back |
+| "What changed?" | `git log` on the GitOps repository |
+| MTTD | How quickly the probes notice, versus how quickly a user would |
+| Rehearsal | The incident labs — a real failure with no hint which layer broke |
+
+---
+
+## What comes next
+
+With this in place, the two chapters after it stop being exercises:
+
+- **[Chaos Engineering](/learn/sre/chaos-engineering)** — deliberately testing a failure you have a hypothesis about. Only meaningful once you can observe steady state and abort when it degrades.
+- **[Disaster Recovery](/learn/sre/disaster-recovery)** — RTO and RPO are reliability objectives for the worst case, and they are chosen the same way an SLO is.
+
+---
+
+## Check yourself
+
+**Beginner.** Your service met its 99.9% SLO with no budget consumed. Good news?
+
+> Partly. It means users were well served, but a budget that is never spent
+> usually means you are shipping too slowly or over-provisioned. The budget is
+> an allowance, not a score. Consider taking more risk, or lowering the SLO to a
+> number you will actually make decisions with.
+
+**Intermediate.** An alert fires every deploy and clears in ninety seconds. What
+do you do?
+
+> Change or remove it. It requires no action, so it is not a page — and its real
+> cost is teaching the team to ignore alerts. If the underlying condition ever
+> matters, express it with a `for:` window longer than a normal rollout, so it
+> fires only when the deploy has genuinely failed to converge.
+
+**Advanced.** You are paged. Rolling back would probably fix it, but you do not
+yet know why. What first?
+
+> Roll back. Mitigation comes before diagnosis: restoring service ends the user
+> impact and stops the clock on MTTR, and the investigation is easier without
+> the pressure. Preserve the evidence first — logs, metrics, the failing image
+> tag — so rolling back does not destroy what you need to understand it.
+
+**Senior.** Why does the platform use black-box probes rather than only
+scraping the application's own metrics?
+
+> Because a service can report itself healthy while being unreachable. If the
+> Ingress is misrouted, the ALB has no healthy targets, or DNS is wrong, every
+> internal metric can look perfect while no user can connect. A probe that calls
+> the application from outside tests the path users actually take. Both matter:
+> internal metrics tell you *why*, the probe tells you *whether*.
+
+**Architect.** How do error budgets change the relationship between the people
+shipping features and the people carrying the pager?
+
+> They replace a recurring argument with a shared number agreed in advance. With
+> budget remaining, shipping is explicitly fine — the budget exists to be spent.
+> With it exhausted, reliability work takes priority automatically, without
+> anyone having to win a debate. The prerequisite is that the SLO is set jointly
+> and honestly; imposed by one side, it becomes a target to game rather than a
+> decision to share.
+[Contents](/learn) | [Chaos Engineering](/learn/sre/chaos-engineering) |

@@ -21,7 +21,8 @@ tools:
   - "Terraform >= 1.6"
   - "AWS CLI v2, configured"
 successCriteria:
-  - "You detected a manual change and can explain both ways to resolve it."
+  - text: "You detected a manual change and can explain both ways to resolve it."
+    verify: state
   - "A resource created outside Terraform is imported and `plan` reports no changes."
   - "A deleted state file is restored from S3 versioning and matches reality."
   - "Nothing was destroyed and recreated during any of it."

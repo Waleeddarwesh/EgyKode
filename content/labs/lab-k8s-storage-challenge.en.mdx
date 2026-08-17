@@ -22,8 +22,10 @@ tools:
   - "kubectl 1.28+"
 successCriteria:
   - "Data written into a container is gone after the Pod is deleted — demonstrated, not assumed."
-  - "The same data survives a Pod deletion once a PVC is mounted."
-  - "You can explain why a 3-replica Deployment with one ReadWriteOnce PVC leaves Pods Pending."
+  - text: "The same data survives a Pod deletion once a PVC is mounted."
+    verify: state
+  - text: "You can explain why a 3-replica Deployment with one ReadWriteOnce PVC leaves Pods Pending."
+    verify: reasoning
   - "You can state what happens to the underlying disk when the PVC is deleted, for your StorageClass."
 cleanup:
   - "kubectl delete deployment,pod --all"

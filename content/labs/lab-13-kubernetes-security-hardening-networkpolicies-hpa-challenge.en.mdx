@@ -19,8 +19,10 @@ cleanup:
 successCriteria:
   - "With default-deny applied, an unrelated Pod cannot reach the application — demonstrated."
   - "The application still reaches the database and DNS."
-  - "The HPA scales up under load and back down afterwards."
-  - "You can explain why a NetworkPolicy sometimes does nothing at all."
+  - text: "The HPA scales up under load and back down afterwards."
+    verify: state
+  - text: "You can explain why a NetworkPolicy sometimes does nothing at all."
+    verify: reasoning
 guidedLabId: lab-13-kubernetes-security-hardening-networkpolicies-hpa
 authors: [waleed]
 updated: 2026-08-09

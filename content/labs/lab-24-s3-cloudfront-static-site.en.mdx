@@ -21,10 +21,14 @@ tools:
   - "AWS CLI v2, configured"
   - "An AWS account"
 successCriteria:
-  - "The site loads over HTTPS on the CloudFront domain."
-  - "The bucket is private — a direct S3 URL returns AccessDenied, and only CloudFront can read it."
-  - "Fingerprinted assets return `max-age=31536000, immutable`; HTML revalidates."
-  - "`Content-Encoding: br` is present on an HTML response."
+  - text: "The site loads over HTTPS on the CloudFront domain."
+    verify: state
+  - text: "The bucket is private — a direct S3 URL returns AccessDenied, and only CloudFront can read it."
+    verify: state
+  - text: "Fingerprinted assets return `max-age=31536000, immutable`; HTML revalidates."
+    verify: state
+  - text: "`Content-Encoding: br` is present on an HTML response."
+    verify: state
   - "Everything created is deleted at the end, verified by listing."
 cleanup:
   - "aws cloudfront get-distribution-config --id $DIST_ID > dist.json  # note the ETag"

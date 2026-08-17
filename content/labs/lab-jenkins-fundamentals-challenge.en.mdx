@@ -20,9 +20,11 @@ tools:
   - "Docker"
   - "Docker Compose"
 successCriteria:
-  - "Jenkins is running with its home directory on a named volume, surviving a container restart."
+  - text: "Jenkins is running with its home directory on a named volume, surviving a container restart."
+    verify: state
   - "A job builds automatically when a commit is pushed."
-  - "Two users exist: one administrator, one read-only, verified by logging in as each."
+  - text: "Two users exist: one administrator, one read-only, verified by logging in as each."
+    verify: state
   - "The read-only user cannot start a build — demonstrated, not assumed."
 cleanup:
   - "docker compose down"

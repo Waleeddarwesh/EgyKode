@@ -20,9 +20,12 @@ tools:
   - "kind or minikube"
   - "kubectl 1.28+"
 successCriteria:
-  - "The Pod reaches `Running` with `READY 1/1` and stays there for two minutes."
-  - "You can state the exit code and what it meant."
-  - "You can explain why `kubectl logs` alone was not enough."
+  - text: "The Pod reaches `Running` with `READY 1/1` and stays there for two minutes."
+    verify: state
+  - text: "You can state the exit code and what it meant, and name the mechanism that produced it."
+    verify: reasoning
+  - text: "You can explain why `kubectl logs` alone was not enough."
+    verify: reasoning
 authors: [waleed]
 updated: 2026-08-10
 ---
@@ -80,6 +83,12 @@ Look at `Last State: Terminated` and its `Exit Code`:
 `137` is the one worth recognising instantly: the container exceeded its memory
 limit and the kernel's OOM killer terminated it. `describe` says `OOMKilled`
 explicitly in `Last State`.
+
+This is the **cgroup** limit you met in Linux and set with `--memory` in
+Docker — Kubernetes declares it in `resources.limits`, and the kernel enforces
+it. Same mechanism, three names. Which is why the evidence is also on the node:
+`dmesg -T | grep -i oom` shows the kill from the kernel's side, and it is worth
+looking at once so the chain stops being abstract.
 
 ## Rule out the probes
 

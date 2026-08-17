@@ -5,12 +5,17 @@ titleAr: "أسوأ يوم — التعافي من الكوارث (Disaster Recov
 description: "Define RTO/RPO and restore etcd under pressure"
 descriptionAr: "الـ RTO والـ RPO والنسخ الاحتياطي، والاستعادة التي جرّبتها فعلًا."
 domain: sre
+capstoneRole: extension
+capstonePhase: operations
+capstoneComponent: recovery
+capstonePurpose: "extends operations to restoring the platform's state after loss"
+capstoneWhy: "Add this once there is state worth recovering."
 level: advanced
 type: concept
 phase: production
 order: 48
 readingTime: 50
-prerequisites: ["rds", "kubeadm"]
+prerequisites: ["sre-fundamentals"]
 relatedChapters: ["chaos-engineering"]
 objectives:
   - "Define RTO/RPO and restore etcd under pressure"
@@ -56,7 +61,7 @@ A low RTO/RPO costs a lot of money.
 4. **Multi-Site Active/Active:** (Expensive, Instant). Both `us-east-1` and `eu-west-1` are fully scaled and taking live customer traffic simultaneously via AWS Route 53 DNS routing. *RTO: 0. RPO: 0.*
 
 ### How GitOps Saves Us
-In Chapter 27, we learned about GitOps (ArgoCD). GitOps is the ultimate DR tool for Kubernetes. 
+In [The GitOps Philosophy](/learn/gitops/gitops/), we learned about GitOps and Argo CD. GitOps is the ultimate DR tool for Kubernetes. 
 If our `us-east-1` cluster is deleted, we do not need to figure out what was running on it. We just run Terraform to build a new empty cluster in `us-west-2`, install ArgoCD, and point it at GitHub. Within 3 minutes, ArgoCD perfectly rebuilds the entire state of the company.
 
 ---
@@ -99,7 +104,7 @@ spec:
 ## Level 4 — Enterprise
 
 ### Cross-Region RDS Replication
-As discussed in Chapter 15, Multi-AZ replication is synchronous, but it only protects against the loss of one Availability Zone. If the entire `us-east-1` region goes offline, Multi-AZ will not save you.
+As discussed in [Managed Databases](/learn/aws/rds/), Multi-AZ replication is synchronous, but it only protects against the loss of one Availability Zone. If the entire `us-east-1` region goes offline, Multi-AZ will not save you.
 
 For Enterprise Disaster Recovery, you use **RDS Cross-Region Read Replicas**.
 You configure AWS to asynchronously copy every database transaction from the primary database in Virginia to a Read Replica in Ireland. 
@@ -254,4 +259,4 @@ A: ArgoCD only restores the stateless declarative configuration (the YAML files 
 **Q: Your company mandates a Multi-Region Active/Active architecture across US-East and US-West to achieve an RTO of 0. However, the database is a standard relational PostgreSQL database. Explain the architectural impossibility of this requirement and how you would redesign the data layer to accommodate it.**
 A: True Active/Active across regions is impossible for standard relational databases (like PostgreSQL) due to the CAP Theorem and the speed of light. If a user writes to US-East, and a user simultaneously reads from US-West before the data has time to cross the continent, they will see stale data. Attempting synchronous replication across regions will introduce massive write latency (destroying performance). 
 **The Redesign:** You must abandon standard PostgreSQL and move to a globally distributed database designed for Active/Active topologies, such as **Amazon DynamoDB Global Tables** or **CockroachDB**. These databases handle multi-master conflict resolution and asynchronous global replication natively, accepting writes in all regions simultaneously while maintaining eventual (or tunable) consistency.
-[Contents](/learn) | [41 — Hands-On Labs](/learn/labs/hands-on-labs) |
+[Contents](/learn) | [Hands-On Labs](/learn/labs/hands-on-labs) |

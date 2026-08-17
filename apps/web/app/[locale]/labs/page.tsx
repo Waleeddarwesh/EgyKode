@@ -86,6 +86,12 @@ export default async function LabsPage({
         <p className="mt-3 text-sm text-content-muted">{t("labs.pairNote")}</p>
       </header>
 
+      {/* The standalone platform card used to sit here, listing all eleven
+          phases with their counts — directly above an accordion listing the
+          same eleven phases again. Two navigations for one thing, and the
+          taller of them was the one you could not act on. The progress now
+          lives in the phase headers themselves, so the list *is* the
+          workspace. */}
       {pathPhases.length > 0 && (
         <ProjectPath
           phases={pathPhases}
@@ -118,6 +124,11 @@ export default async function LabsPage({
             complete: t("labs.allDone"),
             billable: t("labs.pathBillable"),
             projectEyebrow: t("labs.pathProjectEyebrow"),
+            // Templates — the lab title is substituted per row in the client.
+            markDone: t("labs.markDone"),
+            markNotDone: t("labs.markNotDone"),
+            tickHint: t("labs.tickHint"),
+            phaseCurrent: t("labs.phaseCurrent"),
           }}
         />
       )}

@@ -5,6 +5,10 @@ titleAr: "الإتاحة العالية — AWS Load Balancers"
 description: "Explain ALB vs NLB and where TLS terminates"
 descriptionAr: "الـ ALB والـ NLB والـ Target Groups وفحوصات الصحة."
 domain: aws
+capstoneRole: core
+capstonePhase: aws
+capstoneComponent: ingress
+capstonePurpose: "the ALB the Load Balancer Controller provisions from the Ingress object"
 level: intermediate
 type: concept
 phase: cloud
@@ -104,7 +108,7 @@ resource "aws_lb_listener" "https" {
 
 **Line-by-Line Breakdown:**
 - **`internal = false`**: This tells AWS to give the ALB a Public IP address so the internet can reach it. (If it were `true`, only resources inside the VPC could talk to it).
-- **`subnets = var.public_subnet_ids`**: The ALB must be placed in the Public Subnets we created in Chapter 11. Notice it takes a *list* of subnets. For High Availability, we deploy the ALB across 3 different Availability Zones simultaneously.
+- **`subnets = var.public_subnet_ids`**: The ALB must be placed in the Public Subnets we created in [Cloud Networking (AWS VPC)](/learn/aws/vpc/). Notice it takes a *list* of subnets. For High Availability, we deploy the ALB across 3 different Availability Zones simultaneously.
 - **`default_action { type = "redirect" }`**: This is a security best practice. If a user types `http://ivolve.com`, the ALB doesn't even forward the traffic to Kubernetes. The ALB intercepts it and forces the user's browser to redirect to `https://` (encrypted traffic), returning a 301 Permanent Redirect.
 
 ---
@@ -154,4 +158,4 @@ A: You must decouple the traffic from the compute layer using Edge caching and W
 1. Place **AWS CloudFront** (a CDN) in front of the ALB. CloudFront will cache static assets globally at the edge, absorbing 80% of the traffic before it even reaches the ALB.
 2. Attach **AWS WAF** to the ALB or CloudFront. Configure rate-limiting rules (e.g., block any IP making >100 requests per 5 minutes) and enable the AWS Shield Advanced managed DDoS protection. 
 3. The ALB should only ever receive legitimate, dynamic traffic, protecting the fragile Kubernetes backend from volumetric attacks.
-[Contents](/learn) | [17 — Elasticity (AWS Auto Scaling)](/learn/aws/auto-scaling) |
+[Contents](/learn) | [Elasticity (AWS Auto Scaling)](/learn/aws/auto-scaling) |

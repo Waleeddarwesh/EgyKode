@@ -1,0 +1,96 @@
+---
+labId: lab-argocd-gitops-reconciliation-challenge
+title: "Challenge: Deploy Through Git, and Prove Drift Is Reverted"
+description: "No steps. Ship a new version without touching the cluster, then show that a manual change cannot survive."
+domain: gitops
+level: intermediate
+type: lab
+phase: gitops
+order: 17
+tier: challenge
+estimatedMinutes: 40
+cloudCost: true
+costTier: low
+costEstimate: "Assumes the EKS cluster is already running. Argo CD itself is a few Pods on nodes you are already paying for."
+cleanup:
+  - "kubectl delete application <name> -n argocd"
+  - "kubectl get all -n ivolve      # confirm the cascade removed the workloads"
+  - "helm uninstall argocd -n argocd && kubectl delete ns argocd"
+successCriteria:
+  - text: "A new application version is running, and the only thing you changed was the contents of a Git repository."
+    verify: state
+  - text: "The running Pod's image matches the tag in the commit — checked against the Pod."
+    verify: command
+  - text: "An out-of-band change you make with `kubectl` is reconciled back to the Git-defined state without your intervention."
+    verify: state
+  - text: "You can produce the commit that caused the currently running state."
+    verify: command
+  - text: "You can explain what `prune: true` would do if a manifest were deleted from Git, and why that is both the point and a risk."
+    verify: reasoning
+skills:
+  - "Establish a reconciliation loop between a repository and a cluster"
+  - "Demonstrate that the cluster follows Git rather than the operator"
+tools:
+  - "The EKS cluster, ECR repository and manifests from the earlier labs"
+  - "kubectl, and write access to the repository holding the manifests"
+guidedLabId: lab-argocd-gitops-reconciliation
+authors: [waleed]
+updated: 2026-08-17
+---
+
+## The objective
+
+Make the cluster follow the repository, and prove it.
+
+You have an EKS cluster, manifests in `04-Kubernetes/manifests`, and images in
+ECR from the pipeline labs. By the end:
+
+1. A version you did not deploy by hand is running.
+2. A change you make by hand does not survive.
+3. You can point at the commit responsible for what is running right now.
+
+No instructions. The guided version exists if you are stuck for more than
+twenty minutes — but try first, because the failure modes here are the lesson.
+
+---
+
+## What you must demonstrate
+
+**Deployment without touching the cluster.** Change a version reference in the
+repository, commit, and let something else do the rest. If you ran `kubectl
+apply`, you have not done this.
+
+**Reconciliation against drift.** Modify a live workload directly — the replica
+count is the easiest to observe — and show that the change is undone, without
+you undoing it. Then say what would have happened had that behaviour been
+switched off.
+
+**A deployment record.** Produce the Git revision that corresponds to the state
+currently running. Not "the last commit I remember pushing" — the revision the
+system itself recorded when it applied it.
+
+---
+
+## Three things that will probably go wrong
+
+Deliberately not solved for you. Each teaches something the happy path cannot.
+
+**Nothing happens at all.** No error, no event, no sync. The controller is
+running and behaving perfectly — it simply is not looking where you think it is.
+Two configuration values decide that, and one of them is easy to get wrong.
+
+**It syncs, but the Pod runs the old image.** The manifest is right and the
+cluster disagrees. Ask what actually changed in the rendered output, and whether
+the tag you referenced exists where the node is pulling from.
+
+**It reports `Synced` while the application is broken.** Sync status and health
+status answer different questions. Work out which one you were watching, and
+which one a user would care about.
+
+---
+
+## Before you finish
+
+Destroy what you created and verify the cascade actually removed the workloads
+rather than orphaning them — there is a specific piece of metadata that decides
+this, and finding out which one is part of the exercise.

@@ -5,6 +5,10 @@ titleAr: "إدارة الإعدادات — Ansible"
 description: "Write an idempotent role and prove a second run changes nothing"
 descriptionAr: "الـ Playbooks والـ Roles والـ Inventory، ومعنى الـ Idempotency."
 domain: ansible
+capstoneRole: core
+capstonePhase: infrastructure
+capstoneComponent: ansible
+capstonePurpose: "turns the bare EC2 instance into the Jenkins host, through nine roles"
 level: intermediate
 type: concept
 phase: iac
@@ -22,7 +26,7 @@ updated: 2026-08-08
 
 ## Introduction to Ansible
 
-In Chapter 13, Terraform built the physical (virtual) hardware for us. We now have blank Linux servers sitting in the AWS Cloud.
+In [Infrastructure as Code](/learn/terraform/terraform/), Terraform built the physical (virtual) hardware for us. We now have blank Linux servers sitting in the AWS Cloud.
 But a blank server is useless. We need to install Docker, configure Kubernetes, download security patches, and start services. 
 
 Doing this manually across 50 servers would take days. **Ansible** is the robot that logs into all 50 servers simultaneously and configures them in minutes. This is called **Configuration Management**.
@@ -292,4 +296,4 @@ A: A Handler is a special task that only runs if notified by another task. For e
 ### Principal/Architect
 **Q: In a highly scalable auto-scaling environment, running `ansible-playbook` manually is an anti-pattern. How do you integrate configuration management into an ASG (Auto Scaling Group) lifecycle?**
 A: You integrate it at the image level or the boot level. Ideally, you use Packer to bake the Ansible configuration into a golden AMI, so instances boot instantly. If dynamic runtime configuration is strictly required, you use `cloud-init` (User Data) in the EC2 Launch Template to trigger an Ansible `ansible-pull` command. The instance reaches out to a Git repository on boot, downloads its own configuration, and configures itself before attaching to the Load Balancer, removing the need for a central Ansible push server.
-[Contents](/learn) | [15 — Managed Databases (Amazon RDS)](/learn/aws/rds) |
+[Contents](/learn) | [Managed Databases (Amazon RDS)](/learn/aws/rds) |

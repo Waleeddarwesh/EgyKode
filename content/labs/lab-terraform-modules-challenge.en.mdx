@@ -23,8 +23,10 @@ successCriteria:
   - "A `modules/network` module creates a VPC and subnets from inputs, exposing subnet ids as outputs."
   - "A `modules/compute` module places an instance into a subnet it did not create."
   - "The root module wires them together with no hardcoded ids anywhere."
-  - "Calling the network module twice with different CIDRs produces two independent networks."
-  - "You can explain why the compute module never references `aws_vpc` directly."
+  - text: "Calling the network module twice with different CIDRs produces two independent networks."
+    verify: state
+  - text: "You can explain why the compute module never references `aws_vpc` directly."
+    verify: reasoning
 cleanup:
   - "terraform destroy -auto-approve"
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"

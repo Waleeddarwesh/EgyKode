@@ -5,6 +5,11 @@ titleAr: "ما بعد Kubernetes — Serverless"
 description: "Choose containers vs Lambda on traffic shape, not fashion"
 descriptionAr: "متى يكون تشغيل خادم أصلًا هو الاختيار الخاطئ."
 domain: aws
+capstoneRole: alternative
+capstonePhase: application
+capstoneComponent: runtime
+capstonePurpose: "contrasts functions with the containers the capstone deploys"
+capstoneWhy: "The capstone runs containers on EKS. Serverless is the alternative for workloads that do not justify a cluster."
 level: intermediate
 type: concept
 phase: cloud
@@ -148,4 +153,4 @@ A:
 2. **Cost at Scale:** Lambda is incredibly cheap for low/spiky traffic, but at a constant rate of 10,000 requests per second, Lambda becomes significantly more expensive than running a dedicated EC2/EKS cluster. 
 3. **Database Exhaustion:** Lambda scales horizontally instantly. A sudden spike will overwhelm relational database connection pools unless RDS Proxy is explicitly architected into the data layer. 
 4. **State:** Lambda is strictly stateless. You cannot use in-memory caching or sticky sessions; all state must be externalized to Redis or DynamoDB, which increases application complexity.
-[Contents](/learn) | [37 — System Resilience (Chaos Engineering)](/learn/sre/chaos-engineering) |
+[Contents](/learn) | [System Resilience (Chaos Engineering)](/learn/sre/chaos-engineering) |

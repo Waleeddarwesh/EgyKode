@@ -5,6 +5,10 @@ titleAr: "ملخّص المعمارية"
 description: "Summarise the whole platform in 60 seconds"
 descriptionAr: "النظام كاملًا في صفحة واحدة — لمن يقرأ سيرتك الذاتية."
 domain: platform
+capstoneRole: core
+capstonePhase: foundations
+capstoneComponent: orientation
+capstonePurpose: "the whole platform, summarised in four layers"
 level: all
 type: concept
 phase: reference
@@ -27,8 +31,8 @@ If you are a Recruiter, a Hiring Manager, or a Senior Engineer looking at this G
 This project is not a tutorial. It is a working, production-shaped platform —
 three microservices carried from source code to a monitored, GitOps-managed
 deployment on AWS EKS. The numbers below are measured, not aspirational: the
-Terraform plans clean against a live account at 81 resources, and all 37
-Kubernetes objects pass `kubeconform --strict` against the real 1.31 schemas.
+Terraform plans clean against a live AWS account, and all 48 Kubernetes objects
+render through Kustomize and validate against the real 1.31 schemas.
 
 ---
 
@@ -70,7 +74,7 @@ Humans do not deploy code. The pipeline's last act is a commit.
 ## Security & Observability
 
 ### Default-deny networking
-Six NetworkPolicies put the namespace in a deny-by-default posture, with each
+Eight NetworkPolicies put the namespace in a deny-by-default posture, with each
 allowed path written down explicitly. A compromised frontend pod cannot reach
 the database simply because it shares a namespace with it.
 
@@ -98,4 +102,4 @@ KMS handles encryption at rest.
 This repository demonstrates the ability to architect, provision, secure and
 monitor a distributed microservice system — and, more usefully, to prove that
 it works rather than assert it.
-[Contents](/learn) | [46 — Conclusion](/learn/platform/conclusion) |
+[Contents](/learn) | [Conclusion](/learn/platform/conclusion) |

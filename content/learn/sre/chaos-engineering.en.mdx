@@ -5,12 +5,17 @@ titleAr: "مرونة الأنظمة (System Resilience) — Chaos Engineering"
 description: "Design an experiment with a hypothesis and a blast radius"
 descriptionAr: "التدرّب على العطل قبل أن يحدث في الإنتاج."
 domain: sre
+capstoneRole: extension
+capstonePhase: operations
+capstoneComponent: resilience
+capstonePurpose: "extends operations by testing the platform's failure behaviour deliberately"
+capstoneWhy: "Add this once the platform is running and observable — you cannot learn from breaking something you cannot watch."
 level: advanced
 type: concept
 phase: production
 order: 45
 readingTime: 40
-prerequisites: ["observability"]
+prerequisites: ["sre-fundamentals", "observability"]
 relatedChapters: ["disaster-recovery"]
 objectives:
   - "Design an experiment with a hypothesis and a blast radius"
@@ -26,7 +31,7 @@ In traditional IT, you build a server, pray it never crashes, and panic when it 
 In Cloud-Native DevOps, you *assume* the server is going to crash. 
 
 But how do you know if your Kubernetes cluster will actually survive a crash? 
-You test it. You intentionally destroy your own servers in Production. This is called **Chaos Engineering**.
+You test it — deliberately, and under control. You form a hypothesis, inject one failure with a bounded blast radius, watch what your monitoring says, and stop the moment it goes further than you intended. This is **Chaos Engineering**. Start in an isolated environment; only mature teams with tested recovery paths run these experiments in production, and even then within explicit limits.
 
 ---
 
@@ -140,4 +145,4 @@ A: You start small and focus on the Staging environment. You do not touch Produc
 2. Tie the chaos experiments directly to historical outages. ("Remember that bug that took us down last month? Let's write a chaos experiment to prove it can never happen again.") 
 3. Present the Grafana metrics to management showing how the automated failover succeeded. 
 Once you build trust in Staging, and prove that Chaos Engineering *prevents* midnight pages, the culture naturally shifts toward embracing it in Production via automated pipelines.
-[Contents](/learn) | [38 — Cloud Economics (FinOps)](/learn/cost/cost-optimization) |
+[Contents](/learn) | [Cloud Economics (FinOps)](/learn/cost/cost-optimization) |

@@ -13,9 +13,11 @@ cloudCost: false
 costTier: free
 successCriteria:
   - "The final image is under 200 MB and contains no compiler."
-  - "The container runs as a non-root user — proven with `docker exec ... id`."
+  - text: "The container runs as a non-root user — proven with `docker exec ... id`."
+    verify: command
   - "A build cache hit skips dependency installation when only application code changed."
-  - "The container refuses to start until the database is reachable, instead of crashing."
+  - text: "The container refuses to start until the database is reachable, instead of crashing."
+    verify: state
 guidedLabId: lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn
 authors: [waleed]
 updated: 2026-08-09

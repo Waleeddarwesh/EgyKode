@@ -17,9 +17,11 @@ cleanup:
   - "kubectl get all -n <namespace>"
 successCriteria:
   - "One chart installs into two environments with different values and no edited templates."
-  - "`helm template` renders correct YAML before anything touches the cluster."
+  - text: "`helm template` renders correct YAML before anything touches the cluster."
+    verify: command
   - "A config change causes a rollout, rather than mutating Pods that never restart."
-  - "`helm lint` and a rendered dry run both pass in CI."
+  - text: "`helm lint` and a rendered dry run both pass in CI."
+    verify: command
 challengeId: lab-14-creating-a-custom-helm-chart-for-django-microservices-challenge
 authors: [waleed]
 updated: 2026-08-10

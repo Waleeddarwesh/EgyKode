@@ -23,7 +23,8 @@ successCriteria:
   - "A role installs and configures a service from variables, with no hardcoded values in tasks."
   - "The second run reports `changed=0` — demonstrated, not assumed."
   - "A configuration change triggers exactly one restart, via a handler."
-  - "You can name two ways a task silently breaks idempotency."
+  - text: "You can name two ways a task silently breaks idempotency."
+    verify: reasoning
 challengeId: lab-ansible-roles-idempotency-challenge
 authors: [waleed]
 updated: 2026-08-10

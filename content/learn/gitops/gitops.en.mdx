@@ -5,6 +5,10 @@ titleAr: "فلسفة GitOps"
 description: "Argue pull-based delivery against push, with the costs"
 descriptionAr: "Git بوصفه المصدر الوحيد للحقيقة لكل ما يعمل."
 domain: gitops
+capstoneRole: core
+capstonePhase: gitops
+capstoneComponent: reconciliation
+capstonePurpose: "why the pipeline commits a manifest instead of running kubectl"
 level: intermediate
 type: concept
 phase: gitops
@@ -22,7 +26,7 @@ updated: 2026-08-08
 
 ## Introduction to GitOps
 
-In Chapter 28, we learned about ArgoCD, the tool. In this chapter, we will learn about **GitOps**, the philosophy.
+The next chapter covers [Argo CD](/learn/argocd/argocd/), the tool. This one is about **GitOps**, the philosophy it implements.
 
 GitOps inverts who is in charge of deployment. Instead of a pipeline pushing changes into a cluster, an agent inside the cluster pulls them from git — which makes the repository the single source of truth for what is running. If a server, a firewall rule, or a Kubernetes pod is not defined in Git, it is considered rogue and must be deleted.
 
@@ -163,4 +167,4 @@ A: You use branching or folder structures. A common pattern is folder-based: `na
 ### Principal/Architect
 **Q: Explain the architectural trade-offs between "Push-based CI/CD" (e.g., Jenkins running `helm upgrade`) versus "Pull-based GitOps" (e.g., ArgoCD) regarding network security and IAM blast radius.**
 A: In a Push-based model, the CI/CD server sits outside the cluster (e.g., Jenkins in a management VPC). To deploy, the Kubernetes API server must be reachable from Jenkins, requiring inbound firewall rules. Furthermore, Jenkins must hold highly privileged cluster-admin credentials. If Jenkins is compromised, the attacker owns the cluster. In a Pull-based GitOps model, ArgoCD lives inside the cluster. It polls Git via outbound HTTPS only. The cluster API requires zero inbound firewall ports from the CI system, and the CI system holds zero cluster credentials, drastically reducing the IAM blast radius and shrinking the network attack surface.
-[Contents](/learn) | [28 — Continuous Delivery (ArgoCD)](/learn/argocd/argocd) |
+[Contents](/learn) | [Continuous Delivery (ArgoCD)](/learn/argocd/argocd) |

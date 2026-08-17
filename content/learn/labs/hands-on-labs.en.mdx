@@ -5,6 +5,7 @@ titleAr: "المعامل التطبيقية (Hands-On Labs)"
 description: "Demonstrate \u2014 not just describe \u2014 every claim this platform makes"
 descriptionAr: "تمارين عملية بمخرجات متوقعة."
 domain: labs
+capstoneRole: reference
 level: all
 type: concept
 phase: reference
@@ -43,7 +44,7 @@ and 3am pages, are about the other one.
 
 ## Lab 1 · Container fundamentals
 
-**~45 min · no AWS spend · Chapter 09**
+**~45 min · no AWS spend · [Docker](/learn/docker/docker/)**
 
 ### Goal
 Prove you understand what a multi-stage build actually removes.
@@ -96,7 +97,7 @@ show the `restricted` Pod Security Standard rejecting it at admission.
 
 ## Lab 2 · Terraform: read a plan properly
 
-**~40 min · no spend if you stop before apply · Chapter 13**
+**~40 min · no spend if you stop before apply · [Terraform](/learn/terraform/terraform/)**
 
 ### Goal
 Learn to spot a destructive change before it destroys something.
@@ -144,7 +145,7 @@ destroy-and-recreate rather than update-in-place.
 
 ## Lab 3 · Observe the EKS control plane abstraction
 
-**~20 min · Chapters 07, 11**
+**~20 min · [Kubernetes](/learn/kubernetes/kubernetes/), [Cluster Administration](/learn/kubernetes/k8s-cluster-administration/)**
 
 ### Goal
 Experience what a managed service actually abstracts away from you.
@@ -193,7 +194,7 @@ The EKS Managed Node Group detects the failure and automatically spins up a repl
 
 ## Lab 4 · Make a rolling update fail safely
 
-**~45 min · Chapter 19 · the single most valuable lab here**
+**~45 min · [Kubernetes](/learn/kubernetes/kubernetes/) · the single most valuable lab here**
 
 ### Goal
 Prove that a bad deploy cannot take down the service.
@@ -252,7 +253,7 @@ emptied the endpoints? What is different about the two failure modes?
 
 ## Lab 5 · Security controls, tested not assumed
 
-**~60 min · Chapters 28, 29**
+**~60 min · [Kubernetes Security](/learn/security/k8s-security/), [Network Policies](/learn/security/network-policies/)**
 
 ### Goal
 Confirm each control actually blocks what it claims to.
@@ -310,7 +311,7 @@ why before continuing.
 
 ## Lab 6 · The full pipeline, including its failures
 
-**~90 min · Chapters 13, 28**
+**~90 min · [Continuous Integration](/learn/jenkins/jenkins/), [DevSecOps](/learn/security/container-security/)**
 
 ### Goal
 See each gate fire. A gate you have never seen fire is a gate you do not trust.
@@ -367,7 +368,7 @@ different category of bad change from reaching a registry.
 
 ## Lab 7 · GitOps, and the moment it clicks
 
-**~45 min · Chapters 15, 16**
+**~45 min · [The GitOps Philosophy](/learn/gitops/gitops/), [Continuous Delivery](/learn/argocd/argocd/)**
 
 ### Goal
 Experience `selfHeal` reverting you.
@@ -418,7 +419,7 @@ That output is your deployment history.
 
 ## Lab 8 · Break the cluster and recover it
 
-**~90 min · Chapters 32, 35 · do this one last**
+**~90 min · [Cluster Administration](/learn/kubernetes/k8s-cluster-administration/), [Disaster Recovery](/learn/sre/disaster-recovery/) · do this one last**
 
 ### Goal
 Survive failures you have caused deliberately, so the real ones are familiar.
@@ -509,4 +510,4 @@ If you can destroy and rebuild it reliably, you have automated the platform. If 
 | 7 · GitOps | ☐ | drift is corrected automatically |
 | 8 · Chaos | ☐ | you have recovered from real failures |
 | Capstone | ☐ | it rebuilds from nothing, unattended |
-[Contents](/learn) | [42 — Troubleshooting](/learn/troubleshooting/troubleshooting) |
+[Contents](/learn) | [Troubleshooting](/learn/troubleshooting/troubleshooting) |

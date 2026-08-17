@@ -5,6 +5,11 @@ titleAr: "تهيئة الكلاستر — kubeadm"
 description: "Bootstrap an HA control plane and explain controlPlaneEndpoint"
 descriptionAr: "بناء كلاستر Kubernetes بنفسك بدلًا من استخدام خدمة مُدارة."
 domain: kubernetes
+capstoneRole: alternative
+capstonePhase: kubernetes
+capstoneComponent: cluster
+capstonePurpose: "exposes the control-plane internals EKS manages for the capstone"
+capstoneWhy: "The capstone runs on EKS, where AWS operates the control plane. This chapter builds one by hand so you know what EKS is doing for you — the certificates, the endpoint, the quorum — rather than treating it as magic."
 level: advanced
 type: concept
 phase: kubernetes
@@ -22,7 +27,7 @@ updated: 2026-08-08
 
 ## Introduction to Kubeadm
 
-In Chapter 19, we talked about the magic of Kubernetes. But how does Kubernetes actually get installed? 
+In [Container Orchestration](/learn/kubernetes/kubernetes/), we talked about the magic of Kubernetes. But how does Kubernetes actually get installed? 
 
 If you use a managed service like Amazon EKS, AWS installs it for you (and charges you $73 a month for the privilege). The capstone project uses EKS — but understanding what EKS abstracts away is what separates a button-clicker from an engineer. **`kubeadm`** is the official Kubernetes bootstrapping tool that builds a cluster from raw Linux servers, and knowing it means you can debug any cluster, managed or not.
 
@@ -239,4 +244,4 @@ A:
    - Restart the `kubelet` service.
    - Execute `kubectl uncordon <node>` to allow new Pods to be scheduled on it again.
 This rolling strategy ensures that at least N-1 instances of any replicated Deployment are always serving traffic.
-[Contents](/learn) | [21 — Package Management (Helm)](/learn/helm/helm) |
+[Contents](/learn) | [Package Management (Helm)](/learn/helm/helm) |

@@ -20,10 +20,12 @@ tools:
   - "Helm 3.14+"
   - "kind or minikube"
 successCriteria:
-  - "Three revisions exist and `helm history` shows their status."
+  - text: "Three revisions exist and `helm history` shows their status."
+    verify: command
   - "A deliberately broken upgrade does not leave the release broken."
   - "You rolled back to a specific revision and verified the running image."
-  - "You can explain what `--atomic` does that `--wait` alone does not."
+  - text: "You can explain what `--atomic` does that `--wait` alone does not."
+    verify: reasoning
 cleanup:
   - "helm uninstall demo -n demo"
   - "kubectl delete namespace demo --ignore-not-found"

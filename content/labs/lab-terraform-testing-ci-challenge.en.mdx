@@ -23,7 +23,8 @@ tools:
   - "A GitHub repository"
 successCriteria:
   - "`fmt`, `validate`, `tflint` and a security scan all run in CI on a pull request."
-  - "A misformatted or insecure change fails the pipeline — proven deliberately."
+  - text: "A misformatted or insecure change fails the pipeline — proven deliberately."
+    verify: state
   - "The apply consumes a saved plan artifact rather than re-planning."
   - "A scheduled run reports drift when a resource is changed outside Terraform."
 guidedLabId: lab-terraform-testing-ci

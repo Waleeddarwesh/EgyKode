@@ -3,7 +3,20 @@
 import { Check, Square } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-const STORAGE_KEY = "egykode_lab_criteria";
+import { readLabCriteria, writeLabCriteria } from "@/lib/lab-progress";
+
+/**
+ * How strongly a criterion can be settled, expressed as weight rather than
+ * hue. `command` and `state` can be shown to someone; `reasoning` is argued;
+ * `self` is only asserted. Rendering all four identically told the learner
+ * their own say-so carried the same authority as a running system.
+ */
+const EVIDENCE = {
+  command: { rule: "var(--clr-primary)", label: "var(--clr-primary-dark)" },
+  state: { rule: "var(--clr-primary)", label: "var(--clr-primary-dark)" },
+  reasoning: { rule: "var(--clr-accent)", label: "var(--clr-text-secondary)" },
+  self: { rule: "var(--clr-surface-active)", label: "var(--clr-text-muted)" },
+} as const;
 
 /**
  * The success criteria checklist.
@@ -23,39 +36,54 @@ export function SuccessCriteria({
   contentDir,
 }: {
   labId: string;
-  criteria: string[];
+  /**
+   * Plain strings for criteria the learner asserts; objects where the text
+   * itself names the evidence. Both forms coexist in the frontmatter, so a
+   * criterion is only marked verifiable when it genuinely is.
+   */
+  criteria: (string | { text: string; verify: "command" | "state" | "reasoning" })[];
   /** "ltr" when the criteria are English on an RTL page. */
   contentDir?: "ltr";
-  labels: { heading: string; done: string; of: string; complete: string };
+  labels: {
+    heading: string; done: string; of: string; complete: string;
+    /** How this criterion is settled — shown so a claim is not mistaken for a check. */
+    evidenceCommand: string; evidenceState: string; evidenceReasoning: string; evidenceSelf: string;
+  };
 }) {
+  // The frontmatter holds plain strings for criteria the learner simply
+  // asserts, and objects where the text itself names the evidence. Normalising
+  // here keeps every downstream index — including the stored progress — stable.
+  const items = criteria.map((c) =>
+    typeof c === "string" ? { text: c, verify: "self" as const } : c,
+  );
+
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const all = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Record<string, number[]>;
-      setChecked(new Set(all[labId] ?? []));
-    } catch {
-      /* storage unavailable */
-    }
+    setChecked(new Set(readLabCriteria()[labId] ?? []));
     setLoaded(true);
   }, [labId]);
 
   const toggle = useCallback(
     (index: number) => {
-      const next = new Set(checked);
+      // Derived from the store rather than from `checked`, which is a render
+      // closure: two toggles in the same tick both read the pre-click value,
+      // and the second write erases the first. Storage is the single source of
+      // truth here, so read it at the moment of the write.
+      const all = readLabCriteria();
+      const next = new Set(all[labId] ?? []);
       if (next.has(index)) next.delete(index);
       else next.add(index);
+
+      // An empty entry is removed rather than stored, so a lab cleared here
+      // and one never opened are identical on the project path.
+      if (next.size === 0) delete all[labId];
+      else all[labId] = [...next];
+      writeLabCriteria(all);
       setChecked(next);
-      try {
-        const all = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Record<string, number[]>;
-        all[labId] = [...next];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
-      } catch {
-        /* ignore */
-      }
     },
-    [checked, labId],
+    [labId],
   );
 
   if (criteria.length === 0) return null;
@@ -75,15 +103,23 @@ export function SuccessCriteria({
       </div>
 
       <ul dir={contentDir} lang={contentDir ? "en" : undefined} className="space-y-1">
-        {criteria.map((criterion, index) => {
+        {items.map((item, index) => {
           const isDone = checked.has(index);
+          const evidence = EVIDENCE[item.verify];
           return (
-            <li key={criterion}>
+            <li key={item.text}>
               <button
                 type="button"
                 onClick={() => toggle(index)}
                 aria-pressed={isDone}
-                className="flex w-full items-start gap-3 rounded-md p-2 text-start transition-colors hover:bg-surface-hover"
+                // A left rule keyed to how the criterion is settled. The
+                // evidence model already distinguishes four strengths and the
+                // page rendered all four identically, so a claim the learner
+                // simply asserted looked exactly like one the system can show.
+                // Weight, not colour — eleven criteria in four bright colours
+                // would read as decoration.
+                className="flex w-full items-start gap-3 rounded-md border-s-2 p-2 ps-3 text-start transition-colors hover:bg-surface-hover"
+                style={{ borderInlineStartColor: evidence.rule }}
               >
                 {isDone ? (
                   <Check
@@ -95,10 +131,32 @@ export function SuccessCriteria({
                 ) : (
                   <Square size={16} aria-hidden className="mt-0.5 shrink-0 text-content-muted" />
                 )}
-                <span
-                  className={`text-sm ${isDone ? "text-content-muted line-through decoration-1" : "text-content-secondary"}`}
-                >
-                  {criterion}
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={`block text-sm ${isDone ? "text-content-muted line-through decoration-1" : "text-content-secondary"}`}
+                  >
+                    {/* Numbered, so a criterion can be referred to out loud
+                        and in the completion summary. */}
+                    <span className="me-2 font-mono text-xs tabular-nums text-content-muted">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    {item.text}
+                  </span>
+                  {/* What settles this one. Shown so a ticked box is not read
+                      as a verification the platform never performed — "self"
+                      says plainly that the learner asserted it. */}
+                  <span
+                    className="mt-0.5 block text-[11px] uppercase tracking-wide"
+                    style={{ color: evidence.label }}
+                  >
+                    {item.verify === "command"
+                      ? labels.evidenceCommand
+                      : item.verify === "state"
+                        ? labels.evidenceState
+                        : item.verify === "reasoning"
+                          ? labels.evidenceReasoning
+                          : labels.evidenceSelf}
+                  </span>
                 </span>
               </button>
             </li>

@@ -20,10 +20,12 @@ tools:
   - "AWS CLI v2, configured"
   - "A domain you control"
 successCriteria:
-  - "The site answers on your domain over HTTPS with a valid certificate."
+  - text: "The site answers on your domain over HTTPS with a valid certificate."
+    verify: state
   - "You can state why an ALIAS is used at the apex instead of a CNAME."
   - "The certificate's validation record is present and you can explain why it must stay."
-  - "You can name the TTL on your record and what it means for a cutover."
+  - text: "You can name the TTL on your record and what it means for a cutover."
+    verify: reasoning
 cleanup:
   - "aws route53 list-resource-record-sets --hosted-zone-id <id>"
   - "# Delete non-default records, then the zone (a hosted zone bills monthly):"

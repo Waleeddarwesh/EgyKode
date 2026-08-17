@@ -24,7 +24,8 @@ successCriteria:
   - "A node is drained with no failed requests to the application."
   - "A PodDisruptionBudget blocks a drain that would breach availability."
   - "You identified at least one workload that could not be rescheduled cleanly, and why."
-  - "The node returns to service and receives Pods again."
+  - text: "The node returns to service and receives Pods again."
+    verify: state
 cleanup:
   - "kubectl uncordon --all"
   - "kubectl delete deployment web --ignore-not-found"

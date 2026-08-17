@@ -21,11 +21,14 @@ export function NextLab({
   neighbours,
   locale,
   colour,
+  whyNext,
   labels,
 }: {
   neighbours: PathNeighbours;
   locale: string;
   colour: string;
+  /** What this lab produced that the next one consumes, from the graph. */
+  whyNext?: string[];
   labels: {
     nextUp: string;
     nextPhase: string;
@@ -40,6 +43,7 @@ export function NextLab({
     pathEndBody: string;
     browseLibrary: string;
     labsHref: string;
+    whyNext: string;
   };
 }) {
   const { next, previous, completesPhase, entersNewPhase, position, total } = neighbours;
@@ -96,6 +100,16 @@ export function NextLab({
               {next.lab.description && (
                 <span className="mt-1 block text-sm leading-relaxed text-content-secondary">
                   {next.lab.description}
+                </span>
+              )}
+              {/* Why this one comes next, taken from the dependency graph
+                  rather than written: the next lab declares that it requires
+                  this one, and these are the things this lab left behind for
+                  it. "Next up" without a reason is just an ordering. */}
+              {whyNext && whyNext.length > 0 && (
+                <span className="mt-2 block text-xs leading-relaxed text-content-muted">
+                  <span className="font-semibold uppercase tracking-wide">{labels.whyNext}</span>{" "}
+                  {whyNext.join(" · ")}
                 </span>
               )}
               <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-content-muted">

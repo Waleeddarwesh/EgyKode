@@ -21,10 +21,12 @@ tools:
   - "Helm 3.14+"
   - "kubectl"
 successCriteria:
-  - "Logs from every namespace are queryable in Grafana."
+  - text: "Logs from every namespace are queryable in Grafana."
+    verify: state
   - "You can filter to one Deployment's errors in the last 15 minutes."
   - "You produced a crash and found its cause from the logs alone."
-  - "You can explain what happens to logs when a Pod is deleted, with and without Loki."
+  - text: "You can explain what happens to logs when a Pod is deleted, with and without Loki."
+    verify: reasoning
 cleanup:
   - "helm uninstall loki -n monitoring"
   - "kubectl delete pvc --all -n monitoring   # PVCs survive uninstall"

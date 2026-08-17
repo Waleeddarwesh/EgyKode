@@ -19,8 +19,10 @@ cleanup:
 successCriteria:
   - "State lives in S3 with DynamoDB locking, and a second concurrent apply is refused."
   - "The state bucket has versioning, so a deleted state file is recoverable."
-  - "The Jenkins host has a stable address that survives a stop and start."
-  - "A backup plan exists and you verified a recovery point was actually created."
+  - text: "The Jenkins host has a stable address that survives a stop and start."
+    verify: state
+  - text: "A backup plan exists and you verified a recovery point was actually created."
+    verify: state
 guidedLabId: lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault
 authors: [waleed]
 updated: 2026-08-09

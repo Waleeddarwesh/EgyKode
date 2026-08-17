@@ -23,6 +23,23 @@ function contentRoot(): string {
  */
 export type LabTier = "guided" | "challenge" | "incident";
 
+/**
+ * A success criterion, and what backs it up.
+ *
+ * Most criteria are plain strings — the learner asserts them. Where the text
+ * itself names the evidence, the object form records which kind:
+ *
+ *   command    a command whose output settles it
+ *   state      an observable property of the running system
+ *   reasoning  an explanation, which no command can check
+ *
+ * Anything unmarked is self-assessed, and the UI says so rather than implying
+ * a verification that never happened.
+ */
+export type LabCriterion =
+  | string
+  | { text: string; verify: "command" | "state" | "reasoning" };
+
 export interface LabMeta {
   labId: string;
   title: string;
@@ -63,7 +80,7 @@ export interface LabMeta {
   skills?: string[];
   /** Tools and versions the lab expects. */
   tools?: string[];
-  successCriteria: string[];
+  successCriteria: LabCriterion[];
   challengeId?: string;
   guidedLabId?: string;
   /** The incident variant of this lab, where one exists. */
@@ -179,9 +196,22 @@ export interface LabPathProject {
   repo: string;
 }
 
+/** A node in the dependency graph: what a lab leaves behind, and what it needs. */
+export interface LabGraphNode {
+  produces: string[];
+  requires: string[];
+}
+
 export interface LabPath {
   title: string;
   summary: string;
+  /**
+   * What each lab contributes to the platform, and which earlier labs produced
+   * the things it consumes. An edge is a real dependency rather than "the
+   * previous lab", which is what makes it worth showing: the ordering is
+   * already visible, the reason is not.
+   */
+  graph?: Record<string, LabGraphNode>;
   /**
    * The same platform with the files removed, offered ahead of the reference
    * implementation. The site promises "you build it, phase by phase", and a
@@ -215,6 +245,67 @@ export function getResolvedPath(): { phase: LabPhase; labs: LabMeta[] }[] {
       .map((id) => byId.get(id))
       .filter((lab): lab is LabMeta => Boolean(lab)),
   }));
+}
+
+/** One lab's place in the build: what it adds, and what that lets you do. */
+export interface LabContribution {
+  /** What exists after this lab that did not before. */
+  produces: string[];
+  /** Earlier labs whose output this one consumes. */
+  requires: { labId: string; title: string }[];
+  /** Later labs that consume this one's output — the reverse edges. */
+  unlocks: { labId: string; title: string }[];
+  /** The phase and position, so this block does not depend on path lookup. */
+  phaseNumber: string;
+  phaseTitle: string;
+  position: number;
+  total: number;
+  /** True when these edges came from the guided pair rather than this lab. */
+  viaPair: boolean;
+}
+
+/**
+ * Resolve a lab's dependency edges from the graph in path.json.
+ *
+ * `unlocks` is derived rather than stored: it is exactly the reverse of
+ * `requires`, and storing both would mean two places to update and one of them
+ * eventually wrong. The graph is small enough that scanning it costs nothing,
+ * and it is read once per build.
+ *
+ * A challenge inherits its guided pair's contribution. It is not a different
+ * step in the build — it is the same step with the instructions removed, and
+ * it produces exactly the same thing. Without this fallback, half the lab
+ * pages on the site would say where they fit and half would say nothing,
+ * which is the inconsistency a reader notices first.
+ */
+export function getLabContribution(labId: string): LabContribution | null {
+  const path = getLabPath();
+  if (!path?.graph) return null;
+
+  // Fall back to the guided pair for a challenge.
+  const meta = getLabMeta(labId);
+  const sourceId = path.graph[labId] ? labId : meta?.guidedLabId;
+  const node = sourceId ? path.graph[sourceId] : undefined;
+  if (!sourceId || !node) return null;
+
+  const order = path.phases.flatMap((p) => p.labs);
+  const phase = path.phases.find((p) => p.labs.includes(sourceId));
+  if (!phase) return null;
+
+  const titleOf = (id: string) => getLabMeta(id)?.title ?? id;
+
+  return {
+    produces: node.produces ?? [],
+    requires: (node.requires ?? []).map((id) => ({ labId: id, title: titleOf(id) })),
+    unlocks: Object.entries(path.graph)
+      .filter(([, other]) => other.requires?.includes(sourceId))
+      .map(([id]) => ({ labId: id, title: titleOf(id) })),
+    phaseNumber: phase.number,
+    phaseTitle: phase.title,
+    position: order.indexOf(sourceId) + 1,
+    total: order.length,
+    viaPair: sourceId !== labId,
+  };
 }
 
 export interface PathNeighbours {
@@ -274,4 +365,144 @@ export function getPathNeighbours(labId: string): PathNeighbours | null {
     entersNewPhase: Boolean(next && next.phase.id !== current.phase.id),
     completesPhase: next && next.phase.id !== current.phase.id ? current.phase : undefined,
   };
+}
+
+/**
+ * The architecture, projected from the chapters' own capstone mappings.
+ *
+ * Each build phase maps to a capstone phase; the components of that phase are
+ * whatever the core chapters declared in `capstoneComponent`. That keeps this
+ * a *view* of the canonical mapping rather than a second architecture to
+ * maintain — add a chapter with a new component and it appears here.
+ */
+const BUILD_TO_CAPSTONE: Record<string, string> = {
+  foundations: "foundations",
+  containers: "application",
+  cloud: "aws",
+  iac: "infrastructure",
+  config: "infrastructure",
+  kubernetes: "kubernetes",
+  packaging: "kubernetes",
+  cicd: "delivery",
+  gitops: "gitops",
+  observability: "observability",
+  operations: "operations",
+};
+
+/** Components that name the chapter's own genre rather than a platform part. */
+const NOT_A_COMPONENT = new Set(["orientation"]);
+
+export interface ArchitectureLayer {
+  phaseId: string;
+  label: string;
+  nodes: string[];
+}
+
+export function getArchitectureLayers(
+  componentsByCapstonePhase: Record<string, string[]>,
+): ArchitectureLayer[] {
+  const path = getLabPath();
+  if (!path) return [];
+  const seen = new Set<string>();
+
+  return path.phases.flatMap((phase): ArchitectureLayer[] => {
+    const capstonePhase = BUILD_TO_CAPSTONE[phase.id];
+    const all: string[] = capstonePhase ? (componentsByCapstonePhase[capstonePhase] ?? []) : [];
+    // A capstone phase can back two build phases (iac/config, kubernetes/
+    // packaging). Show each component once, at the first phase that builds it.
+    const nodes = all.filter((n: string) => !NOT_A_COMPONENT.has(n) && !seen.has(n));
+    nodes.forEach((n: string) => seen.add(n));
+    return nodes.length ? [{ phaseId: phase.id, label: phase.title, nodes }] : [];
+  });
+}
+
+/**
+ * Split a lab body into its mission and the work that follows.
+ *
+ * Every lab opens with one section that says what the task is — "The scenario"
+ * on a guided lab, "The goal" on a challenge, "The incident" on an incident —
+ * and the rest is the procedure. Splitting at the second top-level heading
+ * lets the page put the success criteria between them, so a reader learns what
+ * they are doing before being told what they must prove.
+ *
+ * The scan tracks fences, because a `## ` inside a code block is a shell
+ * comment, not a heading, and cutting there would split a snippet in half.
+ */
+export function splitLabMission(body: string): { mission: string; rest: string } {
+  const lines = body.split(/\r?\n/);
+  let inFence = false;
+  let seen = 0;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] ?? "";
+    if (/^\s*(?:```|~~~)/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    if (/^## +\S/.test(line)) {
+      seen += 1;
+      if (seen === 2) {
+        return { mission: lines.slice(0, i).join("\n").trimEnd(), rest: lines.slice(i).join("\n") };
+      }
+    }
+  }
+  // One section only: it is all mission, and there is nothing to hoist above.
+  return { mission: "", rest: body };
+}
+
+/** A top-level section of a lab body, for the progress rail. */
+export interface LabStep {
+  /** Matches the id rehype-slug generates, so the rail can link to it. */
+  id: string;
+  title: string;
+  /** 2 for a section, 3 for a step inside one — the rail indents the latter. */
+  depth: 2 | 3;
+}
+
+/**
+ * The `##` sections of a lab, in order.
+ *
+ * A long lab is several thousand pixels tall and gave the reader nothing to
+ * hold their place — the only way to know how far through the work you were
+ * was to scroll. These feed a rail that tracks position.
+ *
+ * Slugs are generated the same way rehype-slug does (lowercase, non-word runs
+ * to hyphens) so the rail's links resolve against the ids already in the DOM,
+ * and fenced blocks are skipped for the same reason as the mission split.
+ */
+export function getLabSteps(body: string): LabStep[] {
+  const steps: LabStep[] = [];
+  const seen = new Map<string, number>();
+  let inFence = false;
+
+  for (const raw of body.split(/\r?\n/)) {
+    if (/^\s*(?:```|~~~)/.test(raw)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+
+    // Both levels: some labs number their steps as `##`, others put them as
+    // `###` under a single `## The work`. Taking only `##` gave the second
+    // shape a two-item rail that said nothing about where you were.
+    const heading = raw.match(/^(##|###) +(.+?)\s*$/);
+    if (!heading?.[2]) continue;
+    const depth = heading[1]?.length === 3 ? 3 : 2;
+
+    // Strip the inline markup a heading may carry before slugging it.
+    const title = heading[2].replace(/[*_`]/g, "").trim();
+    const base = title
+      .toLowerCase()
+      .replace(/[^\w؀-ۿ\- ]+/g, "")
+      .trim()
+      .replace(/\s+/g, "-");
+
+    // rehype-slug appends -1, -2 … to repeats; mirror that or the rail will
+    // send two different steps to the same place.
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    steps.push({ id: n === 0 ? base : `${base}-${n}`, title, depth });
+  }
+  return steps;
 }

@@ -5,6 +5,10 @@ titleAr: "تنسيق الحاويات — Kubernetes"
 description: "Explain the control plane, Pods, Deployments, Services and why probes matter"
 descriptionAr: "الـ Control Plane والـ Pods والـ Deployments والـ Services."
 domain: kubernetes
+capstoneRole: core
+capstonePhase: kubernetes
+capstoneComponent: cluster
+capstonePurpose: "the architecture the EKS cluster implements"
 level: intermediate
 type: concept
 phase: kubernetes
@@ -22,7 +26,7 @@ updated: 2026-08-08
 
 ## Introduction to Kubernetes
 
-In Chapter 09, we learned that Docker puts our application into a standard shipping container. 
+In [Containerization (Docker)](/learn/docker/docker/), we learned that Docker puts our application into a standard shipping container. 
 But if you have 10,000 shipping containers, who decides which truck they go on? Who tracks them if a ship sinks? Who unloads them?
 
 **Kubernetes (K8s)** is the Port Manager. It is a massive orchestration engine developed by Google. You hand Kubernetes your Docker containers, and it automatically places them on your AWS servers, restarts them if they crash, and scales them up if traffic spikes.
@@ -72,7 +76,7 @@ This is the brain. It makes all the decisions. It contains:
 
 #### 2. The Worker Nodes
 These are the AWS EC2 instances that actually run your code. They contain:
-- **kubelet:** The foreman. It listens to the Control Plane and starts/stops the Docker containers.
+- **kubelet:** The foreman. It listens to the control plane and asks the node’s container runtime — containerd or CRI-O — to start and stop containers, through a standard interface called the CRI. Docker is one way to *build* images; it is not what runs them on a modern cluster.
 - **kube-proxy:** The traffic cop. It handles network rules so Pods can talk to each other.
 - **Container Runtime:** The engine (e.g., `containerd` or Docker) that actually spins up the containers.
 
@@ -609,6 +613,15 @@ spec:
   uses.
 - **`resources.limits.memory`**: a hard ceiling. Memory is incompressible — a
   container exceeding it is `OOMKilled`, because it cannot be throttled instead.
+
+  This is not a Kubernetes invention. The limit becomes a **cgroup** limit on the
+  node, the same mechanism [Linux](/learn/linux/linux-foundations) describes and
+  [Docker](/learn/docker/docker) sets with `--memory`. When the cgroup cannot
+  reclaim enough memory, the kernel's OOM killer terminates a process in it —
+  usually PID 1, which ends the container — and the kubelet reports the result as
+  `OOMKilled`. Kubernetes is declaring the limit; the kernel is enforcing it.
+  That is why the evidence is in `dmesg` on the node as well as in
+  `kubectl describe`.
 - **`livenessProbe`**: the kubelet calls `/actuator/health/liveness` every 15
   seconds. Three consecutive failures and it restarts the container. Note this
   endpoint deliberately does **not** check the database.
@@ -776,4 +789,4 @@ A: A Service gets a virtual IP address (ClusterIP) managed by `kube-proxy`. The 
 ### Principal/Architect
 **Q: During a massive traffic spike, your Horizontal Pod Autoscaler scales from 10 to 100 pods, but 50 of them remain in a `Pending` state. Walk me through the exact architectural bottleneck and how to automate the resolution.**
 A: The `Pending` state means the Scheduler cannot find a Worker Node with sufficient aggregate CPU/RAM capacity to satisfy the Pod's `requests`. The cluster is out of physical resources. To automate resolution, we must implement the **Cluster Autoscaler** (or Karpenter in AWS). The Cluster Autoscaler watches for `Pending` pods. When it sees them, it makes an API call to the AWS Auto Scaling Group to provision a new EC2 instance. Once the new EC2 instance boots and joins the cluster, the Kubernetes Scheduler recognizes the new capacity and schedules the pending Pods onto it.
-[Contents](/learn) | [20 — Cluster Bootstrapping (Kubeadm)](/learn/kubernetes/kubeadm) |
+[Contents](/learn) | [Cluster Bootstrapping (Kubeadm)](/learn/kubernetes/kubeadm) |

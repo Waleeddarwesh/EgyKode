@@ -1,0 +1,343 @@
+---
+contentId: supply-chain-security
+title: "The Software Supply Chain"
+titleAr: "سلسلة توريد البرمجيات"
+description: "Decide what may be promoted, and where each control stops a specific attack"
+descriptionAr: "من الكود إلى وقت التشغيل: ما الذي نحميه، وما الذي يمكن أن يفشل، وأي ضابط يوقف كل خطر."
+domain: security
+capstoneRole: core
+capstonePhase: delivery
+capstoneComponent: supply-chain
+capstonePurpose: "the chain of controls between a commit and a running pod — SonarQube's gate, Trivy's blocking scan, ECR's immutable tags, and Argo CD as the only thing that deploys"
+level: intermediate
+type: concept
+phase: security
+order: 42
+readingTime: 50
+prerequisites: ["docker", "jenkins", "gitops"]
+relatedChapters: ["container-security", "network-policies", "ecr", "argocd"]
+objectives:
+  - "Name what is being protected between a commit and a running container"
+  - "Match each supply-chain risk to the control that actually addresses it"
+  - "Explain the difference between a scan and a gate"
+  - "Say which controls the capstone implements, and which it does not"
+status: complete
+translationStatus: missing
+authors: [waleed]
+updated: 2026-08-17
+---
+
+## The chain, and why it is a chain
+
+You have a pipeline that builds an image and a cluster that runs it. Between
+those two facts sit a series of decisions about **what is allowed to be
+promoted**, and each one exists because something specific can go wrong.
+
+```text
+Source code
+   ↓        someone commits a secret, or malicious code
+Dependencies
+   ↓        a library you trust pulls one you have never heard of
+Build
+   ↓        the build machine itself is a target
+Artifact (image)
+   ↓        vulnerable base image, or an image nobody scanned
+Registry
+   ↓        a mutable tag repointed at different bytes
+Deployment
+   ↓        someone applies YAML nobody reviewed
+Runtime
+            a compromised pod moves sideways through the cluster
+```
+
+The reason to think of it as a chain rather than a checklist is that **the
+weakest link decides the outcome.** A perfectly scanned image deployed by
+anyone who has `kubectl` is not a secure delivery process. Neither is a locked
+cluster fed by a pipeline that anyone can modify.
+
+---
+
+## Level 1 — What are we protecting, and from what?
+
+### Seven things, not one
+
+People say "we secure the image". The image is one link:
+
+| Asset | If it is compromised |
+|---|---|
+| **Source** | The attacker writes your application |
+| **Dependencies** | Someone else's code runs with your privileges |
+| **Build environment** | Every artifact it produces is suspect, scanned or not |
+| **Artifact** | What runs is not what you reviewed |
+| **Registry** | The tag you deploy no longer means what it meant |
+| **Deployment config** | The right image, with the wrong permissions or exposure |
+| **Runtime** | One compromised pod becomes access to the rest |
+
+### Risk to control
+
+This is the table worth remembering, because it makes each tool an *answer to a
+question* rather than a thing to install:
+
+| Risk | Control | In the capstone |
+|---|---|---|
+| Insecure code committed | Static analysis (SAST) | **SonarQube** |
+| Vulnerable dependency | Dependency scanning (SCA) | **Trivy**, which scans OS and language packages |
+| Secret committed | Secret scanning, `.gitignore`, `.dockerignore` | Partly — see the gaps below |
+| Vulnerable base image | Image scanning | **Trivy**, before the push |
+| Artifact changed after review | Immutable tags, digests | **ECR immutable tags** |
+| Anyone can deploy | GitOps + RBAC | **Argo CD** reconciles; nobody runs `kubectl apply` |
+| Container runs as root | Admission policy | **Pod Security Standard `restricted`** |
+| Compromised pod moves sideways | Network policy | **Eight default-deny NetworkPolicies** |
+| Pod holds cloud credentials | Workload identity | **IRSA** — no static keys |
+
+Read it as: *for each way this can go wrong, what stops it?* Anything without an
+answer is an accepted risk — which is fine, as long as it is a decision rather
+than an oversight.
+
+---
+
+## Level 2 — A scan is not a gate
+
+This is the single most important distinction in the chapter.
+
+- A **scan** produces information. "There are 14 vulnerabilities."
+- A **gate** makes a decision. "This artifact may not be promoted."
+
+A pipeline full of scans and no gates is a pipeline that reports problems while
+shipping them. The security value is in the refusal, not the report.
+
+Look at how the capstone's Trivy stage is built — it runs Trivy **twice**, on
+purpose:
+
+```groovy
+// Pass 1 — --exit-code 0: always succeeds, produces the readable report
+// Pass 2 — --exit-code 1: FAILS the build on a fixable CRITICAL
+--severity HIGH,CRITICAL --ignore-unfixed
+```
+
+The first pass is the scan: it archives a report for a human, and it never
+blocks. The second is the gate: a fixable CRITICAL returns exit code 1, the
+shell reports failure, and the stage goes red. You get the information *and* the
+decision, and neither is confused with the other.
+
+SonarQube works the same way through `waitForQualityGate()` — running the
+scanner produces analysis, and only waiting on the gate result turns it into
+something that can fail the build.
+
+### The policy is the interesting part
+
+`--ignore-unfixed` is a real decision, not a detail. It means: **fail only on
+vulnerabilities that have a fix available.** The reasoning is that blocking on a
+vulnerability with no patch does not make you safer — you cannot act on it — it
+just teaches the team to bypass the gate. Alert on it; block on what can be
+fixed.
+
+Every gate needs four things decided in advance, or it will be overridden the
+first time it is inconvenient:
+
+1. **What blocks** — here, a fixable CRITICAL.
+2. **What only warns** — HIGH, and anything unfixed.
+3. **Who can override** — and whether that is recorded.
+4. **What evidence is kept** — the capstone archives the Trivy reports as build artifacts.
+
+A gate nobody can override becomes a gate people route around. A gate anyone can
+override silently is not a gate.
+
+---
+
+## Level 2 — Build once, promote the same artifact
+
+```text
+   Build once
+       ↓
+    Scan it
+       ↓
+  Identify it immutably     (an explicit tag; ECR refuses to move it)
+       ↓
+   Promote it               dev → staging → production
+       ↓
+   Deploy that exact image
+```
+
+The alternative — rebuilding per environment — silently breaks the whole chain:
+
+- What you scanned is **not** what you deployed. A dependency resolved differently; a base image was updated an hour later.
+- Your evidence describes an artifact that no longer exists.
+- "It worked in staging" stops being meaningful, because staging ran different bytes.
+
+This is why the capstone builds each image once in the pipeline, pushes it to
+ECR with an immutable tag, and then only ever *references* that tag. **ECR's
+immutable tag setting is what enforces it** — without it, "promote the same
+artifact" is a convention, and conventions do not survive a bad afternoon.
+
+---
+
+## Level 3 — Where the boundary actually sits
+
+The chain has a handover in the middle, and it is worth naming:
+
+```text
+   CI                              |  GitOps
+   ------------------------------- | -------------------------------
+   Produces a trusted candidate    |  Decides what is running
+                                   |
+   Jenkins builds                  |  Argo CD reconciles
+   SonarQube gate                  |  against Git
+   Trivy gate                      |
+   Push to ECR                     |  Cluster pulls the image
+   Update the manifest             |
+   Commit + push  ---------------->|
+```
+
+**CI's authority ends at the registry and the commit.** It never touches the
+cluster. That is a security property, not a workflow preference: a push-based
+pipeline needs cluster-admin credentials on the build server, so compromising
+Jenkins compromises the cluster. Here, Jenkins can write to a Git repository and
+to ECR — nothing more — while the authority to change the cluster stays inside
+the cluster.
+
+It also means the deployment record is the Git history. "Who deployed this, and
+when?" is `git log`, and "roll it back" is `git revert`.
+
+---
+
+## Level 3 — What the capstone does *not* do
+
+Being precise about this matters more than looking complete. These are real
+controls, they are worth knowing, and **the capstone does not implement them.**
+Treat them as extensions, not as part of the reference architecture.
+
+| Control | What it adds | Status here |
+|---|---|---|
+| **SBOM** | A machine-readable inventory of everything in the image, so that when the next Log4j lands you can answer "are we affected?" in seconds rather than days | **Not generated.** The pipeline scans; it does not emit an SBOM. |
+| **Image signing** (Cosign/Sigstore) | A cryptographic signature proving *this registry entry was produced by our pipeline* | **Not implemented.** |
+| **Provenance attestation** | A signed statement of how the artifact was built — which source, which builder | **Not implemented.** The images carry OCI provenance *labels*, which are helpful metadata but are not signed and can be forged. |
+| **Admission policy engine** (Kyverno, Gatekeeper) | Cluster-side enforcement such as "refuse unsigned images" or "refuse images not from our registry" | **Not installed.** Pod Security Standards enforce the pod's own security context, which is a different question. |
+
+Notice what the gap actually is. The capstone can tell you an image passed its
+gates *at build time*. It cannot cryptographically prove, at deploy time, that
+the image in the registry is the one its pipeline produced. Closing that is what
+signing plus an admission policy do together — signing creates the proof, and
+admission is what makes the cluster *check* it. Either alone is decoration.
+
+---
+
+## Level 4 — The failure this design prevents
+
+Walk one attack through the chain, because it shows why the links are ordered
+the way they are.
+
+**An attacker gets write access to the application repository.**
+
+```text
+Malicious commit
+   ↓
+SonarQube            may catch obvious patterns — not designed for a determined attacker
+   ↓
+Trivy                scans dependencies and the image, not your intent
+   ↓
+ECR                  stores it, immutably — faithfully preserving the bad artifact
+   ↓
+Argo CD              deploys it, because Git said so
+   ↓
+Runtime              PSS: non-root, read-only, no capabilities
+                     NetworkPolicies: cannot reach the database
+                     IRSA: no cloud credentials to steal
+```
+
+The scanning layers **do not stop this**, and pretending otherwise is the
+mistake. What limits the damage is the runtime posture: the code runs, but as an
+unprivileged process, in a namespace that denies it lateral movement, with no
+AWS credentials to exfiltrate.
+
+That is what defence in depth means concretely — not "more tools", but *layers
+that fail differently*. The control that stops this earlier is human: branch
+protection and required review on the repository, because Git is the deployment
+mechanism and therefore a production system.
+
+---
+
+## Where this appears in the capstone
+
+```text
+  Developer commits
+      |
+  Jenkins
+      |  1 Checkout
+      |  2 Unit tests
+      |  3 SonarQube quality gate ....... fail -> STOP
+      |  4 Build image
+      |  5 Trivy scan ................... fixable CRITICAL -> STOP
+      |  6 Push to ECR                    (immutable tag)
+      |  7 Delete the local image
+      |  8 Update manifest               (Kustomize image tag)
+      |  9 Push manifest
+      |
+  ====================================================== CI ends here
+      |
+      v
+  Git repository
+      |
+      v
+  Argo CD reconciles
+      |
+      v
+  EKS
+      PSS restricted
+      8 NetworkPolicies
+      IRSA, no static keys
+```
+
+Stages 3 and 5 are the gates. Stage 6 is where the artifact becomes immutable.
+Stage 9 is where CI's authority ends.
+
+---
+
+## Check yourself
+
+**Beginner.** Your pipeline scans every image and reports vulnerabilities, but
+nothing has ever failed a build. Is the supply chain secure?
+
+> No — you have scans, not gates. A scan produces information; a gate refuses to
+> promote the artifact. Until a finding can fail the build, the pipeline reports
+> problems while shipping them. Decide what blocks, what only warns, who may
+> override, and what evidence is kept.
+
+**Intermediate.** Why does the capstone's Trivy gate use `--ignore-unfixed`?
+
+> Because blocking on a vulnerability with no available patch does not make you
+> safer — nobody can act on it — and a gate that cannot be satisfied is a gate
+> people learn to bypass. Unfixed findings are still reported; only fixable
+> CRITICALs stop the build. That keeps the gate credible.
+
+**Advanced.** Why rebuild nothing between environments?
+
+> Because rebuilding breaks the link between the artifact you scanned and the
+> artifact you ran. A rebuild can resolve a dependency differently or pull an
+> updated base image, so your evidence describes something that no longer
+> exists. Build once, identify it immutably, and promote the same bytes — which
+> is what ECR's immutable tags enforce rather than merely encourage.
+
+**Senior.** An attacker compromises Jenkins. What can they reach?
+
+> What Jenkins itself can reach: it can push images to ECR and commit to the Git
+> repository — which means it can get a malicious image deployed, since Argo CD
+> trusts Git. What it *cannot* do is act on the cluster directly, because it
+> holds no cluster credentials; the reconciliation authority lives inside the
+> cluster. Compare that with a push-based pipeline holding cluster-admin, where
+> compromising the build server is compromising the cluster. Branch protection
+> and required review are what narrow the remaining path.
+
+**Architect.** The capstone does not sign its images. What is actually missing,
+and what would closing it require?
+
+> What is missing is a cryptographic link between the pipeline that built an
+> artifact and the artifact the cluster runs. Today the gates prove something
+> about the image *at build time*; nothing proves at deploy time that the
+> registry entry is the one that pipeline produced. Closing it needs two halves:
+> signing at build (Cosign, producing a verifiable signature) and an admission
+> policy in the cluster that refuses unsigned images or images from unexpected
+> registries. Signing without verification changes nothing, and verification
+> with nothing signed blocks everything — which is why they are one control, not
+> two features.
+[Contents](/learn) | [Container Security](/learn/security/container-security) |

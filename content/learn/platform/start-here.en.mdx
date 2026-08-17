@@ -5,6 +5,10 @@ titleAr: "ابدأ من هنا — من الصفر إلى Production"
 description: "Start Here \u2014 Zero to Production"
 descriptionAr: "تعرَّف على النظام الذي ستبنيه، وما تحتاجه قبل أن تبدأ، وتكلفته."
 domain: platform
+capstoneRole: core
+capstonePhase: foundations
+capstoneComponent: orientation
+capstonePurpose: "the build order for the whole platform"
 level: beginner
 type: concept
 phase: orientation
@@ -32,7 +36,7 @@ By the end you will have, running and reachable on the public internet:
 
 Not a demo. Each piece is the version you would defend in a design review.
 
-![Cloud DevOps Capstone — the full architecture: Jenkins CI on EC2, an EKS cluster running three microservices and MySQL, delivered by Argo CD and watched by Prometheus](/diagrams/clouddevops-architecture.png)
+![Cloud DevOps Capstone — the full architecture: Jenkins CI on EC2, an EKS cluster running three microservices and MySQL, delivered by Argo CD and watched by Prometheus](/diagrams/clouddevops-architecture.webp)
 
 *This is the destination. It is supposed to look like a lot right now — by the
 end of Phase 7 you will have built every box on it, and you will know why each
@@ -48,9 +52,9 @@ Most tutorials skip this and you find out three hours in. Here is the truth.
 
 | Skill | Why | If not, read |
 |-------|-----|--------------|
-| A Linux shell | Everything happens over SSH | [Chapter 05](/learn/linux/linux-foundations) |
-| Git basics — commit, branch, push | GitOps is *entirely* git | [Chapter 07](/learn/git/git-and-github) |
-| What an IP address and a subnet are | You will design a VPC | [Chapter 06](/learn/networking/networking-fundamentals) |
+| A Linux shell | Everything happens over SSH | [Linux](/learn/linux/linux-foundations) |
+| Git basics — commit, branch, push | GitOps is *entirely* git | [Git & GitHub](/learn/git/git-and-github) |
+| What an IP address and a subnet are | You will design a VPC | [Networking](/learn/networking/networking-fundamentals) |
 | YAML syntax | 90% of what you will write | any 20-minute primer |
 
 You do **not** need prior Kubernetes, Terraform, or AWS experience. Those are
@@ -135,9 +139,16 @@ aws budgets create-budget --account-id "$(aws sts get-caller-identity --query Ac
 
 ## The build path
 
-Seven phases. Each has a **checkpoint** — a command that proves the phase
-worked. Do not move on until the checkpoint passes; a broken foundation
-produces failures three phases later that look like something else entirely.
+**These seven are project *build* phases, not the eleven curriculum phases on
+[Learn](/learn).** They answer different questions and are meant to be used
+together: Learn is organised by subject, so you can read everything there is on
+Kubernetes in one place; this is organised by build order, so you always know
+what to construct next. A chapter appears in one phase of Learn and may be
+needed in three phases here.
+
+Each phase has a **checkpoint** — a command that proves it worked. Do not move
+on until the checkpoint passes; a broken foundation produces failures three
+phases later that look like something else entirely.
 
 ```
 Phase 0  Foundations         ~6h   read + local practice, no AWS spend
@@ -161,11 +172,11 @@ hour here saves three later.
 
 | Read | Then do |
 |------|---------|
-| [05 — Linux](/learn/linux/linux-foundations) | SSH into anything. Read a `systemd` unit. Follow a log with `journalctl -f`. |
-| [07 — Git & GitHub](/learn/git/git-and-github) | Branch, commit, open a PR, revert a commit. You will do all four constantly. |
-| [06 — Networking](/learn/networking/networking-fundamentals) | Explain to yourself what a `/16` and a `/20` are, and what NAT does. |
-| [01 — Project Overview](/learn/platform/project-overview) · [02 — Architecture](/learn/platform/system-architecture) | Look at the architecture diagram in Chapter 02 and find each component in it. |
-| [10 — AWS](/learn/aws/aws-overview) | Create an IAM user with MFA. Stop using the root account. |
+| [Linux](/learn/linux/linux-foundations) | SSH into anything. Read a `systemd` unit. Follow a log with `journalctl -f`. |
+| [Git & GitHub](/learn/git/git-and-github) | Branch, commit, open a PR, revert a commit. You will do all four constantly. |
+| [Networking](/learn/networking/networking-fundamentals) | Explain to yourself what a `/16` and a `/20` are, and what NAT does. |
+| [Project Overview](/learn/platform/project-overview) · [Architecture](/learn/platform/system-architecture) | Look at the architecture diagram in [System Architecture](/learn/platform/system-architecture) and find each component in it. |
+| [AWS](/learn/aws/aws-overview) | Create an IAM user with MFA. Stop using the root account. |
 
 **Checkpoint** — you can answer, without looking:
 
@@ -186,8 +197,8 @@ Kubernetes if you cannot debug it on your own machine.
 
 | Read | Then do |
 |------|---------|
-| [08 — Build tools](/learn/build/build-tools) | `mvn clean package` the API. Understand what a `.jar` is. |
-| [09 — Docker](/learn/docker/docker) | Read `src/roadmap-service/Dockerfile`. Explain why it has two `FROM` lines. |
+| [Build tools](/learn/build/build-tools) | `mvn clean package` the API. Understand what a `.jar` is. |
+| [Docker](/learn/docker/docker) | Read `src/roadmap-service/Dockerfile`. Explain why it has two `FROM` lines. |
 
 ```bash
 cd CloudDevOpsProject/src/frontend
@@ -225,9 +236,9 @@ Security Standard in Phase 4 will reject it. Fix it now, not then.
 
 | Read first | Why |
 |------------|-----|
-| [13 — Terraform](/learn/terraform/terraform) | you are about to run it against a real account |
-| [11 — VPC](/learn/aws/vpc) · [12 — IAM](/learn/aws/iam) | you need to understand what you are creating |
-| [18 — ECR](/learn/aws/ecr) · [17 — Auto Scaling](/learn/aws/auto-scaling) | the registry, and what scales |
+| [Terraform](/learn/terraform/terraform) | you are about to run it against a real account |
+| [VPC](/learn/aws/vpc) · [IAM](/learn/aws/iam) | you need to understand what you are creating |
+| [ECR](/learn/aws/ecr) · [Auto Scaling](/learn/aws/auto-scaling) | the registry, and what scales |
 
 ### 2.1 The state backend, once per account
 
@@ -313,15 +324,15 @@ and SonarQube on it, without you ever running `apt install` by hand.
 > **If you came expecting `kubeadm` here**, that is the other shape of this
 > project: on a self-managed cluster, Ansible is what turns EC2 instances into
 > a control plane and joins the workers. With EKS that work belongs to AWS, so
-> Ansible's remaining job is the build host. Chapter 20 still covers `kubeadm`,
+> Ansible's remaining job is the build host. [Cluster Bootstrapping](/learn/kubernetes/kubeadm/) still covers `kubeadm`,
 > because knowing how a cluster is actually born is what makes the managed one
 > comprehensible rather than magic.
 
 | Read first |
 |------------|
-| [14 — Ansible](/learn/ansible/ansible) — roles, idempotency, dynamic inventory |
-| [20 — Kubeadm](/learn/kubernetes/kubeadm) — what EKS is doing for you |
-| [23 — Jenkins](/learn/jenkins/jenkins) — what you are installing, and why |
+| [Ansible](/learn/ansible/ansible) — roles, idempotency, dynamic inventory |
+| [Kubeadm](/learn/kubernetes/kubeadm) — what EKS is doing for you |
+| [Jenkins](/learn/jenkins/jenkins) — what you are installing, and why |
 
 ### 3.1 Secrets
 
@@ -414,9 +425,9 @@ by hand produces someone who can run a pipeline but cannot fix one.
 
 | Read | Then do |
 |------|---------|
-| [19 — Kubernetes](/learn/kubernetes/kubernetes) | apply the base manifests one file at a time |
-| [21 — Helm](/learn/helm/helm) | install the same thing as a chart, compare |
-| [22 — Kustomize](/learn/kustomize/kustomize) | see how overlays differ from templating |
+| [Kubernetes](/learn/kubernetes/kubernetes) | apply the base manifests one file at a time |
+| [Helm](/learn/helm/helm) | install the same thing as a chart, compare |
+| [Kustomize](/learn/kustomize/kustomize) | see how overlays differ from templating |
 
 ```bash
 cd CloudDevOpsProject
@@ -465,9 +476,9 @@ kubectl -n ivolve run probe --rm -it --restart=Never --image=curlimages/curl:8.8
 
 | Read |
 |------|
-| [23 — Jenkins](/learn/jenkins/jenkins) · [25 — ECR](/learn/aws/ecr) |
-| [33 — Security](/learn/security/container-security) — the scanning gates |
-| [26 — Nexus](/learn/nexus/nexus-and-artifacts) |
+| [Jenkins](/learn/jenkins/jenkins) · [ECR](/learn/aws/ecr) |
+| [Security](/learn/security/container-security) — the scanning gates |
+| [Nexus](/learn/nexus/nexus-and-artifacts) |
 
 ```bash
 cd 03-Ansible
@@ -499,7 +510,7 @@ commit in `git log`. That commit *is* the deployment.
 
 | Read |
 |------|
-| [28 — ArgoCD](/learn/argocd/argocd) · [27 — GitOps](/learn/gitops/gitops) |
+| [ArgoCD](/learn/argocd/argocd) · [GitOps](/learn/gitops/gitops) |
 
 ```bash
 kubectl apply -f 06-ArgoCD/
@@ -539,9 +550,9 @@ and `git log` shows who, what and when.
 
 | Read |
 |------|
-| [29 — Observability](/learn/observability/observability) · [30 — Prometheus](/learn/prometheus/prometheus) · [31 — Grafana](/learn/grafana/grafana) |
-| [40 — Disaster Recovery](/learn/sre/disaster-recovery) · [37 — Chaos Engineering](/learn/sre/chaos-engineering) |
-| [42 — Troubleshooting](/learn/troubleshooting/troubleshooting) — keep this open forever |
+| [Observability](/learn/observability/observability) · [Prometheus](/learn/prometheus/prometheus) · [Grafana](/learn/grafana/grafana) |
+| [Disaster Recovery](/learn/sre/disaster-recovery) · [Chaos Engineering](/learn/sre/chaos-engineering) |
+| [Troubleshooting](/learn/troubleshooting/troubleshooting) — keep this open forever |
 
 ```bash
 helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \n  -n monitoring --create-namespace -f 07-Monitoring/kube-prometheus-stack-values.yaml
@@ -592,7 +603,7 @@ bites teams at 2am.
   worth taking. Once you `terraform destroy`, they are gone.
 - **Write the decisions in your own words.** `docs/ARCHITECTURE.md` and `docs/SECURITY.md` explain the ones that were made for you.
   Being able to argue them out loud is what an interview actually tests.
-- **Read [44 — Interview Prep](/learn/interview/interview-prep)** with the platform
+- **Read [Interview Prep](/learn/interview/interview-prep)** with the platform
   still running, so the answers are concrete rather than remembered.
 
 ### Then extend it
@@ -614,10 +625,10 @@ In this order:
 2. `kubectl -n <ns> describe pod <pod>` — the **Events** at the bottom.
 3. `kubectl -n <ns> logs <pod> --previous` — `--previous` is the important flag
    for a crash loop; the current container has not logged anything yet.
-4. [Chapter 42 — Troubleshooting](/learn/troubleshooting/troubleshooting) — the failures you will
+4. [Troubleshooting](/learn/troubleshooting/troubleshooting/) — the failures you will
    actually hit, with fixes.
 5. `docs/runbooks.md` in the platform — one entry per alert.
 
 **The single most useful habit:** when something breaks, write down what you
 changed in the last ten minutes. It is almost always that.
-[Contents](/learn) | [01 — Project Overview](/learn/platform/project-overview) |
+[Contents](/learn) | [Project Overview](/learn/platform/project-overview) |

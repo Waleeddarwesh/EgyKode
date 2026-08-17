@@ -5,6 +5,10 @@ titleAr: "متطلبات المنصة"
 description: "State the functional and non-functional targets the design has to hit"
 descriptionAr: "ما يجب توفّره قبل تشغيل أي شيء: حسابات وأدوات ومعرفة مسبقة."
 domain: platform
+capstoneRole: core
+capstonePhase: foundations
+capstoneComponent: orientation
+capstonePurpose: "the accounts, tooling and budget the build assumes"
 level: beginner
 type: concept
 phase: orientation
@@ -163,4 +167,4 @@ A: This causes State File corruption. If an engineer uses Terraform 1.6, the rem
 ### Principal/Architect
 **Q: How do you architect a secure mechanism for a CI/CD pipeline to provision AWS infrastructure without using static long-lived IAM Access Keys?**
 A: You use OIDC (OpenID Connect). The CI/CD provider (e.g., GitHub Actions) acts as an Identity Provider. AWS IAM is configured to trust the GitHub OIDC provider for a specific repository. When a workflow runs, it requests a short-lived JSON Web Token (JWT) from GitHub, presents it to AWS STS (Security Token Service), and receives temporary, short-lived session credentials. This eliminates the risk of static keys leaking in source code.
-[Contents](/learn) | [04 — Repository Structure](/learn/platform/repository-structure) |
+[Contents](/learn) | [Repository Structure](/learn/platform/repository-structure) |

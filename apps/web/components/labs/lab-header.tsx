@@ -45,16 +45,24 @@ export function LabHeader({
   locale,
   colour,
   contentDir,
+  position,
   labels,
 }: {
   lab: LabMeta;
   locale: string;
   colour: string;
   contentDir?: "ltr";
+  /**
+   * Where this lab sits on the project path. Absent for library-only labs,
+   * which genuinely have no position to report.
+   */
+  position?: { phaseNumber: string; phaseTitle: string };
   labels: {
     guided: string;
     challenge: string;
     incident: string;
+    /** "Lab 01 / 59", already interpolated. Paired with `position`. */
+    counter?: string;
     minutes: string;
     level: string;
     objectives: string;
@@ -78,6 +86,27 @@ export function LabHeader({
       <div className="h-1 w-full" style={{ background: colour }} aria-hidden />
 
       <div className="p-6 sm:p-7">
+        {/* Where you are, before what this is. A lab page that opens with a
+            title and a badge answers "what is this" and leaves "am I in the
+            right place, and how far along am I" to be reconstructed from the
+            labs index. The counter is the whole point: 59 labs is a project,
+            and a reader should always be able to see their position in it. */}
+        {position && (
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b pb-3">
+            <span
+              className="font-mono text-[11px] font-semibold uppercase tracking-wide"
+              style={{ color: colour }}
+            >
+              {position.phaseNumber} · {position.phaseTitle}
+            </span>
+            {labels.counter && (
+              <span className="font-mono text-[11px] uppercase tracking-wide tabular-nums text-content-muted">
+                {labels.counter}
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span
             className="badge px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide"

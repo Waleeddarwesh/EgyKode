@@ -109,7 +109,7 @@
     "id": "ivolve-cloud-devops-capstone",
     "title": "Production workloads on EKS",
     "titleAr": "أحمال عمل إنتاجية على EKS",
-    "summary": "37 objects validated with kubeconform: a MySQL StatefulSet on EBS, three Deployments with HPAs and PodDisruptionBudgets, default-deny NetworkPolicies, ALB ingress, and Argo CD sync waves ordering the rollout database-first. The managed counterpart to the kubeadm cluster this path teaches you to build.",
+    "summary": "48 objects rendered by Kustomize and schema-validated: a MySQL StatefulSet on EBS, three Deployments with HPAs and PodDisruptionBudgets, default-deny NetworkPolicies, ALB ingress, and Argo CD sync waves ordering the rollout database-first. The managed counterpart to the kubeadm cluster this path teaches you to build.",
     "repo": "CloudDevOpsProject"
   },
   "contentGaps": [

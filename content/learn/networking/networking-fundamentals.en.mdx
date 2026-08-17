@@ -5,6 +5,10 @@ titleAr: "أساسيات الشبكات (Networking)"
 description: "Read a CIDR block, explain why a private subnet can reach the internet but not be reached, and debug a connection that hangs"
 descriptionAr: "عناوين IP والـ CIDR والـ DNS والمنافذ والتوجيه و TLS."
 domain: networking
+capstoneRole: core
+capstonePhase: foundations
+capstoneComponent: networking
+capstonePurpose: "the addressing and routing the VPC and cluster networking assume"
 level: beginner
 type: concept
 phase: foundations
@@ -27,7 +31,7 @@ are *silent*. A misconfigured security group does not print an error — the
 connection just hangs for 30 seconds and times out, and nothing in any log
 explains why.
 
-Chapter 11 covers AWS VPC specifically. This chapter covers the fundamentals
+[Cloud Networking](/learn/aws/vpc/) covers AWS VPC specifically. This chapter covers the fundamentals
 that chapter assumes. If "10.20.0.0/16" means nothing to you yet, start here.
 
 ---
@@ -559,4 +563,4 @@ would enforce allocation through IPAM rather than a spreadsheet, because the
 failure mode is discovered years afterwards during an acquisition, when two
 business units both used `10.0.0.0/16` and the networks cannot be joined without
 readdressing one of them.
-[Contents](/learn) | [07 — Version Control (Git & GitHub)](/learn/git/git-and-github) |
+[Contents](/learn) | [Version Control (Git & GitHub)](/learn/git/git-and-github) |

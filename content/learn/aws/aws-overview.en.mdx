@@ -5,6 +5,10 @@ titleAr: "نظرة عامة على AWS"
 description: "Create an IAM user with MFA and stop using the root account"
 descriptionAr: "البنية العالمية والحسابات ونموذج المسؤولية المشتركة."
 domain: aws
+capstoneRole: core
+capstonePhase: aws
+capstoneComponent: account
+capstonePurpose: "the account and regional model everything else is provisioned into"
 level: beginner
 type: concept
 phase: cloud
@@ -58,7 +62,7 @@ AWS provides hundreds of services. In this platform, we only use a critical subs
 
 #### 1. EC2 (Elastic Compute Cloud)
 - **What is it?** Virtual Machines (Linux servers).
-- **How we use it:** Our Terraform code requests `t3.large` instances to run the Kubernetes Control Plane, and `t3.xlarge` instances to run our Worker Nodes.
+- **How we use it:** AWS runs the EKS control plane for us — there are no EC2 instances to provision for it. Terraform requests instances to run our Worker Nodes.
 
 **Reading an instance type.** `t3.large` is three pieces of information:
 
@@ -286,4 +290,4 @@ A: AWS bills EC2 instances by the second. A `t3.xlarge` costs roughly $0.1664 pe
 ### Principal/Architect
 **Q: Explain how AWS IAM assumes a role across accounts using STS.**
 A: In a multi-account organization, an identity (User or CI/CD runner) in Account A needs to build resources in Account B. Instead of giving the runner static credentials for Account B, Account B creates an IAM Role with a Trust Policy granting Account A permission to assume it. The runner in Account A calls the AWS Security Token Service (STS) `AssumeRole` API. STS returns temporary, short-lived (e.g., 1 hour) credentials. The runner uses these credentials to execute Terraform against Account B. This adheres to the Principle of Least Privilege and eliminates static key rotation overhead.
-[Contents](/learn) | [11 — Cloud Networking (AWS VPC)](/learn/aws/vpc) |
+[Contents](/learn) | [Cloud Networking (AWS VPC)](/learn/aws/vpc) |

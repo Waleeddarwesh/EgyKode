@@ -56,6 +56,12 @@ apps/web/.next-export/
 # Screenshots
 tests/screenshots/
 
+# Saved page dumps. A rendered Next.js page is one ~1.2MB line of Flight
+# payload, which defeats the editor's tokenizer and produces phantom syntax
+# errors — t.html was committed this way and reported a fake "';' expected"
+# for weeks. Fetch pages into the scratch directory, not the repo root.
+/*.html
+
 # Written by scripts/write-build-id.mjs on every build. Committing it would
 # mean the repo carries one build's id while the deploy carries another.
 apps/web/public/build-id.txt

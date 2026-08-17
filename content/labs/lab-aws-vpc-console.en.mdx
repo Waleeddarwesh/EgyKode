@@ -20,8 +20,10 @@ tools:
   - "AWS CLI v2, configured"
   - "An AWS account"
 successCriteria:
-  - "A VPC with one public and one private subnet exists, built by hand."
-  - "An instance in the public subnet is reachable over SSH; one in the private subnet is not."
+  - text: "A VPC with one public and one private subnet exists, built by hand."
+    verify: state
+  - text: "An instance in the public subnet is reachable over SSH; one in the private subnet is not."
+    verify: state
   - "You can state which single route makes the public subnet public."
   - "You reached the private instance without giving it a public IP."
 cleanup:

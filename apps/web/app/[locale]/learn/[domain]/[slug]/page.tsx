@@ -9,6 +9,7 @@ import { getResources } from "@/lib/resources";
 import { MarkComplete } from "@/components/learn/mark-complete";
 import { notFound } from "next/navigation";
 import { MDXRemote, type MDXRemoteProps } from "next-mdx-remote/rsc";
+import { CapstoneRole } from "@/components/content/capstone-role";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypePrettyCode from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
@@ -224,8 +225,25 @@ export default async function ChapterPage({
         )}
       </header>
 
+      {/* Whether the capstone is built with this, chose otherwise, or this
+          goes beyond it. Above the body because it changes how the chapter
+          should be read — an "alternative" is not something you are behind on. */}
+      {chapter.capstoneRole && (
+        <div className="mt-10">
+          <CapstoneRole
+            role={chapter.capstoneRole}
+            why={chapter.capstoneWhy}
+            labels={{
+              core: t("chapter.roleCore"),
+              alternative: t("chapter.roleAlternative"),
+              extension: t("chapter.roleExtension"),
+            }}
+          />
+        </div>
+      )}
+
       {/* Chapter body is English prose when falling back, so pin its direction. */}
-      <div className="prose mt-10" lang={contentLang} dir={contentDir}>
+      <div className="prose" lang={contentLang} dir={contentDir}>
         <MDXRemote
           source={chapter.body}
           options={mdxOptions}

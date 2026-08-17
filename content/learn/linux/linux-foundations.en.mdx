@@ -2,305 +2,850 @@
 contentId: linux-foundations
 title: "The Foundation (Linux)"
 titleAr: "أساسيات Linux"
-description: "Read a systemd unit, follow a log, and diagnose a failed service"
+description: "Operate a Linux server confidently — and recognise the same primitives inside Docker, Kubernetes and Ansible"
 descriptionAr: "نظام الملفات والعمليات والصلاحيات والخدمات — ما يفترضه كل ما يليه."
 domain: linux
+capstoneRole: core
+capstonePhase: foundations
+capstoneComponent: linux
+capstonePurpose: "the operating system every node, container and build host runs"
 level: beginner
 type: concept
 phase: foundations
 order: 5
-readingTime: 45
+readingTime: 75
 prerequisites: []
 relatedChapters: []
 objectives:
-  - "Read a systemd unit, follow a log, and diagnose a failed service"
+  - "Navigate a Linux filesystem and reason about ownership and permissions"
+  - "Install packages, inspect processes, and manage services with systemd"
+  - "Connect to a server with SSH and diagnose why a connection fails"
+  - "Follow a repeatable sequence to find why a service will not start"
+  - "Name the Linux primitives that containers are built from"
 status: complete
 translationStatus: missing
 authors: [waleed]
-updated: 2026-08-08
+updated: 2026-08-17
 ---
 
-## Introduction to Linux
+## Why this chapter comes first
 
-When Terraform builds a server in AWS, what Operating System does it use? It doesn't use Windows. It uses **Linux** (specifically, Ubuntu).
-When Docker spins up a container, what is running inside it? Linux.
-When Kubernetes manages the cluster, what kernel is it talking to? Linux.
+Every later phase of this platform lands on Linux. Terraform provisions Linux
+instances. Ansible configures them over SSH. Docker images are Linux
+filesystems, and the containers built from them are Linux processes. The EKS
+nodes your workloads land on run Linux, and `kubelet` on each one is a systemd
+service.
 
-Linux is the bedrock of the entire cloud and DevOps ecosystem. You cannot be a DevOps engineer without understanding Linux.
+So this is not a detour before the cloud work — it is the layer everything
+after it sits on. When a pod is `OOMKilled`, when a container cannot write to
+its volume, when a deploy drops live requests, the explanation is in this
+chapter.
+
+Linux is the dominant operating system for servers, containers and Kubernetes.
+A Cloud or DevOps engineer needs it even when a managed service hides the
+machines, because the abstraction leaks exactly when something breaks.
+
+**What you should be able to do at the end:** operate a fresh server without
+looking things up constantly, read a failure and know where to look next, and
+recognise the same primitives when they reappear wearing Docker and Kubernetes
+names.
 
 ---
 
-## Level 1 — Beginner
+## Level 1 — Fundamentals
 
-### What is Linux?
-Imagine a computer operating system like a restaurant. 
-- **Windows / macOS:** This is a fancy restaurant. You sit down, look at a pretty menu (the Graphical User Interface / GUI), point at a picture of a burger, and the waiter brings it to you. It's easy, but you can't go into the kitchen.
-- **Linux:** This is a massive industrial kitchen. There is no menu. There are no pictures. You stand in front of a raw terminal (the command line) and you type exact instructions to the chef: *"Take 200g of beef, cook it at 400 degrees for 4 minutes."* It is harder to learn, but you have absolute, limitless control over the computer.
+### What Linux actually is
 
-### Why do servers use Linux?
-1. **Free:** Windows Server costs thousands of dollars in licensing. Linux is free and open-source.
-2. **Lightweight:** A Windows GUI takes 2GB of RAM just to show you the desktop background. A Linux server has no GUI; it uses 150MB of RAM, leaving the rest for your application.
-3. **Automated:** Because everything is controlled via text commands, robots (like Ansible) can control it easily.
+Three words get used interchangeably, and separating them prevents confusion
+later:
+
+- **The kernel** is the program that talks to hardware and schedules processes. When people say "containers share the host kernel", *this* is the thing being shared.
+- **A distribution** is the kernel plus everything that makes it usable: a package manager, an init system, default configuration, and a support model. Ubuntu, Debian, Red Hat Enterprise Linux, Amazon Linux and Alpine are distributions.
+- **The shell** is the program that reads your commands. `bash` is the common default; `sh` is a smaller, more portable one, which matters because many container images have only `sh`.
+
+The two families you will meet in this platform:
+
+| Family | Package manager | Where you meet it here |
+|---|---|---|
+| Debian / Ubuntu | `apt` | The EC2 build host; most Docker base images |
+| RHEL / Fedora / Amazon Linux | `dnf` (or `yum`) | Amazon Linux nodes; enterprise environments |
+
+Server distributions differ from desktop ones mainly by what is *absent*:
+usually no graphical desktop, a smaller default package set, and longer support
+windows. That is why a server image is small and why you administer it over the
+network rather than by sitting at it.
+
+**On cost and licensing**, be precise rather than sweeping: the Linux kernel and
+most distributions are open source and free to download, and vendors such as
+Red Hat sell *support subscriptions* rather than the software itself. Ubuntu is
+free to use with paid support available. The reason production runs Linux is
+not primarily price — it is the ecosystem: nearly every cloud service,
+container runtime and automation tool targets it first.
+
+### The shell, and why the command line wins here
+
+A graphical interface is a fine way to do something once. It is a poor way to
+do something a thousand times, or to explain to a colleague exactly what you
+did. A command is text: it can be copied into a runbook, committed to a
+repository, run by Ansible, and executed by a pipeline at three in the morning
+with nobody watching.
+
+That is the whole reason this chapter is command-line first. Every Ansible
+task, every `Dockerfile` line and every CI step is ultimately this.
 
 ---
 
-## Level 2 — Intermediate
+## Level 2 — Working on a server
 
-### Core Linux Concepts for DevOps
+### Moving around, and reading things
 
-#### 1. The File System
-In Windows, you have `C:\` and `D:\`. In Linux, there are no drive letters. There is one tree, and everything starts at the **Root** (`/`) — including your second hard drive, your USB stick, and the network share. They all get *mounted* into a directory somewhere in that single tree.
+```bash
+pwd                     # where am I?
+ls -la                  # everything here, including dotfiles, with permissions
+cd /var/log             # absolute path — starts at /
+cd ../nginx             # relative path — starts where you are
+```
 
-These are the directories you will actually touch as a DevOps engineer:
+Reading files without drowning in them:
+
+```bash
+cat  small.conf         # whole file — fine for short ones
+less big.log            # page through it: / to search, q to quit
+head -n 20 access.log   # first 20 lines
+tail -n 20 access.log   # last 20
+tail -f  access.log     # follow it live — the one you will use most
+wc -l access.log        # how many lines?
+```
+
+### Pipes, redirection, and the two output streams
+
+This is the idea that makes everything else composable. Each program has one
+input and *two* outputs: normal output (**stdout**) and errors (**stderr**).
+They are separate so you can keep the results and route the complaints
+somewhere else.
+
+```bash
+command > out.txt        # stdout to a file, replacing it
+command >> out.txt       # append instead
+command 2> errors.txt    # stderr only
+command > all.txt 2>&1   # both, into one file
+command 2>/dev/null      # discard errors
+a | b                    # a's stdout becomes b's stdin
+```
+
+The pipeline is why small tools are enough:
+
+```bash
+ps aux | grep kubelet                     # only the lines mentioning kubelet
+grep ERROR app.log | wc -l                # how many errors?
+cut -d' ' -f1 access.log | sort | uniq -c | sort -rn | head
+#     ^ field 1        ^ count duplicates      ^ biggest first
+```
+
+That last line answers "which IP address is hitting us hardest", and nothing in
+it was written for web logs. That is the point.
+
+### Quoting, which bites everyone once
+
+```bash
+name="my file.txt"
+rm $name        # WRONG — two arguments: "my" and "file.txt"
+rm "$name"      # right — one argument
+```
+
+An unquoted variable is split on spaces. A script meant to delete one file
+deletes two others instead. **Quote your variables.** It costs two characters
+and removes a whole category of accident.
+
+### Finding things
+
+```bash
+grep -r "DB_HOST" /etc/            # search file contents, recursively
+find /var/log -name "*.gz"         # search by name
+find /var/log -mtime +7 -delete    # older than 7 days — read twice before running
+```
+
+> **Practise:** [Linux Server Administration](/labs/lab-20-linux-server-administration)
+> puts these to work on a real server rather than a page.
+
+---
+
+### Filesystem and storage
+
+There are no drive letters. There is one tree starting at `/`, and every disk,
+partition and network share is *mounted* somewhere inside it.
 
 | Path | What lives there | Why you will open it |
-| --- | --- | --- |
-| `/etc/` | Configuration files | `/etc/kubernetes/manifests/`, `/etc/nginx/nginx.conf` |
-| `/var/log/` | Log files | The server misbehaved and you need to know why |
-| `/home/<user>/` | A user's own files | Your SSH keys live in `/home/ubuntu/.ssh/` |
-| `/proc/` | The kernel, pretending to be files | `cat /proc/meminfo` to see real memory usage |
+|---|---|---|
+| `/etc/` | Configuration | `/etc/ssh/sshd_config`, `/etc/fstab` |
+| `/var/log/` | Logs | The server misbehaved and you need to know why |
+| `/home/<user>/` | A user's files | Your keys live in `/home/ubuntu/.ssh/` |
+| `/tmp/` | Scratch, cleared on reboot | Build artifacts you do not want to keep |
 | `/usr/bin/`, `/usr/local/bin/` | Installed programs | Where `kubectl` and `terraform` end up |
-| `/tmp/` | Scratch space, wiped on reboot | Build artifacts you do not want to keep |
+| `/proc/`, `/sys/` | The kernel, presented as files | `cat /proc/meminfo` for real memory usage |
+| `/dev/` | Devices | `/dev/nvme1n1` — the EBS volume you just attached |
+| `/opt/` | Self-contained third-party software | Where a vendor tarball unpacks |
 
-Two commands answer the question you will ask most often — *why is this disk full?*
+**Disks, filesystems and mount points are three different things**, and
+conflating them is why storage problems feel confusing:
 
 ```bash
-df -h                    # how full is each mounted filesystem?
-du -sh /var/log/*        # which thing inside /var/log is the fat one?
+lsblk                   # block devices — the disks themselves
+df -h                   # filesystems and how full each is
+findmnt /var/lib/docker # what is mounted here, and with what options
+mount /dev/nvme1n1 /data
 ```
 
-A full disk is one of the most common causes of a "mysteriously broken" server: Docker cannot pull images, Kubernetes evicts Pods, and the database refuses writes — all with unrelated-looking error messages.
+A disk with no filesystem holds nothing. A filesystem not mounted anywhere is
+unreachable. Mount the wrong device at `/data` and your files have not been
+deleted — they are simply hidden underneath the thing you mounted on top.
 
-#### 2. Permissions (chmod)
-Linux is incredibly secure because of its permission system. Every file has an Owner, a Group, and "Others".
-When you generate an SSH key to log into AWS, you run this command:
+**Two ways a disk fills up.** The obvious one:
+
 ```bash
-chmod 400 ~/.ssh/ivolve-key.pem
+df -h                   # Use% at 100%
+du -sh /var/log/*       # which directory is the fat one?
+du -sh /var/lib/docker  # very often this one
 ```
-**What does `400` mean?**
-- `4` (Owner): Read-only permission.
-- `0` (Group): No access.
-- `0` (Others): No access.
-If you don't run this command, AWS will reject your connection because the key is "too open" and someone else on the computer might steal it.
 
-**Where the numbers come from.** Each digit is the sum of three permissions:
+The one that confuses people: `df -h` says the disk is full, `du` cannot
+account for it. Two usual explanations —
+
+```bash
+df -i                   # inodes exhausted: millions of tiny files, space free
+lsof +L1                # a deleted file still held open by a process
+```
+
+A process holding a deleted 20GB log keeps that space allocated until it is
+restarted. The file is gone from `ls` and the space is still missing.
+
+**Links**, which you will meet in container images and `/etc/alternatives`:
+
+```bash
+ln -s /opt/app/current /usr/local/bin/app   # symbolic: a pointer to a path
+ln  data.txt hardlink.txt                   # hard: another name for the same data
+```
+
+A symlink breaks if its target moves. A hard link does not, because it is not
+pointing at a name — it is the same file.
+
+**`/etc/fstab`** is what makes a mount survive a reboot. Editing it wrongly can
+prevent the machine booting, so validate before you trust it:
+
+```bash
+mount -a                # apply fstab now; errors appear here, not at 3am
+```
+
+**Where this returns:** Docker volumes, Kubernetes PersistentVolumes, the `gp3`
+EBS volume behind the MySQL StatefulSet in the capstone. All of them end at a
+Linux filesystem mounted into a process.
+
+---
+
+### Users, groups and permissions
+
+Every process runs as a user, and every file is owned by a user and a group.
+Permissions describe what three audiences may do: the **owner**, the **group**,
+and **others**.
+
+```bash
+whoami                  # who am I right now?
+id                      # uid, gid, and every group I belong to
+getent passwd ubuntu    # the account, from whatever source defines it
+```
+
+Each permission digit is a sum:
 
 | Number | Permission | On a file | On a directory |
-| --- | --- | --- | --- |
-| `4` | read (`r`) | read the contents | list the names inside |
-| `2` | write (`w`) | change the contents | create or delete files inside |
-| `1` | execute (`x`) | run it as a program | `cd` into it |
-
-Add them together for each of the three audiences — owner, group, others:
+|---|---|---|---|
+| 4 | read (`r`) | read the contents | list the names inside |
+| 2 | write (`w`) | change the contents | create or delete files inside |
+| 1 | execute (`x`) | run it as a program | `cd` into it |
 
 ```bash
-chmod 644 config.yaml     # owner reads+writes (6), everyone else reads (4)
-chmod 755 deploy.sh       # owner does everything (7), everyone else reads+runs (5)
-chmod 400 key.pem         # owner reads (4), nobody else touches it at all
-chmod +x deploy.sh        # the shorthand: "make this runnable"
+chmod 644 config.yaml   # owner reads+writes (6), everyone else reads (4)
+chmod 755 deploy.sh     # owner everything (7), others read+run (5)
+chmod 600 ~/.ssh/id_ed25519   # owner only — required for a private key
+chmod +x deploy.sh      # shorthand: make it runnable
 ```
 
-`ls -l` prints them the other way round, as letters:
+`ls -l` prints the same thing as letters:
 
 ```text
 -rwxr-xr-x  1 ubuntu ubuntu  482 Aug  9 11:20 deploy.sh
- ^^^                                            = owner:  read, write, execute
-    ^^^                                         = group:  read, execute
-       ^^^                                      = others: read, execute
+ ^^^                                    owner:  read, write, execute
+    ^^^                                 group:  read, execute
+       ^^^                              others: read, execute
 ```
 
-**Ownership is the other half.** Permissions decide *what* each audience may do; ownership decides *who* those audiences are.
+**Ownership is the other half.** Permissions say what each audience may do;
+ownership decides who is in each audience.
 
 ```bash
-chown ubuntu:ubuntu /var/www        # this file now belongs to user ubuntu, group ubuntu
-chown -R ivolve:ivolve /opt/app     # -R = the whole directory tree
+chown ubuntu:ubuntu /var/www
+chown -R app:app /opt/app        # -R: the whole tree
 ```
 
-This is the same idea you will meet again in Kubernetes as `runAsUser` and `fsGroup`, and in Docker as the `USER` instruction. A container that writes to a mounted volume as UID 1000 when the directory is owned by UID 0 will fail with `Permission denied` — and the fix is `chown`, not more privileges.
-
-**Which permission to reach for.** The temptation under time pressure is always
-`chmod 777`, and it is always the wrong answer — it grants write access to every
-process on the machine, including a compromised one:
+**`chmod 777` is not a troubleshooting step.** It grants write access to every
+process on the machine, including a compromised one, and it usually hides the
+real problem — which is that the file is owned by the wrong user.
 
 | Instead of | Use | Because |
-| --- | --- | --- |
-| `777` on a directory | `775` with a shared group | The group is the thing you actually wanted |
-| `666` on a config file | `644`, or `640` if it holds anything sensitive | Nothing needs to be world-writable |
-| Opening a file to everyone | `chown` it to the right user | Ownership expresses intent; permissions are the fallback |
+|---|---|---|
+| `777` on a directory | `775` with a shared group | The group is what you actually wanted |
+| `666` on a config file | `644`, or `640` if sensitive | Nothing needs to be world-writable |
+| Opening a file to everyone | `chown` it to the right user | Ownership expresses intent |
 
-Prefer **groups over per-user permissions**: add the users who need access to a
-group, `chown` the directory to that group, and set `775`. Adding a person then
-means adding them to a group rather than re-walking a directory tree.
+`umask` decides the permissions new files get by default; setgid directories
+make new files inherit the directory's group, which is how shared directories
+stay shared. POSIX ACLs (`setfacl`) exist for when two groups genuinely need
+different access to one file — reaching for them early usually means the
+directory layout is wrong.
 
-Standard permissions run out when two groups need *different* access to the same
-file — that is what POSIX ACLs (`setfacl`) exist for. They are rarer than they
-look, and reaching for them early usually means the directory layout is wrong.
+**Where this returns:** the `USER` instruction in a Dockerfile, and
+`runAsUser` / `fsGroup` in a Kubernetes `securityContext`. A container writing
+to a mounted volume as UID 1000, into a directory owned by UID 0, fails with
+`Permission denied` — and the fix is ownership, not more privilege. The
+capstone enforces `restricted` Pod Security precisely so that "run it as root"
+stops being available as a shortcut.
 
-#### 3. Processes and Daemons
-Every running program is a **process**, and every process has a numeric **process ID (PID)**. A **daemon** is simply a process that runs silently in the background with no terminal attached — a service. Kubernetes' `kubelet`, Docker's `dockerd`, and your database are all daemons.
+---
+
+### Package management
+
+A package is software plus metadata: its version, its dependencies, and the
+files it installs. A repository is a server holding packages, and the package
+manager resolves dependencies so you are not chasing libraries by hand.
+
+**Debian / Ubuntu:**
 
 ```bash
-ps aux                   # every process on the machine, with its PID and memory
-ps aux | grep kubelet    # just the one you care about
-top                      # the same thing, live, sorted by CPU
-kill 4821                # ask process 4821 to shut down cleanly (SIGTERM)
-kill -9 4821             # force it to die (SIGKILL) — it gets no chance to clean up
+sudo apt update                 # refresh the package lists — do this first
+sudo apt install -y nginx
+apt list --installed | grep nginx
+sudo apt remove nginx           # remove the package, keep its config
+sudo apt purge  nginx           # remove config too
 ```
 
-The difference between those last two matters more than it looks. `SIGTERM` is what Kubernetes sends a Pod when it wants it gone; the application is supposed to finish its current request and exit. If it ignores that, Kubernetes waits 30 seconds and then sends `SIGKILL`. An application that does not handle `SIGTERM` drops live user requests on every single deploy.
-
-#### 4. systemd — the service manager
-Nobody starts a daemon by typing its name and hoping. On every modern Linux distribution, **systemd** starts services at boot, restarts them when they crash, and keeps their logs.
+**RHEL / Fedora / Amazon Linux:**
 
 ```bash
-systemctl status kubelet     # is it running? did it fail? show me the last few log lines
-systemctl restart kubelet    # stop it and start it again
-systemctl enable kubelet     # start automatically on every boot — the one people forget
-journalctl -u kubelet -f     # follow this service's logs live (Ctrl-C to stop)
+sudo dnf install -y nginx
+dnf list installed
+rpm -qa | grep nginx            # query the low-level package database
+```
+
+`apt update` and `apt upgrade` are different: the first refreshes the *lists*,
+the second installs newer versions. Running `install` without `update` on a
+fresh machine is the most common "package not found" on a valid package name.
+
+**Pin versions for anything reproducible.** `apt install kubectl` gives you
+whatever is current, which means two servers built a month apart are not the
+same server:
+
+```bash
+sudo apt install -y kubectl=1.31.0-1.1
+```
+
+**Where this returns:** every one of the capstone's nine Ansible roles is
+essentially "install this package and configure it". Ansible's `apt` and `dnf`
+modules are wrappers over exactly these commands, which is why an Ansible
+failure so often reads as an apt failure.
+
+---
+
+### Processes and signals
+
+A **process** is a running program with a numeric **PID**. A **daemon** is a
+process running in the background with no terminal attached — `dockerd`,
+`kubelet` and your database are daemons.
+
+```bash
+ps aux                  # every process, with memory and CPU
+ps aux | grep kubelet
+pgrep -a nginx          # PIDs matching a name
+top                     # live, sorted by CPU (q to quit)
+```
+
+Signals are how you ask a process to do something:
+
+| Signal | Number | Meaning |
+|---|---|---|
+| `SIGTERM` | 15 | Please shut down cleanly. **The default.** |
+| `SIGINT` | 2 | What Ctrl-C sends |
+| `SIGHUP` | 1 | Often "reload your configuration" |
+| `SIGKILL` | 9 | Stop immediately. Cannot be caught or ignored. |
+
+```bash
+kill 4821               # SIGTERM — asks nicely
+kill -9 4821            # SIGKILL — last resort
+```
+
+**Why the difference matters more than it looks.** When Kubernetes removes a
+pod it sends `SIGTERM` and waits — by default 30 seconds, configurable through
+`terminationGracePeriodSeconds` — then sends `SIGKILL`. An application that
+ignores `SIGTERM` therefore keeps running until it is killed outright, and any
+request in flight at that moment is dropped. That is a rolling deploy quietly
+serving errors, and the cause is a missing signal handler in the application,
+not a Kubernetes misconfiguration.
+
+`docker stop` behaves the same way, with a shorter default grace period.
+
+---
+
+### systemd and services
+
+systemd starts services at boot, restarts them when they fail, and collects
+their logs.
+
+```bash
+systemctl status kubelet          # running? failed? last few log lines
+systemctl start   kubelet
+systemctl restart kubelet
+systemctl enable  kubelet         # start on every boot
+systemctl is-enabled kubelet
+systemctl cat  kubelet            # the unit file actually in effect
+journalctl -u kubelet -f          # follow its logs
 journalctl -u kubelet --since "10 min ago"
 ```
 
-`enable` and `start` are different, and confusing them causes a specific kind of outage: the service runs perfectly for months, the server reboots at 3am, and the service never comes back — because it was started but never enabled.
+**`start` and `enable` are different**, and confusing them produces a specific
+outage: the service runs perfectly for months, the machine reboots at 3am, and
+it never comes back — because it was started but never enabled.
 
-**Reading a unit file.** A service is defined by a plain text file. Here is a trimmed version of one:
+**Reading a unit file:**
 
 ```ini
 [Unit]
 Description=ivolve API
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 ExecStart=/usr/local/bin/ivolve-api --port 8080
 Restart=on-failure
 RestartSec=5s
 User=ivolve
+EnvironmentFile=/etc/ivolve/api.env
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-- `After=network.target` — do not start this until the network is up.
-- `ExecStart=` — the exact command to run. There is no shell here, so pipes and `$VARIABLES` will not work the way you expect.
-- `Restart=on-failure` — if the process exits non-zero, restart it. This is systemd doing, on one server, what Kubernetes does for a cluster.
-- `User=ivolve` — run as an unprivileged user, not `root`. Same principle as a non-root container.
+- **`After=`** controls *ordering only*. It does not wait for anything to be ready — it says "if both are starting, start that one first". This is the detail most explanations get wrong: `After=network.target` does **not** mean the network is usable. It means the network *stack* has been set up. If your service needs a routable address and working DNS, you want `After=network-online.target` **with** `Wants=network-online.target`, because `network-online.target` is only reached if something asks for it.
+- **`ExecStart=`** is executed directly, without a shell. Pipes, `&&` and `$VARIABLES` do not behave as they would in a terminal.
+- **`Restart=on-failure`** restarts on a non-zero exit. `always` restarts even on a clean exit, which sounds safer and often is not: a service exiting cleanly because its configuration is invalid gets restarted forever, hiding the fault behind a process that looks alive. Pair either with `RestartSec` so a crash loop does not saturate the machine.
+- **`User=`** runs it unprivileged — the same principle as a non-root container.
 
-**Diagnosing a failed service.** When `systemctl status` shows `failed`, the sequence is always the same:
-
-```bash
-systemctl status ivolve-api      # 1. what does systemd think happened? note the exit code
-journalctl -u ivolve-api -n 50   # 2. what did the application itself say before dying?
-systemctl cat ivolve-api         # 3. is the unit file actually what you think it is?
-```
-
-Step 2 is the one beginners skip. `systemctl status` tells you *that* it failed; only the journal tells you *why*.
-
-**`Restart=` is a real decision, not a formality:**
-
-| Value | Behaviour | Use when |
-| --- | --- | --- |
-| `no` | Never restart | A one-shot task that should stay failed |
-| `on-failure` | Restart on a non-zero exit | Almost always — the sensible default |
-| `always` | Restart even on a clean exit | A daemon that should never stop, ever |
-
-`always` sounds safer and often is not: a service that exits cleanly because its
-configuration is invalid will be restarted forever, hiding the problem behind a
-process that looks alive. Pair either setting with `RestartSec` so a crash loop
-does not saturate the machine.
-
-**When systemd is the wrong tool.** It manages processes on *one* machine. For
-scheduled work, a systemd timer and `cron` do the same job — timers give you
-logging, dependencies and `Persistent=true` for missed runs, at the cost of more
-syntax; cron is three fields and universally understood. And once a workload must
-survive the machine itself failing, no process manager is enough — that is the
-problem Kubernetes solves, and `Restart=on-failure` is its single-host ancestor.
+Use `systemctl edit` for overrides rather than editing the vendor's unit file;
+a package upgrade will overwrite the latter and your change vanishes silently.
 
 ---
 
-## Level 3 — Advanced
+### The troubleshooting sequence
 
-### How Linux Powers Containers (Docker & Kubernetes)
+Memorise the order, not the commands. It applies to a systemd service today and
+to a Kubernetes pod later, because the questions are the same.
 
-Containers are not magic. They do not contain their own Operating System. They are just a trick played by the Linux Kernel.
+```text
+1. Is it running?          systemctl status <unit>
+2. Why did it stop?        note the exit code and the "Active:" line
+3. What did it say?        journalctl -u <unit> -n 50 --no-pager
+4. What is it running?     systemctl cat <unit>      (is the unit what you think?)
+5. As whom?                User= — and does that user own what it reads?
+6. Can it bind?            ss -tlnp | grep <port>    (something already there?)
+7. Does it have room?      df -h · free -h
+8. Can it reach the rest?  dig · curl · ss
+```
 
-Docker and Kubernetes rely on two fundamental Linux features:
-1. **cgroups (Control Groups):** This limits *how much* a process can use. If we tell Kubernetes that the `ivolve-api` Pod can only use 500MB of RAM, Kubernetes simply asks the Linux Kernel to put a `cgroup` limit on that process. If the API tries to use 501MB, the Linux Kernel instantly kills it (OOMKilled - Out of Memory).
-2. **Namespaces:** This limits *what* a process can see. When the `ivolve-api` container starts, Linux creates a Network Namespace. The API thinks it has its own private IP address and its own private hard drive. It cannot see the database container running right next to it on the same physical server.
+Step 3 is the one beginners skip. `systemctl status` tells you *that* it
+failed; only the journal tells you *why*.
 
-### Deep Dive: Shell Scripting in CI/CD
-In DevOps, we automate tasks using Bash scripts. Every pipeline stage, every container entrypoint, and every `user_data` block on an EC2 instance is ultimately a shell script.
-
-**The four lines that belong at the top of every one of them:**
+Know which log you are reading:
 
 ```bash
-#!/bin/bash
+journalctl -u nginx        # what the service manager captured
+tail -f /var/log/nginx/error.log   # what the application wrote itself
+dmesg -T | tail            # what the kernel says — OOM kills appear here
+```
+
+> **Practise:** [Linux Processes, Services & Logs](/labs/lab-linux-processes-services-logs)
+> gives you a broken service and no hint about which layer broke it.
+
+---
+
+### Environment and configuration
+
+```bash
+echo "$PATH"            # where the shell looks for commands, in order
+env                     # everything exported into this process
+export REGION=us-east-1 # exported: child processes inherit it
+LOCAL=value             # shell variable only: children do not see it
+```
+
+`PATH` explains most "command not found" reports on a machine where the binary
+demonstrably exists — it was installed somewhere the shell does not search, or
+installed for a different user.
+
+A process inherits its environment from its parent, which is exactly how
+`docker run -e`, Kubernetes `env:`, and a CI job's variables all work.
+
+**Environment variables are configuration, not a secret store.** They are
+visible to anyone who can read `/proc/<pid>/environ` for that process, they end
+up in crash dumps, and they are trivially printed by a careless log line. Use
+them for settings; use a real secret manager for secrets — which is why the
+capstone puts database credentials in AWS Secrets Manager rather than in a
+`Deployment`.
+
+---
+
+### SSH and remote administration
+
+You will not sit in front of these servers. SSH is how you reach them, and it
+is the transport Ansible uses underneath.
+
+```bash
+ssh-keygen -t ed25519 -C "you@example.com"   # generate a key pair
+ssh-copy-id ubuntu@203.0.113.10              # install the public half
+ssh ubuntu@203.0.113.10
+scp  file.txt ubuntu@host:/tmp/              # copy a file
+rsync -avz ./dist/ ubuntu@host:/var/www/     # copy a tree, efficiently
+```
+
+**The key pair.** The private key stays on your machine and is never sent
+anywhere. The public key goes in `~/.ssh/authorized_keys` on the server. The
+server proves you hold the private key without ever seeing it.
+
+**Permissions on the private key are enforced by your SSH client.** If
+`~/.ssh/id_ed25519` is readable by others, OpenSSH refuses to use it and prints
+`UNPROTECTED PRIVATE KEY FILE`. This is a local check by OpenSSH — the remote
+server, and AWS, are not involved in that decision:
+
+```bash
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/id_ed25519
+```
+
+**`~/.ssh/config`** turns a long command into a short one, and is where you
+should put per-host settings rather than retyping flags:
+
+```text
+Host jenkins
+  HostName 203.0.113.10
+  User ubuntu
+  IdentityFile ~/.ssh/ivolve.pem
+```
+
+**When a connection fails**, work down the layers rather than guessing:
+
+```text
+Permission denied (publickey)   wrong key, or public half not in authorized_keys
+Connection refused              sshd is not running on that port
+Connection timed out            a security group or firewall is dropping you
+Host key verification failed    the host identity changed — verify before deleting
+```
+
+`known_hosts` is a real security control, not an annoyance: it is what tells
+you the machine answering today is the one you trusted yesterday. Investigate a
+changed host key rather than deleting the entry reflexively.
+
+**Where this returns:** Terraform creates the instance; SSH and Ansible turn it
+into a usable server. On AWS, Systems Manager Session Manager is a modern
+alternative that needs no inbound port at all — worth knowing, and covered with
+the AWS material rather than here.
+
+> **Practise:** [Linux Security & SSH Hardening](/labs/lab-linux-ssh-hardening).
+
+---
+
+### Linux networking essentials
+
+Enough to operate a server. [Networking Fundamentals](/learn/networking/networking-fundamentals)
+covers addressing, routing, DNS and HTTP properly.
+
+```bash
+ip addr                 # interfaces and their addresses
+ip route                # where traffic leaves by — default gateway
+ss -tlnp                # what is listening, and which process owns it
+ping 1.1.1.1            # is anything reachable at all?
+dig egykode.com         # what does DNS say?
+curl -I https://egykode.com    # does the application answer?
+nc -zv host 5432        # is that port open from here?
+```
+
+**Follow the layers in order** — the same discipline as the service sequence:
+
+```text
+DNS resolves?      dig name
+Address reachable? ping ip
+Route exists?      ip route
+Port open?         nc -zv host port   /   ss -tlnp on the server
+TLS valid?         curl -Iv https://…
+Application OK?    its own logs
+```
+
+Answering "which layer" first is what turns a vague "the site is down" into a
+specific question. `ss -tlnp` alone resolves a large share of them, because
+"the service is running" and "the service is listening on the address you are
+connecting to" are different statements.
+
+---
+
+### Scheduling recurring work
+
+```bash
+crontab -e              # per-user schedule
+systemctl list-timers   # systemd's equivalent, with next run times
+```
+
+`cron` is three fields and universally understood. A **systemd timer** is more
+verbose but gives you journal logging, dependency ordering, and
+`Persistent=true` so a job missed while the machine was off still runs. Use
+cron for something simple and self-contained; use a timer when you need to know
+whether it ran.
+
+Time matters more than it looks: log correlation across machines, certificate
+validity, and token expiry all depend on clocks agreeing. Keep servers on UTC
+and let humans do the timezone conversion.
+
+---
+
+### Bash that fails safely
+
+Every pipeline stage, container entrypoint and EC2 `user_data` block is
+ultimately a shell script.
+
+```bash
+#!/usr/bin/env bash
 set -euo pipefail
 ```
 
-- `#!/bin/bash` — the *shebang*. It tells Linux which interpreter to run the file with.
-- `-e` — exit immediately if any command fails. Without it, a script whose `docker build` failed cheerfully carries on to `docker push` and deploys the previous image.
-- `-u` — treat an unset variable as an error. This is what stops `rm -rf "$APP_DIR/"` from becoming `rm -rf /` when `APP_DIR` was never set.
-- `-o pipefail` — in `a | b`, fail if *any* stage failed, not just the last one. Without it, `trivy image myapp | tee scan.log` reports success no matter what Trivy found, because `tee` succeeded.
+- **`-e`** — stop at the first failing command. Without it, a script whose `docker build` failed carries on to `docker push` and ships the previous image.
+- **`-u`** — an unset variable is an error. This is what stops `rm -rf "$APP_DIR/"` from becoming `rm -rf /` when `APP_DIR` was never set.
+- **`-o pipefail`** — in `a | b`, fail if *any* stage failed. Without it, `trivy image app | tee scan.log` reports success whatever Trivy found, because `tee` succeeded.
 
-Those three flags are the difference between a script that stops at the problem and a script that keeps going and does damage.
-
-**Variables and substitution:**
+`set -e` has real exceptions worth knowing rather than trusting blindly: a
+command in an `if` condition, or followed by `||`, does not trigger it. Treat
+these flags as a strong default, not a guarantee.
 
 ```bash
-IMAGE_TAG="${GIT_COMMIT:0:7}"          # first 7 characters — a short SHA
-REGISTRY="${REGISTRY:-ghcr.io/ivolve}" # use $REGISTRY if set, otherwise this default
+IMAGE_TAG="${GIT_COMMIT:0:7}"              # first 7 characters
+REGISTRY="${REGISTRY:-ghcr.io/ivolve}"     # default if unset
 docker build -t "${REGISTRY}/api:${IMAGE_TAG}" .
+
+cleanup() { rm -rf "$TMPDIR"; }
+trap cleanup EXIT                          # runs even if the script fails
 ```
 
-Always quote your variables (`"$VAR"`, not `$VAR`). An unquoted variable containing a space is split into two arguments, which is how a script meant to delete one file deletes two directories.
+**Exit codes are the interface.** `0` is success; anything else is failure.
+That is the entire mechanism behind:
 
-Look at how a Jenkins pipeline executes a command:
 ```bash
-sh 'trivy fs --exit-code 1 --severity CRITICAL .'
+trivy fs --exit-code 1 --severity CRITICAL .
 ```
-Why does this fail the pipeline? Because of Linux **Exit Codes**.
-In Linux, when a program finishes, it sends a hidden number back to the kernel.
-- `0`: Success.
-- `1 - 255`: Error.
-Jenkins is programmed to look at the Linux Exit Code. If it sees a `1`, Jenkins turns the pipeline red.
+
+Trivy returns `1` when it finds something critical, the shell reports non-zero,
+and Jenkins marks the stage red. The gate is not a Jenkins feature — it is an
+exit code.
+
+> **Practise:** [Bash Automation: A Script You Can Trust](/labs/lab-22-bash-automation-backup-healthcheck).
 
 ---
 
-## Level 4 — Enterprise
+### Resource troubleshooting
 
-### Kernel Tuning (Sysctl)
-In a highly scalable enterprise environment, the default Linux settings are not enough. 
-If our Kubernetes cluster is handling 100,000 HTTP requests per second, the Linux server will run out of network ports, or it will drop packets because the TCP buffer is too small.
-
-Platform Engineers use the `sysctl` command to tune the Linux Kernel in production.
-For example, in a high-traffic Kubernetes cluster, we might apply:
 ```bash
-sysctl -w net.ipv4.ip_local_port_range="1024 65535"
-sysctl -w net.ipv4.tcp_tw_reuse=1
+free -h                 # memory, and how much is really available
+uptime                  # load average: 1, 5 and 15 minute
+df -h ; df -i           # disk space, then inodes
+ss -s                   # socket summary
+top                     # live processes
 ```
-This tells the Linux kernel to recycle TCP connections faster so the server doesn't crash under massive load.
 
-### SELinux and AppArmor
-For government or SOC2 compliance, standard file permissions (`chmod`) are insufficient. What if the `root` user is hacked?
-Enterprise Linux distributions (Red Hat, Ubuntu) use **Mandatory Access Control (MAC)** systems like SELinux or AppArmor.
-Even if a hacker gains `root` access to a Docker container, AppArmor will intercept the kernel calls and block the hacker from reading sensitive files on the host machine.
+Two readings people get wrong:
+
+- **"Memory is nearly full."** Linux uses spare memory as disk cache and gives it back on demand. Read the **available** column, not "free".
+- **Load average** counts processes wanting to run *and* processes blocked on I/O. On an 8-CPU machine, a load of 8 is fully busy; a load of 8 that is mostly I/O wait is a disk problem, not a CPU problem.
 
 ---
 
-## Interview Questions
+## Level 3 — The Linux underneath containers
 
-### Beginner
-**Q: What is the `sudo` command?**
-A: `sudo` stands for "SuperUser Do". It allows a normal user to execute a single command with root (Administrator) privileges.
+A container is not a small virtual machine, and it does not boot its own
+kernel. It is one or more ordinary Linux processes that the kernel has been
+asked to isolate and constrain. Two kernel features do the work.
 
-### Intermediate
-**Q: You run `cat /var/log/syslog` and it prints 10,000 lines instantly. How can you view the file so it only shows you the last 20 lines that update in real-time?**
-A: You use the `tail` command with the follow flag: `tail -n 20 -f /var/log/syslog`.
+**Namespaces control what a process can see.** There are several, each covering
+a different kind of resource:
 
-### Senior
-**Q: Explain what `OOMKilled` means in Kubernetes and how it relates to the Linux Kernel.**
-A: `OOMKilled` stands for Out Of Memory Killed. When a container exceeds its defined memory limit, the Linux Kernel's Out-Of-Memory Killer process intervenes to protect the host node from crashing. It terminates the offending process inside the `cgroup`. Kubernetes detects the exit code and updates the Pod status to `OOMKilled`.
+| Namespace | Isolates |
+|---|---|
+| PID | Process IDs — your process sees itself as PID 1 |
+| Network | Interfaces, addresses, routes, ports |
+| Mount | The filesystem view |
+| UTS | Hostname |
+| IPC | Shared memory and semaphores |
+| User | UID/GID mapping between container and host |
 
-### Principal/Architect
-**Q: What is the difference between a Virtual Machine (VM) and a Container at the OS kernel level?**
-A: A Virtual Machine utilizes a Hypervisor (like ESXi or KVM) to emulate physical hardware. Every VM runs a complete, heavy, independent Operating System kernel. A Container (like Docker) does not emulate hardware. It uses the Host's existing Linux Kernel, utilizing `Namespaces` for isolation and `cgroups` for resource limitation. Because containers share a single kernel, they boot in milliseconds and have vastly less overhead than VMs.
-[Contents](/learn) | [06 — Networking Fundamentals](/learn/networking/networking-fundamentals) |
+A mount namespace is why a container appears to have its own filesystem: it has
+a different *view*, assembled from image layers, not a private disk.
+
+**cgroups control how much a process may use** — CPU, memory, PIDs, I/O,
+depending on the controllers in use. Setting a memory limit on a Kubernetes
+container ultimately sets a cgroup limit.
+
+**What actually happens on a memory limit.** Not "one byte over and it dies".
+When a cgroup reaches its limit the kernel first tries to reclaim memory; if it
+cannot, the OOM killer terminates one or more processes *in that cgroup*.
+Because a container's main process is usually PID 1 there, killing it ends the
+container, and Kubernetes reports the termination as `OOMKilled`. The
+distinction matters when you debug: the kernel is protecting the node, and the
+evidence is in `dmesg`, not only in `kubectl describe`.
+
+```text
+Linux kernel
+  ↓  namespaces + cgroups
+Containers
+  ↓  packaging, images, a runtime
+Docker
+  ↓  scheduling, health, networking across machines
+Kubernetes
+```
+
+Read downward and each layer is the previous one with a management problem
+solved. Nothing new is invented at the bottom — which is why the permissions,
+signals and process concepts from this chapter keep reappearing.
+
+---
+
+## Reference — beyond the foundation
+
+These belong to a production-tuning chapter rather than a first one. They are
+here so you recognise them, not so you apply them today.
+
+**`sysctl`** exposes kernel parameters:
+
+```bash
+sysctl -a                                # everything
+sysctl net.ipv4.ip_local_port_range      # read one
+```
+
+Runtime changes with `sysctl -w` are lost at reboot; persistent settings belong
+in `/etc/sysctl.d/`. **Do not copy tuning values from the internet.** Correct
+values depend on workload, kernel version and distribution, and several
+widely-shared snippets are either obsolete or actively harmful on modern
+kernels. Measure first, change one thing, measure again, and know how to roll
+back.
+
+**SELinux and AppArmor** add Mandatory Access Control on top of ordinary file
+permissions. Ordinary permissions (DAC) let the owner of a file decide who may
+read it; MAC applies a policy the owner cannot override, so a compromised
+process is confined to what its profile allows even if it would otherwise have
+permission.
+
+- **SELinux** (RHEL family) labels every file and process and enforces policy between labels. `getenforce` shows `Enforcing`, `Permissive` or `Disabled`; permissive logs violations without blocking, which is how you debug a policy rather than by disabling it.
+- **AppArmor** (Ubuntu family) works on filesystem paths and per-program profiles. `aa-status` lists what is loaded.
+
+Denials appear in the audit log rather than the application's, which is why a
+program can fail with a plain "permission denied" while its file permissions
+look perfectly correct.
+
+Both are defence in depth, not a replacement for the rest. Root inside a
+container is *not* automatically root on the host — user namespaces, dropped
+capabilities and seccomp all sit in between — but nor is it harmless, which is
+why the capstone enforces non-root containers with a read-only root filesystem
+and all capabilities dropped.
+
+---
+
+## Linux → the production platform
+
+Nothing here is a separate subject. Each row is the same idea, met again later
+under another name:
+
+| What you learned here | Where it returns |
+|---|---|
+| Filesystem, mounts | Docker volumes · Kubernetes PersistentVolumes · the EBS volume behind MySQL |
+| Ownership and permissions | Dockerfile `USER` · `runAsUser` / `fsGroup` · Pod Security |
+| Processes | Containers are processes; Kubernetes schedules them |
+| Signals | `docker stop` · pod termination · rolling deploys that drop no requests |
+| systemd | The Jenkins host · `kubelet` on every node |
+| Journald and logs | Incident response · centralised logging |
+| SSH | Terraform makes the instance; Ansible configures it over SSH |
+| Package management | All nine Ansible roles in the capstone |
+| Networking commands | Debugging a Service, an Ingress, or a NetworkPolicy |
+| Bash and exit codes | Every pipeline stage · the Trivy gate |
+| cgroups | Kubernetes resource requests and limits · `OOMKilled` |
+| Namespaces | Container isolation |
+| Resource inspection | SRE work, and the incident labs |
+
+When you reach Docker, Terraform or Kubernetes you are not starting a new
+subject. You are meeting these primitives with better tooling around them.
+
+---
+
+## Reference command map
+
+Grouped by the question you are asking, not alphabetically.
+
+```text
+Where am I / what is here     pwd · ls -la · cd · find · tree
+Read a file                   cat · less · head · tail -f · wc -l
+Filter and shape              grep · cut · sort · uniq · sed · awk · xargs
+Permissions                   chmod · chown · chgrp · umask · id · getent
+Processes                     ps aux · top · pgrep · kill · kill -9
+Services                      systemctl status|start|enable|cat · journalctl -u
+Storage                       df -h · df -i · du -sh · lsblk · findmnt · mount
+Memory and load               free -h · uptime · dmesg -T
+Packages                      apt update|install · dnf install · rpm -qa
+Networking                    ip addr · ip route · ss -tlnp · dig · curl · nc
+Remote                        ssh · ssh-keygen · ssh-copy-id · scp · rsync
+Scheduling                    crontab -e · systemctl list-timers
+```
+
+---
+
+## Check yourself
+
+**Beginner.** You have just connected to a server. How do you find which
+directory you are in, and list every file including hidden ones?
+
+> `pwd` prints the working directory. `ls -la` lists everything: `-a` includes
+> dotfiles such as `.ssh`, `-l` shows permissions and ownership.
+
+**Intermediate.** A service runs when you start it by hand, but is gone after a
+reboot. What is wrong?
+
+> It was started but never enabled. `systemctl start` affects the current boot
+> only; `systemctl enable` creates the link that starts it on future boots.
+> Confirm with `systemctl is-enabled <unit>`.
+
+**Advanced.** `df -h` reports 100% used, but `du -sh /*` does not account for
+the space. What do you check?
+
+> Two candidates. Inode exhaustion — `df -i` — where millions of small files
+> consume the inode table while bytes remain free. Or a deleted file still held
+> open by a running process, which keeps its blocks allocated; `lsof +L1` finds
+> it, and restarting the holder releases the space.
+
+**Senior.** A container is repeatedly `OOMKilled`. Explain the chain.
+
+> The container's cgroup has a memory limit from its Kubernetes memory limit.
+> When the workload's usage approaches it, the kernel attempts reclaim; when it
+> cannot reclaim enough, the OOM killer terminates a process in that cgroup —
+> usually PID 1, which ends the container. The kubelet observes the termination
+> and reports `OOMKilled`. So it is the kernel enforcing a cgroup limit, and
+> Kubernetes reporting the result. Fix it by measuring real usage and setting
+> the limit accordingly, or by fixing the leak — not by removing the limit,
+> which converts a contained failure into a node-wide one.
+
+**Architect.** How can many containers share one kernel and still be isolated?
+
+> Namespaces partition what each process *sees* — PID, network, mount, UTS,
+> IPC, user — so a process observes only its own view of each resource.
+> cgroups constrain what it may *consume*. Together they give isolation without
+> a second kernel, which is why containers start in milliseconds where a VM
+> boots an entire OS. The trade-off is that the kernel is shared: a kernel
+> vulnerability is a shared exposure, which is why capabilities, seccomp and
+> MAC systems matter, and why some workloads still use VM-level isolation.
+[Contents](/learn) | [Networking Fundamentals](/learn/networking/networking-fundamentals) |

@@ -22,8 +22,10 @@ successCriteria:
   - "A VPC spans two availability zones with a public and a private subnet in each."
   - "An instance in a private subnet reaches the internet outbound and cannot be reached inbound."
   - "The difference between the two subnet types is visible in the route tables, not in their names."
-  - "`terraform plan` reports no changes after `apply`."
-  - "`terraform destroy` removes the NAT Gateway and releases its Elastic IP."
+  - text: "`terraform plan` reports no changes after `apply`."
+    verify: command
+  - text: "`terraform destroy` removes the NAT Gateway and releases its Elastic IP."
+    verify: command
 guidedLabId: lab-01-aws-vpc-subnets-gateways-route-tables
 authors: [waleed]
 updated: 2026-08-09

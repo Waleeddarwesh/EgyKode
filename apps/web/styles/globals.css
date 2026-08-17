@@ -236,6 +236,21 @@ samp,
    pushed the whole page sideways on a phone. Pin the code to the container and
    let it scroll inside its own box (§12.6). */
 .prose figure[data-rehype-pretty-code-figure] { max-width: 100%; margin-inline: 0; }
+
+/* Commands are wider than prose. A column sized for reading sentences makes
+   `aws ec2 describe-instances --filters Name=...` scroll inside its box while
+   the margin beside it sits empty, so code reaches into that margin once the
+   viewport can spare it.
+
+   Inline-end only, and deliberately so: the lab step rail occupies the
+   inline-start margin on the same wide screens, and a symmetric breakout would
+   run underneath it. Logical properties keep this correct in RTL. */
+@media (min-width: 1180px) {
+  .prose figure[data-rehype-pretty-code-figure] {
+    margin-inline-end: -5rem;
+    max-width: calc(100% + 5rem);
+  }
+}
 .prose pre { max-width: 100%; }
 .prose pre > code {
   display: block;

@@ -5,6 +5,11 @@ titleAr: "هندسة المنصات (Platform Engineering)"
 description: "Explain the golden path and why platforms beat ticket queues"
 descriptionAr: "تحويل كل ما سبق إلى شيء يستطيع مهندسون آخرون استخدامه."
 domain: platform-engineering
+capstoneRole: extension
+capstonePhase: operations
+capstoneComponent: platform
+capstonePurpose: "extends the platform into something other engineers self-serve"
+capstoneWhy: "The platform you built is itself a small example of this: standardised infrastructure, automation, GitOps and observability. This chapter is about turning that into something other engineers self-serve."
 level: advanced
 type: concept
 phase: production
@@ -106,7 +111,7 @@ spec:
 **Line-by-Line Breakdown:**
 - **`action: fetch:template`**: Backstage downloads a pristine, highly-secure, pre-approved Java skeleton codebase.
 - **`action: publish:github`**: It uses the GitHub API to dynamically create a brand new repository and pushes the skeleton code to it.
-- **`action: argocd:create-app`**: It natively talks to ArgoCD (Chapter 28) to register the new repository. The CI/CD pipeline is fully wired up in 5 seconds.
+- **`action: argocd:create-app`**: It natively talks to [ArgoCD](/learn/argocd/argocd/) to register the new repository. The CI/CD pipeline is fully wired up in 5 seconds.
 
 ---
 
@@ -162,4 +167,4 @@ A: Adoption requires treating the Platform as a Product.
 2. **Minimum Viable Product (MVP):** Build a template in Backstage that provisions a database in 5 minutes via Terraform and Crossplane. 
 3. **Evangelism:** Onboard one highly influential "lighthouse" development team. Let them experience the 5-minute database. They will brag about it to other teams.
 4. **Metrics:** Measure the reduction in lead time (DORA metrics). Present this data to leadership to secure funding to expand the platform to cover CI/CD and Kubernetes deployments.
-[Contents](/learn) | [40 — The Worst Day (Disaster Recovery)](/learn/sre/disaster-recovery) |
+[Contents](/learn) | [The Worst Day (Disaster Recovery)](/learn/sre/disaster-recovery) |

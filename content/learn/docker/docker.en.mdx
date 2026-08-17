@@ -1,105 +1,136 @@
 ---
 contentId: docker
 title: "Containerization (Docker)"
-titleAr: "الحاويات — Docker"
-description: "Write a multi-stage, non-root Dockerfile and explain every line"
-descriptionAr: "تحزيم التطبيق مع كل ما يحتاجه ليعمل في أي مكان."
+titleAr: "الحاويات (Docker)"
+description: "Build a production image, connect and persist containers, and see why Kubernetes is the next step"
+descriptionAr: "الصور والطبقات وDockerfile وCompose — وكيف تصبح هذه الصور أحمالًا على Kubernetes."
 domain: docker
+capstoneRole: core
+capstonePhase: application
+capstoneComponent: docker
+capstonePurpose: "packages each service as the image the pipeline scans and pushes to ECR, and the cluster runs"
 level: beginner
 type: concept
 phase: build-and-containers
 order: 9
-readingTime: 50
+readingTime: 75
 prerequisites: ["linux-foundations"]
-relatedChapters: []
+relatedChapters: ["build-tools", "kubernetes", "jenkins", "ecr"]
 objectives:
-  - "Write a multi-stage, non-root Dockerfile and explain every line"
+  - "Build a small, reproducible, non-root image with an efficient cache"
+  - "Diagnose a container that starts and immediately exits"
+  - "Connect containers to each other and publish a port deliberately"
+  - "Choose between the writable layer, a named volume and a bind mount"
+  - "Explain how an image becomes a Pod, and why Kubernetes does not need Docker"
 status: complete
 translationStatus: missing
 authors: [waleed]
-updated: 2026-08-08
+updated: 2026-08-17
 ---
 
-## Introduction to Docker
+## Why Docker sits exactly here
 
-The biggest problem in software engineering history is the phrase: *"But it works on my machine!"*
+Linux gave you processes, permissions, signals and filesystems. Kubernetes will
+ask you to run those things across a fleet of machines. Docker is the layer in
+between: it turns an application into an artifact you can move.
 
-A developer writes code on a Macbook. It works perfectly. They give the code to the Operations team. The Ops team runs it on an Ubuntu Linux server. It crashes immediately because a specific Python library is missing. 
-
-**Docker** solves this by packaging the code, the dependencies, and the operating system into a single, standardized box called a Container.
-
----
-
-## Level 1 — Beginner
-
-### What is Docker?
-Imagine shipping cargo across the ocean in the 1800s. You had a pile of bananas, a piano, and a sack of flour. Loading them onto a ship was a nightmare. The bananas would rot on the piano. 
-Then, someone invented the **Standard Shipping Container**. It's a metal box. The cranes don't care what is inside the box. They just pick up the box and put it on the ship.
-
-Docker is the standard shipping container for software.
-- The Developer writes their code and locks it inside a Docker Container.
-- The Ops team (or Kubernetes) doesn't care what programming language the developer used. They just pick up the container and run it on the AWS server.
-
-### ASCII Diagram: The Docker Illusion
+That is why this chapter is a bridge, not a destination. Everything in it
+reappears — the image goes to ECR, the pipeline scans it, Kustomize references
+its tag, Argo CD deploys it, and the thing that finally runs on a node is a
+Linux process with namespaces and cgroups around it.
 
 ```text
-+-----------------------+
-|   Docker Container    |
-|                       |
-|   [ Your App Code ]   |
-|   [ Python v3.9 ]     |
-|   [ Alpine Linux ]    |
-+-----------------------+
-           |
-      (runs on)
-           v
-[ Host Server (AWS EC2) ]
+Linux  →  Application  →  Docker  →  ECR  →  Jenkins  →  Kubernetes  →  Argo CD
 ```
 
 ---
 
-## Level 2 — Intermediate
+## Level 1 — What Docker actually is
 
-### How it Works Internally (The Terminology)
+### The problem it solves
 
-1. **Dockerfile:** The blueprint. A text file that tells Docker how to build the container.
-2. **Image:** The frozen, immutable snapshot created from the Dockerfile. (Like a CD-ROM).
-3. **Container:** A running instance of an Image. (Like putting the CD-ROM into a player and pressing play).
-4. **Registry:** A cloud storage locker where Images are saved (like Docker Hub or AWS ECR).
+"It works on my machine" is a dependency problem. The application needs a
+specific Java, a specific library, an environment variable, a directory that
+exists. The server has different ones.
 
-### Docker Images and Layers
+**Docker** solves this by packaging the code and its userspace dependencies —
+libraries, runtime, configuration — into a single immutable filesystem image.
+A container started from that image is an ordinary Linux process that **shares
+the host kernel** rather than carrying one of its own, which is why it starts in
+milliseconds where a virtual machine boots an operating system.
 
-An image is not one file. It is a **stack of read-only layers**, one per build
-instruction, and each layer records only what changed from the layer beneath it.
+That distinction is the one to hold on to. [The Foundation
+(Linux)](/learn/linux/linux-foundations) covers the namespaces and cgroups doing
+the work; this chapter is about the artifact and the workflow around it.
+
+### The four words, and the difference between them
+
+```text
+Dockerfile   the instructions       (source, in Git)
+     ↓ docker build
+Image        an immutable artifact  (layers + metadata)
+     ↓ docker push / pull
+Registry     where images live      (ECR, Docker Hub)
+     ↓ docker run
+Container    a running process      (image + writable layer + namespaces)
+```
+
+Confusing image with container is the most common beginner error and it makes
+everything else confusing. An image is a *class*; a container is an *instance*.
+You can run twenty containers from one image, and none of them can modify it.
+
+### Containers and virtual machines
+
+| | Virtual machine | Container |
+|---|---|---|
+| Contains | A full OS, including its own kernel | An application and its userspace dependencies |
+| Isolation | Hardware virtualisation, by a hypervisor | Kernel namespaces and cgroups |
+| Boot | Tens of seconds | Milliseconds |
+| Overhead | Gigabytes | Megabytes |
+| Kernel | Its own | **The host's, shared** |
+
+The shared kernel is both the advantage and the trade-off: it is why containers
+are cheap, and why a kernel vulnerability is a shared exposure. Workloads with
+genuinely hostile multi-tenancy sometimes still choose VM-level isolation for
+exactly that reason.
+
+---
+
+## Level 2 — Images, layers and the cache
+
+### An image is a stack of layers
+
+An image is not one file. It is a **stack of read-only layers**, and each layer
+records only what changed from the one beneath it.
 
 ```text
   ┌─────────────────────────────┐  < writable container layer (dies with the container)
   ├─────────────────────────────┤
   │ ENTRYPOINT ["java","-jar"]  │  < metadata only, 0 bytes
   │ COPY target/ivolve-api.jar  │  < 40 MB   your application
-  │ FROM openjdk:17-slim        │  < 220 MB  the base image
+  │ FROM eclipse-temurin:21-jre │  < 220 MB  the base image
   └─────────────────────────────┘
 ```
 
-Three consequences follow from that picture, and they explain most of what is
-otherwise surprising about Docker:
+Dockerfile instructions map roughly to layers, and it is a useful model — but
+treat it as a model rather than a rule. BuildKit, the modern builder, optimises
+how steps execute and cache, so not every instruction is a permanent
+one-to-one filesystem layer.
 
-- **Layers are shared.** Ten images built `FROM openjdk:17-slim` store those
-  220 MB once, not ten times. Pulling the tenth image downloads only its own
-  layers.
-- **Nothing is ever deleted from a lower layer.** If you `COPY` a secret in one
-  instruction and `rm` it in the next, the file is still in the image — the
-  removal is just a marker in a higher layer. Anyone can extract it. Secrets
-  must never enter a build.
-- **The container's writable layer is temporary.** Everything written inside a
-  running container disappears when it is removed. Data that must survive goes
-  in a volume, which is why the Persistent Data section below exists.
+Three consequences explain most of what is otherwise surprising:
 
-**The build cache.** Docker reuses a cached layer when the instruction *and*
-everything above it are unchanged. This is why instruction order matters:
+- **Layers are shared.** Ten images built on the same base store it once, not ten times. Pulling the tenth downloads only its own layers.
+- **Nothing is ever deleted from a lower layer.** `COPY` a secret in one instruction and `rm` it in the next, and the file is *still in the image* — the removal is only a marker in a higher layer. Anyone can extract it. **Secrets must never enter a build.**
+- **The container's writable layer belongs to that container.** Remove the container and it goes. Data that must survive belongs in a volume.
+
+### The build cache
+
+A cached step is reused when the instruction and everything it depends on are
+unchanged. Invalidation propagates forward: once a step is invalidated, the
+steps after it are too. That is why ordering matters.
 
 ```dockerfile
-# Slow: any source change invalidates the dependency download
+# Slow: any source change re-downloads every dependency
 COPY . /app
 RUN mvn package
 
@@ -110,203 +141,420 @@ COPY src /app/src
 RUN mvn package
 ```
 
-The rule is: **put what changes least at the top.** On a busy pipeline this is
-the difference between a 30-second build and a 6-minute one.
+**Put what changes least at the top.** On a busy pipeline this is the difference
+between a thirty-second build and a six-minute one — multiplied by every commit.
 
-**Tags and digests.** A tag is a mutable label; a digest is the image's content
-hash and never changes.
-
-```bash
-docker images                              # what is on this machine
-docker pull nginx:1.27                     # a specific version
-docker history ivolve-api:1.4.0            # the layers, and what each one cost
-docker image inspect nginx:1.27 --format '{{.RepoDigests}}'
-```
-
-Never deploy `:latest`. It is not a version — it is whatever was pushed most
-recently, so the same manifest deployed twice can produce two different
-containers, and a rollback has nothing to roll back to. Deploy an explicit tag,
-or pin the digest (`nginx@sha256:...`) when you need a guarantee.
-
-### Running a container
-
-Four commands cover almost everything you will do day to day:
+### The build context, which is not the Dockerfile
 
 ```bash
-# Run it: -d detached, -p host:container port, --name for a stable handle
-docker run -d -p 8080:8080 --name api ivolve-api:1.4.0
-
-docker ps                       # what is running (add -a to include stopped ones)
-docker logs -f api              # follow its output — the first thing to check
-docker exec -it api /bin/sh     # get a shell *inside* the running container
-docker stop api && docker rm api
+docker build -t ivolve-api:1.4.0 .
+#                                 ^ this is the build context
 ```
 
-`docker exec` is the one worth internalising. When a container misbehaves, you
-do not guess from the outside — you step inside it and look at the filesystem,
-the environment variables, and the network as the application sees them. The
-same instinct becomes `kubectl exec` later.
+That final `.` sends the directory to the builder. It is not "where the
+Dockerfile is" — it is **everything the build can see**, and everything it must
+transfer first.
 
-### What Existed Before? (Virtual Machines)
-Before Docker, we used Virtual Machines (VMs) like VMware or VirtualBox.
-- To run 3 isolated apps, you had to run 3 VMs. 
-- Each VM required a full 20GB Windows/Linux Operating System installed inside it. 
-- It wasted massive amounts of CPU and RAM. 
-- Docker containers share the Host's OS kernel. They take up Megabytes, not Gigabytes, and start in milliseconds instead of minutes.
-
-### The Dockerfile
-If you look at the `Dockerfile` for our API, it looks like this:
-```dockerfile
-# Step 1: Start with a blank Linux machine that has Java installed
-FROM openjdk:17-slim
-
-# Step 2: Copy the compiled app from the CI server into the container
-COPY target/ivolve-api.jar /app.jar
-
-# Step 3: When the container starts, run this command
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+```text
+docker build .
+      │
+      v
+Build context  ──>  Dockerfile
+                    source
+                    .git/          < usually unwanted, often large
+                    .env           < must never be here
+                    node_modules/  < slows every build
 ```
 
-**The instructions you will actually use:**
-
-| Instruction | What it does | Watch out for |
-| --- | --- | --- |
-| `FROM` | The base image to build on | Pin a version — `openjdk:17-slim`, never `openjdk:latest` |
-| `WORKDIR` | Sets the directory for everything after it | Use it instead of `RUN cd`, which does not persist |
-| `COPY` | Copies files from the build context into the image | Prefer it over `ADD`, which also unpacks archives and fetches URLs |
-| `RUN` | Executes a command **at build time**, creating a layer | Chain related commands with `&&` to avoid extra layers |
-| `ENV` | An environment variable, set at build and run time | Visible in `docker inspect` — never a secret |
-| `ARG` | A build-time-only variable | Also recoverable from image history — still never a secret |
-| `EXPOSE` | Documents which port the app listens on | Documentation only; it does not publish anything |
-| `USER` | Switches to an unprivileged user | Without it the process runs as `root` |
-| `ENTRYPOINT` | The command that *is* the container | |
-| `CMD` | Default arguments, overridable on the command line | |
-
-**`ENTRYPOINT` vs `CMD`** confuses everyone once. `ENTRYPOINT` is the program;
-`CMD` is its default arguments. With `ENTRYPOINT ["java","-jar","/app.jar"]` and
-`CMD ["--spring.profiles.active=prod"]`, running the image with no arguments
-starts the app in the `prod` profile, and `docker run image --debug` swaps the
-arguments while still running the same program.
-
-**`.dockerignore`.** The build context — everything in the directory you build
-from — is uploaded to the Docker daemon before the build starts. Without this
-file you ship your `.git` history and `node_modules` into that upload, and
-`COPY . /app` bakes them into the image:
+`.dockerignore` controls it, and it does two jobs at once:
 
 ```text
 .git
 node_modules
 target
-*.env
+*.log
+.env
+*.pem
 ```
 
-**Run as a non-root user.** By default the process inside the container is
-`root`, and a container escape then starts as `root` on the host:
+**Speed** — a smaller context transfers faster. **Safety** — a file that is
+never in the context can never be accidentally `COPY`'d into an image, and
+"copied a secret in, deleted it in the next layer" is not a recoverable mistake.
+
+### Tags and digests
+
+A tag is a mutable label. A digest is the image's content hash and never changes.
+
+```bash
+docker images
+docker history ivolve-api:1.4.0     # the layers, and what each cost
+docker image inspect nginx:1.27 --format '{{.RepoDigests}}'
+```
+
+**Never deploy `:latest`.** It is not a version — it is whatever was pushed
+last, so the same manifest deployed twice can produce two different containers,
+and a rollback has nothing to roll back to. Deploy an explicit tag, or pin the
+digest (`nginx@sha256:…`) when you need a guarantee. The capstone's ECR
+repository enforces **immutable tags**, so a tag cannot be repointed at
+different bytes after the fact.
+
+---
+
+## Level 2 — The container lifecycle
+
+### A container is a process, with states
+
+```text
+       docker create
+             │
+          Created ──── docker start ───> Running ──── docker pause ──> Paused
+                                            │  ^                          │
+                          docker stop       │  └────── docker unpause ────┘
+                          (SIGTERM>SIGKILL) │
+                                            v
+                                         Exited ──── docker rm ───> gone
+```
+
+```bash
+docker ps                 # running
+docker ps -a              # including exited — where the evidence is
+docker start / stop / restart / kill <id>
+docker rm <id>            # the writable layer goes here, not on stop
+```
+
+**A stopped container still exists.** Its filesystem and logs are intact, which
+is exactly what you need when something exited unexpectedly. `docker rm` is the
+point of no return, not `docker stop`.
+
+### Signals, and the deploy that drops requests
+
+This is the Linux signals material meeting containers.
+
+```text
+docker stop
+    │
+    ├─> SIGTERM  ──>  "finish what you are doing and exit"
+    │                  (default grace period: 10s)
+    │
+    └─> SIGKILL  ──>  after the grace period, unconditional
+```
+
+An application that ignores `SIGTERM` is killed instead, and every request in
+flight at that moment is dropped. On a laptop nobody notices. In Kubernetes,
+which sends the same signal on every rolling update — with a default 30-second
+grace period — that is a deploy quietly serving errors to real users.
+
+`docker exec` runs *another* process inside a running container; it does not
+restart anything. Useful in development, and a smell in production, where the
+container should be replaced rather than edited.
+
+### Exit codes tell you what happened
+
+```bash
+docker ps -a --format '{{.Names}}\t{{.Status}}'
+docker inspect <id> --format '{{.State.ExitCode}} {{.State.OOMKilled}}'
+```
+
+| Exit code | Usually means |
+|---|---|
+| `0` | Clean exit — for a server, often "it finished and had no work" |
+| `1` | Application error — read its logs |
+| `125` | Docker itself failed — a bad flag |
+| `126` | The command is not executable — a missing `+x` |
+| `127` | Command not found — usually wrong path, or missing in a slim image |
+| `137` | Killed (128+9) — **very often the memory limit** |
+| `143` | Terminated (128+15) — a normal `docker stop` |
+
+`137` with `OOMKilled: true` is the container hitting its memory limit — the
+same cgroup mechanism that produces `OOMKilled` in Kubernetes.
+
+### Health checks
 
 ```dockerfile
-RUN useradd --uid 10001 --create-home appuser
-USER 10001
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
+  CMD curl -fsS http://localhost:8080/health || exit 1
+```
+
+A `HEALTHCHECK` tells *Docker* whether the container considers itself healthy.
+It does not make the application resilient, and it does not gate traffic on its
+own — Compose can wait on it, and Kubernetes replaces it entirely with liveness
+and readiness probes. Knowing it here is what makes those probes obvious later.
+
+---
+
+## Level 2 — Networking
+
+The most commonly skipped section, and the source of most "it works locally"
+confusion.
+
+### Containers get their own network namespace
+
+Each container has its own interfaces, addresses and ports. By default they join
+a **bridge** network, where they can reach each other but the outside world
+cannot reach them.
+
+```text
+                    host
+   ┌───────────────────────────────────────┐
+   │   :8080  ──published──┐               │
+   │                       v               │
+   │   ┌──────────── docker bridge ──────┐ │
+   │   │                                 │ │
+   │   │  [ frontend ]      [ auth ]     │ │
+   │   │   172.17.0.2        172.17.0.3  │ │
+   │   │        │                ^       │ │
+   │   │        └── http://auth ─┘       │ │
+   │   └─────────────────────────────────┘ │
+   └───────────────────────────────────────┘
+```
+
+**Containers find each other by name.** On a user-defined network (which
+Compose creates for you), Docker runs an embedded DNS server, so `http://auth:5000`
+resolves to whatever address that container currently has. You never hard-code
+an IP — the same idea a Kubernetes Service implements at cluster scale.
+
+The default *legacy* `bridge` network does not provide this name resolution.
+That is one reason Compose is the sane way to run more than one container.
+
+### Publishing a port is a deliberate act
+
+```bash
+docker run -p 8080:80 nginx
+#              ^    ^
+#              │    └── port inside the container
+#              └─────── port on the host
+```
+
+Without `-p`, nothing outside the host can reach the container. `EXPOSE` in a
+Dockerfile publishes nothing — it is documentation that records which port the
+image listens on.
+
+| | What it does |
+|---|---|
+| `EXPOSE 8080` | Metadata. Documents intent. Opens nothing. |
+| `-p 8080:8080` | Actually maps a host port to a container port |
+| `-p 127.0.0.1:8080:8080` | Maps it to localhost only — not the whole network |
+| (nothing) | Reachable from other containers on the same network, not from outside |
+
+**"The API cannot reach the database"** is nearly always one of four things:
+
+1. They are not on the same network — check `docker network inspect`.
+2. The app is using `localhost`. Inside a container, `localhost` is *that container*, not the host or a sibling.
+3. The wrong port — the *container's* port, not the published one, is what a sibling connects to.
+4. The database is not ready yet. Starting is not the same as accepting connections.
+
+---
+
+## Level 2 — Storage
+
+Four options, and choosing wrongly is how data is lost.
+
+```text
+Writable layer   inside the container   dies with `docker rm`
+Named volume     Docker-managed         survives; the default for data
+Bind mount       a specific host path   survives; exact control; host-coupled
+tmpfs            memory only            never touches disk — for secrets, scratch
+```
+
+```bash
+docker volume create pgdata
+docker run -v pgdata:/var/lib/postgresql/data postgres:16   # named volume
+docker run -v "$PWD/src:/app/src" node:22                   # bind mount
+docker run --tmpfs /tmp:size=64m alpine                     # tmpfs
+```
+
+**Which to use.** Named volumes for data the application owns — Docker manages
+the location, and it is portable across machines. Bind mounts for development,
+where you want your editor's changes visible instantly, and for configuration
+you keep in the repository. Never a bind mount for production data: it ties the
+container to one host's directory layout.
+
+**Data written to the writable layer is tied to that container's lifecycle.**
+Restarting the *same* container keeps it; removing and recreating the container
+loses it. Since a deploy replaces containers rather than restarting them, in
+practice anything not in a volume is gone at the next release.
+
+That progression is the whole reason Kubernetes storage looks the way it does:
+
+```text
+Docker volume  →  Kubernetes PersistentVolumeClaim  →  EBS volume
+```
+
+In the capstone, `mysql-0` is a StatefulSet with a `gp3` PVC for exactly this
+reason — the pod can be rescheduled and the data is still there.
+
+---
+
+## Level 3 — Building a production image
+
+### Multi-stage builds
+
+The tools that build an application are not the tools that run it. A JDK is
+needed to compile; a JRE is enough to execute. Shipping the build toolchain
+means shipping a compiler, a package manager and a shell to production — more
+to download, and more for an attacker to use.
+
+```dockerfile
+# ── build stage: has the full toolchain ──
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /src
+COPY pom.xml .
+RUN mvn -q dependency:go-offline        # cached until pom.xml changes
+COPY src ./src
+RUN mvn -q package -DskipTests
+
+# ── runtime stage: only what is needed to run ──
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+RUN addgroup -S app && adduser -S app -G app
+COPY --from=build /src/target/app.jar ./app.jar
+USER app
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+```
+
+Only the final stage becomes the image. The JDK, the Maven cache and the source
+are left behind in a stage that is discarded.
+
+**Pin your base images.** The versions above are examples — use the ones you
+actually test against, and update them deliberately. An unpinned base means two
+builds a month apart are two different images.
+
+**Distroless** images go further, removing the package manager and shell from
+the runtime. That reduces attack surface and removes much of the tooling an
+attacker would reach for after a compromise — it does not make exploitation
+impossible, and it makes debugging harder, which is a real trade-off rather
+than a pure win.
+
+### Run as a non-root user
+
+Containers run as root unless you say otherwise. Root *inside* a container is
+not root on the host — user namespaces, dropped capabilities and seccomp sit in
+between — but it is a poor default: it widens what a compromise can reach, and
+it combines badly with extra privileges or a runtime vulnerability. Adding a
+user costs two lines.
+
+This is also where the Linux ownership material returns. A container writing to
+a mounted volume as UID 1000, into a directory owned by UID 0, fails with
+`Permission denied` — and the fix is ownership, not more privilege. Kubernetes
+expresses the same thing as `runAsUser` and `fsGroup`.
+
+### Configuration and secrets
+
+```dockerfile
+ARG BUILD_VERSION          # build time only — but recoverable from image history
+ENV APP_PORT=8080          # runtime — visible in `docker inspect`
+```
+
+**Neither is a secret mechanism.** `ARG` values can be recovered from the
+image's build history, and `ENV` values are visible to anyone who can inspect
+the image or the running container. For build-time credentials, use BuildKit's
+secret mounts, which are never written into a layer. For runtime, inject at run
+time — which is what Kubernetes Secrets and AWS Secrets Manager are for.
+
+### A production image checklist
+
+```text
+[ ] multi-stage — no build toolchain in the runtime image
+[ ] base image pinned to a version you test
+[ ] runs as a non-root user
+[ ] no secrets in any layer, and none in build history
+[ ] .dockerignore excludes .git, .env, keys, dependency caches
+[ ] dependencies installed before source is copied (cache)
+[ ] logs to stdout/stderr, not to a file inside the container
+[ ] handles SIGTERM and exits cleanly
+[ ] an explicit, immutable tag — never :latest
+[ ] scanned before it is published
 ```
 
 ---
 
-## Level 3 — Advanced
+## Level 3 — Docker Compose
 
-### Docker Compose — several containers at once
-
-A real application is rarely one container. The API needs a database; the
-database needs a volume; both need to be on the same network. Doing that with
-`docker run` means four commands in the right order, every time.
-
-**Docker Compose** describes the whole set in one file, `compose.yaml`:
+One container is rarely an application. Compose describes several, and the
+network between them, in one file.
 
 ```yaml
 services:
-  api:
-    build: .
-    ports:
-      - "8080:8080"
-    environment:
-      DB_HOST: postgres
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  postgres:
+  db:
     image: postgres:16
     environment:
       POSTGRES_PASSWORD: devonly
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+    volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
-      retries: 5
+      retries: 10
+
+  api:
+    build: .
+    environment:
+      DB_HOST: db          # the service name — resolved by Docker's DNS
+    depends_on:
+      db:
+        condition: service_healthy
+    ports: ["8080:8080"]
 
 volumes:
   pgdata:
 ```
 
+Two details carry most of the value:
+
+- **`DB_HOST: db`** — the service name resolves on the Compose-created network. No addresses anywhere.
+- **`condition: service_healthy`** — plain `depends_on` only orders *startup*; the container being up is not the database accepting connections. Waiting on a health check is what removes the race.
+
 ```bash
-docker compose up -d        # build and start everything
-docker compose logs -f api  # follow one service
-docker compose ps           # what is up
-docker compose down         # stop and remove (add -v to delete the volumes too)
+docker compose config      # render and validate before running anything
+docker compose up -d
+docker compose logs -f api
+docker compose down -v     # -v also removes the volumes
 ```
 
-Two details do most of the work here:
-
-- **`DB_HOST: postgres`** — Compose puts every service on one network and makes
-  each service name resolvable as a hostname. The API reaches the database at
-  `postgres:5432` with no IP addresses anywhere. This is the same
-  service-discovery-by-name idea that Kubernetes Services provide later.
-- **`depends_on: condition: service_healthy`** — plain `depends_on` waits for
-  the container to *start*, not to be *ready*, which is why an API often crashes
-  on first boot against a database that is still initialising. Tying it to a
-  `healthcheck` waits for actually-ready.
-
-**Compose is for local development, not production.** It runs on one machine,
-has no rescheduling, and no rolling updates — if the host dies, everything dies.
-Its value is that a new engineer can clone the repository and have the entire
-stack running with one command. Production is what Kubernetes is for.
-
-### Production Architecture (Multi-Stage Builds)
-In a real production environment, we do not deploy the `openjdk:17` image. It is massive (400MB) and contains compiler tools that hackers can use if they break in.
-
-We use **Multi-Stage Builds**:
-```dockerfile
-# Stage 1: The Builder (Huge size, has all the compiler tools)
-FROM maven:3.8-openjdk-17 AS builder
-WORKDIR /src
-COPY . .
-RUN mvn clean package
-
-# Stage 2: The Production Runtime (Tiny size, highly secure)
-FROM gcr.io/distroless/java17-debian11
-COPY --from=builder /src/target/ivolve-api.jar /app.jar
-ENTRYPOINT ["java", "-jar", "/app.jar"]
-```
-**Line-by-Line Breakdown:**
-- **`AS builder`**: We name the first container "builder". We compile the code inside it.
-- **`FROM gcr.io/distroless...`**: We start a *second* container. Distroless images are stripped of everything. They don't even have a shell (`/bin/bash`). If a hacker gets in, they cannot type any commands.
-- **`COPY --from=builder`**: We magically copy *only the finished compiled file* from the first container into the second container. The first container is then destroyed. The final production image is incredibly small and incredibly secure.
-
-### Persistent Data (Volumes)
-Containers are **Ephemeral**. If a container crashes and restarts, any files saved inside it are instantly deleted. 
-If you run a MySQL database in a container, and it restarts, all your customer data is gone!
-To solve this, we use **Volumes**. We mount a folder from the actual physical AWS EC2 server into the container. When the container dies, the data remains safely on the EC2 hard drive.
+**On Compose and production.** In this curriculum Compose is for local
+development and reproducible integration environments. It can run elsewhere,
+but it does not provide the scheduling, multi-node resilience, rolling updates
+or self-healing that this platform needs from Kubernetes. That is the reason to
+move on — not that Compose is unfit for every purpose.
 
 ---
 
-## Level 4 — Enterprise
+## Level 3 — Debugging a container
 
-### Vulnerability Scanning (DevSecOps)
-In an enterprise, developers constantly pull `FROM node:latest` or `FROM python:3.9` from the public Docker Hub. These public images are often riddled with outdated libraries containing known CVEs (Common Vulnerabilities and Exposures).
+Follow the order. Most failures resolve in the first three steps.
 
-Before any Docker image is allowed to be deployed to our Kubernetes cluster, it must pass through an enterprise security scanner (like **Trivy** or **Snyk**). 
-In our Jenkins pipeline, the build is completely blocked if the scanner detects a High or Critical vulnerability inside the Docker image layers.
+```text
+1. Is it running?        docker ps -a         (exited? what code?)
+2. What did it say?      docker logs <id>     (--tail 50 -f to follow)
+3. What is it, exactly?  docker inspect <id>  (env, mounts, network, exit)
+4. Look inside           docker exec -it <id> sh
+5. Resources             docker stats         (memory near the limit?)
+6. Networking            docker network inspect <net> · docker port <id>
+7. What changed on disk? docker diff <id>
+```
 
-### containerd, runc, and the CRI
+```bash
+docker logs --tail 50 -f api
+docker inspect api --format '{{.State.ExitCode}} {{.State.OOMKilled}}'
+docker exec -it api sh          # `sh` — many slim images have no bash
+docker stats --no-stream
+```
+
+**"It starts and immediately exits."** Almost always one of:
+
+- The main process finished. A container lives exactly as long as PID 1; a web server that fails to bind exits, and so does the container.
+- The command is not found — `127`. Common in slim images that lack a shell or the binary you assumed.
+- It crashed on startup — read the logs; configuration and missing environment variables dominate.
+- It was killed — `137` with `OOMKilled: true` means the memory limit.
+
+Note that `docker logs` shows what the process wrote to **stdout and stderr**.
+An application writing to a log file inside the container shows nothing here,
+which is why containerised applications log to standard output — and why
+Kubernetes can collect logs at all.
+
+---
+
+## Level 4 — containerd, runc, and the CRI
 
 "Docker" is not one program, and knowing the split matters the moment you run
 Kubernetes — because Kubernetes does not use Docker.
@@ -323,65 +571,163 @@ Kubernetes — because Kubernetes does not use Docker.
   Linux kernel
 ```
 
-**runc** is the piece that creates a container, and it implements the OCI
-runtime specification — an open standard. **containerd** manages images and
-lifecycle and calls runc. **dockerd** adds the developer-facing conveniences
-(builds, Compose, the CLI) on top of containerd.
+**runc** creates the container and implements the OCI runtime specification — an
+open standard. **containerd** manages images and lifecycle and calls runc.
+**dockerd** adds the developer-facing conveniences on top.
 
 Kubernetes talks to a runtime through the **CRI (Container Runtime Interface)**.
 containerd implements CRI directly; Docker never did, so Kubernetes shipped an
-adapter called *dockershim* to translate. That adapter was removed in Kubernetes
-1.24, which produced a widely misread headline:
+adapter called *dockershim*. It was removed in Kubernetes 1.24, producing a
+widely misread headline:
 
-> **"Kubernetes is deprecating Docker"** meant Kubernetes stopped using `dockerd`
-> as a runtime. It did **not** mean Docker images stop working. Images are an OCI
-> standard, so an image built with `docker build` runs unchanged under
-> containerd. Nothing about your Dockerfile changes.
+> **"Kubernetes is deprecating Docker"** meant Kubernetes stopped using
+> `dockerd` as a runtime. It did **not** mean Docker images stop working. Images
+> are an OCI standard, so an image built with `docker build` runs unchanged
+> under containerd. Nothing about your Dockerfile changes.
 
-The practical effect is on the node, not the image: `docker ps` on a Kubernetes
-node shows nothing useful any more, because containerd — not Docker — is running
-those containers. The equivalent commands are:
+The effect is on the node, not the image: `docker ps` on a Kubernetes node shows
+nothing useful, because containerd is running those containers.
 
 ```bash
 crictl ps                 # containers, via the CRI
-crictl images             # images the kubelet can see
+crictl images
 crictl logs <container>
 ```
 
-**Which runtime to use, and when it is your decision at all:**
-
 | | Docker Engine | containerd | CRI-O |
-| --- | --- | --- | --- |
+|---|---|---|---|
 | Builds images | Yes | No | No |
-| Kubernetes runtime | Via an adapter | Native | Native |
-| Right for | A developer's machine | Kubernetes nodes — the default | Kubernetes on OpenShift |
+| Kubernetes runtime | Via a removed adapter | Native | Native |
+| Typically found | A developer machine, a CI builder | Kubernetes nodes | Kubernetes on OpenShift |
 
-For most people this is not a choice: your managed cluster or `kubeadm` install
-already uses containerd, and building images is a job for the CI runner, where
-Docker or a daemonless builder like Buildah lives. Keep Docker where you develop;
-expect containerd everywhere your code actually runs.
+containerd and CRI-O are both common CRI runtimes; which one you get is usually
+decided for you. On EKS, AWS determines the node runtime; with `kubeadm`, it is
+part of node setup. Keep Docker where you develop, and expect a CRI runtime
+everywhere your code actually runs.
 
-### Rootless Containers
-By default, the Docker daemon runs as the `root` user on the Linux host. If a hacker escapes the container (a "Container Breakout"), they gain `root` access to the underlying AWS EC2 server.
-Enterprise Platform teams use **Rootless Docker** or switch to alternative container runtimes (like **Podman** or **containerd**) where the container runtime runs as an unprivileged user, completely eliminating the risk of host-level takeover.
+### Runtime hardening, in one place
+
+These are the runtime controls, and each has a direct Kubernetes equivalent you
+will meet in `securityContext`:
+
+| Docker | What it does | Kubernetes |
+|---|---|---|
+| `--user` / `USER` | Non-root process | `runAsUser`, `runAsNonRoot` |
+| `--read-only` | Immutable root filesystem | `readOnlyRootFilesystem` |
+| `--cap-drop=ALL` | Remove Linux capabilities | `capabilities.drop` |
+| `--security-opt no-new-privileges` | Block privilege escalation | `allowPrivilegeEscalation: false` |
+| `--memory`, `--cpus` | cgroup limits | `resources.limits` |
+
+**Rootless mode** runs the daemon and containers as an unprivileged user. It
+meaningfully reduces the impact of certain container escapes and runtime
+vulnerabilities, and it is defence in depth — not a guarantee against host
+compromise. Podman takes the same approach by running without a central daemon
+at all.
 
 ---
 
-## Interview Questions
+## Where Docker appears in the capstone
 
-### Beginner
-**Q: What is the difference between an Image and a Container?**
-A: An Image is the static, read-only file (the blueprint). A Container is the running, active process created from that Image.
+**Locally**, Compose runs the whole application on your machine:
 
-### Intermediate
-**Q: Why is it a bad practice to put a database (like MySQL) and a web server (like Nginx) inside the same Docker container?**
-A: The Docker philosophy is "One Process Per Container." If you put both in one container, they compete for resources, you cannot scale the web server without also scaling the database, and if the web server crashes, the container dies, taking the database down with it.
+```text
+docker compose up
+  ├── frontend      Node.js
+  ├── auth-service  Python
+  ├── roadmap       Java
+  └── mysql         with a named volume
+```
 
-### Senior
-**Q: Explain how Docker Layers work and how they impact caching and build times.**
-A: Every line in a Dockerfile (e.g., `RUN`, `COPY`) creates a new read-only filesystem layer. Docker caches these layers. If you change a line of code at the very end of the Dockerfile, Docker instantly reuses the cached layers above it, making the build take 1 second. If you change a line at the *top* of the Dockerfile (like updating the base image), it invalidates the cache for *every layer below it*, forcing a completely new, slow build. Therefore, files that change frequently (source code) should be `COPY`'d at the very bottom of the Dockerfile.
+**In delivery**, the same Dockerfiles produce the artifact the platform ships:
 
-### Principal/Architect
-**Q: Compare the security boundary of a standard Docker container versus a Firecracker MicroVM in a multi-tenant SaaS architecture.**
-A: Standard Docker containers share the exact same Linux Kernel as the host. Despite cgroups and namespaces, a kernel-level vulnerability (e.g., Dirty COW) allows a tenant in Container A to crash the kernel, taking down Container B (another tenant). AWS Firecracker uses KVM to launch hardware-virtualized MicroVMs in milliseconds. Each MicroVM runs its own isolated kernel. This provides the security boundary of a full Virtual Machine with the speed and density of a Docker container, making it the required architectural choice for true multi-tenant untrusted workloads (e.g., AWS Lambda).
-[Contents](/learn) | [10 — Amazon Web Services (AWS)](/learn/aws/aws-overview) |
+```text
+  Dockerfile
+      │  docker build (in the Jenkins pipeline)
+      v
+   Image
+      │  SonarQube quality gate · Trivy scan — a fixable CRITICAL stops here
+      v
+  Amazon ECR          immutable tags: a tag cannot be repointed
+      │
+      v
+  Kustomize           the pipeline writes the new tag into the manifest
+      │  git commit + push
+      v
+   Argo CD            reconciles the cluster to what Git says
+      │
+      v
+     EKS              containerd runs it; runc and the kernel do the work
+```
+
+Two things worth noticing. The image is built **once** and promoted unchanged —
+scanning something you then rebuild proves nothing. And Docker's involvement
+*ends* at the registry: nothing in the cluster runs `dockerd`.
+
+---
+
+## What Kubernetes adds
+
+You now have an image, a way to run it, connect it, persist it and secure it —
+on **one machine**. Kubernetes reuses all of it and adds what a single host
+cannot provide:
+
+| Docker gives you | Kubernetes adds |
+|---|---|
+| A container on this host | Scheduling across many hosts |
+| `restart: always` | Reconciliation toward a declared state |
+| Compose's startup order | Liveness and readiness probes, and rollout control |
+| A bridge network | Cluster-wide Services and DNS |
+| A named volume | PersistentVolumeClaims backed by cloud storage |
+| `--user`, `--cap-drop` | The same controls enforced at admission, cluster-wide |
+
+Everything on the right is built from what is on the left. That is why this
+chapter comes first, and why Kubernetes is the next step rather than a new
+subject.
+
+---
+
+## Check yourself
+
+**Beginner.** What is the difference between an image and a container?
+
+> An image is an immutable artifact — layers plus metadata, built once and
+> stored in a registry. A container is a running instance of one: the image's
+> layers, plus a writable layer, plus the namespaces and cgroups that isolate
+> it. Many containers can run from one image, and none of them changes it.
+
+**Intermediate.** Your API container cannot reach the database container. Where
+do you look?
+
+> Whether they share a network (`docker network inspect`); whether the app is
+> connecting to `localhost`, which inside a container means *that container*;
+> whether it is using the container's port rather than a published host port;
+> and whether the database is accepting connections yet, which is different from
+> having started. Compose's `condition: service_healthy` exists for the last one.
+
+**Advanced.** A container exits with code 137. What happened, and what next?
+
+> 137 is 128+9 — killed by SIGKILL, and by far the most common cause is the
+> memory limit. Confirm with `docker inspect --format '{{.State.OOMKilled}}'`.
+> Then decide whether the limit is too low or the application is using more than
+> it should; raising the limit without measuring converts a contained failure
+> into one that can take down the host. The identical mechanism produces
+> `OOMKilled` in Kubernetes.
+
+**Senior.** Kubernetes removed dockershim. What do you change in your build?
+
+> Nothing. Images are an OCI standard, so an image built with `docker build`
+> runs unchanged under containerd. What changes is on the node: `docker ps` no
+> longer shows Kubernetes containers, and `crictl` is the equivalent. Docker
+> remains a build tool; it is not the runtime.
+
+**Architect.** Containers share the host kernel. When is that not enough?
+
+> When the isolation boundary must hold against genuinely untrusted code —
+> multi-tenant platforms running arbitrary workloads. Namespaces and cgroups
+> isolate a process's *view* and *consumption*, but every container calls the
+> same kernel, so a kernel vulnerability is a shared exposure. Defence in depth
+> — dropped capabilities, seccomp, MAC, rootless — raises the cost. Where that
+> is insufficient, microVMs give each workload its own kernel at the price of
+> higher overhead and more operational surface. It is a threat-model decision,
+> not a default.
+[Contents](/learn) | [Container Orchestration (Kubernetes)](/learn/kubernetes/kubernetes) |

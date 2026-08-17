@@ -148,14 +148,19 @@ test.describe("projects and roadmaps", () => {
     // the test scrolls to it rather than the image being made eager.
     await avatar.scrollIntoViewIfNeeded();
     await expect(avatar).toBeVisible();
+    // `naturalWidth > 0` is the decisive condition: a broken image still
+    // "renders" and still reports `complete === true`, so only a non-zero
+    // intrinsic width proves the bytes arrived and decoded.
+    //
+    // It is polled rather than read once. Reading it once raced the lazy load
+    // under parallel workers — the earlier version polled `complete` and then
+    // took a single sample of `naturalWidth`, which failed roughly one run in
+    // eight while the image was still in flight.
     await expect
-      .poll(async () => avatar.evaluate((img) => (img as HTMLImageElement).complete))
-      .toBe(true);
-    // A broken image still "renders", so assert it actually decoded.
-    const decoded = await avatar.evaluate(
-      (img) => (img as HTMLImageElement).naturalWidth > 0,
-    );
-    expect(decoded).toBe(true);
+      .poll(async () => avatar.evaluate((img) => (img as HTMLImageElement).naturalWidth), {
+        timeout: 15_000,
+      })
+      .toBeGreaterThan(0);
   });
 
   test("every roadmap ends with a production project", async ({ page }) => {

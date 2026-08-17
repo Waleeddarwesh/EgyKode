@@ -13,14 +13,17 @@ import remarkGfm from "remark-gfm";
 import { JsonLd } from "@/components/seo/json-ld";
 import { breadcrumbs, graph, learningResource } from "@/lib/structured-data";
 import { LabHeader, BeforeYouStart } from "@/components/labs/lab-header";
+import { LabComplete } from "@/components/labs/lab-complete";
+import { LabSteps } from "@/components/labs/lab-steps";
 import { NextLab } from "@/components/labs/next-lab";
+import { ProjectContribution } from "@/components/labs/project-contribution";
 import { SuccessCriteria } from "@/components/labs/success-criteria";
 import { mdxComponents } from "@/components/content/mdx";
 import { domainColor,
   localizedTitle,
 } from "@/lib/content";
 import { getTopic } from "@/lib/domains";
-import { getAllLabs, getLab, getLabMeta, getPathNeighbours } from "@/lib/labs";
+import { getAllLabs, getLab, getLabContribution, getLabMeta, getLabSteps, getPathNeighbours, splitLabMission } from "@/lib/labs";
 import { PUBLIC_LOCALES, formatNumber, getTranslations, isLocale, type Locale, languageAlternates } from "@/lib/i18n";
 
 export function generateStaticParams() {
@@ -80,8 +83,48 @@ export default async function LabPage({
   // Where this sits in the Project Path, so a lab does not dead-end at its
   // cleanup block and send the reader back to the index to find their place.
   const neighbours = getPathNeighbours(lab.labId);
+  const contribution = getLabContribution(lab.labId);
   const contentDir = lab.fellBackToEnglish ? "ltr" : undefined;
   const contentLang = lab.fellBackToEnglish ? "en" : typed;
+
+  // The opening section — "The scenario", "The goal", "The incident" — is
+  // rendered above the success criteria, and the procedure below them.
+  const { mission, rest } = splitLabMission(lab.body);
+  const steps = getLabSteps(rest);
+
+  // Why the next lab comes next: what this one produced that it consumes.
+  // Only shown when the graph actually records that dependency — an ordering
+  // with no edge between the two has no reason to give.
+  const nextContribution = neighbours?.next
+    ? getLabContribution(neighbours.next.lab.labId)
+    : null;
+  const whyNext =
+    contribution && nextContribution?.requires.some((r) => r.labId === lab.labId)
+      ? contribution.produces
+      : undefined;
+
+  // What kind of evidence backs this lab, counted once here so the completion
+  // card can report it. A criterion given as a plain string is an assertion.
+  const evidenceCounts = (lab.successCriteria ?? []).reduce(
+    (acc, c) => {
+      const kind = typeof c === "string" ? "self" : c.verify;
+      acc[kind] += 1;
+      return acc;
+    },
+    { command: 0, state: 0, reasoning: 0, self: 0 },
+  );
+
+  // One component map for both halves, so a code block behaves identically
+  // whichever side of the criteria it lands on.
+  const mdxParts = mdxComponents({
+    copy: t("code.copy"),
+    copyCommand: t("code.copyCommand"),
+    copied: t("code.copied"),
+    terminal: t("code.terminal"),
+    destructive: t("code.destructive"),
+    destructiveBody: t("code.destructiveBody"),
+    locale: typed,
+  });
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
@@ -110,12 +153,34 @@ export default async function LabPage({
         )}
       />
 
+      {/* Labs → phase → this lab. The middle step used to be the domain tag
+          ("linux"), which is how the content is filed rather than where the
+          reader is: a learner on lab 1 of 59 wants the phase, and a route back
+          into it. The lab itself is the current page, so it is not a link. */}
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-content-muted">
-        <BackLink href={`/${typed}/labs`} label={t("labs.title")} />
-        <span className="mx-2" aria-hidden>/</span>
-        <Link href={`/${typed}/topics/${lab.domain}`} className="font-mono hover:text-content" style={{ color: colour }}>
-          {lab.domain}
-        </Link>
+        <ol className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <li>
+            <BackLink href={`/${typed}/labs`} label={t("labs.title")} />
+          </li>
+          {neighbours && (
+            <li className="flex items-center gap-2">
+              <span aria-hidden>/</span>
+              <Link
+                href={`/${typed}/labs#phase-${neighbours.phase.id}`}
+                className="hover:text-content"
+                style={{ color: colour }}
+              >
+                {neighbours.phase.title}
+              </Link>
+            </li>
+          )}
+          <li className="flex min-w-0 items-center gap-2">
+            <span aria-hidden>/</span>
+            <span aria-current="page" className="truncate text-content-secondary">
+              {lab.title}
+            </span>
+          </li>
+        </ol>
       </nav>
 
       <LabHeader
@@ -138,8 +203,37 @@ export default async function LabPage({
           tryChallenge: t("labs.challenge"),
           viewGuided: t("labs.viewGuided"),
           destructive: t("labs.destructiveBadge"),
+          counter: neighbours
+            ? t("labs.labCounter", {
+                n: formatNumber(neighbours.position, typed),
+                total: formatNumber(neighbours.total, typed),
+              })
+            : undefined,
         }}
+        position={
+          neighbours
+            ? { phaseNumber: neighbours.phase.number, phaseTitle: neighbours.phase.title }
+            : undefined
+        }
       />
+
+      {/* Where this sits in the build. Above "Before you start" deliberately:
+          the first question is why this lab exists at this moment, and only
+          then what it needs. */}
+      {neighbours && contribution && (
+        <ProjectContribution
+          produces={contribution.produces}
+          requires={contribution.requires}
+          unlocks={contribution.unlocks}
+          labHref={(id) => `/${typed}/labs/${id}`}
+          labels={{
+            heading: t("labs.contributionHeading"),
+            builtAlready: t("labs.contributionBuilt"),
+            youAdd: t("labs.contributionAdds"),
+            unlocks: t("labs.contributionUnlocks"),
+          }}
+        />
+      )}
 
       <BeforeYouStart
         lab={lab}
@@ -152,6 +246,17 @@ export default async function LabPage({
         }}
       />
 
+      {/* The mission, before the bar it is measured against.
+          The criteria used to sit here and the scenario several screens below,
+          so a reader was told what they had to prove before being told what
+          the task was. Understanding the problem has to come first; the
+          criteria then read as a definition of done rather than a quiz. */}
+      {mission && (
+        <div className="prose mt-8" lang={contentLang} dir={contentDir}>
+          <MDXRemote source={mission} options={mdxOptions} components={mdxParts} />
+        </div>
+      )}
+
       <div className="mt-8">
         <SuccessCriteria
           labId={lab.labId}
@@ -162,25 +267,55 @@ export default async function LabPage({
             done: t("labs.done"),
             of: t("roadmap.of"),
             complete: t("labs.allDone"),
+            evidenceCommand: t("labs.evidenceCommand"),
+            evidenceState: t("labs.evidenceState"),
+            evidenceReasoning: t("labs.evidenceReasoning"),
+            evidenceSelf: t("labs.evidenceSelf"),
           }}
         />
       </div>
 
+      {/* Position within the work. Rendered next to the body rather than in
+          it, so it can be a rail in the empty margin on a wide screen and a
+          single sticky line on a narrow one. */}
+      <LabSteps
+        steps={steps}
+        labels={{ heading: t("labs.stepsHeading"), position: t("labs.stepPosition") }}
+      />
+
       <div id="build" className="prose mt-10" lang={contentLang} dir={contentDir}>
-        <MDXRemote
-          source={lab.body}
-          options={mdxOptions}
-          components={mdxComponents({
-            copy: t("code.copy"),
-            copyCommand: t("code.copyCommand"),
-            copied: t("code.copied"),
-            terminal: t("code.terminal"),
-            destructive: t("code.destructive"),
-            destructiveBody: t("code.destructiveBody"),
-            locale: typed,
-          })}
-        />
+        <MDXRemote source={rest} options={mdxOptions} components={mdxParts} />
       </div>
+
+      {/* Appears only once every criterion is met. Placed after the work
+          rather than beside the checklist: it is the end of the lab, and it
+          should be what the reader arrives at, not something waiting in the
+          margin the whole time. */}
+      <LabComplete
+        labId={lab.labId}
+        criteriaCount={lab.successCriteria?.length ?? 0}
+        evidence={evidenceCounts}
+        skills={lab.skills ?? []}
+        next={
+          neighbours?.next
+            ? {
+                title: neighbours.next.lab.title,
+                href: `/${typed}/labs/${neighbours.next.lab.labId}`,
+              }
+            : undefined
+        }
+        labels={{
+          heading: t("labs.completeHeading"),
+          demonstrated: t("labs.completeDemonstrated"),
+          evidenceHeading: t("labs.completeEvidence"),
+          evidenceCommand: t("labs.evidenceCommand"),
+          evidenceState: t("labs.evidenceState"),
+          evidenceReasoning: t("labs.evidenceReasoning"),
+          evidenceSelf: t("labs.evidenceSelf"),
+          next: t("labs.completeNext"),
+          continueLabel: t("labs.continueTheProject"),
+        }}
+      />
 
       {relatedChapters.length > 0 && (
         <section className="mt-12">
@@ -228,6 +363,7 @@ export default async function LabPage({
           neighbours={neighbours}
           locale={typed}
           colour={neighbours.next ? domainColor(neighbours.next.lab.domain) : colour}
+          whyNext={whyNext}
           labels={{
             nextUp: t("labs.nextUp"),
             nextPhase: t("labs.nextPhase"),
@@ -245,6 +381,7 @@ export default async function LabPage({
             pathEndBody: t("labs.pathEndBody"),
             browseLibrary: t("labs.browseLibrary"),
             labsHref: `/${typed}/labs`,
+            whyNext: t("labs.whyNext"),
           }}
         />
       )}

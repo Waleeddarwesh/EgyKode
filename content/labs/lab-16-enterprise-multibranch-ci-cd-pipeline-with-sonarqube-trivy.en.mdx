@@ -18,8 +18,10 @@ cleanup:
   - "aws ecr batch-delete-image --repository-name <repo> --image-ids imageTag=<tag>"
 successCriteria:
   - "A commit builds, tests, scans and deploys with no manual step."
-  - "A deliberately vulnerable image fails the build and is never pushed."
-  - "A quality gate failure fails the pipeline — demonstrated, not assumed."
+  - text: "A deliberately vulnerable image fails the build and is never pushed."
+    verify: state
+  - text: "A quality gate failure fails the pipeline — demonstrated, not assumed."
+    verify: state
   - "The pipeline fails when the rollout does not complete."
 challengeId: lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy-challenge
 authors: [waleed]

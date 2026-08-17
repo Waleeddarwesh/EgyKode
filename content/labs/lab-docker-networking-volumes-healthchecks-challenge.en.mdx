@@ -21,9 +21,11 @@ tools:
   - "Docker Compose"
 successCriteria:
   - "The application reaches PostgreSQL and Redis by service name, with no IP addresses anywhere."
-  - "Database data survives `docker compose down` and returns after `up`."
+  - text: "Database data survives `docker compose down` and returns after `up`."
+    verify: command
   - "The application waits for the database to be *ready*, not merely started."
-  - "You can explain why two containers on different networks cannot see each other."
+  - text: "You can explain why two containers on different networks cannot see each other."
+    verify: reasoning
 cleanup:
   - "docker compose down -v"
   - "docker network rm isolated"

@@ -21,9 +21,11 @@ tools:
   - "Docker Compose"
 successCriteria:
   - "The application reaches PostgreSQL and Redis by service name, with no IP addresses anywhere."
-  - "Database data survives `docker compose down` and returns after `up`."
+  - text: "Database data survives `docker compose down` and returns after `up`."
+    verify: command
   - "The application waits for the database to be *ready*, not merely started."
-  - "You can explain why two containers on different networks cannot see each other."
+  - text: "You can explain why two containers on different networks cannot see each other."
+    verify: reasoning
 cleanup:
   - "docker compose down -v"
   - "docker network rm isolated"
@@ -90,6 +92,18 @@ docker exec lonely ping -c1 db      # fails: different network
 
 A container can only reach what shares a network with it. This is the same
 model as a Kubernetes NetworkPolicy, learned in thirty seconds.
+
+What you just observed is a **network namespace** — the kernel giving each
+container its own interfaces, addresses and ports. Look at it directly:
+
+```bash
+docker exec lonely ip addr        # its own interfaces, not the host's
+docker exec lonely hostname       # a UTS namespace: its own hostname
+docker exec lonely ps aux         # a PID namespace: it is PID 1 to itself
+```
+
+Three namespaces, three commands. The isolation is not Docker's — Docker asked
+the kernel for it, which is why the same primitives reappear under Kubernetes.
 
 ## 3. Volumes versus bind mounts
 

@@ -503,8 +503,8 @@
       "coverage": "explained",
       "chapters": [
         "ecr",
-        "linux-foundations",
         "docker",
+        "linux-foundations",
         "container-security",
         "ec2",
         "iam",
@@ -666,6 +666,7 @@
       "chapters": [
         "vpc",
         "networking-fundamentals",
+        "linux-foundations",
         "k8s-security",
         "ec2",
         "auto-scaling"
@@ -830,13 +831,13 @@
       "coverage": "explained",
       "chapters": [
         "secrets-manager",
+        "docker",
+        "linux-foundations",
         "k8s-config-storage",
         "gitops",
         "kubernetes",
         "terraform",
-        "ec2",
-        "ecr",
-        "rds"
+        "ec2"
       ],
       "labs": [
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
@@ -916,7 +917,8 @@
       "titleAr": "Infrastructure as Code",
       "coverage": "explained",
       "chapters": [
-        "terraform"
+        "terraform",
+        "ansible"
       ],
       "labs": [],
       "roadmaps": [
@@ -1179,9 +1181,9 @@
         "kubeadm",
         "service-mesh",
         "aws-overview",
-        "docker",
         "auto-scaling",
-        "disaster-recovery"
+        "disaster-recovery",
+        "k8s-security"
       ],
       "labs": [
         "lab-11-core-kubernetes-workloads-configmaps-secrets",
@@ -1255,8 +1257,8 @@
         "k8s-workloads",
         "kubernetes",
         "kustomize",
-        "k8s-config-storage",
         "k8s-services-networking",
+        "k8s-config-storage",
         "gateway-api",
         "kubeadm",
         "k8s-cluster-administration"
@@ -1293,6 +1295,7 @@
       "chapters": [
         "k8s-services-networking",
         "kubernetes",
+        "linux-foundations",
         "aws-overview",
         "gateway-api",
         "service-mesh"
@@ -1364,6 +1367,7 @@
       "chapters": [
         "k8s-config-storage",
         "kubernetes",
+        "docker",
         "kustomize",
         "secrets-manager",
         "gateway-api",
@@ -1397,7 +1401,9 @@
       "chapters": [
         "k8s-config-storage",
         "kubernetes",
+        "docker",
         "s3",
+        "linux-foundations",
         "k8s-workloads",
         "k8s-cluster-administration"
       ],
@@ -1407,6 +1413,7 @@
       "roadmaps": [
         "aws-cloud-engineer",
         "cloud-devops-engineer",
+        "devsecops",
         "kubernetes-specialist"
       ],
       "projects": [
@@ -1522,6 +1529,7 @@
       "coverage": "explained",
       "chapters": [
         "kubernetes",
+        "docker",
         "load-balancers",
         "k8s-workloads",
         "k8s-services-networking",
@@ -1654,7 +1662,9 @@
         "helm",
         "kustomize"
       ],
-      "labs": [],
+      "labs": [
+        "lab-argocd-gitops-reconciliation"
+      ],
       "roadmaps": [
         "cloud-devops-engineer",
         "kubernetes-specialist"
@@ -1678,6 +1688,7 @@
         "gitops"
       ],
       "labs": [
+        "lab-argocd-gitops-reconciliation",
         "lab-terraform-state-recovery"
       ],
       "roadmaps": [
@@ -1774,7 +1785,8 @@
       "coverage": "explained",
       "chapters": [
         "nexus-and-artifacts",
-        "build-tools"
+        "build-tools",
+        "supply-chain-security"
       ],
       "labs": [],
       "roadmaps": [
@@ -1848,7 +1860,8 @@
       "titleAr": "التنبيهات",
       "coverage": "explained",
       "chapters": [
-        "prometheus"
+        "prometheus",
+        "sre-fundamentals"
       ],
       "labs": [
         "lab-18-custom-prometheus-alert-rules-grafana-dashboards",
@@ -1922,7 +1935,8 @@
       "titleAr": "الإشارات الذهبية و SLOs",
       "coverage": "explained",
       "chapters": [
-        "observability"
+        "observability",
+        "sre-fundamentals"
       ],
       "labs": [],
       "roadmaps": [
@@ -1941,6 +1955,7 @@
       "titleAr": "الاستجابة للحوادث",
       "coverage": "explained",
       "chapters": [
+        "sre-fundamentals",
         "disaster-recovery"
       ],
       "labs": [
@@ -1966,6 +1981,7 @@
         "aws-overview",
         "k8s-cluster-administration",
         "kubeadm",
+        "sre-fundamentals",
         "chaos-engineering"
       ],
       "labs": [
@@ -1990,7 +2006,8 @@
       "titleAr": "هندسة الفوضى",
       "coverage": "explained",
       "chapters": [
-        "chaos-engineering"
+        "chaos-engineering",
+        "sre-fundamentals"
       ],
       "labs": [
         "lab-sre-chaos-failure-injection"
@@ -2039,7 +2056,8 @@
         "container-security",
         "docker",
         "build-tools",
-        "ecr"
+        "ecr",
+        "supply-chain-security"
       ],
       "labs": [
         "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy"
@@ -2063,6 +2081,7 @@
         "network-policies",
         "networking-fundamentals",
         "kubernetes",
+        "supply-chain-security",
         "k8s-security"
       ],
       "labs": [],
@@ -2082,6 +2101,7 @@
       "titleAr": "سلسلة التوريد",
       "coverage": "explained",
       "chapters": [
+        "supply-chain-security",
         "container-security",
         "build-tools",
         "github-actions"
@@ -2104,6 +2124,7 @@
         "container-security",
         "docker",
         "iam",
+        "supply-chain-security",
         "k8s-security"
       ],
       "labs": [

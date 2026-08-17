@@ -5,6 +5,11 @@ titleAr: "الشبكات المتقدمة — Service Mesh"
 description: "Decide whether you actually need a mesh"
 descriptionAr: "إدارة حركة المرور و mTLS بين الخدمات."
 domain: kubernetes
+capstoneRole: extension
+capstonePhase: kubernetes
+capstoneComponent: networking
+capstonePurpose: "extends service-to-service traffic control beyond the capstone's Services"
+capstoneWhy: "Not required to build the capstone. Add it when service-to-service encryption, traffic shifting or per-call telemetry become the problem."
 level: advanced
 type: concept
 phase: kubernetes
@@ -78,7 +83,7 @@ Proxy A verifies Proxy B's certificate, AND Proxy B verifies Proxy A's certifica
 
 ### Analyzing the Code (Istio VirtualServices)
 
-In Chapter 28, we talked about Argo Rollouts and Canary Releases (routing 5% of traffic to a new version). How does that actually work at the network level?
+[Argo Rollouts](/learn/argocd/argocd/) performs canary releases by routing 5% of traffic to a new version. How does that actually work at the network level?
 Kubernetes native `Services` cannot do this. They only do 50/50 round-robin routing.
 
 A Service Mesh can do Layer 7 (HTTP) routing. 
@@ -151,4 +156,4 @@ A: An API Gateway handles "North-South" traffic (traffic entering the cluster fr
 **Q: You deploy Istio with strict mTLS enabled globally. Suddenly, your Kubernetes `livenessProbes` and `readinessProbes` for all your Pods start failing, causing the cluster to terminate every application continuously. Why did this happen, and how does the platform natively solve it?**
 A: The `kubelet` (running on the Worker Node) executes the `livenessProbe` by sending a plaintext HTTP request to the Pod's health endpoint. Because Istio is enforcing strict mTLS, the Envoy proxy intercepts the kubelet's plaintext request and rejects it, causing the probe to fail. 
 To solve this, Istio uses a feature called **Probe Rewrite**. The Istio mutating webhook modifies the Pod spec on creation. It rewrites the `livenessProbe` to point to the Envoy proxy's pilot-agent port (e.g., 15020). The `kubelet` sends the plaintext request to the pilot-agent, and the pilot-agent securely proxies the request over localhost to the application, bypassing the external mTLS requirement.
-[Contents](/learn) | [36 — Beyond Kubernetes (Serverless)](/learn/aws/serverless) |
+[Contents](/learn) | [Beyond Kubernetes (Serverless)](/learn/aws/serverless) |

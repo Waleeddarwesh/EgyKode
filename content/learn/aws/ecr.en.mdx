@@ -5,6 +5,10 @@ titleAr: "مستودع الصور — Amazon ECR"
 description: "Explain immutable tags and why they enable rollback"
 descriptionAr: "دفع الصور ووسمها ومسحها بحثًا عن الثغرات."
 domain: aws
+capstoneRole: core
+capstonePhase: aws
+capstoneComponent: registry
+capstonePurpose: "the registry the pipeline pushes to and the cluster pulls from"
 level: intermediate
 type: concept
 phase: cloud
@@ -118,7 +122,7 @@ To prevent this, Enterprise ECR repositories are configured with **Image Tag Mut
 Once an image is pushed with a specific tag, the AWS API physically blocks anyone from ever pushing a different image with that same tag again.
 
 ### ECR Image Scanning
-As discussed in Chapter 24, we scan images in the CI pipeline using Trivy. 
+The CI pipeline you build later scans images with Trivy before they are pushed here — see [DevSecOps (Container Security)](/learn/security/container-security/). 
 But what if a new Zero-Day vulnerability is discovered *tomorrow*, long after the CI pipeline finished?
 Enterprise ECR repositories enable **Continuous Scanning**. AWS continuously scans all stored images against the latest CVE databases. If a new vulnerability is found in an old image that is currently running in your cluster, AWS EventBridge triggers an alert to PagerDuty to wake up the Security team.
 
@@ -160,4 +164,4 @@ A: You implement an ECR Lifecycle Policy. The policy evaluates rules daily, such
 ### Principal/Architect
 **Q: You have a multi-region Active-Active Kubernetes architecture spanning `us-east-1` and `eu-west-1`. How do you architect the ECR deployment to minimize cross-region data transfer costs and reduce deployment latency?**
 A: You do not have the EU cluster pull images across the Atlantic from the US registry. That incurs high cross-region data transfer out (DTO) costs and slows down pod startup. Instead, you configure **ECR Cross-Region Replication**. You push the image once to `us-east-1`. ECR asynchronously replicates the image to an identical registry in `eu-west-1`. The EU Kubernetes cluster then pulls the image from its local EU ECR, keeping traffic on the AWS backbone and eliminating internet DTO costs while minimizing latency.
-[Contents](/learn) | [26 — Artifact Management (Nexus)](/learn/nexus/nexus-and-artifacts) |
+[Contents](/learn) | [Artifact Management (Nexus)](/learn/nexus/nexus-and-artifacts) |

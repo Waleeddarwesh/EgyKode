@@ -5,6 +5,10 @@ titleAr: "الخدمات وDNS وIngress"
 description: "Follow a request from outside the cluster to a container, and know which layer dropped it"
 descriptionAr: "تتبّع الطلب من خارج الكلاستر حتى الحاوية، واعرف أي طبقة أسقطته."
 domain: kubernetes
+capstoneRole: core
+capstonePhase: kubernetes
+capstoneComponent: networking
+capstonePurpose: "the ClusterIP Services, headless Service and Ingress routing"
 level: intermediate
 type: concept
 phase: kubernetes
@@ -331,6 +335,14 @@ a classic self-inflicted outage after adding default-deny.
 **Intermittent failures during a rollout** — Pods leave the EndpointSlice and
 receive `SIGTERM` concurrently. Add a `preStop` sleep of a few seconds so
 endpoint removal propagates before the process starts shutting down.
+
+> This is the same signal `docker stop` sends, with the same consequence: the
+> application has `terminationGracePeriodSeconds` — 30 by default — to finish
+> its work and exit, and is then sent `SIGKILL`. An application that ignores
+> `SIGTERM` therefore drops every in-flight request on **every** rolling update.
+> The handler belongs in the application; no amount of Kubernetes configuration
+> substitutes for it. See [Docker](/learn/docker/docker) for the single-host
+> version of the same lifecycle.
 
 **Cannot connect from another namespace** — the short name resolves in the
 *local* namespace. Use `svc.namespace` or the FQDN.

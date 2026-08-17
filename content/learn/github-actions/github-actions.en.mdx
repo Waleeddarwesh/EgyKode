@@ -5,6 +5,11 @@ titleAr: "التكامل المستمر الحديث — GitHub Actions"
 description: "Compare hosted CI with self-managed and pick deliberately"
 descriptionAr: "تكامل مستمر بجوار الكود، دون خادم تتولى صيانته."
 domain: github-actions
+capstoneRole: alternative
+capstonePhase: delivery
+capstoneComponent: ci
+capstonePurpose: "contrasts GitHub-native CI with the Jenkins pipeline the capstone uses"
+capstoneWhy: "The capstone's pipeline is Jenkins. This is the same delivery expressed on hosted runners with OIDC, and worth knowing; you do not need to build both."
 level: intermediate
 type: concept
 phase: cicd
@@ -22,7 +27,7 @@ updated: 2026-08-08
 
 ## Introduction to GitHub Actions
 
-In Chapter 23, we learned about Jenkins. Jenkins is incredibly powerful, but it requires you to maintain a server. If the Jenkins Master crashes, you have to wake up at 2 AM to fix it.
+In [Continuous Integration](/learn/jenkins/jenkins/), we learned about Jenkins. Jenkins is incredibly powerful, but it requires you to maintain a server. If the Jenkins Master crashes, you have to wake up at 2 AM to fix it.
 
 What if the platform where you store your code (GitHub) could just run the CI tests for you? 
 That is **GitHub Actions**. It is a fully managed CI/CD service built directly into GitHub.
@@ -182,4 +187,4 @@ A: With static IAM User keys, you must store long-lived secrets in GitHub. If th
 ### Principal/Architect
 **Q: If you have an Enterprise GitHub Organization and need to enforce that every repository executes a specific security scan before deployment, how do you architect this using GitHub Actions natively?**
 A: You implement **Required Workflows** (a feature of GitHub Enterprise). You define the security scanning workflow in a centralized `.github` repository for the organization. You then configure the Organization's Branch Protection Rules to require that specific workflow to pass before any Pull Request can be merged into `main`. Developers cannot bypass or remove this workflow from their local repositories.
-[Contents](/learn) | [25 — Container Registry (AWS ECR)](/learn/aws/ecr) |
+[Contents](/learn) | [Container Registry (AWS ECR)](/learn/aws/ecr) |

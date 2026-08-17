@@ -5,6 +5,11 @@ titleAr: "إدارة المخرجات — Nexus"
 description: "Explain why a build should not depend on the public internet, and what write-once repositories protect against"
 descriptionAr: "أين تستقر المخرجات والصور بين البناء والنشر."
 domain: nexus
+capstoneRole: alternative
+capstonePhase: delivery
+capstoneComponent: registry
+capstonePurpose: "contrasts a general artifact repository with the ECR the capstone pushes to"
+capstoneWhy: "The capstone pushes images to ECR. Nexus is the general artifact-repository story, useful in enterprises with more than containers to store."
 level: intermediate
 type: concept
 phase: cicd
@@ -22,7 +27,7 @@ updated: 2026-08-08
 
 ## Why this chapter exists
 
-Chapter 25 covered ECR — a registry for **container images**. This chapter is
+[Container Registry](/learn/aws/ecr/) covered ECR — a registry for **container images**. This chapter is
 about everything else: the `.jar` files, npm packages and Helm charts a build
 produces and consumes.
 
@@ -295,4 +300,4 @@ in git. Then answering is a query across archived SBOMs joined to the current
 GitOps state — minutes, not days. Without that, the only honest answer is to
 rebuild and rescan everything you have ever shipped, which is why teams without
 it end up guessing.
-[Contents](/learn) | [27 — The GitOps Philosophy](/learn/gitops/gitops) |
+[Contents](/learn) | [The GitOps Philosophy](/learn/gitops/gitops) |

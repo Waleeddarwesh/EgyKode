@@ -21,8 +21,10 @@ tools:
   - "kubectl 1.28+"
 successCriteria:
   - "A Deployment with 3 replicas is running, and you can name the ReplicaSet that owns the Pods."
-  - "Deleting a Pod causes a replacement to appear; deleting the Deployment does not."
-  - "A rolling update keeps the service available, and `rollout undo` returns to the previous image."
+  - text: "Deleting a Pod causes a replacement to appear; deleting the Deployment does not."
+    verify: state
+  - text: "A rolling update keeps the service available, and `rollout undo` returns to the previous image."
+    verify: state
   - "You can produce a Deployment that creates zero Pods, and explain why."
 challengeId: lab-k8s-workloads-challenge
 authors: [waleed]

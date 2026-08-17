@@ -5,6 +5,10 @@ titleAr: "تراكبات البيئات — Kustomize"
 description: "Explain when to use Kustomize instead of Helm, and why the GitOps commit edits an overlay rather than a Deployment"
 descriptionAr: "أساس واحد وبيئات متعددة، دون تحويل كل شيء إلى قوالب."
 domain: kustomize
+capstoneRole: core
+capstonePhase: gitops
+capstoneComponent: manifests
+capstonePurpose: "renders the manifests Argo CD reconciles, and carries the image tag the pipeline updates"
 level: intermediate
 type: concept
 phase: kubernetes
@@ -22,7 +26,7 @@ updated: 2026-08-08
 
 ## Why this chapter exists
 
-Chapter 21 covered Helm. So why does this platform use **both**, and why does
+The [Helm chapter](/learn/helm/helm/) covered templating. So why does this platform use **both**, and why does
 the CI pipeline commit to a Kustomize overlay rather than a Helm values file?
 
 That is a real architectural decision with a real answer.
@@ -343,4 +347,4 @@ its target fails the build rather than silently doing nothing. The measure of
 success is that the diff between the dev and prod renders is short enough to
 read in one sitting; when it is not, that is the signal that something has been
 quietly forked.
-[Contents](/learn) | [23 — Continuous Integration (Jenkins)](/learn/jenkins/jenkins) |
+[Contents](/learn) | [Continuous Integration (Jenkins)](/learn/jenkins/jenkins) |

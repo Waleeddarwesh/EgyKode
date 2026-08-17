@@ -14,7 +14,8 @@ costTier: free
 successCriteria:
   - "Nginx serves static files directly and proxies everything else to Gunicorn."
   - "The stack starts in a working order — the app waits for a *ready* database, not a started one."
-  - "Database data survives `docker compose down` and returns after `up`."
+  - text: "Database data survives `docker compose down` and returns after `up`."
+    verify: command
   - "The application sees the real client IP, not the proxy's."
 challengeId: lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack-challenge
 authors: [waleed]

@@ -20,10 +20,13 @@ tools:
   - "Linux with systemd"
   - "sudo access"
 successCriteria:
-  - "You can name the PID holding a given port, and the command that told you."
-  - "You can show the last 50 log lines for one service without reading the whole journal."
+  - text: "You can name the PID holding a given port, and the command that told you."
+    verify: reasoning
+  - text: "You can show the last 50 log lines for one service without reading the whole journal."
+    verify: state
   - "A deliberately broken service is diagnosed from its logs and restored."
-  - "You can explain the difference between `failed`, `inactive` and `activating`."
+  - text: "You can explain the difference between `failed`, `inactive` and `activating`."
+    verify: reasoning
 guidedLabId: lab-linux-processes-services-logs
 authors: [waleed]
 updated: 2026-08-10

@@ -5,6 +5,10 @@ titleAr: "المرونة — AWS Auto Scaling"
 description: "Configure an ASG and explain instance refresh"
 descriptionAr: "التوسّع مع الحِمل، وما يكلّفه ذلك."
 domain: aws
+capstoneRole: core
+capstonePhase: aws
+capstoneComponent: scaling
+capstonePurpose: "the node group capacity the Cluster Autoscaler grows"
 level: intermediate
 type: concept
 phase: cloud
@@ -193,4 +197,4 @@ A: `user_data` is a script passed to the EC2 instance metadata service. The `clo
 **Q: You are running a stateful application (Kafka) on Kubernetes using persistent EBS volumes. The Kubernetes Node fails. The ASG replaces the Node. However, the Kafka Pod is stuck in `Pending` on the new Node because the EBS volume is in a different Availability Zone. How do you architect the ASG to prevent this?**
 A: EBS volumes are locked to a specific Availability Zone (AZ). If a Node in `us-east-1a` dies, the ASG might spin up the replacement Node in `us-east-1b` to maintain balance. The Pod will schedule in `1b`, but the disk is in `1a`. 
 To solve this, you must NOT use a single ASG spanning multiple AZs for stateful workloads. You must create one distinct ASG *per* Availability Zone (e.g., ASG-1a, ASG-1b, ASG-1c). You then use the Kubernetes Cluster Autoscaler's `--balance-similar-node-groups` feature. This guarantees that if a node dies in `1a`, the replacement node is strictly provisioned in `1a`, allowing the Pod to successfully attach its EBS volume.
-[Contents](/learn) | [18 — Security (AWS Secrets Manager)](/learn/aws/secrets-manager) |
+[Contents](/learn) | [Security (AWS Secrets Manager)](/learn/aws/secrets-manager) |

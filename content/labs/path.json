@@ -7,7 +7,7 @@
   "id": "ivolve-cloud-devops-capstone",
   "title": "Cloud DevOps Capstone",
   "titleAr": "مشروع Cloud DevOps الختامي",
-  "summary": "The platform you have been building, assembled and working: three microservices taken from source to a monitored, GitOps-managed deployment on AWS EKS. Terraform builds the account, Ansible configures the build host, Jenkins builds and scans, Argo CD reconciles, Prometheus watches.",
+  "summary": "The platform you have been building, assembled and working: three microservices taken from source to a monitored, GitOps-managed deployment on AWS EKS. Terraform provisions the AWS infrastructure, Ansible configures the build host, Jenkins builds and scans, Argo CD reconciles, Prometheus watches.",
   "summaryAr": "المنصة التي كنت تبنيها، مجمّعة وتعمل: ثلاث microservices من الكود المصدري حتى نشر يعمل ويخضع للمراقبة ويُدار عبر GitOps على AWS EKS.",
   "repo": "CloudDevOpsProject"
  },
@@ -141,8 +141,18 @@
    ]
   },
   {
-   "id": "observability",
+   "id": "gitops",
    "number": "09",
+   "title": "GitOps delivery",
+   "why": "The pipeline stops at a commit. Something has to turn that commit into a running change — and it must not be a person with cluster credentials, or the whole point of the previous phase is lost.",
+   "milestone": "A version deploys because Git changed, and a change you make by hand does not survive.",
+   "labs": [
+    "lab-argocd-gitops-reconciliation"
+   ]
+  },
+  {
+   "id": "observability",
+   "number": "10",
    "title": "Observability",
    "why": "You now have something running that people depend on. Metrics tell you that something broke; logs tell you why. Being able to answer both is what separates a deployment from an operated system.",
    "milestone": "Metrics, logs, dashboards and alerts exist — and the alerts are ones a human can act on.",
@@ -154,7 +164,7 @@
   },
   {
    "id": "operations",
-   "number": "10",
+   "number": "11",
    "title": "Operating it",
    "why": "The part most curricula skip. Anyone can deploy a system on a good day — this phase is about the bad ones, where nobody tells you what broke.",
    "milestone": "You have diagnosed failures you did not cause, recovered state you deleted, taken a node out of service without an outage, and built the whole platform once with no instructions.",
@@ -169,5 +179,511 @@
     "lab-19-production-capstone"
    ]
   }
- ]
+ ],
+ "$graphComment": "What each lab leaves behind, and which earlier labs produced the things it consumes. An edge is a real dependency, not the previous lab in the list — so `unlocks` can be derived by reversing `requires`, and the path can be checked for ordering that contradicts it.",
+ "graph": {
+  "lab-20-linux-server-administration": {
+   "produces": [
+    "A Linux server you can navigate, inspect and administer"
+   ],
+   "requires": []
+  },
+  "lab-linux-processes-services-logs": {
+   "produces": [
+    "The ability to find why a service died"
+   ],
+   "requires": [
+    "lab-20-linux-server-administration"
+   ]
+  },
+  "lab-linux-ssh-hardening": {
+   "produces": [
+    "Key-only SSH access, root login disabled"
+   ],
+   "requires": [
+    "lab-20-linux-server-administration"
+   ]
+  },
+  "lab-21-linux-networking-troubleshooting": {
+   "produces": [
+    "A method for following a connection to the layer that broke it"
+   ],
+   "requires": [
+    "lab-20-linux-server-administration"
+   ]
+  },
+  "lab-22-bash-automation-backup-healthcheck": {
+   "produces": [
+    "A script that fails loudly instead of half-running"
+   ],
+   "requires": [
+    "lab-20-linux-server-administration",
+    "lab-linux-processes-services-logs"
+   ]
+  },
+  "lab-23-git-branching-collaboration": {
+   "produces": [
+    "A repository you can branch and merge without fear"
+   ],
+   "requires": []
+  },
+  "lab-git-recovery-history": {
+   "produces": [
+    "The ability to recover work you thought you destroyed"
+   ],
+   "requires": [
+    "lab-23-git-branching-collaboration"
+   ]
+  },
+  "lab-git-professional-collaboration": {
+   "produces": [
+    "A review workflow — the same one GitOps will depend on"
+   ],
+   "requires": [
+    "lab-23-git-branching-collaboration"
+   ]
+  },
+  "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn": {
+   "produces": [
+    "A small, non-root container image of the application"
+   ],
+   "requires": [
+    "lab-20-linux-server-administration"
+   ]
+  },
+  "lab-docker-networking-volumes-healthchecks": {
+   "produces": [
+    "Containers that persist data and report their own health"
+   ],
+   "requires": [
+    "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn"
+   ]
+  },
+  "lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack": {
+   "produces": [
+    "The whole application running locally, behind one entry point"
+   ],
+   "requires": [
+    "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn",
+    "lab-docker-networking-volumes-healthchecks"
+   ]
+  },
+  "lab-reverse-proxy-load-balancing": {
+   "produces": [
+    "Traffic spread across replicas, and a failing one taken out"
+   ],
+   "requires": [
+    "lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack"
+   ]
+  },
+  "lab-http-tls-troubleshooting": {
+   "produces": [
+    "The ability to diagnose a broken certificate before it is public"
+   ],
+   "requires": [
+    "lab-reverse-proxy-load-balancing",
+    "lab-21-linux-networking-troubleshooting"
+   ]
+  },
+  "lab-aws-iam-least-privilege": {
+   "produces": [
+    "An IAM identity scoped to what it actually needs"
+   ],
+   "requires": []
+  },
+  "lab-aws-vpc-console": {
+   "produces": [
+    "A hand-built VPC — the thing Terraform will later reproduce"
+   ],
+   "requires": [
+    "lab-21-linux-networking-troubleshooting"
+   ]
+  },
+  "lab-24-s3-cloudfront-static-site": {
+   "produces": [
+    "A bucket served through a CDN"
+   ],
+   "requires": [
+    "lab-aws-iam-least-privilege"
+   ]
+  },
+  "lab-aws-route53-acm-dns": {
+   "produces": [
+    "A domain you control, with a certificate on it"
+   ],
+   "requires": [
+    "lab-24-s3-cloudfront-static-site"
+   ]
+  },
+  "lab-aws-ec2-cloudwatch-ssm": {
+   "produces": [
+    "An instance you can reach without opening SSH to the world"
+   ],
+   "requires": [
+    "lab-aws-vpc-console",
+    "lab-aws-iam-least-privilege"
+   ]
+  },
+  "lab-aws-rds-backup-restore": {
+   "produces": [
+    "A database you have actually restored, not just backed up"
+   ],
+   "requires": [
+    "lab-aws-vpc-console"
+   ]
+  },
+  "lab-terraform-fundamentals": {
+   "produces": [
+    "Resources created from code, and a state file that tracks them"
+   ],
+   "requires": [
+    "lab-aws-iam-least-privilege"
+   ]
+  },
+  "lab-terraform-modules": {
+   "produces": [
+    "A reusable module with inputs and outputs"
+   ],
+   "requires": [
+    "lab-terraform-fundamentals"
+   ]
+  },
+  "lab-terraform-remote-state": {
+   "produces": [
+    "State in S3 with locking — safe for more than one person"
+   ],
+   "requires": [
+    "lab-terraform-fundamentals"
+   ]
+  },
+  "lab-01-aws-vpc-subnets-gateways-route-tables": {
+   "produces": [
+    "vpc_id, public and private subnet ids, route tables, NAT gateway"
+   ],
+   "requires": [
+    "lab-terraform-modules",
+    "lab-terraform-remote-state",
+    "lab-aws-vpc-console"
+   ]
+  },
+  "lab-02-iam-roles-irsa-policies-security-groups": {
+   "produces": [
+    "IAM roles, the OIDC provider and IRSA — no static keys in pods"
+   ],
+   "requires": [
+    "lab-01-aws-vpc-subnets-gateways-route-tables",
+    "lab-aws-iam-least-privilege"
+   ]
+  },
+  "lab-03-amazon-ecr-container-registry-s3-storage-buckets": {
+   "produces": [
+    "An ECR repository with immutable tags, and artifact buckets"
+   ],
+   "requires": [
+    "lab-01-aws-vpc-subnets-gateways-route-tables"
+   ]
+  },
+  "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration": {
+   "produces": [
+    "A managed database whose password nobody has ever seen"
+   ],
+   "requires": [
+    "lab-01-aws-vpc-subnets-gateways-route-tables",
+    "lab-aws-rds-backup-restore"
+   ]
+  },
+  "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault": {
+   "produces": [
+    "A bare build host, and backups of the state that describes it"
+   ],
+   "requires": [
+    "lab-01-aws-vpc-subnets-gateways-route-tables",
+    "lab-02-iam-roles-irsa-policies-security-groups",
+    "lab-terraform-remote-state"
+   ]
+  },
+  "lab-terraform-testing-ci": {
+   "produces": [
+    "A plan that runs in CI, so drift is caught before apply"
+   ],
+   "requires": [
+    "lab-terraform-modules"
+   ]
+  },
+  "lab-07-ansible-architecture-configuration-automated-inventory": {
+   "produces": [
+    "Hosts discovered by tag rather than typed into a file"
+   ],
+   "requires": [
+    "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
+    "lab-linux-ssh-hardening"
+   ]
+  },
+  "lab-ansible-roles-idempotency": {
+   "produces": [
+    "Roles whose second run reports no changes at all"
+   ],
+   "requires": [
+    "lab-07-ansible-architecture-configuration-automated-inventory"
+   ]
+  },
+  "lab-08-automated-jenkins-server-toolchain-provisioning": {
+   "produces": [
+    "A working Jenkins host, built with no manual step"
+   ],
+   "requires": [
+    "lab-07-ansible-architecture-configuration-automated-inventory",
+    "lab-ansible-roles-idempotency"
+   ]
+  },
+  "lab-k8s-workloads": {
+   "produces": [
+    "The application as a Deployment that survives a deleted pod"
+   ],
+   "requires": [
+    "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn"
+   ]
+  },
+  "lab-k8s-services": {
+   "produces": [
+    "A stable name and address in front of moving pods"
+   ],
+   "requires": [
+    "lab-k8s-workloads"
+   ]
+  },
+  "lab-k8s-storage": {
+   "produces": [
+    "A volume that outlives the pod using it"
+   ],
+   "requires": [
+    "lab-k8s-workloads"
+   ]
+  },
+  "lab-11-core-kubernetes-workloads-configmaps-secrets": {
+   "produces": [
+    "Configuration and secrets kept out of the image"
+   ],
+   "requires": [
+    "lab-k8s-workloads",
+    "lab-k8s-services"
+   ]
+  },
+  "lab-05-amazon-eks-cluster-managed-node-group-provisioning": {
+   "produces": [
+    "An EKS cluster with workers in private subnets"
+   ],
+   "requires": [
+    "lab-01-aws-vpc-subnets-gateways-route-tables",
+    "lab-02-iam-roles-irsa-policies-security-groups"
+   ]
+  },
+  "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr": {
+   "produces": [
+    "An ALB provisioned by the cluster from an Ingress object"
+   ],
+   "requires": [
+    "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+    "lab-k8s-services",
+    "lab-02-iam-roles-irsa-policies-security-groups"
+   ]
+  },
+  "lab-k8s-gateway-api": {
+   "produces": [
+    "The same routing expressed in the API that replaces Ingress"
+   ],
+   "requires": [
+    "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr"
+   ]
+  },
+  "lab-k8s-rbac-service-accounts": {
+   "produces": [
+    "Workload identities that can do only what they need"
+   ],
+   "requires": [
+    "lab-05-amazon-eks-cluster-managed-node-group-provisioning"
+   ]
+  },
+  "lab-13-kubernetes-security-hardening-networkpolicies-hpa": {
+   "produces": [
+    "Default-deny networking, admission-enforced hardening, autoscaling"
+   ],
+   "requires": [
+    "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+    "lab-k8s-rbac-service-accounts",
+    "lab-11-core-kubernetes-workloads-configmaps-secrets"
+   ]
+  },
+  "lab-14-creating-a-custom-helm-chart-for-django-microservices": {
+   "produces": [
+    "The application as one versioned, installable chart"
+   ],
+   "requires": [
+    "lab-11-core-kubernetes-workloads-configmaps-secrets",
+    "lab-k8s-services"
+   ]
+  },
+  "lab-helm-upgrade-rollback": {
+   "produces": [
+    "An upgrade you can undo in seconds"
+   ],
+   "requires": [
+    "lab-14-creating-a-custom-helm-chart-for-django-microservices"
+   ]
+  },
+  "lab-15-managing-eks-cluster-add-ons-with-helm-irsa": {
+   "produces": [
+    "Cluster add-ons holding AWS permissions through IRSA"
+   ],
+   "requires": [
+    "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+    "lab-02-iam-roles-irsa-policies-security-groups",
+    "lab-14-creating-a-custom-helm-chart-for-django-microservices"
+   ]
+  },
+  "lab-jenkins-fundamentals": {
+   "produces": [
+    "A pipeline defined as code rather than clicked in a UI"
+   ],
+   "requires": [
+    "lab-08-automated-jenkins-server-toolchain-provisioning"
+   ]
+  },
+  "lab-jenkins-docker-pipeline": {
+   "produces": [
+    "A commit that becomes a tagged image in the registry"
+   ],
+   "requires": [
+    "lab-jenkins-fundamentals",
+    "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn",
+    "lab-03-amazon-ecr-container-registry-s3-storage-buckets"
+   ]
+  },
+  "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy": {
+   "produces": [
+    "Gates that stop a vulnerable image before it is published"
+   ],
+   "requires": [
+    "lab-jenkins-docker-pipeline",
+    "lab-03-amazon-ecr-container-registry-s3-storage-buckets"
+   ]
+  },
+  "lab-github-actions-ecr-eks": {
+   "produces": [
+    "The same delivery, on a hosted runner with OIDC and no stored keys"
+   ],
+   "requires": [
+    "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
+    "lab-05-amazon-eks-cluster-managed-node-group-provisioning"
+   ]
+  },
+  "lab-17-deploying-kube-prometheus-stack-on-aws-eks": {
+   "produces": [
+    "Metrics from every pod and node, and somewhere to see them"
+   ],
+   "requires": [
+    "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+    "lab-15-managing-eks-cluster-add-ons-with-helm-irsa"
+   ]
+  },
+  "lab-18-custom-prometheus-alert-rules-grafana-dashboards": {
+   "produces": [
+    "Alerts a human can act on, and dashboards kept in git"
+   ],
+   "requires": [
+    "lab-17-deploying-kube-prometheus-stack-on-aws-eks"
+   ]
+  },
+  "lab-loki-centralized-logging": {
+   "produces": [
+    "Logs you can search after the pod that wrote them is gone"
+   ],
+   "requires": [
+    "lab-17-deploying-kube-prometheus-stack-on-aws-eks"
+   ]
+  },
+  "lab-incident-crashloopbackoff": {
+   "produces": [
+    "A pod diagnosed from its own evidence"
+   ],
+   "requires": [
+    "lab-11-core-kubernetes-workloads-configmaps-secrets",
+    "lab-05-amazon-eks-cluster-managed-node-group-provisioning"
+   ]
+  },
+  "lab-incident-ingress-502": {
+   "produces": [
+    "A broken path traced from the load balancer to the container"
+   ],
+   "requires": [
+    "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr"
+   ]
+  },
+  "lab-incident-cluster-dns": {
+   "produces": [
+    "A name-resolution failure found without guessing"
+   ],
+   "requires": [
+    "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+    "lab-k8s-services"
+   ]
+  },
+  "lab-sre-backup-disaster-recovery": {
+   "produces": [
+    "A restore you have performed, not a backup you assume works"
+   ],
+   "requires": [
+    "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
+    "lab-k8s-storage"
+   ]
+  },
+  "lab-sre-chaos-failure-injection": {
+   "produces": [
+    "Evidence of how the system behaves when you break it on purpose"
+   ],
+   "requires": [
+    "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+    "lab-17-deploying-kube-prometheus-stack-on-aws-eks"
+   ]
+  },
+  "lab-terraform-state-recovery": {
+   "produces": [
+    "State recovered after the failure everyone hopes to avoid"
+   ],
+   "requires": [
+    "lab-terraform-remote-state"
+   ]
+  },
+  "lab-k8s-node-drain-upgrade": {
+   "produces": [
+    "A node taken out of service with the application still up"
+   ],
+   "requires": [
+    "lab-05-amazon-eks-cluster-managed-node-group-provisioning",
+    "lab-13-kubernetes-security-hardening-networkpolicies-hpa"
+   ]
+  },
+  "lab-19-production-capstone": {
+   "produces": [
+    "The whole platform, built once with no instructions"
+   ],
+   "requires": [
+    "lab-08-automated-jenkins-server-toolchain-provisioning",
+    "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+    "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
+    "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
+    "lab-18-custom-prometheus-alert-rules-grafana-dashboards",
+    "lab-sre-backup-disaster-recovery"
+   ]
+  },
+  "lab-argocd-gitops-reconciliation": {
+   "produces": [
+    "A cluster that follows Git, and reverts anything applied by hand"
+   ],
+   "requires": [
+    "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy",
+    "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr"
+   ]
+  }
+ }
 }

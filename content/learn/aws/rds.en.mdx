@@ -5,6 +5,11 @@ titleAr: "قواعد البيانات المُدارة — Amazon RDS"
 description: "Choose Multi-AZ vs read replica and know what each protects"
 descriptionAr: "الـ Multi-AZ والنسخ الاحتياطي والنسخ المتماثلة (Read Replicas)."
 domain: aws
+capstoneRole: alternative
+capstonePhase: aws
+capstoneComponent: database
+capstonePurpose: "contrasts managed RDS with the MySQL StatefulSet the capstone runs"
+capstoneWhy: "The capstone runs MySQL as a StatefulSet on EBS so you meet Kubernetes storage, identity and ordering directly. RDS is the managed alternative you would usually choose in production — read this for the trade-off, not as a step."
 level: intermediate
 type: concept
 phase: cloud
@@ -272,4 +277,4 @@ A: In our code, `password = var.db_password`. This is a variable. We never hardc
 ### Principal/Architect
 **Q: Your RDS Multi-AZ database is experiencing severe replication lag during a massive data migration, causing write latency to spike across the Kubernetes cluster. How do you re-architect the data layer?**
 A: Standard RDS Multi-AZ uses block-level synchronous replication, which is sensitive to heavy I/O spikes. If write latency is unacceptable, the architecture must transition from standard RDS MySQL to **Amazon Aurora MySQL**. Aurora decouples compute from storage. It does not use block-level replication to a standby node. Instead, it writes redo logs directly to a distributed storage fleet spanning 3 AZs (6 copies of data). This eliminates the traditional replication lag bottleneck entirely, resulting in vastly higher write throughput and sub-10 millisecond failover times.
-[Contents](/learn) | [16 — High Availability (AWS Load Balancers)](/learn/aws/load-balancers) |
+[Contents](/learn) | [High Availability (AWS Load Balancers)](/learn/aws/load-balancers) |

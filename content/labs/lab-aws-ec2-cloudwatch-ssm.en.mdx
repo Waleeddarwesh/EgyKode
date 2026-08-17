@@ -21,9 +21,11 @@ tools:
   - "An AWS account"
 successCriteria:
   - "You ran a command on the instance with no SSH key and no inbound rule."
-  - "Application logs appear in a CloudWatch log group and you can query them."
+  - text: "Application logs appear in a CloudWatch log group and you can query them."
+    verify: state
   - "An alarm exists on a metric that reflects user impact, and you can justify the threshold."
-  - "You can explain why the default EC2 metrics do not include memory or disk."
+  - text: "You can explain why the default EC2 metrics do not include memory or disk."
+    verify: reasoning
 cleanup:
   - "aws ec2 terminate-instances --instance-ids <id>"
   - "aws logs delete-log-group --log-group-name /egykode/lab/app"

@@ -21,9 +21,11 @@ tools:
   - "Any Linux (Ubuntu 22.04+ or RHEL 9)"
   - "sudo access"
 successCriteria:
-  - "A deploy user exists, belongs to a shared group, and can read the application directory without being root."
+  - text: "A deploy user exists, belongs to a shared group, and can read the application directory without being root."
+    verify: state
   - "`/opt/app` is owned by that group and group-writable, and a second user in the group can write to it."
-  - "A service is installed, running, and comes back after `reboot` — proven by `systemctl is-enabled`."
+  - text: "A service is installed, running, and comes back after `reboot` — proven by `systemctl is-enabled`."
+    verify: command
   - "You can state which directory is consuming the most disk, with the command that told you."
 challengeId: lab-20-linux-server-administration-challenge
 authors: [waleed]

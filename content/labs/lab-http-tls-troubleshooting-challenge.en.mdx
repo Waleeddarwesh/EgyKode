@@ -24,8 +24,10 @@ tools:
 successCriteria:
   - "You can print a site's certificate subject, issuer and expiry without a browser."
   - "You can state which layer failed for three different broken URLs."
-  - "You can explain what `SSL_ERROR_SYSCALL` and `certificate verify failed` each imply."
-  - "You can prove a port is reachable independently of whether TLS succeeds."
+  - text: "You can explain what `SSL_ERROR_SYSCALL` and `certificate verify failed` each imply."
+    verify: reasoning
+  - text: "You can prove a port is reachable independently of whether TLS succeeds."
+    verify: state
 guidedLabId: lab-http-tls-troubleshooting
 authors: [waleed]
 updated: 2026-08-10

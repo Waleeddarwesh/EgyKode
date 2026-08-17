@@ -25,6 +25,17 @@ export interface ChapterMeta {
   description: string;
   descriptionAr?: string;
   domain: string;
+  /**
+   * How this chapter relates to the capstone: the capstone is built with it
+   * (`core`), it is a valid architecture the capstone did not choose
+   * (`alternative`), it is a capability added once the baseline works
+   * (`extension`), or it is look-up material outside the ordered path
+   * (`reference`). Required on every chapter — `content:lint` enforces it,
+   * and `alternative`/`extension` must also explain themselves.
+   */
+  capstoneRole?: "core" | "alternative" | "extension" | "reference";
+  /** Why the capstone went the way it did, shown beside the label. */
+  capstoneWhy?: string;
   level: Level;
   type: string;
   phase: string;

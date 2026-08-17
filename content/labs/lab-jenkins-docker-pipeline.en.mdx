@@ -21,9 +21,12 @@ tools:
   - "Jenkins with the Docker Pipeline plugin"
   - "A registry account"
 successCriteria:
-  - "A push produces an image tagged with the short commit SHA in the registry."
-  - "A HIGH or CRITICAL vulnerability fails the build — proven with a deliberately old base image."
-  - "No credential appears in the build log."
+  - text: "A push produces an image tagged with the short commit SHA in the registry."
+    verify: state
+  - text: "A HIGH or CRITICAL vulnerability fails the build — proven with a deliberately old base image."
+    verify: state
+  - text: "No credential appears in the build log."
+    verify: state
   - "The `latest` tag is not what gets deployed, and you can say why."
 cleanup:
   - "docker image prune -af"

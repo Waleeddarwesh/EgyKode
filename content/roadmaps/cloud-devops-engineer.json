@@ -1,167 +1,180 @@
 {
-  "id": "cloud-devops-engineer",
-  "title": "Cloud DevOps Engineer",
-  "titleAr": "مهندس Cloud DevOps",
-  "description": "Breadth plus a production platform: from a Linux shell to a system you deploy and operate yourself.",
-  "descriptionAr": "اتساع المعرفة مع منصة إنتاج: من سطر أوامر Linux إلى نظام تنشره وتشغّله بنفسك.",
-  "phases": [
-    {
-      "id": "orientation",
-      "number": "00",
-      "title": "Orientation",
-      "titleAr": "البداية",
-      "chapters": [
-        "start-here",
-        "project-overview",
-        "system-architecture",
-        "requirements",
-        "repository-structure"
-      ]
-    },
-    {
-      "id": "foundations",
-      "number": "01",
-      "title": "Foundations",
-      "titleAr": "الأساسيات",
-      "chapters": [
-        "linux-foundations",
-        "networking-fundamentals",
-        "git-and-github"
-      ]
-    },
-    {
-      "id": "build-and-containers",
-      "number": "02",
-      "title": "Build & Containers",
-      "titleAr": "البناء والحاويات",
-      "chapters": [
-        "build-tools",
-        "docker"
-      ]
-    },
-    {
-      "id": "cloud",
-      "number": "03",
-      "title": "Cloud (AWS)",
-      "titleAr": "السحابة",
-      "chapters": [
-        "aws-overview",
-        "vpc",
-        "iam",
-        "ec2",
-        "s3",
-        "rds",
-        "load-balancers",
-        "auto-scaling",
-        "secrets-manager",
-        "ecr",
-        "serverless"
-      ]
-    },
-    {
-      "id": "iac",
-      "number": "04",
-      "title": "Infrastructure as Code",
-      "titleAr": "البنية ككود",
-      "chapters": [
-        "terraform",
-        "ansible"
-      ]
-    },
-    {
-      "id": "kubernetes",
-      "number": "05",
-      "title": "Kubernetes",
-      "titleAr": "كوبرنيتس",
-      "chapters": [
-        "kubernetes",
-        "k8s-workloads",
-        "k8s-config-storage",
-        "k8s-services-networking",
-        "gateway-api",
-        "k8s-security",
-        "k8s-cluster-administration",
-        "kubeadm",
-        "helm",
-        "kustomize",
-        "service-mesh"
-      ]
-    },
-    {
-      "id": "cicd",
-      "number": "06",
-      "title": "CI/CD",
-      "titleAr": "التكامل والتسليم المستمر",
-      "chapters": [
-        "jenkins",
-        "github-actions",
-        "nexus-and-artifacts"
-      ]
-    },
-    {
-      "id": "gitops",
-      "number": "07",
-      "title": "GitOps",
-      "titleAr": "جيت أوبس",
-      "chapters": [
-        "gitops",
-        "argocd"
-      ]
-    },
-    {
-      "id": "observability",
-      "number": "08",
-      "title": "Observability",
-      "titleAr": "المراقبة",
-      "chapters": [
-        "observability",
-        "prometheus",
-        "grafana",
-        "logging"
-      ]
-    },
-    {
-      "id": "security",
-      "number": "09",
-      "title": "Cloud Native Security",
-      "titleAr": "أمان Cloud Native",
-      "chapters": [
-        "container-security",
-        "network-policies"
-      ]
-    },
-    {
-      "id": "production",
-      "number": "10",
-      "title": "Production & SRE",
-      "titleAr": "الإنتاج",
-      "chapters": [
-        "chaos-engineering",
-        "cost-optimization",
-        "platform-engineering",
-        "disaster-recovery"
-      ]
-    }
-  ],
-  "reference": [
-    "hands-on-labs",
-    "troubleshooting",
-    "glossary",
-    "interview-prep",
-    "architecture-summary",
-    "conclusion"
-  ],
-  "productionProject": {
-    "id": "ivolve-cloud-devops-capstone",
-    "title": "Cloud DevOps Capstone",
-    "titleAr": "مشروع Cloud DevOps الختامي",
-    "summary": "Three microservices in three languages, taken from source to a monitored, GitOps-managed deployment on AWS EKS: Terraform builds the account, Ansible configures the build host, Jenkins builds and scans, Argo CD reconciles, Prometheus watches.",
-    "repo": "CloudDevOpsProject"
+ "id": "cloud-devops-engineer",
+ "title": "Cloud DevOps Engineer",
+ "titleAr": "مهندس Cloud DevOps",
+ "description": "Breadth plus a production platform: from a Linux shell to a system you deploy and operate yourself.",
+ "descriptionAr": "اتساع المعرفة مع منصة إنتاج: من سطر أوامر Linux إلى نظام تنشره وتشغّله بنفسك.",
+ "phases": [
+  {
+   "id": "orientation",
+   "number": "00",
+   "title": "Orientation",
+   "titleAr": "البداية",
+   "chapters": [
+    "start-here",
+    "project-overview",
+    "system-architecture",
+    "requirements",
+    "repository-structure"
+   ],
+   "deliverable": "Understand the system you are going to build, and how the repository, labs and capstone fit together."
   },
-  "contentGaps": [
-    "Software delivery fundamentals: artifacts, environments, versioning and rollback as the model CI/CD implements",
-    "CI/CD testing and quality gates as a concept, so Jenkins and Actions read as implementations of it",
-    "SRE fundamentals: SLIs, SLOs, error budgets and postmortems, before Chaos Engineering",
-    "Distributed tracing with OpenTelemetry — the third observability pillar"
-  ]
+  {
+   "id": "foundations",
+   "number": "01",
+   "title": "Foundations",
+   "titleAr": "الأساسيات",
+   "chapters": [
+    "linux-foundations",
+    "networking-fundamentals",
+    "git-and-github"
+   ],
+   "deliverable": "Operate a Linux server, follow a network failure to its cause, and collaborate in Git without losing work."
+  },
+  {
+   "id": "build-and-containers",
+   "number": "02",
+   "title": "Build & Containers",
+   "titleAr": "البناء والحاويات",
+   "chapters": [
+    "build-tools",
+    "docker"
+   ],
+   "deliverable": "Build and run the application locally in production-shaped containers."
+  },
+  {
+   "id": "cloud",
+   "number": "03",
+   "title": "Cloud (AWS)",
+   "titleAr": "السحابة",
+   "chapters": [
+    "aws-overview",
+    "vpc",
+    "iam",
+    "ec2",
+    "s3",
+    "rds",
+    "load-balancers",
+    "auto-scaling",
+    "secrets-manager",
+    "ecr",
+    "serverless"
+   ],
+   "deliverable": "Understand and provision the AWS primitives the platform needs — network, identity, registry, compute."
+  },
+  {
+   "id": "iac",
+   "number": "04",
+   "title": "Infrastructure as Code",
+   "titleAr": "البنية ككود",
+   "chapters": [
+    "terraform",
+    "ansible"
+   ],
+   "deliverable": "Reproduce the whole AWS environment from code, and configure the build host with no manual step."
+  },
+  {
+   "id": "kubernetes",
+   "number": "05",
+   "title": "Kubernetes",
+   "titleAr": "كوبرنيتس",
+   "chapters": [
+    "kubernetes",
+    "k8s-workloads",
+    "k8s-config-storage",
+    "k8s-services-networking",
+    "gateway-api",
+    "k8s-security",
+    "k8s-cluster-administration",
+    "kubeadm",
+    "helm",
+    "kustomize",
+    "service-mesh"
+   ],
+   "deliverable": "Run the application on Kubernetes with workloads, networking, storage and security in place."
+  },
+  {
+   "id": "cicd",
+   "number": "06",
+   "title": "CI/CD",
+   "titleAr": "التكامل والتسليم المستمر",
+   "chapters": [
+    "jenkins",
+    "github-actions",
+    "nexus-and-artifacts"
+   ],
+   "deliverable": "Turn a source change into a tested, scanned, immutable image in the registry."
+  },
+  {
+   "id": "gitops",
+   "number": "07",
+   "title": "GitOps",
+   "titleAr": "جيت أوبس",
+   "chapters": [
+    "gitops",
+    "argocd"
+   ],
+   "deliverable": "Deliver that image by changing Git, and let the cluster reconcile itself to it."
+  },
+  {
+   "id": "observability",
+   "number": "08",
+   "title": "Observability",
+   "titleAr": "المراقبة",
+   "chapters": [
+    "observability",
+    "prometheus",
+    "grafana",
+    "logging"
+   ],
+   "deliverable": "Answer whether the platform is healthy, and investigate it when it is not."
+  },
+  {
+   "id": "security",
+   "number": "09",
+   "title": "Cloud Native Security",
+   "titleAr": "أمان Cloud Native",
+   "chapters": [
+    "supply-chain-security",
+    "container-security",
+    "network-policies"
+   ],
+   "deliverable": "Reduce risk across source, build, artifact, deployment and runtime."
+  },
+  {
+   "id": "production",
+   "number": "10",
+   "title": "Production & SRE",
+   "titleAr": "الإنتاج",
+   "chapters": [
+    "sre-fundamentals",
+    "chaos-engineering",
+    "cost-optimization",
+    "platform-engineering",
+    "disaster-recovery"
+   ],
+   "deliverable": "Diagnose failure, recover the system, and reason about its reliability and cost."
+  }
+ ],
+ "reference": [
+  "hands-on-labs",
+  "troubleshooting",
+  "glossary",
+  "interview-prep",
+  "architecture-summary",
+  "conclusion"
+ ],
+ "productionProject": {
+  "id": "ivolve-cloud-devops-capstone",
+  "title": "Cloud DevOps Capstone",
+  "titleAr": "مشروع Cloud DevOps الختامي",
+  "summary": "Three microservices in three languages, taken from source to a monitored, GitOps-managed deployment on AWS EKS: Terraform provisions the AWS infrastructure, Ansible configures the build host, Jenkins builds and scans, Argo CD reconciles, Prometheus watches.",
+  "repo": "CloudDevOpsProject"
+ },
+ "contentGaps": [
+  "Software delivery fundamentals: artifacts, environments, versioning and rollback as the model CI/CD implements",
+  "CI/CD testing and quality gates as a concept, so Jenkins and Actions read as implementations of it",
+  "SRE fundamentals: SLIs, SLOs, error budgets and postmortems, before Chaos Engineering",
+  "Distributed tracing with OpenTelemetry — the third observability pillar"
+ ]
 }

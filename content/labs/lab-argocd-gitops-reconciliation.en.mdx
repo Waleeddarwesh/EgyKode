@@ -1,0 +1,295 @@
+---
+labId: lab-argocd-gitops-reconciliation
+title: "GitOps Delivery with Argo CD: Sync, Drift & Self-Heal"
+description: "Deploy by changing Git, then break the cluster by hand and watch Argo CD put it back."
+domain: gitops
+level: intermediate
+type: lab
+phase: gitops
+order: 17
+tier: guided
+estimatedMinutes: 45
+cloudCost: true
+costTier: low
+costEstimate: "Assumes the EKS cluster from the earlier labs is already running — this adds only Argo CD itself, which is a handful of Pods on nodes you are already paying for. If the cluster is not up, that is the ~$0.30/hour, not this."
+cleanup:
+  - "kubectl delete application ivolve-app -n argocd   # the finalizer removes the workloads it created"
+  - "kubectl get all -n ivolve                          # confirm the namespace is empty before moving on"
+  - "helm uninstall argocd -n argocd && kubectl delete ns argocd"
+successCriteria:
+  - text: "The Argo CD Application points at the manifests directory in your repository, and reports `Synced` and `Healthy`."
+    verify: state
+  - text: "A commit that changes the image tag moves the Application to `OutOfSync` without anyone running `kubectl`."
+    verify: state
+  - text: "After the sync, the running Pod uses the image tag you committed — verified against the Pod, not the manifest."
+    verify: command
+  - text: "The sync history records the deployment against the commit that caused it."
+    verify: state
+  - text: "A direct `kubectl scale` against the Deployment is reverted without you doing anything."
+    verify: state
+  - text: "You can explain what would have happened with `selfHeal: false`, and why the sync waves are ordered database-first."
+    verify: reasoning
+skills:
+  - "Deploy by changing desired state rather than by running commands against a cluster"
+  - "Read an Argo CD diff and say which side is wrong"
+  - "Recognise drift, and know which direction reconciliation resolves it"
+tools:
+  - "The EKS cluster and ECR repository from the earlier labs"
+  - "kubectl, and access to the Git repository holding your manifests"
+  - "Argo CD, installed in step 1"
+challengeId: lab-argocd-gitops-reconciliation-challenge
+authors: [waleed]
+updated: 2026-08-17
+---
+
+## What this lab is for
+
+Every lab up to here ended with you applying something. This one takes that
+away. From now on the cluster is not something you change — it is something
+that *follows* a change you make somewhere else.
+
+The pipeline you built already stops one step short of deploying: its last
+stages update a manifest and push a commit. This lab is what happens next.
+
+```text
+Jenkins
+   |  8 Update manifest    (the image tag in kustomization.yaml)
+   |  9 Push manifest
+   v
+Git repository            <-- the desired state
+   |
+   v
+Argo CD                   <-- notices, compares, applies
+   |
+   v
+Kubernetes
+```
+
+---
+
+## 1. Install Argo CD and look at what it is
+
+```bash
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
+```
+
+Get the initial password and port-forward the UI — the CLI works too, but the
+diff view is worth seeing at least once:
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d; echo
+kubectl -n argocd port-forward svc/argocd-server 8080:443
+```
+
+Argo CD is a controller. It has no knowledge of your pipeline and no webhook
+into it; it watches a Git path and a cluster, and works to make the second look
+like the first.
+
+## 2. Point it at your manifests
+
+Create the Application. This is the whole configuration — everything else is
+consequence:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ivolve-app
+  namespace: argocd            # MUST be Argo CD's own namespace
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<you>/CloudDevOpsProject.git
+    targetRevision: HEAD
+    path: 04-Kubernetes/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ivolve
+  syncPolicy:
+    automated:
+      prune: true              # objects removed from Git are removed from the cluster
+      selfHeal: true           # changes made to the cluster are reverted
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+```
+
+Two details that cause silent failures:
+
+- **`metadata.namespace` must be `argocd`.** An Application created anywhere else is ignored — no error, no event, it simply never syncs.
+- **The finalizer** makes deletion cascade. Without it, `kubectl delete application` removes the record and orphans everything it created.
+
+```bash
+kubectl apply -f argocd-application.yaml
+```
+
+## 3. Establish the baseline
+
+```bash
+kubectl -n argocd get application ivolve-app
+```
+
+Wait for `SYNC STATUS: Synced` and `HEALTH STATUS: Healthy`. Those answer two
+different questions — *does the cluster match Git*, and *are the workloads
+actually working* — and you will see them disagree later.
+
+Watch the first sync happen in order:
+
+```bash
+kubectl -n ivolve get pods -w
+```
+
+The database comes up first, then the two backends, then the frontend, then the
+ingress. That is not luck. It is `argocd.argoproj.io/sync-wave` on the
+manifests — `1` for the database, `2` for the backends, `3` for the frontend,
+`4` for the ingress. Without it everything applies at once and the services that
+need the database crash-loop until it happens to be ready.
+
+## 4. Deploy by changing Git
+
+This is the part that replaces every `kubectl apply` you have run so far.
+
+In `04-Kubernetes/manifests/kustomization.yaml`, find the `images:` block —
+this is exactly what stage 8 of the Jenkins pipeline rewrites:
+
+```yaml
+images:
+  - name: ivolve-frontend
+    newName: <account>.dkr.ecr.us-east-1.amazonaws.com/ivolve-frontend
+    newTag: 9-c1713b9          # <- change this to another tag you have pushed
+```
+
+Change `newTag` to a different tag that exists in ECR, then:
+
+```bash
+git commit -am "deploy frontend 10-abc1234"
+git push
+```
+
+Now do nothing. Argo CD polls roughly every three minutes:
+
+```bash
+kubectl -n argocd get application ivolve-app -w
+```
+
+`Synced → OutOfSync → Synced`. You did not touch the cluster.
+
+## 5. Verify against the Pod, not the manifest
+
+The manifest says what you asked for. The Pod says what happened:
+
+```bash
+kubectl -n ivolve get pods -l app.kubernetes.io/name=ivolve-frontend \
+  -o jsonpath='{.items[*].spec.containers[*].image}'; echo
+```
+
+That must show the tag you committed. Checking the manifest instead would only
+prove you can read your own commit.
+
+```bash
+kubectl -n argocd get application ivolve-app \
+  -o jsonpath='{.status.history[-1].revision}'; echo
+```
+
+The sync history records which commit produced the running state. This is the
+deployment record — there is no separate one, and it cannot drift from reality
+because it *is* the thing that caused reality.
+
+---
+
+## 6. Now break it on purpose
+
+Everything so far shows the happy path. The interesting behaviour is what
+happens when the cluster and Git disagree.
+
+```bash
+kubectl -n ivolve scale deployment ivolve-frontend --replicas=1
+kubectl -n ivolve get deploy ivolve-frontend -w
+```
+
+Watch the replica count. It goes to 1 — and then comes back.
+
+```text
+Git                          Cluster
+replicas: 3                  replicas: 3
+     |                            |
+     |                     kubectl scale --replicas=1
+     |                            v
+replicas: 3        <-- drift -->  replicas: 1
+     |
+     |  Argo CD compares, finds a difference,
+     |  and applies Git's version
+     v
+replicas: 3                  replicas: 3
+```
+
+That is `selfHeal: true`. Your change was not rejected — the API server accepted
+it happily. It was **reverted**, because a controller is continuously making the
+cluster match Git, and your edit was simply the next difference it found.
+
+Look at what it recorded:
+
+```bash
+kubectl -n argocd get application ivolve-app -o jsonpath='{.status.operationState.phase}'; echo
+```
+
+**This is the lesson of the whole phase.** In a push-based world, that
+`kubectl scale` would have stayed — and six weeks later nobody would know why
+production had one replica while the repository said three. Here the repository
+is not documentation of the system. It is the system.
+
+## 7. Understand what you gave up
+
+Self-heal has a cost, and pretending otherwise is how people get surprised at
+3am:
+
+- **You cannot hotfix by hand.** An emergency `kubectl edit` is reverted within minutes. The fix is a commit, and your ability to recover is now bounded by how fast you can merge.
+- **A bad commit deploys itself.** Automation applies what Git says, including a mistake. The protection is branch review, not the cluster.
+- **`prune: true` deletes.** Remove a manifest from Git and the object is removed from the cluster. That is the point, and it is also how a bad rebase deletes a database.
+
+Rolling back is therefore `git revert`, and it goes through the same path as
+everything else:
+
+```bash
+git revert --no-edit HEAD
+git push
+```
+
+---
+
+## Clean up
+
+Deleting the Application is what removes the workloads — and only because of
+the finalizer you set in step 2. Without it you delete the record and leave
+everything it created running, which is a genuinely expensive mistake on a
+cluster you are paying for.
+
+```bash
+kubectl delete application ivolve-app -n argocd   # cascades via the finalizer
+kubectl get all -n ivolve                         # must be empty — verify, do not assume
+helm uninstall argocd -n argocd && kubectl delete ns argocd
+```
+
+If `kubectl get all -n ivolve` still shows Pods, the cascade did not happen.
+Check the finalizer was present before the delete; recreating the Application
+and deleting it again is the tidiest recovery.
+
+The EKS cluster itself is untouched by this lab — destroy it with
+`terraform destroy` when you finish for the day, as always.
+
+---
+
+## What you added to the platform
+
+Before this lab, something still had to run `kubectl` — and that something
+needed cluster credentials. Now nothing does. The pipeline's authority ends at
+a commit, and the authority to change the cluster lives inside the cluster.
+
+That is a security property as much as a workflow one, and it is the last piece
+of the delivery chain: an image built once, scanned, pushed immutably,
+referenced by a manifest, and deployed by reconciliation.

@@ -5,6 +5,10 @@ titleAr: "معمارية النظام"
 description: "Trace a user request from DNS to a pod and back"
 descriptionAr: "المكوّنات وعلاقاتها: من طلب المستخدم حتى قاعدة البيانات."
 domain: platform
+capstoneRole: core
+capstonePhase: foundations
+capstoneComponent: orientation
+capstonePurpose: "the request path, from the ALB to mysql-0"
 level: beginner
 type: concept
 phase: orientation
@@ -22,12 +26,12 @@ updated: 2026-08-08
 
 ## Introduction to the Architecture
 
-In Chapter 01, we learned *why* we are building this platform. Now, we will look at *how* the pieces fit together.
+In [Start Here](/learn/platform/start-here/), we learned *why* we are building this platform. Now, we will look at *how* the pieces fit together.
 System Architecture is the blueprint of our platform. It defines how the network is structured, where the servers live, how the database is protected, and how traffic flows from a user's browser into our backend code.
 
 ### The whole platform, on one page
 
-![Cloud DevOps Capstone — the full architecture: Jenkins CI on EC2, an EKS cluster running three microservices and MySQL, delivered by Argo CD and watched by Prometheus](/diagrams/clouddevops-architecture.png)
+![Cloud DevOps Capstone — the full architecture: Jenkins CI on EC2, an EKS cluster running three microservices and MySQL, delivered by Argo CD and watched by Prometheus](/diagrams/clouddevops-architecture.webp)
 
 **Do not try to absorb this yet.** Right now, find four things on it — that is
 all this chapter needs from you:
@@ -38,7 +42,7 @@ all this chapter needs from you:
    inside the cluster. Trace it with your finger.
 2. **The numbered column on the left.** That is the build pipeline, stages 1
    to 9 — checkout, tests, SonarQube gate, build, Trivy scan, push to ECR,
-   then update and push the manifests. You will build it in Chapter 23.
+   then update and push the manifests. You will build it in [Continuous Integration (Jenkins)](/learn/jenkins/jenkins/).
 3. **The three microservices in the middle**, each in a different language:
    `frontend` on Node.js, `auth-service` on Python, `roadmap-service` on Java
    — plus `mysql-0`, a StatefulSet with a volume, because a database cannot be
@@ -46,11 +50,12 @@ all this chapter needs from you:
 4. **The loop on the right**, from pipeline stage 9 to the Git repository to
    **Argo CD**, which syncs it back into the cluster. Nothing deploys by being
    pushed *at* the cluster; the cluster pulls what Git says. That is the
-   GitOps loop, and it is the most important idea here — Chapter 27 is
-   entirely about why the arrow points that way.
+   GitOps loop, and it is the most important idea here — [The GitOps
+   Philosophy](/learn/gitops/gitops/) is entirely about why the arrow points
+   that way.
 
 Come back to this diagram at the end of every phase. It will make more sense
-each time, and by Chapter 40 you will be able to redraw it from memory — which
+each time, and by the end of the Kubernetes phase you will be able to redraw it from memory — which
 is, incidentally, a very good interview answer.
 
 > This is the architecture of the
@@ -247,4 +252,4 @@ A: You can use VPC Peering (for simple 1-to-1 connections) or AWS Transit Gatewa
 ### Principal/Architect
 **Q: In an active-active multi-region architecture (e.g., `us-east-1` and `eu-west-1`), how do you handle stateful data synchronization and routing?**
 A: Routing is handled via Route53 latency-based or geolocation routing. For stateful data, we must utilize global databases (like Amazon Aurora Global Database or DynamoDB Global Tables) which replicate storage synchronously or asynchronously at the block level. The architectural tradeoff is latency vs. consistency (CAP Theorem): synchronous replication guarantees consistency but adds high latency across regions, whereas asynchronous replication is fast but risks data loss during an abrupt region failure.
-[Contents](/learn) | [03 — Platform Requirements](/learn/platform/requirements) |
+[Contents](/learn) | [Platform Requirements](/learn/platform/requirements) |

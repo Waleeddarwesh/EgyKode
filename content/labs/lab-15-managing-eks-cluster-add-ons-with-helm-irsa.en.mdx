@@ -20,9 +20,11 @@ cleanup:
   - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
 successCriteria:
   - "A controller calls the AWS API using its own IAM role, not the node's."
-  - "`aws sts get-caller-identity` from inside the Pod returns the IRSA role."
+  - text: "`aws sts get-caller-identity` from inside the Pod returns the IRSA role."
+    verify: command
   - "A Pod without the annotation is refused the same action — demonstrated."
-  - "metrics-server works, so `kubectl top` and HPAs have a metric."
+  - text: "metrics-server works, so `kubectl top` and HPAs have a metric."
+    verify: command
 challengeId: lab-15-managing-eks-cluster-add-ons-with-helm-irsa-challenge
 authors: [waleed]
 updated: 2026-08-10

@@ -16,10 +16,13 @@ cleanup:
   - "kubectl delete prometheusrule --all -n monitoring"
   - "kubectl delete configmap -l grafana_dashboard -n monitoring"
 successCriteria:
-  - "An alert you wrote moves from inactive to pending to firing, and you caused it."
+  - text: "An alert you wrote moves from inactive to pending to firing, and you caused it."
+    verify: state
   - "The alert carries a runbook link and enough context to act on without opening a dashboard."
-  - "A dashboard shows request rate, error rate and latency for your service."
-  - "You can explain what `for:` does and why removing it produces pager noise."
+  - text: "A dashboard shows request rate, error rate and latency for your service."
+    verify: state
+  - text: "You can explain what `for:` does and why removing it produces pager noise."
+    verify: reasoning
 challengeId: lab-18-custom-prometheus-alert-rules-grafana-dashboards-challenge
 authors: [waleed]
 updated: 2026-08-10

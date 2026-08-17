@@ -5,6 +5,10 @@ titleAr: "المقاييس — Prometheus"
 description: "Write a PromQL alert on a ratio, not a raw count"
 descriptionAr: "جمع المقاييس والتنبيه عليها قبل أن يلاحظ المستخدمون."
 domain: prometheus
+capstoneRole: core
+capstonePhase: observability
+capstoneComponent: metrics
+capstonePurpose: "scrapes pods, nodes and endpoints; twelve alert rules with runbook links"
 level: advanced
 type: concept
 phase: observability
@@ -206,7 +210,7 @@ If the Prometheus Pod dies, and the EBS volume is lost, you lose all your compan
 
 To solve this in production:
 1. **HA Pairs:** You run two identical Prometheus Pods scraping the exact same targets. If one dies, the other still has the data.
-2. **Thanos / Cortex:** As mentioned in Chapter 29, we use Thanos as a sidecar attached to the Prometheus pod. Every 2 hours, Thanos compresses the local TSDB blocks and uploads them to an AWS S3 bucket. S3 provides 99.999999999% durability and infinite storage, allowing you to run PromQL queries on data from 5 years ago without crashing the local Prometheus server.
+2. **Thanos / Cortex:** We use Thanos as a sidecar attached to the Prometheus pod. Every 2 hours, Thanos compresses the local TSDB blocks and uploads them to an AWS S3 bucket. S3 provides 99.999999999% durability and infinite storage, allowing you to run PromQL queries on data from 5 years ago without crashing the local Prometheus server.
 
 ---
 
@@ -229,4 +233,4 @@ A: A "Counter" metric in Prometheus only ever goes up (e.g., total HTTP requests
 A: Cardinality Explosion occurs when a metric has too many unique label combinations. For example, if a developer adds a `user_id` label to an HTTP request metric, and you have 1 million users, Prometheus must create and hold 1 million distinct time-series in RAM, instantly causing an OOM.
 - **Code Level Fix:** Ban unbounded/high-cardinality labels (like `user_id`, `email`, or raw SQL queries) from metrics. Labels must only represent bounded sets (like `status_code=200` or `method=GET`). High-cardinality data belongs in Logs or Traces, not Metrics.
 - **Platform Level Fix:** Implement metric relabeling rules in Prometheus (or a Promxy/Otel Collector layer) to explicitly `drop` offending labels or entirely `drop` massive metrics before they are ingested into the TSDB engine.
-[Contents](/learn) | [31 — Data Visualization (Grafana)](/learn/grafana/grafana) |
+[Contents](/learn) | [Data Visualization (Grafana)](/learn/grafana/grafana) |

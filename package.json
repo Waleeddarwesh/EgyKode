@@ -16,7 +16,7 @@
     "build": "npm run build:id && npm run tokens && npm run topics && npm run search && npm run build --workspace=@egykode/web",
     "start": "npm run start --workspace=@egykode/web",
     "lint": "npm run lint --workspace=@egykode/web",
-    "typecheck": "npm run typecheck --workspace=@egykode/web",
+    "typecheck": "npm run typecheck --workspace=@egykode/web && tsc --noEmit -p tsconfig.json",
     "tokens": "node packages/design-tokens/build.mjs",
     "content:migrate": "python scripts/migrate_handbook.py",
     "content:lint": "node scripts/lint-content.mjs",
@@ -28,6 +28,7 @@
     "verify": "npm run lint:mdx && npm run lint:diagrams && npm run content:lint && npm run lint:refs && npm run lint:resources && npm run lint:rtl && npm run check:translation && npm run test:edge && npm run typecheck && npm run lint && npm run build:verify && npm run test:e2e",
     "topics": "node scripts/build-topics.mjs",
     "audit:topics": "node scripts/audit-topics.mjs",
+    "audit:concepts": "node scripts/audit-concepts.mjs",
     "check:translation": "node scripts/check-translation.mjs",
     "test:edge": "node scripts/test-edge-router.mjs",
     "build:verify": "node scripts/build-verify.mjs",
@@ -41,6 +42,8 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.62.1",
-    "axe-core": "^4.13.0"
+    "axe-core": "^4.13.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
   }
 }

@@ -20,7 +20,8 @@ cleanup:
 successCriteria:
   - "A real ALB is provisioned from a Kubernetes manifest, and you can find it in the AWS console."
   - "Path-based routing sends two paths to two different Services."
-  - "You can explain what `target-type: ip` changes, and why it matters here."
+  - text: "You can explain what `target-type: ip` changes, and why it matters here."
+    verify: reasoning
   - "Deleting the Ingress removes the ALB — verified, not assumed."
 guidedLabId: lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr
 authors: [waleed]

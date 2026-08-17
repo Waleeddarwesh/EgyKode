@@ -5,6 +5,11 @@ titleAr: "اقتصاديات السحابة — FinOps"
 description: "Find the three line items that are 80% of a cloud bill"
 descriptionAr: "ما تكلّفه المعمارية، وكيف تجعلها أقل تكلفة."
 domain: cost
+capstoneRole: extension
+capstonePhase: operations
+capstoneComponent: cost
+capstonePurpose: "extends operations to what the running platform costs and why"
+capstoneWhy: "Add this once the platform is running and the bill is real."
 level: advanced
 type: concept
 phase: production
@@ -190,7 +195,7 @@ We deploy **Kubecost**. Kubecost connects to Prometheus, analyzes exactly how mu
 ## Level 4 — Enterprise
 
 ### Spot Instances and Karpenter
-We touched on this in Chapter 17, but from a financial perspective, Spot Instances are the holy grail of FinOps.
+We touched on this in [Elasticity (AWS Auto Scaling)](/learn/aws/auto-scaling/), but from a financial perspective, Spot Instances are the holy grail of FinOps.
 
 AWS has millions of empty servers sitting idle. To make *some* money, AWS rents them out at up to a 90% discount. But AWS can terminate them at any time.
 If you run your production web traffic on Spot instances, you save 90% on your compute bill. 
@@ -232,4 +237,4 @@ A: Orphaned resources are infrastructure components that are no longer actively 
 **Q: You notice a sudden $5,000 spike in your AWS bill attributed to "NAT Gateway Data Processing". Your EKS cluster runs entirely in Private Subnets. How do you architect a solution to eliminate this cost without exposing your nodes to the public internet?**
 A: The high NAT Gateway cost is almost certainly caused by Pods in the private subnets pulling massive Docker images from ECR, or downloading large files from S3. Because these AWS services live outside the VPC, traffic routes through the NAT Gateway.
 **The Solution:** Implement **AWS VPC Endpoints (PrivateLink)**. You create Gateway Endpoints for S3 and DynamoDB (which are completely free), and Interface Endpoints for ECR and CloudWatch. This modifies the VPC Route Table to hijack the traffic and send it directly over the AWS internal backbone to the AWS services, bypassing the NAT Gateway entirely and dropping the data processing costs to near zero.
-[Contents](/learn) | [39 — The Future (Platform Engineering)](/learn/platform-engineering/platform-engineering) |
+[Contents](/learn) | [The Future (Platform Engineering)](/learn/platform-engineering/platform-engineering) |

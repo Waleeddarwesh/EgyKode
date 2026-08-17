@@ -98,6 +98,15 @@ for (const domain of readdirSync(learnDir, { withFileTypes: true })) {
       // Images must carry alt text.
       const img = line.match(/!\[\s*\]\(/);
       if (img) fail(file, lineNo, "image missing alt text");
+
+      // A chapter referred to by number goes stale the moment one is
+      // inserted, and does so silently. All 34 of these were wrong at once —
+      // "In Chapter 09, we learned that Docker…" resolved to Build Tools.
+      // Link by slug instead; a link cannot drift out of order.
+      const num = line.match(/\bChapters? \d{1,2}\b/);
+      if (num) {
+        fail(file, lineNo, `chapter referenced by number ("${num[0]}") — link to it by name instead`);
+      }
     });
   }
 }
@@ -110,6 +119,20 @@ for (const { file, raw } of chapters) {
     if (!match || !match[1].trim()) continue;
     for (const ref of match[1].split(",").map((s) => s.trim().replace(/"/g, ""))) {
       if (ref && !ids.has(ref)) fail(file, 1, `${field} references unknown contentId "${ref}"`);
+    }
+  }
+}
+
+// Prose links to other chapters. Replacing the stale "Chapter NN" references
+// with links only helps if the links resolve — the first run of this check
+// found one pointing at /learn/kubernetes/k8s-security/, which lives under
+// /learn/security/. A chapter moving directory breaks these silently.
+{
+  const urls = new Set(chapters.map((c) => `/learn/${c.fm.domain}/${c.fm.contentId}`));
+  for (const { file, raw } of chapters) {
+    for (const m of raw.matchAll(/\]\((\/learn\/[^)#?\s]*)/g)) {
+      const target = m[1].replace(/\/$/, "");
+      if (!urls.has(target)) fail(file, null, `link to "${m[1]}" does not resolve to a chapter`);
     }
   }
 }
@@ -160,6 +183,176 @@ if (existsSync(projectDir)) {
     // Featuring a repo whose licence is unclear is a legal and ethical problem.
     if (project.featured && (!project.license || project.license === "NOASSERTION")) {
       fail(file, null, "featured project has no clear licence");
+    }
+  }
+}
+
+// ── 4d. Every chapter states its relationship to the capstone ──────────────
+//
+// The curriculum contains three legitimately different kinds of chapter, and
+// not saying which is which is what makes it read as self-contradictory: the
+// RDS chapter teaching a managed database while the capstone deliberately runs
+// MySQL as a StatefulSet is the clearest case. A reader cannot tell whether
+// they are behind or simply reading about a road not taken.
+//
+// `alternative` and `extension` additionally require `capstoneWhy`, because
+// the label alone leaves the more useful question — *why not this one?* —
+// unanswered, and an unexplained label is decoration.
+{
+  const ROLES = new Set(["core", "alternative", "extension", "reference"]);
+  /**
+   * The phases of the *build*, which are not the curriculum's eleven. A
+   * chapter is taught in one place and used in another, and this names the
+   * second. Fixed set on purpose: an arbitrary string cannot be linted or
+   * grouped, and unlintable metadata is how a classification decays into
+   * decoration.
+   */
+  const CAPSTONE_PHASES = new Set([
+    "foundations", "application", "aws", "infrastructure",
+    "kubernetes", "delivery", "gitops", "observability", "operations",
+  ]);
+  const learnDir = join(CONTENT, "learn");
+  if (existsSync(learnDir)) {
+    for (const domain of readdirSync(learnDir, { withFileTypes: true })) {
+      if (!domain.isDirectory()) continue;
+      for (const name of readdirSync(join(learnDir, domain.name)).filter((f) => f.endsWith(".en.mdx"))) {
+        const where = `content/learn/${domain.name}/${name}`;
+        const front = readFileSync(join(learnDir, domain.name, name), "utf8")
+          .match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
+
+        const role = front.match(/^capstoneRole:\s*(\S+)/m)?.[1];
+        if (!role) {
+          fail(where, null,
+            "no capstoneRole — every chapter must say whether the capstone is built with this (core), chose differently (alternative), extends beyond it (extension), or it is look-up material (reference)");
+          continue;
+        }
+        if (!ROLES.has(role)) {
+          fail(where, null, `capstoneRole "${role}" is not one of: ${[...ROLES].join(", ")}`);
+        }
+        if ((role === "alternative" || role === "extension") && !/^capstoneWhy:/m.test(front)) {
+          fail(where, null,
+            `capstoneRole is "${role}" but there is no capstoneWhy — a label without the reasoning tells a reader they can skip this, and nothing about why the capstone went the other way`);
+        }
+
+        // ── And *where* in the capstone, not only whether ──────────────────
+        //
+        // The role answers "does this apply to me". The mapping answers "so
+        // where does it actually appear", which is the question a reader has
+        // next and the one that makes the curriculum a graph rather than a
+        // list. Reference chapters are exempt: they sit outside the build.
+        //
+        // The phase is drawn from a fixed set. An arbitrary string would make
+        // the mapping unlintable and un-groupable, which is exactly how this
+        // kind of metadata decays into decoration.
+        if (role !== "reference") {
+          const phase = front.match(/^capstonePhase:\s*(\S+)/m)?.[1];
+          if (!phase) {
+            fail(where, null, "no capstonePhase — every non-reference chapter must say where in the capstone it appears");
+          } else if (!CAPSTONE_PHASES.has(phase)) {
+            fail(where, null, `capstonePhase "${phase}" is not one of: ${[...CAPSTONE_PHASES].join(", ")}`);
+          }
+          if (!/^capstoneComponent:/m.test(front)) {
+            fail(where, null, "no capstoneComponent — name the part of the platform this teaches");
+          }
+          if (!/^capstonePurpose:/m.test(front)) {
+            fail(where, null, "no capstonePurpose — one sentence on what this contributes to the build");
+          }
+        }
+      }
+    }
+  }
+}
+
+// ── 4c. The Project Path must reference labs that exist ────────────────────
+//
+// `getResolvedPath()` drops any id it cannot resolve, so a typo does not throw
+// — the lab simply disappears from the path, and the only visible symptom is
+// that two counts on the same page stop agreeing. That is precisely how a
+// reader comes to see "58 steps" above a library that says 54 and concludes
+// the site cannot count.
+//
+// The two numbers are legitimately different — the library lists guided labs,
+// while the path also walks the incidents and the capstone — so this does not
+// force them to match. It asserts the thing that must be true: every id in the
+// path resolves to a real lab, and no lab is silently listed twice.
+{
+  const pathFile = join(CONTENT, "labs", "path.json");
+  const labsDir = join(CONTENT, "labs");
+  if (existsSync(pathFile) && existsSync(labsDir)) {
+    const labPath = JSON.parse(readFileSync(pathFile, "utf8"));
+    const existing = new Set(
+      readdirSync(labsDir)
+        .filter((f) => f.endsWith(".en.mdx"))
+        .map((f) => f.replace(".en.mdx", "")),
+    );
+
+    const seen = new Map();
+    for (const phase of labPath.phases ?? []) {
+      for (const id of phase.labs ?? []) {
+        if (!existing.has(id)) {
+          fail("content/labs/path.json", null,
+            `phase "${phase.id}" lists "${id}", which has no lab file — it will vanish from the path with no error`);
+        }
+        if (seen.has(id)) {
+          fail("content/labs/path.json", null,
+            `"${id}" appears in both "${seen.get(id)}" and "${phase.id}" — a lab counted twice inflates the path`);
+        }
+        seen.set(id, phase.id);
+      }
+    }
+
+    // ── The dependency graph must agree with the order it annotates ───────
+    //
+    // `requires` says this lab consumes something an earlier lab produced. If
+    // the producer comes *later* in the path, the reader is told to build with
+    // a thing that does not exist yet — and the failure is silent, because
+    // both the edge and the ordering look reasonable in isolation.
+    const graph = labPath.graph ?? {};
+    const position = new Map([...seen.keys()].map((id, i) => [id, i]));
+
+    for (const [id, node] of Object.entries(graph)) {
+      if (!position.has(id)) {
+        fail("content/labs/path.json", null,
+          `graph has an entry for "${id}", which is not in any phase`);
+        continue;
+      }
+      if (!node.produces?.length) {
+        fail("content/labs/path.json", null, `"${id}" declares nothing in \`produces\``);
+      }
+      for (const dep of node.requires ?? []) {
+        if (!position.has(dep)) {
+          fail("content/labs/path.json", null,
+            `"${id}" requires "${dep}", which is not in the path`);
+        } else if (position.get(dep) >= position.get(id)) {
+          fail("content/labs/path.json", null,
+            `"${id}" requires "${dep}", which the path places later — the reader would need it before it exists`);
+        }
+      }
+    }
+
+    // Every lab on the path should say what it leaves behind, or the "what
+    // does this add to the platform" promise has a hole in it.
+    for (const id of position.keys()) {
+      if (!graph[id]) {
+        fail("content/labs/path.json", null, `"${id}" is on the path but has no graph entry`);
+      }
+    }
+
+    // ── And every lab *page* must resolve one, directly or through its pair ─
+    //
+    // Half the pages saying where they fit and half saying nothing is the
+    // inconsistency a reader notices first. A challenge inherits its guided
+    // pair's contribution, so what this really checks is that no lab is
+    // stranded: off the path, and with no pair to inherit from.
+    for (const file of readdirSync(labsDir).filter((f) => f.endsWith(".en.mdx"))) {
+      const id = file.replace(".en.mdx", "");
+      if (graph[id]) continue;
+      const front = readFileSync(join(labsDir, file), "utf8").match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      const pair = front?.[1].match(/^guidedLabId:\s*(\S+)/m)?.[1];
+      if (!pair || !graph[pair]) {
+        fail(`content/labs/${file}`, null,
+          "no contribution to the platform: this lab is not on the Project Path and has no guided pair to inherit from, so its page cannot say where it fits");
+      }
     }
   }
 }

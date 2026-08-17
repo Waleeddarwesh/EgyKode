@@ -5,6 +5,10 @@ titleAr: "الهوية والصلاحيات — AWS IAM"
 description: "Write a least-privilege policy and explain why no static keys exist"
 descriptionAr: "المستخدمون والأدوار والسياسات، ومبدأ أقل صلاحية (Least Privilege)."
 domain: aws
+capstoneRole: core
+capstonePhase: aws
+capstoneComponent: identity
+capstonePurpose: "the roles, OIDC provider and IRSA the cluster and pipeline authenticate with"
 level: intermediate
 type: concept
 phase: cloud
@@ -253,4 +257,4 @@ Both sides must explicitly grant the permission.
 ### Principal/Architect
 **Q: Your enterprise has 500 AWS accounts. You need to ensure that no developer, even those with AdministratorAccess, can ever launch an EC2 instance outside of the `us-east-1` and `eu-west-1` regions. How do you architect this centrally?**
 A: You use AWS Organizations and Service Control Policies (SCPs). You attach an SCP to the root of the Organization (or specific Organizational Units). The SCP uses a `Deny` effect for `ec2:RunInstances` with a condition key `aws:RequestedRegion` specifying `StringNotEquals` for `us-east-1` and `eu-west-1`. Because SCPs act as a master filter over all IAM policies in the child accounts, this explicitly blocks the action regardless of the local user's Administrator privileges.
-[Contents](/learn) | [13 — Infrastructure as Code (Terraform)](/learn/terraform/terraform) |
+[Contents](/learn) | [Infrastructure as Code (Terraform)](/learn/terraform/terraform) |

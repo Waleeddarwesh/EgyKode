@@ -5,6 +5,10 @@ titleAr: "التكامل المستمر — Jenkins"
 description: "Write a declarative pipeline with a blocking quality gate"
 descriptionAr: "خطوط تبني وتختبر وتفحص وتُصدر مع كل commit."
 domain: jenkins
+capstoneRole: core
+capstonePhase: delivery
+capstoneComponent: ci
+capstonePurpose: "the nine-stage pipeline, one per microservice, driven by a shared library"
 level: intermediate
 type: concept
 phase: cicd
@@ -448,4 +452,4 @@ Causes include:
 2. Retaining too much build history (e.g., keeping 10,000 old builds), bloating the XML DOM in memory.
 3. The "God Jenkins" anti-pattern (one Master for 10,000 developers). 
 *Resolution:* Enforce Declarative pipelines (which push execution to agents), enforce aggressive log rotation (`buildDiscarder`), and architect a "Controller-per-Team" model (like CloudBees CI / Jenkins Operations Center) to horizontally scale the Masters rather than vertically scaling a single monolith.
-[Contents](/learn) | [24 — Modern CI (GitHub Actions)](/learn/github-actions/github-actions) |
+[Contents](/learn) | [Modern CI (GitHub Actions)](/learn/github-actions/github-actions) |

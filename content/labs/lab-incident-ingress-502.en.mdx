@@ -20,9 +20,11 @@ tools:
   - "kind or minikube with ingress-nginx"
   - "kubectl 1.28+"
 successCriteria:
-  - "The application returns HTTP 200 through the Ingress."
+  - text: "The application returns HTTP 200 through the Ingress."
+    verify: state
   - "You can state the root cause in one sentence."
-  - "You can name the single command that localised the fault."
+  - text: "You can name the single command that localised the fault."
+    verify: reasoning
   - "You changed exactly one thing — no shotgun fixes."
 authors: [waleed]
 updated: 2026-08-10

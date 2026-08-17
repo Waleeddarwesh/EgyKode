@@ -5,6 +5,10 @@ titleAr: "نظرة عامة على المشروع"
 description: "Explain what the platform does and why each layer exists"
 descriptionAr: "ما الذي تبنيه هذه المنصة، ولماذا تم اختيار هذه المكوّنات تحديدًا."
 domain: platform
+capstoneRole: core
+capstonePhase: foundations
+capstoneComponent: orientation
+capstonePurpose: "what the platform is and why each layer exists"
 level: beginner
 type: concept
 phase: orientation
@@ -158,7 +162,7 @@ This repository *is* the foundation of an IDP. We provide **"Golden Paths."** If
 Enterprise platforms must adhere to strict regulatory compliance frameworks like **SOC2** (System and Organization Controls) and **ISO27001**.
 How does this repository achieve that?
 1. **No Public IP Addresses:** Worker nodes reside strictly in Private Subnets. They are completely invisible to the public internet, satisfying SOC2 Network Security requirements.
-2. **Zero Trust Networking:** Inside the cluster we do not assume the network is safe. Six NetworkPolicies enforce a default-deny stance. The frontend is explicitly allowed to reach the two backends, and the backends the database — but a compromised frontend pod cannot scan the namespace, because sharing a namespace grants it nothing.
+2. **Zero Trust Networking:** Inside the cluster we do not assume the network is safe. Eight NetworkPolicies enforce a default-deny stance. The frontend is explicitly allowed to reach the two backends, and the backends the database — but a compromised frontend pod cannot scan the namespace, because sharing a namespace grants it nothing.
 3. **Enforced at admission, not by convention:** The Pod Security Standard `restricted` is applied to the namespace, so a container asking to run as root, or for a writable root filesystem, or for extra capabilities, is rejected before it starts. A rule that is checked in review gets forgotten; a rule the API server enforces does not.
 4. **Immutable Infrastructure:** Nobody SSHes in to run `apt-get upgrade`. Node images are replaced by rolling the managed node group, and the workloads survive it because of the PodDisruptionBudgets. This is what eliminates configuration drift.
 
@@ -188,4 +192,4 @@ A: For it: a StatefulSet gives each pod a stable identity and a volume that surv
 ### Principal/Architect
 **Q: The pipeline ends by committing a manifest rather than by running `kubectl apply`. What does that buy, and what does it cost?**
 A: It buys three things. Credentials: a push-based pipeline needs cluster-admin from CI, so anyone who compromises the build server owns the cluster; here Jenkins only needs write access to a Git repository and to ECR, while Argo CD's authority stays inside the cluster. Determinism: the cluster continuously reconciles against Git, so manual `kubectl edit` drift is reverted instead of accumulating quietly until the next incident. Recovery: rebuilding is `terraform apply` plus pointing Argo CD at the repository. It costs latency and a harder debugging story — the deploy is now asynchronous, so "my build passed, where is my change?" becomes a question about sync state rather than a pipeline log, and you need sync waves to express ordering the pipeline used to enforce implicitly.
-[Contents](/learn) | [02 — System Architecture](/learn/platform/system-architecture) |
+[Contents](/learn) | [System Architecture](/learn/platform/system-architecture) |

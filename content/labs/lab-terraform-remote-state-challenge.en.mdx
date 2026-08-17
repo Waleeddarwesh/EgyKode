@@ -20,9 +20,11 @@ tools:
   - "Terraform >= 1.6"
   - "AWS CLI v2, configured"
 successCriteria:
-  - "State lives in S3, and `terraform.tfstate` is no longer written locally."
+  - text: "State lives in S3, and `terraform.tfstate` is no longer written locally."
+    verify: command
   - "The bucket has versioning and encryption enabled, and blocks public access."
-  - "A second `apply` started while the first is running fails with a lock error rather than proceeding."
+  - text: "A second `apply` started while the first is running fails with a lock error rather than proceeding."
+    verify: state
   - "You migrated existing state without any resource being destroyed and recreated."
 cleanup:
   - "terraform destroy -auto-approve"

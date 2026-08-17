@@ -23,13 +23,17 @@ tools:
   - "A GitHub repository"
   - "Four uninterrupted hours, and a budget alert you set beforehand"
 successCriteria:
-  - "The application is reachable over HTTPS on a domain you control, served from Kubernetes on AWS."
+  - text: "The application is reachable over HTTPS on a domain you control, served from Kubernetes on AWS."
+    verify: state
   - "Every AWS resource was created by Terraform, from remote state with locking. Nothing was clicked."
-  - "A commit on main builds, scans and deploys automatically, and a failed rollout fails the pipeline."
-  - "Prometheus is scraping the application and at least one alert fires on a real condition."
+  - text: "A commit on main builds, scans and deploys automatically, and a failed rollout fails the pipeline."
+    verify: state
+  - text: "Prometheus is scraping the application and at least one alert fires on a real condition."
+    verify: state
   - "You recovered from all four injected failures and can name the layer each one was in."
   - "The application stayed available while a node was drained."
-  - "`terraform destroy` leaves nothing behind, verified by the sweep commands, not by assumption."
+  - text: "`terraform destroy` leaves nothing behind, verified by the sweep commands, not by assumption."
+    verify: command
 cleanup:
   - "kubectl delete ingress --all -A     # the ALB first, or Terraform hangs on the VPC"
   - "helm list -A && helm uninstall <release> -n <ns>   # then anything holding a volume"

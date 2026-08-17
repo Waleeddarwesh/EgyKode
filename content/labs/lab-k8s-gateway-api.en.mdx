@@ -21,10 +21,13 @@ tools:
   - "kubectl 1.28+"
   - "A Gateway API controller (Envoy Gateway or NGINX Gateway Fabric)"
 successCriteria:
-  - "The same application is reachable through an Ingress and through an HTTPRoute."
+  - text: "The same application is reachable through an Ingress and through an HTTPRoute."
+    verify: state
   - "A weighted split sends traffic to two Services, with no annotations."
-  - "You can name two things Gateway API expresses that Ingress cannot."
-  - "You can explain who owns a Gateway versus who owns an HTTPRoute."
+  - text: "You can name two things Gateway API expresses that Ingress cannot."
+    verify: reasoning
+  - text: "You can explain who owns a Gateway versus who owns an HTTPRoute."
+    verify: reasoning
 cleanup:
   - "kubectl delete namespace <ns> --ignore-not-found"
   - "kubectl get all -A | grep -v kube-system"

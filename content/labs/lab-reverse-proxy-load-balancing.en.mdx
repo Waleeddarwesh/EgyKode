@@ -21,9 +21,11 @@ tools:
   - "Docker Compose"
 successCriteria:
   - "Requests through the proxy reach both backends, demonstrated by repeated calls."
-  - "Stopping one backend does not produce errors for the client."
+  - text: "Stopping one backend does not produce errors for the client."
+    verify: state
   - "The backend can see the original client IP, not the proxy's."
-  - "You can produce a 502 and a 504 deliberately and explain the difference."
+  - text: "You can produce a 502 and a 504 deliberately and explain the difference."
+    verify: state
 cleanup:
   - "docker compose down -v"
   - "docker ps -a | grep http-echo   # should be empty"

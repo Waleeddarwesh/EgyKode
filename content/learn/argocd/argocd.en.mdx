@@ -5,6 +5,10 @@ titleAr: "التسليم المستمر — Argo CD"
 description: "Configure an Application with selfHeal and sync waves"
 descriptionAr: "المطابقة المستمرة، وكشف الانحراف، والإصلاح الذاتي."
 domain: argocd
+capstoneRole: core
+capstonePhase: gitops
+capstoneComponent: argocd
+capstonePurpose: "reconciles the cluster against 04-Kubernetes/manifests, in sync waves"
 level: advanced
 type: concept
 phase: gitops
@@ -22,7 +26,7 @@ updated: 2026-08-08
 
 ## Introduction to ArgoCD
 
-In Chapters 13 and 14, we learned how Jenkins and GitHub Actions compile our Java code, run tests, and build a Docker image. But what happens next? How does that Docker image actually get into our Kubernetes cluster?
+In [Continuous Integration](/learn/jenkins/jenkins/) and [Modern CI](/learn/github-actions/github-actions/), we learned how Jenkins and GitHub Actions compile our Java code, run tests, and build a Docker image. But what happens next? How does that Docker image actually get into our Kubernetes cluster?
 
 **ArgoCD** is the answer. It is a declarative, GitOps continuous delivery tool for Kubernetes. It lives *inside* your cluster and acts as a strict synchronization engine.
 
@@ -249,4 +253,4 @@ A: If you have 100 microservices, managing 100 ArgoCD `Application` YAMLs manual
 ### Principal/Architect
 **Q: Contrast ArgoCD with FluxCD. Why might an enterprise choose one over the other?**
 A: Both are CNCF graduated GitOps tools. ArgoCD is famous for its exceptional GUI, its strong multi-cluster management (Hub-and-Spoke model), and its Application CRD architecture, making it highly visible and easy for developers to use. FluxCD (often Flux v2) is fundamentally designed around the Kubernetes API (using Kustomization and HelmRelease CRDs) without a native GUI, focusing strictly on native controller patterns and high performance. An enterprise heavily invested in developer self-service and visual dashboards will choose ArgoCD; an enterprise focused purely on infrastructure-as-code automation via CLI/API integrations might prefer Flux.
-[Contents](/learn) | [29 — Introduction to Observability](/learn/observability/observability) |
+[Contents](/learn) | [Introduction to Observability](/learn/observability/observability) |

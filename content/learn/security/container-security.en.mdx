@@ -5,6 +5,10 @@ titleAr: "DevSecOps — أمان الحاويات"
 description: "Build a pipeline that cannot publish a vulnerable image"
 descriptionAr: "فحص الصور، والمستخدم غير الجذر (non-root)، وسلسلة التوريد."
 domain: security
+capstoneRole: core
+capstonePhase: kubernetes
+capstoneComponent: security
+capstonePurpose: "the non-root, read-only, capability-dropped containers admission enforces"
 level: advanced
 type: concept
 phase: security
@@ -271,4 +275,4 @@ A: You do not remove `readOnlyRootFilesystem: true`. Instead, you provide a temp
 **Q: Explain how eBPF is revolutionizing Kubernetes runtime security (e.g., using Falco or Tetragon) compared to traditional Sidecar-based security architectures.**
 A: Traditional sidecar security requires injecting a proxy container into every single Pod. This consumes massive overhead (CPU/RAM per pod) and only has visibility into network traffic or specific application layers; it cannot easily see kernel-level file modifications or process executions. 
 **eBPF (Extended Berkeley Packet Filter)** runs directly inside the Linux Kernel of the Worker Node. It safely executes sandbox programs on kernel events (like `sys_execve` or `sys_open`). Because it runs at the kernel level, a single eBPF agent on the Node has 100% visibility into every single system call made by every container on that Node, with near-zero performance overhead, making it impossible for user-space malware to hide from it.
-[Contents](/learn) | [34 — Zero-Trust (Network Policies)](/learn/security/network-policies) |
+[Contents](/learn) | [Zero-Trust (Network Policies)](/learn/security/network-policies) |

@@ -5,6 +5,10 @@ titleAr: "عرض البيانات — Grafana"
 description: "Build a dashboard laid out in the order questions get asked"
 descriptionAr: "لوحات تجيب عن سؤال، لا تعرض أرقامًا فحسب."
 domain: grafana
+capstoneRole: core
+capstonePhase: observability
+capstoneComponent: dashboards
+capstonePurpose: "the committed dashboards loaded from ConfigMaps"
 level: intermediate
 type: concept
 phase: observability
@@ -22,7 +26,7 @@ updated: 2026-08-08
 
 ## Introduction to Grafana
 
-In Chapter 30, we learned that Prometheus is a massive database full of numbers. If the CEO asks you, *"Is the website healthy?"* you cannot show them a spreadsheet of 4 million numbers. You need to show them a beautiful pie chart.
+In [Metrics (Prometheus)](/learn/prometheus/prometheus/), we learned that Prometheus is a massive database full of numbers. If the CEO asks you, *"Is the website healthy?"* you cannot show them a spreadsheet of 4 million numbers. You need to show them a beautiful pie chart.
 
 **Grafana** is the visualization engine. It connects to Prometheus, runs PromQL queries, and turns the raw math into stunning, real-time dashboards.
 
@@ -113,7 +117,7 @@ Look at `monitoring/grafana/dashboards/platform-overview.json`:
 - **`"expr": "ivolve:availability:ratio30d"`** — the panel queries a *recording
   rule*, not a raw expression. A `histogram_quantile` over 30 days of raw
   buckets is slow enough to time out the panel; against a pre-computed series it
-  is instant. See Chapter 30.
+  is instant. See [Metrics (Prometheus)](/learn/prometheus/prometheus/).
 - **`thresholds`** encode the SLO in the dashboard itself. The tile turns orange
   below 99.5% and red below the 99.9% objective, so the number is judged rather
   than merely displayed.
@@ -167,4 +171,4 @@ A: You are currently graphing by the `pod` label, which is ephemeral (e.g., `pod
 **Q: Your developers have built 50 custom dashboards using a wide variety of PromQL queries. Suddenly, the Prometheus server starts crashing due to high CPU load exclusively when developers log into Grafana. How do you architect a solution to reduce the query load on Prometheus without deleting their dashboards?**
 A: The developers are likely running highly complex, long-range aggregation queries (e.g., calculating the 99th percentile of 100,000 time series over a 30-day window) directly inside the Grafana panels. Every time they refresh the dashboard, Prometheus has to recalculate the massive equation on the fly. 
 To solve this, you implement **Prometheus Recording Rules**. You define the complex equation in Prometheus itself. Prometheus calculates the math in the background continuously (e.g., every 1 minute) and saves the *result* as a brand new, pre-calculated metric. You then update the Grafana dashboards to query the pre-calculated metric instead of the raw equation. The Grafana load on Prometheus drops from massive CPU spikes to practically zero.
-[Contents](/learn) | [32 — Centralized Logging (Fluentd/Loki)](/learn/logging/logging) |
+[Contents](/learn) | [Centralized Logging (Fluentd/Loki)](/learn/logging/logging) |

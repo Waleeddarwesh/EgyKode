@@ -22,9 +22,12 @@ tools:
   - "An EKS cluster (or adapt to any Kubernetes)"
 successCriteria:
   - "A push builds an image tagged with the commit SHA and pushes it to ECR."
-  - "No AWS access key exists in the repository — authentication is OIDC."
-  - "A vulnerability at HIGH or CRITICAL fails the workflow before the push."
-  - "The deployment rolls out, and the workflow fails if the rollout does not complete."
+  - text: "No AWS access key exists in the repository — authentication is OIDC."
+    verify: state
+  - text: "A vulnerability at HIGH or CRITICAL fails the workflow before the push."
+    verify: state
+  - text: "The deployment rolls out, and the workflow fails if the rollout does not complete."
+    verify: state
 cleanup:
   - "aws ecr batch-delete-image --repository-name <repo> --image-ids imageTag=<tag>"
   - "kubectl delete deployment <name> -n <ns> --ignore-not-found"
