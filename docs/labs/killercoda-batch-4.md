@@ -142,3 +142,40 @@ playbook **twice** and requires both runs to report `changed=0`. One quiet run
 can happen by accident immediately after a change; two cannot. It also fails if
 `RUNNING HANDLER` appears on a converged run, which is the actual outage —
 a service restarting on every scheduled run.
+
+### NetworkPolicy enforcement: settled, with one residual risk
+
+Tested directly, by applying a default-deny and measuring whether traffic
+actually stopped:
+
+| CNI | Enforces NetworkPolicy |
+| --- | --- |
+| Calico v3.28 | yes |
+| kindnet v20241212 | **yes** |
+| Flannel | no (not tested here; well documented) |
+
+The earlier working assumption that kindnet ignores NetworkPolicy is **out of
+date** — recent kindnetd implements it. Both CNIs available for testing enforce,
+so the "does nothing" case could not be reproduced with a real non-enforcing
+plugin.
+
+**Residual risk:** Killercoda's `kubernetes-kubeadm-1node` CNI is unverified. If
+it is Flannel, step 1 of `k8s-networkpolicy-hpa` fails — by design, with a
+message naming the plugin it found and explaining that the policy is stored but
+not enforced. That failure is the lab's own criterion 4 ("why a NetworkPolicy
+sometimes does nothing at all"), so the scenario tells the truth either way, but
+the learner would be stopped at step 1. Worth confirming on the first
+click-through.
+
+The verifier was proven non-vacuous by applying an allow-all policy alongside
+the default-deny, which makes traffic flow while the policy object still exists
+— the same observable state a non-enforcing CNI produces.
+
+### A narrative bug caught by running it
+
+Step 2 originally claimed "by IP it works, by name it does not" immediately
+after the default-deny. It does not: the default-deny blocks the database's
+*ingress* too, so neither path works until the db policy exists. The step now
+applies the database rule first, and only then is the DNS trap visible — which
+is also the correct order in real life, and makes the point that egress and
+ingress are two separate decisions.
