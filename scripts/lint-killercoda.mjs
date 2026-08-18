@@ -49,6 +49,46 @@ if (!existsSync(DIR)) {
 
 const scenarios = readdirSync(DIR).filter((f) => statSync(join(DIR, f)).isDirectory());
 
+/**
+ * Every scenario must appear in the root structure.json.
+ *
+ * Killercoda scans the repository root for scenario directories. These live
+ * under `killercoda/`, and a first attempt at connecting the repository synced
+ * the right commit and found zero scenarios — the sync succeeded and published
+ * nothing, with no error anywhere.
+ *
+ * `structure.json` fixes that by naming the paths explicitly. Its own rule is
+ * what makes this check necessary: "any scenario or directory that exists
+ * outside the structure.json will be ignored". So a scenario added here and
+ * forgotten there is not a broken scenario — it is an invisible one, which is
+ * the harder kind to notice.
+ */
+{
+  const structurePath = join(ROOT, "structure.json");
+  if (!existsSync(structurePath)) {
+    fail("structure.json", "missing — Killercoda will scan the repository root and find no scenarios");
+  } else {
+    let listed = [];
+    try {
+      listed = JSON.parse(readFileSync(structurePath, "utf8")).items.map((i) => i.path);
+    } catch (e) {
+      fail("structure.json", `is not valid JSON: ${e.message}`);
+    }
+    for (const name of scenarios) {
+      const expected = `killercoda/${name}`;
+      if (!existsSync(join(DIR, name, "index.json"))) continue;
+      if (!listed.includes(expected)) {
+        fail("structure.json", `does not list "${expected}" — Killercoda will ignore it`);
+      }
+    }
+    for (const path of listed) {
+      if (!existsSync(join(ROOT, path, "index.json"))) {
+        fail("structure.json", `lists "${path}", which has no index.json`);
+      }
+    }
+  }
+}
+
 for (const name of scenarios) {
   const dir = join(DIR, name);
   const where = `killercoda/${name}`;

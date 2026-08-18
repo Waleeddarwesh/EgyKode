@@ -35,13 +35,51 @@ const DIR = join(ROOT, "killercoda");
 
 const args = process.argv.slice(2);
 const WRITE = args.includes("--write");
-const profile = args.find((a) => !a.startsWith("--"));
 
-if (!profile) {
-  console.log("Usage: node scripts/enable-killercoda.mjs <killercoda-profile> [--write]");
+/**
+ * Explicit URLs beat a guessed one.
+ *
+ * The URL is built as /<profile>/scenario/<directory>, which is right when a
+ * scenario sits at the repository root. These live under `killercoda/`, and
+ * Killercoda's own examples include a nested scenario — so the published path
+ * may carry the parent segment too. Rather than guess and be confidently
+ * wrong, `--url name=<url>` takes what you actually see in the browser.
+ */
+const explicit = new Map();
+const positional = [];
+for (let i = 0; i < args.length; i += 1) {
+  const a = args[i];
+  // Both spellings, because `--url a=b` reaches the process as two arguments
+  // and the value then looked like a positional profile. It did: the first run
+  // built https://killercoda.com/<the-whole-url>/scenario/… for every scenario.
+  const inline = a.match(/^--url=(.+?)=(https:\/\/.+)$/);
+  if (inline) {
+    explicit.set(inline[1], inline[2]);
+    continue;
+  }
+  if (a === "--url") {
+    const pair = args[i + 1] ?? "";
+    const m = pair.match(/^(.+?)=(https:\/\/.+)$/);
+    if (!m) {
+      console.log(`--url needs <scenario>=<https url>, got: ${pair || "(nothing)"}`);
+      process.exit(1);
+    }
+    explicit.set(m[1], m[2]);
+    i += 1;
+    continue;
+  }
+  if (!a.startsWith("--")) positional.push(a);
+}
+
+const profile = positional[0];
+if (!profile && explicit.size === 0) {
+  console.log("Usage:");
+  console.log("  node scripts/enable-killercoda.mjs <profile> [--write]");
+  console.log("  node scripts/enable-killercoda.mjs --url <scenario>=<full-url> ... --write");
   console.log("");
-  console.log("The profile is the segment in the published URL:");
-  console.log("  https://killercoda.com/<profile>/scenario/<scenario-name>");
+  console.log("The profile form builds /<profile>/scenario/<directory>. If the");
+  console.log("published path differs, paste the real URL with --url instead:");
+  console.log("  --url k8s-workloads=https://killercoda.com/you/scenario/killercoda/k8s-workloads");
   process.exit(1);
 }
 
@@ -55,7 +93,7 @@ const problems = [];
 for (const name of scenarios) {
   const json = JSON.parse(readFileSync(join(DIR, name, "index.json"), "utf8"));
   const labId = json.labId;
-  const url = `https://killercoda.com/${profile}/scenario/${name}`;
+  const url = explicit.get(name) ?? `https://killercoda.com/${profile}/scenario/${name}`;
   const file = join(ROOT, "content", "labs", `${labId}.en.mdx`);
 
   if (!labId || !existsSync(file)) {
