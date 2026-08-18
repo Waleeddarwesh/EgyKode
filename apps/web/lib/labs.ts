@@ -151,6 +151,21 @@ export interface LabMeta {
       requiresOwnAccount: boolean;
     };
   };
+  /**
+   * Somebody else's scenarios on the same tool, for extra repetition.
+   *
+   * Deliberately not part of `handsOn`, and deliberately settling no
+   * criterion. A vendor scenario teaches its tool against its own sample app;
+   * an EgyKode lab advances one continuous platform. A learner who completes
+   * the Argo CD collection has practised Argo CD and has not deployed the
+   * cluster this lab is about — so inviting them to tick this lab's criteria
+   * afterwards would credit work they did not do.
+   *
+   * These are outbound links to content nobody here controls, and no automated
+   * check can tell a live Killercoda URL from a dead one. Every entry is added
+   * only after someone has opened it.
+   */
+  relatedPractice?: { title: string; url: string; note?: string }[];
   challengeId?: string;
   guidedLabId?: string;
   /** The incident variant of this lab, where one exists. */

@@ -309,6 +309,8 @@
   "labs.handsOnLocalBody": "Run this lab on your own machine. One command starts the environment, with everything the lab needs already installed:",
   "labs.handsOnLocalDoctor": "Not sure what you already have? Run: npm run doctor — it checks and changes nothing.",
   "labs.handsOnVerifyNote": "Anything you tick here is your own record. EgyKode cannot see inside that terminal, so the success criteria stay self-assessed even when the environment checks your work for you.",
+  "labs.relatedPracticeHeading": "More practice on this tool",
+  "labs.relatedPracticeBody": "Maintained by others, on Killercoda. Useful for extra repetition on one tool — it does not complete this lab or settle any criterion above.",
   "labs.stepPosition": "Step {n} of {total}",
   "labs.whyNext": "Why next:",
   "labs.pathProjectEyebrow": "Where this lands",

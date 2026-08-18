@@ -245,6 +245,45 @@ function countCriteria(raw) {
   return n;
 }
 
+// ── 2b-ii. Related practice ─────────────────────────────────────────────────
+//
+// Outbound links to other people's scenarios. They point at content nobody
+// here controls, and no automated check distinguishes a live Killercoda URL
+// from a dead one — so the rules that can be enforced are enforced, and the
+// rest stays a human's job.
+{
+  const labsDir = join(CONTENT, "labs");
+  if (existsSync(labsDir)) {
+    for (const file of readdirSync(labsDir).filter((f) => f.endsWith(".mdx"))) {
+      const raw = readFileSync(join(labsDir, file), "utf8");
+      const fm = raw.match(/^---([\s\S]*?)\r?\n---/)?.[1] ?? "";
+      if (!/^relatedPractice:/m.test(fm)) continue;
+      const where = `content/labs/${file}`;
+
+      const lines = fm.split(/\r?\n/);
+      const at = lines.findIndex((l) => /^relatedPractice:/.test(l));
+      const block = [];
+      for (const line of lines.slice(at + 1)) {
+        if (/^\S/.test(line)) break;
+        block.push(line);
+      }
+
+      const urls = block.filter((l) => /^\s+url:/.test(l)).map((l) => l.replace(/^\s+url:\s*/, "").trim());
+      const titles = block.filter((l) => /^\s+-?\s*title:/.test(l)).length;
+
+      if (urls.length !== titles) {
+        fail(where, null, `relatedPractice has ${titles} title(s) and ${urls.length} url(s) — each entry needs both`);
+      }
+      for (const url of urls) {
+        const clean = url.replace(/^["']|["']$/g, "");
+        if (!/^https:\/\//.test(clean)) {
+          fail(where, null, `relatedPractice url is not https: ${clean}`);
+        }
+      }
+    }
+  }
+}
+
 // ── 2c. Lab step format ─────────────────────────────────────────────────────
 //
 // These apply only to labs that have been migrated to `<LabStep>`. A lab using

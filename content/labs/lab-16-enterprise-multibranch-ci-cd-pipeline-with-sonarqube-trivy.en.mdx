@@ -35,6 +35,10 @@ handsOn:
     enabled: true
     platform: aws
     requiresOwnAccount: true
+relatedPractice:
+  - title: "Trivy scenarios"
+    url: "https://killercoda.com/trivy"
+    note: "the scanner this pipeline gates on"
 successCriteria:
   - "A commit builds, tests, scans and deploys with no manual step."
   - text: "A deliberately vulnerable image fails the build and is never pushed."

@@ -1,7 +1,0 @@
-{
-  "items": [
-    { "path": "killercoda/git-branching-collaboration" },
-    { "path": "killercoda/docker-multi-stage-build" },
-    { "path": "killercoda/k8s-workloads" }
-  ]
-}

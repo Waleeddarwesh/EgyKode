@@ -14,6 +14,7 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { breadcrumbs, graph, learningResource } from "@/lib/structured-data";
 import { LabHeader, BeforeYouStart } from "@/components/labs/lab-header";
 import { HandsOn } from "@/components/labs/hands-on";
+import { RelatedPractice } from "@/components/labs/related-practice";
 import { LabComplete } from "@/components/labs/lab-complete";
 import { LabSteps } from "@/components/labs/lab-steps";
 import { NextLab } from "@/components/labs/next-lab";
@@ -310,6 +311,16 @@ export default async function LabPage({
       <div id="build" className="prose mt-10" lang={contentLang} dir={contentDir}>
         <MDXRemote source={rest} options={mdxOptions} components={mdxParts} />
       </div>
+
+      {/* Well away from the hands-on panel: this is where to get more
+          repetitions on one tool, not how to do this lab. */}
+      <RelatedPractice
+        items={lab.relatedPractice}
+        labels={{
+          heading: t("labs.relatedPracticeHeading"),
+          body: t("labs.relatedPracticeBody"),
+        }}
+      />
 
       {/* The checklist, after the work rather than before it.
           Above the steps it competed with them: a reader arriving at the lab

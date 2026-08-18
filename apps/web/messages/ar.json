@@ -309,6 +309,8 @@
   "labs.handsOnLocalBody": "شغّل هذا المعمل على جهازك. أمر واحد يشغّل البيئة، وكل ما يحتاجه المعمل مثبّت بالفعل:",
   "labs.handsOnLocalDoctor": "لا تعرف ما هو مثبّت لديك؟ شغّل: npm run doctor — يفحص فقط ولا يغيّر شيئاً.",
   "labs.handsOnVerifyNote": "ما تضع عليه علامة هنا هو سجلك الشخصي. لا تستطيع EgyKode رؤية ما يحدث داخل تلك الطرفية، لذا تبقى معايير النجاح تقييماً ذاتياً حتى لو تحققت البيئة من عملك.",
+  "labs.relatedPracticeHeading": "تدريب إضافي على هذه الأداة",
+  "labs.relatedPracticeBody": "من إعداد جهات أخرى على Killercoda. مفيد لمزيد من التكرار على أداة واحدة — لا يُكمل هذا المعمل ولا يحقق أي معيار أعلاه.",
   "labs.stepPosition": "خطوة {n} من {total}",
   "labs.whyNext": "لماذا التالي:",
   "labs.pathProjectEyebrow": "إلى أين يصل هذا",
