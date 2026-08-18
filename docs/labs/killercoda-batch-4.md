@@ -122,3 +122,23 @@ Step 1 of the fundamentals scenario declared outputs referencing
 `aws_instance.app` before any resources existed, then ran a plan to demonstrate
 variable validation. The plan fails on the undeclared resource and never reaches
 the validation. Outputs moved to the step that creates their resources.
+
+### Ansible: one of the two labs is feasible
+
+`lab-ansible-roles-idempotency` needs no cloud at all. It runs against the
+Killercoda host itself with `ansible_connection=local`, installs nginx through
+the role, and every criterion is measurable from the play recap or from
+systemd.
+
+`lab-07-ansible-architecture-configuration-automated-inventory` is **not**
+feasible. Its first criterion is `ansible -m ping all` succeeding against hosts
+generated from AWS tags, which needs SSH into real instances. LocalStack's EC2
+objects are API records, not virtual machines — nothing listens on port 22 — so
+the dynamic inventory could be generated and the ping could never succeed. It
+stays cloud-only.
+
+Idempotency checks worth reusing: the verifier converges first, then runs the
+playbook **twice** and requires both runs to report `changed=0`. One quiet run
+can happen by accident immediately after a change; two cannot. It also fails if
+`RUNNING HANDLER` appears on a converged run, which is the actual outage —
+a service restarting on every scheduled run.
