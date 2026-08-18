@@ -73,3 +73,52 @@ in `terraform-ci-gate` uses `set -e` and tests for non-zero.
 `lab-terraform-fundamentals`, `lab-terraform-modules` and the VPC and S3/ECR
 labs can all follow the LocalStack pattern. The EKS, RDS and CloudFront labs
 cannot, and stay cloud-only.
+
+---
+
+## Batch 5 additions
+
+| Scenario | Lab | Backend |
+| --- | --- | --- |
+| `terraform-fundamentals` | lab-terraform-fundamentals | ubuntu |
+| `terraform-modules` | lab-terraform-modules | ubuntu |
+| `aws-vpc-networking` | lab-01-aws-vpc-subnets-gateways-route-tables | ubuntu |
+
+### ECR is not available on LocalStack community
+
+`lab-03-amazon-ecr-container-registry-s3-storage-buckets` cannot be done this
+way. Creating an `aws_ecr_repository` returns:
+
+```
+API for service 'ecr' not yet implemented or pro feature
+```
+
+Two of that lab's four criteria are ECR-specific — automatic scan-on-push and a
+lifecycle policy expiring untagged images — so a scenario covering only the S3
+half would leave half the lab unproven. It stays cloud-only.
+
+Confirmed working in the free image and used by these scenarios: **VPC, subnets,
+internet gateways, NAT gateways, Elastic IPs, route tables and associations,
+EC2 instances with public IPs, AMI data lookups, S3, DynamoDB, IAM, STS.**
+
+### Verifiers that passed without the work being done
+
+**`terraform state rm` empties state while everything keeps running.** The first
+version of the fundamentals destroy check tested only that state was empty. It
+now asks the account, and rejects that case by name.
+
+**An untouched account satisfies "nothing is left".** The VPC scenario's destroy
+check passed on a fresh LocalStack where nothing had ever been built — every
+assertion was about absence. It now first requires `terraform.tfstate.backup` to
+contain a NAT gateway and an Elastic IP, which is evidence they existed and were
+destroyed, and only then checks the account.
+
+Both were found by running the verifier at the wrong moment on purpose. Absence
+checks need a matching presence check, or they pass by default.
+
+### An ordering bug in written material
+
+Step 1 of the fundamentals scenario declared outputs referencing
+`aws_instance.app` before any resources existed, then ran a plan to demonstrate
+variable validation. The plan fails on the undeclared resource and never reaches
+the validation. Outputs moved to the step that creates their resources.
