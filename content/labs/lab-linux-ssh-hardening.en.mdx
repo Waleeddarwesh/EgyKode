@@ -91,11 +91,28 @@ logs nothing helpful. If key auth "does not work", check these two modes first.
 
 ```bash
 # from a SECOND terminal, leaving the first connected
-ssh -i ~/.ssh/egykode deploy@<host> 'whoami && sudo -n true && echo "sudo ok"'
+ssh -i ~/.ssh/egykode deploy@<host> 'whoami'
+ssh -i ~/.ssh/egykode deploy@<host> 'sudo -v && echo "sudo ok"'   # prompts; that is correct
 ```
 
-Do not proceed until this succeeds. This single step is the difference between
-a hardening exercise and a support ticket.
+Do not proceed until the first succeeds. This single step is the difference
+between a hardening exercise and a support ticket.
+
+**`sudo -n` will fail here, and should.** `-n` forbids prompting, `sudo` wants
+to re-authenticate the human, and an account created with `--disabled-password`
+has nothing to type. Unattended access needs an explicit rule naming the
+commands it may run:
+
+```bash
+sudo tee /etc/sudoers.d/deploy <<'EOF'
+deploy ALL=(root) NOPASSWD: /usr/bin/systemctl reload ssh, /usr/bin/systemctl status ssh
+EOF
+sudo chmod 440 /etc/sudoers.d/deploy
+sudo visudo -c -f /etc/sudoers.d/deploy    # before you trust it
+```
+
+`NOPASSWD: ALL` is one word shorter and hands a root shell to anyone who ever
+holds that key.
 
 </LabStep>
 

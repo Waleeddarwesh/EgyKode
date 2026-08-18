@@ -75,9 +75,9 @@
       "labs": [
         "lab-20-linux-server-administration",
         "lab-k8s-storage",
+        "lab-linux-ssh-hardening",
         "lab-linux-processes-services-logs",
-        "lab-22-bash-automation-backup-healthcheck",
-        "lab-linux-ssh-hardening"
+        "lab-22-bash-automation-backup-healthcheck"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
