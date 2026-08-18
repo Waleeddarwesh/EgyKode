@@ -143,10 +143,14 @@ for (const name of scenarios) {
     const p = join(dir, file);
     if (!existsSync(p)) continue;
     const body = readFileSync(p, "utf8");
-    const fences = (body.match(/```/g) ?? []).length / 2;
-    const execs = (body.match(/\}\}\{\{exec\}\}|```\{\{exec\}\}/g) ?? []).length;
-    if (fences > 0 && execs === 0 && /step/i.test(file)) {
-      warn(where, `${file} has ${fences} code block(s) but no {{exec}} button`);
+    const execs = (body.match(/```\{\{exec\}\}/g) ?? []).length;
+    // Fences that are plainly not commands — a diagram, an expected output —
+    // are excluded, so a scenario is not nagged for illustrating something.
+    const command = /```(?:bash|sh)?\s*\n(?:sudo |kubectl |docker |git |cd |ls |systemctl |apt|curl |echo )/.test(body);
+    // intro.md too, not just steps: the first command a learner meets is the
+    // one most worth making clickable, and all three pilots shipped without it.
+    if (command && execs === 0 && /step|intro/i.test(file)) {
+      warn(where, `${file} has a command block with no {{exec}} button — the learner must retype it`);
     }
   }
 }
