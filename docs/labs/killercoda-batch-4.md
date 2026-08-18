@@ -179,3 +179,26 @@ after the default-deny. It does not: the default-deny blocks the database's
 applies the database rule first, and only then is the DNS trap visible — which
 is also the correct order in real life, and makes the point that egress and
 ingress are two separate decisions.
+
+### Compose scenario: two measurement bugs worth remembering
+
+**`date -d` could not parse `.State.StartedAt`.** Docker returns
+`2026-08-18T19:41:54.154296809Z`; neither busybox nor GNU date accepts it as
+given. The first version of the ordering check guarded the parse with
+`if [ -n "$EPOCH" ]`, so a failed parse **skipped the comparison entirely** and
+the verifier passed without checking anything. Normalising to
+`2026-08-18 19:41:54` works on both, and an unparsable timestamp is now a
+failure rather than a skip.
+
+**A `sleep 3` hid the thing the step was about.** Step 2 claimed that after
+`docker compose up -d` the database has started but cannot answer. Measured from
+a fresh volume, `pg_isready` returns "no response" immediately and "accepting
+connections" about a second later — so the original `sleep 3` guaranteed the
+learner would see the opposite of what the text said. The step now checks with
+no delay, shows the real output, and says plainly that the window is about a
+second here and much longer on a loaded runner. The point is the absence of a
+guarantee, not the length of the race.
+
+Also worth noting: the app installs Gunicorn at container start, so a fresh
+`up` takes ~20s to answer. Both HTTP checks now wait in a bounded loop rather
+than firing once and failing on a stack that was merely still starting.
