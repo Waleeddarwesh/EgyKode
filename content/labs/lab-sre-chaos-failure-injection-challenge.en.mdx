@@ -40,7 +40,7 @@ cleanup:
   - "kubectl delete deployment web --ignore-not-found"
   - "kubectl delete svc web --ignore-not-found"
   - "kubectl delete pdb web --ignore-not-found"
-  - "kubectl uncordon --all"
+  - "kubectl uncordon $(kubectl get nodes -o name)"
 guidedLabId: lab-sre-chaos-failure-injection
 authors: [waleed]
 updated: 2026-08-10

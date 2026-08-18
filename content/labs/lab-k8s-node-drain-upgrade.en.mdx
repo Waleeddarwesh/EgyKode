@@ -40,7 +40,7 @@ successCriteria:
   - text: "The node returns to service and receives Pods again."
     verify: state
 cleanup:
-  - "kubectl uncordon --all"
+  - "kubectl uncordon $(kubectl get nodes -o name)"
   - "kubectl delete deployment web --ignore-not-found"
   - "kind delete cluster --name ops"
 challengeId: lab-k8s-node-drain-upgrade-challenge
@@ -226,7 +226,7 @@ Expected. Kubernetes does not rebalance running Pods; force it with `kubectl rol
 Run this even if you did not finish.
 
 ```bash
-kubectl uncordon --all
+kubectl uncordon $(kubectl get nodes -o name)
 kubectl delete deployment web --ignore-not-found
 kind delete cluster --name ops
 ```

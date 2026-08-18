@@ -40,7 +40,7 @@ cleanup:
   - "kubectl delete deployment web --ignore-not-found"
   - "kubectl delete svc web --ignore-not-found"
   - "kubectl delete pdb web --ignore-not-found"
-  - "kubectl uncordon --all"
+  - "kubectl uncordon $(kubectl get nodes -o name)"
 challengeId: lab-sre-chaos-failure-injection-challenge
 authors: [waleed]
 updated: 2026-08-10
@@ -210,7 +210,7 @@ Run this even if you did not finish.
 kubectl delete deployment web --ignore-not-found
 kubectl delete svc web --ignore-not-found
 kubectl delete pdb web --ignore-not-found
-kubectl uncordon --all
+kubectl uncordon $(kubectl get nodes -o name)
 ```
 
 **Cost of this lab:** Free — a local Kubernetes cluster.

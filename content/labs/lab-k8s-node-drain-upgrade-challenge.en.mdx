@@ -40,7 +40,7 @@ successCriteria:
   - text: "The node returns to service and receives Pods again."
     verify: state
 cleanup:
-  - "kubectl uncordon --all"
+  - "kubectl uncordon $(kubectl get nodes -o name)"
   - "kubectl delete deployment web --ignore-not-found"
   - "kind delete cluster --name ops"
 guidedLabId: lab-k8s-node-drain-upgrade
