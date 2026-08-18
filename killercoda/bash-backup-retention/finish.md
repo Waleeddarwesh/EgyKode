@@ -17,3 +17,11 @@ perfectly well.
 
 The [EgyKode lab](https://egykode.com/en/labs/lab-22-bash-automation-backup-healthcheck/)
 covers the `IFS` setting and the restore drill this scenario leaves out.
+
+---
+
+## Where this fits
+
+**Phase: Operating it** — part of [Build the Production Platform](https://egykode.com/en/labs/).
+
+The platform's database backup is this script with `pg_dump` in place of `tar`. The parts that matter — exit codes, the temporary name, the size check, retention, `OnFailure` — are identical, and they are what make a backup something you can rely on rather than hope for.

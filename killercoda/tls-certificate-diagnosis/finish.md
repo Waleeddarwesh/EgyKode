@@ -13,3 +13,11 @@ certificate is the only thing at fault. It is a diagnostic, never a fix.
 The [EgyKode lab](https://egykode.com/en/labs/lab-http-tls-troubleshooting/)
 covers what `SSL_ERROR_SYSCALL` implies, how to read a full chain, and why
 `time_appconnect` tells you whether the handshake is your latency.
+
+---
+
+## Where this fits
+
+**Phase: Operating it** — part of [Build the Production Platform](https://egykode.com/en/labs/).
+
+The platform terminates TLS at its load balancer with a certificate from ACM. Reading a certificate from the command line and separating a transport failure from a certificate failure is how you diagnose that without a browser.

@@ -14,3 +14,11 @@ a route, never the application.
 The [EgyKode lab](https://egykode.com/en/labs/lab-21-linux-networking-troubleshooting/)
 adds the case where a service is bound to the wrong address — listening
 perfectly, on an interface nobody can reach.
+
+---
+
+## Where this fits
+
+**Phase: Foundations** — part of [Build the Production Platform](https://egykode.com/en/labs/).
+
+When the platform's ingress stops answering, this is the order you work in. Name, route, reachability — before touching a security group or restarting a Pod.

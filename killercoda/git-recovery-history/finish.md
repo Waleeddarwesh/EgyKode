@@ -14,3 +14,11 @@ rewriting limits the exposure; it does not end it.
 The [EgyKode lab](https://egykode.com/en/labs/lab-git-recovery-history/) covers
 when `revert` is correct and `reset` is not — a judgement no verification
 script can check.
+
+---
+
+## Where this fits
+
+**Phase: Foundations** — part of [Build the Production Platform](https://egykode.com/en/labs/).
+
+Everything in the platform is delivered by a commit — the manifests Argo CD watches, the Jenkinsfile, the Terraform. Recovering work and removing a secret from history are the two Git skills the rest of the build depends on.

@@ -13,3 +13,11 @@ config test answers in a second what reading a journal answers in five minutes.
 The [EgyKode lab](https://egykode.com/en/labs/lab-linux-processes-services-logs/)
 covers signals, what a reload does that a restart does not, and why a service's
 journal can be completely empty.
+
+---
+
+## Where this fits
+
+**Phase: Foundations** — part of [Build the Production Platform](https://egykode.com/en/labs/).
+
+This is how you will debug the platform when it is running: port to process, systemd to journal, config test before guesswork. The same sequence works on the Jenkins host, the Kubernetes nodes, and the database instance.
