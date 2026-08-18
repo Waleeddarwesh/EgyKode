@@ -16,6 +16,14 @@ cleanup:
   - "aws ecr delete-repository --repository-name <name> --force"
   - "aws s3 rm s3://<bucket> --recursive && aws s3api delete-bucket --bucket <bucket>"
   - "terraform destroy -auto-approve"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "An image pushed to ECR is scanned automatically and you can read the findings."
   - "A lifecycle policy expires untagged images, and you can state how many it will keep."
@@ -45,7 +53,7 @@ Two storage services that get grouped together and behave nothing alike:
 
 ## Build it
 
-### 1. A registry that scans and prunes
+<LabStep n={1} title="A registry that scans and prunes" proves="You can create a registry that scans what you push and expires what you stop tagging" criterion={[1, 2]}>
 
 ```hcl
 resource "aws_ecr_repository" "app" {
@@ -104,7 +112,9 @@ overly broad rule at priority 1 makes everything below it dead code. Untagged
 layers accumulate on every rebuild and are the usual answer to "why is the
 registry bill growing".
 
-### 2. Buckets that are private by construction
+</LabStep>
+
+<LabStep n={2} title="Buckets that are private by construction" proves="You can create buckets that are private by construction and refuse plaintext requests" criterion={3}>
 
 ```hcl
 resource "aws_s3_bucket" "state" {
@@ -155,7 +165,9 @@ most common S3 policy bug, and it half-works — which is worse than failing.
 command from recovery with it, and a full manual re-import of every resource
 without it. That is a lab of its own later in the path.
 
-### 3. Push an image
+</LabStep>
+
+<LabStep n={3} title="Push an image" proves="You can push an image and read the scan findings it produced">
 
 ```bash
 aws ecr get-login-password --region us-east-1 \
@@ -173,6 +185,8 @@ Tag with the commit SHA. `latest` cannot answer "what is running in
 production", which is the question you will be asked during an incident.
 
 ---
+
+</LabStep>
 
 ## Verify it worked
 
@@ -204,7 +218,7 @@ aws s3api list-object-versions --bucket "$(terraform output -raw state_bucket)" 
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **`denied: Your authorization token has expired`**
 
@@ -237,6 +251,8 @@ The TLS-only deny policy is doing its job, or Block Public Access is. Explicit
 denies beat every allow.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

@@ -20,6 +20,17 @@ skills:
 tools:
   - "bash 4+"
   - "systemd or cron"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - bash
+    capabilities:
+      - init-system
 successCriteria:
   - "The script exits non-zero when any step fails, proven by deliberately breaking one."
   - "Running it twice does not corrupt or duplicate the previous backup."

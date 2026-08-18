@@ -20,6 +20,17 @@ skills:
 tools:
   - "Any Linux (Ubuntu 22.04+ or RHEL 9)"
   - "sudo access"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - bash
+    capabilities:
+      - init-system
 successCriteria:
   - text: "A deploy user exists, belongs to a shared group, and can read the application directory without being root."
     verify: state

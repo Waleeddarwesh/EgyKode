@@ -21,6 +21,17 @@ tools:
   - "Docker"
   - "Docker Compose"
   - "psql"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - "A backup is taken, verified, and restored into a clean database."
   - "You can state the RTO you measured and the RPO your schedule implies."
@@ -40,7 +51,7 @@ Today you find out whether it works — on a database you can afford to lose.
 > **This lab destroys a database on purpose.** Use the Compose stack below and
 > nothing that matters.
 
-## 1. Something to lose
+<LabStep n={1} title="Something to lose" proves="You can create data you would genuinely mind losing, so the drill is not theatre">
 
 ```yaml
 services:
@@ -61,7 +72,9 @@ INSERT INTO orders (customer, total)
   SELECT 'customer-' || i, i * 10 FROM generate_series(1, 5000) i;
 ```
 
-## 2. A backup that verifies itself
+</LabStep>
+
+<LabStep n={2} title="A backup that verifies itself" proves="You can write a backup that checks itself rather than one that only appears to have run">
 
 ```bash
 #!/usr/bin/env bash
@@ -93,7 +106,9 @@ Three things make this a backup rather than a file:
 - **`pg_restore --list`** — proves the archive is readable. A corrupt dump that
   nobody parses is discovered during the incident.
 
-## 3. The disaster
+</LabStep>
+
+<LabStep n={3} title="The disaster" proves="You can destroy the data deliberately and start the clock at the decision">
 
 ```bash
 docker compose down -v      # the volume, and every byte in it, is gone
@@ -102,7 +117,9 @@ docker compose up -d
 
 **Start the timer.**
 
-## 4. Restore, from the runbook
+</LabStep>
+
+<LabStep n={4} title="Restore, from the runbook" proves="You can restore into a clean database from a written runbook, and verify by querying it" criterion={[1, 3]}>
 
 ```bash
 docker compose exec -T db psql -U postgres -c "CREATE DATABASE shop;"
@@ -113,7 +130,9 @@ docker compose exec -T db psql -U postgres -d shop -c "SELECT count(*) FROM orde
 Stop the timer. That number is your **RTO**, and it is the honest one — including
 the time you spent finding the right file and remembering the flags.
 
-## 5. Detect a corrupt backup
+</LabStep>
+
+<LabStep n={5} title="Detect a corrupt backup" proves="You can detect a corrupted backup before you are relying on it" criterion={4}>
 
 ```bash
 cp backups/shop-<stamp>.dump /tmp/corrupt.dump
@@ -124,7 +143,9 @@ docker compose exec -T db pg_restore --list /dev/stdin < /tmp/corrupt.dump
 
 Your backup script already runs that check. This is what it catches.
 
-## 6. Write the numbers down
+</LabStep>
+
+<LabStep n={6} title="Write the numbers down" proves="You can state the RTO you measured and the RPO your schedule implies" criterion={2}>
 
 | | Definition | Yours |
 | --- | --- | --- |
@@ -139,7 +160,9 @@ so that someone who has never done it can follow it at 3am — then have someone
 else run it, because the only real test of a runbook is a person who did not
 write it.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`pg_restore` reports errors about ownership**
 
@@ -158,6 +181,8 @@ You restored into the wrong database, or the dump was taken before the data exis
 That is the finding. A measured RTO that disappoints you is more useful than an assumed one that does not.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

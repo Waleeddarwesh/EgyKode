@@ -15,6 +15,21 @@ costEstimate: "Free tier — one `t3.micro` for Jenkins. Note that Jenkins wants
 cleanup:
   - "terraform destroy -auto-approve"
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    note: >-
+      Target node1 in the local inventory wherever the challenge says EC2.
+    tools:
+      - ansible
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "One playbook takes a bare instance to a working Jenkins with its toolchain."
   - "The second run reports `changed=0`."

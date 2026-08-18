@@ -20,6 +20,14 @@ skills:
 tools:
   - "Terraform >= 1.6"
   - "AWS CLI v2, configured"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "`terraform apply` creates an EC2 instance and an S3 bucket from a single configuration."
     verify: command
@@ -42,7 +50,7 @@ updated: 2026-08-10
 Before a VPC module makes any sense, the five pieces underneath it have to be concrete: what a provider is, what a resource declaration produces, where a value comes in, where a value goes out, and what Terraform remembers between runs.
 
 This lab builds the smallest infrastructure that exercises all five.
-## 1. The provider
+<LabStep n={1} title="The provider" proves="You can pin a provider so the same configuration behaves the same way next month">
 
 ```hcl
 terraform {
@@ -73,7 +81,9 @@ terraform init
 exact version and its checksum. **Commit that file** — it is what makes your
 build and the CI runner's build identical.
 
-## 2. Variables in, outputs out
+</LabStep>
+
+<LabStep n={2} title="Variables in, outputs out" proves="You can take values in through variables and hand them back out through outputs" criterion={3}>
 
 ```hcl
 variable "region" {
@@ -102,7 +112,9 @@ output "instance_ip" {
 Outputs are the module's public surface. Anything a caller needs must leave
 through one — there is no reaching inside.
 
-## 3. Resources
+</LabStep>
+
+<LabStep n={3} title="Resources" proves="You can create real resources from one configuration" criterion={1}>
 
 ```hcl
 data "aws_ami" "al2023" {
@@ -142,7 +154,9 @@ Note `aws_s3_bucket.demo` depends on `random_id.suffix` without anyone saying
 so. Terraform builds a dependency graph from the references themselves and
 orders the work automatically.
 
-## 4. Read the plan before you apply it
+</LabStep>
+
+<LabStep n={4} title="Read the plan before you apply it" proves="You can read a plan before applying it, and explain why the second apply reports no changes" criterion={2}>
 
 ```bash
 terraform fmt -recursive
@@ -174,7 +188,9 @@ That second run is the point of the whole tool. The configuration describes an
 end state, so applying it to a system already in that state does nothing. This
 is **idempotency**, and it is what makes it safe to run continuously.
 
-## 5. The state file
+</LabStep>
+
+<LabStep n={5} title="The state file" proves="You can point at the line in state that maps your resource to its real cloud id" criterion={4}>
 
 ```bash
 terraform state list
@@ -195,7 +211,9 @@ Two consequences to internalise now:
   billing; Terraform simply no longer knows about them. That is why the next
   lab moves it to a remote backend with locking.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`terraform apply` says the bucket name is already taken**
 
@@ -214,6 +232,9 @@ S3 refuses to delete a bucket with objects in it. Empty it first: `aws s3 rm s3:
 The lock file was written on a different platform. `terraform providers lock -platform=linux_amd64 -platform=windows_amd64` records both.
 
 ---
+
+</Troubleshooting>
+
 
 ## Clean up
 

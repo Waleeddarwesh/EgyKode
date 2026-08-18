@@ -1,0 +1,58 @@
+# Ansible lab: one control node, two managed nodes.
+#
+#   docker compose -f docker/ansible-lab.yml up -d
+#   docker compose -f docker/ansible-lab.yml exec control bash
+#   ansible all -i inventory.ini -m ping
+#
+# Three containers on one network is the smallest arrangement in which an
+# inventory, SSH transport and idempotency all behave the way they do on real
+# hosts. Against localhost alone, none of them do.
+name: egykode-ansible-lab
+
+services:
+  control:
+    image: ${EGYKODE_REPO:-egykode/lab}:ansible
+    container_name: egykode-ansible-control
+    networks: [lab]
+    # A shared volume carries the control node's public key to the managed
+    # nodes, so no key material is committed to this repository.
+    volumes:
+      - keys:/keys
+    command: >
+      bash -c "cp /home/learner/.ssh/id_ed25519.pub /keys/authorized_keys &&
+               echo 'Control node ready. Try: ansible all -i inventory.ini -m ping' &&
+               sleep infinity"
+
+  node1:
+    image: ${EGYKODE_REPO:-egykode/lab}:node
+    container_name: egykode-ansible-node1
+    hostname: node1
+    networks: [lab]
+    volumes:
+      - keys:/keys:ro
+    command: >
+      bash -c "until [ -f /keys/authorized_keys ]; do sleep 1; done &&
+               cp /keys/authorized_keys /home/learner/.ssh/authorized_keys &&
+               chown learner:learner /home/learner/.ssh/authorized_keys &&
+               chmod 600 /home/learner/.ssh/authorized_keys &&
+               /usr/sbin/sshd -D -e"
+
+  node2:
+    image: ${EGYKODE_REPO:-egykode/lab}:node
+    container_name: egykode-ansible-node2
+    hostname: node2
+    networks: [lab]
+    volumes:
+      - keys:/keys:ro
+    command: >
+      bash -c "until [ -f /keys/authorized_keys ]; do sleep 1; done &&
+               cp /keys/authorized_keys /home/learner/.ssh/authorized_keys &&
+               chown learner:learner /home/learner/.ssh/authorized_keys &&
+               chmod 600 /home/learner/.ssh/authorized_keys &&
+               /usr/sbin/sshd -D -e"
+
+networks:
+  lab:
+
+volumes:
+  keys:

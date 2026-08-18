@@ -20,6 +20,16 @@ skills:
 tools:
   - "Linux with `dig`, `ss`, `curl`, `ip`"
   - "sudo access"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - bash
+      - curl
 successCriteria:
   - "You can state the IP a hostname resolves to and the remaining TTL on that answer."
   - text: "You can name the interface and gateway a packet to 1.1.1.1 would leave by."
@@ -43,7 +53,7 @@ name resolves?  ->  route exists?  ->  port open?  ->  app answers?
    dig               ip route           ss / curl       logs
 ```
 
-### 1. Does the name resolve?
+<LabStep n={1} title="Does the name resolve?" proves="You can state the address a name resolves to, and how long that answer is valid" criterion={1}>
 
 ```bash
 dig +short db.internal.example.com
@@ -56,7 +66,9 @@ configuration — and no amount of restarting will fix it. `dig @8.8.8.8 <name>`
 asks a resolver that has no local cache, which tells you whether the problem is
 yours or upstream.
 
-### 2. Where would the packet go?
+</LabStep>
+
+<LabStep n={2} title="Where would the packet go?" proves="You can name the interface and gateway a packet would leave by" criterion={2}>
 
 ```bash
 ip route
@@ -67,7 +79,9 @@ ip route get 10.20.5.10
 kernel would use for that exact destination. If it says the wrong interface, the
 problem is routing, and nothing downstream is worth checking yet.
 
-### 3. Is anything listening, and is the port reachable?
+</LabStep>
+
+<LabStep n={3} title="Is anything listening, and is the port reachable?" proves="You can tell a refused connection from a timed-out one, and say what each implies" criterion={3}>
 
 Locally:
 
@@ -95,7 +109,9 @@ The two failures mean different things, and the distinction is the whole point:
 A refused connection is *good news*: routing and firewalls are fine, and the
 problem is a process you control.
 
-### 4. Bound to the wrong address
+</LabStep>
+
+<LabStep n={4} title="Bound to the wrong address" proves="You can name the failing layer before changing anything" criterion={4}>
 
 The most common false alarm:
 
@@ -109,7 +125,10 @@ A service bound to `127.0.0.1` works perfectly from the machine itself and is
 unreachable from anywhere else. `curl` from the server succeeds, the developer
 says "it works here", and the connection still fails from the app.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
+
 The failure is where the learning is. These are the ones that actually happen:
 
 **`dig` returns the old IP after a DNS change**
@@ -127,3 +146,6 @@ The service is bound to 127.0.0.1. Look at the `ss -ltnp` output, not at the fir
 **`ss` shows nothing on the port**
 
 The process is not running. This is not a network problem — check the service and its logs.
+
+</Troubleshooting>
+

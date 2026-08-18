@@ -15,6 +15,26 @@ costEstimate: "**Depends on an existing cluster.** Helm itself is free; the work
 cleanup:
   - "helm uninstall <release> -n <namespace>"
   - "kubectl get all -n <namespace>"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    note: >-
+      Use a locally built image via `kind load docker-image` in place of ECR.
+    tools:
+      - docker
+      - kubectl
+      - kind
+      - helm
+    capabilities:
+      - kubernetes-cluster
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "One chart installs into two environments with different values and no edited templates."
   - text: "`helm template` renders correct YAML before anything touches the cluster."

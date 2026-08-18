@@ -19,6 +19,16 @@ skills:
 tools:
   - "Docker"
   - "Docker Compose"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - bash
+      - curl
 successCriteria:
   - "Requests through the proxy reach both backends, demonstrated by repeated calls."
   - text: "Stopping one backend does not produce errors for the client."
@@ -37,7 +47,7 @@ updated: 2026-08-10
 One application server is a single point of failure, and it also has to terminate TLS, serve static files and survive a restart.
 
 A reverse proxy in front solves all three — and introduces its own failure modes, which are the ones you will actually debug in Kubernetes later.
-## 1. Two backends and a proxy
+<LabStep n={1} title="Two backends and a proxy" proves="You can put a proxy in front of two backends and show traffic reaching both" criterion={1}>
 
 ```yaml
 # compose.yaml
@@ -87,7 +97,9 @@ for i in $(seq 1 6); do curl -s localhost:8080; echo; done
 
 You should see both backends. Nginx round-robins by default.
 
-## 2. Why those four headers matter
+</LabStep>
+
+<LabStep n={2} title="Why those four headers matter" proves="You can forward the headers a backend needs to see the original client" criterion={3}>
 
 Once a proxy is in front, the application no longer sees the client — it sees
 the proxy. Without these headers:
@@ -101,7 +113,9 @@ the proxy. Without these headers:
 preserved. Your application must be configured to *trust* it — accepting it from
 anywhere lets a client forge their own IP.
 
-## 3. Kill a backend
+</LabStep>
+
+<LabStep n={3} title="Kill a backend" proves="You can remove a backend without the client seeing an error" criterion={2}>
 
 ```bash
 docker compose stop app1
@@ -116,7 +130,9 @@ passive health check, driven by real traffic rather than a separate probe.
 docker compose start app1
 ```
 
-## 4. Produce 502 and 504 on purpose
+</LabStep>
+
+<LabStep n={4} title="Produce 502 and 504 on purpose" proves="You can produce a 502 and a 504 deliberately, and explain what each says about the backend" criterion={4}>
 
 ```bash
 docker compose stop app1 app2
@@ -145,7 +161,9 @@ docker compose logs proxy | tail -5
 The proxy's own log names the upstream it tried and why it failed. It is the
 first place to look, and the last place people look.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **502 immediately, with both backends running**
 
@@ -164,6 +182,9 @@ Keep-alive: the connection is reused. Nginx balances connections, not requests �
 Nginx resolves upstream names at startup. If a backend was not up yet, the proxy fails to start — `depends_on` helps, a resolver is the robust fix.
 
 ---
+
+</Troubleshooting>
+
 
 ## Clean up
 

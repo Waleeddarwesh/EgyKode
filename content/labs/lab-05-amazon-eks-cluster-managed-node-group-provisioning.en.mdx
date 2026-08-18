@@ -20,6 +20,14 @@ cleanup:
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].[InstanceId,InstanceType]' --output table"
   - "# And load balancers created by Kubernetes Services are not in Terraform state:"
   - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerArn'"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "`kubectl get nodes` shows Ready nodes in private subnets."
     verify: command
@@ -65,7 +73,7 @@ are yours, they sit in your subnets, and they bill at normal EC2 rates.
 
 ## Build it
 
-### 1. The cluster
+<LabStep n={1} title="The cluster" proves="You can provision a managed control plane and know which parts AWS runs for you">
 
 ```hcl
 resource "aws_eks_cluster" "main" {
@@ -102,7 +110,9 @@ only be enabled **at creation** — there is no adding it later.
 in particular answers "who did this", and turning it on after an incident is
 too late.
 
-### 2. The node group
+</LabStep>
+
+<LabStep n={2} title="The node group" proves="You can run nodes in private subnets and scale them without recreating the cluster" criterion={4}>
 
 ```hcl
 resource "aws_eks_node_group" "main" {
@@ -141,7 +151,9 @@ Gateway to pull images; nothing on the internet reaches them.
 before reclamation — a good fit for stateless workloads, a bad one for the
 database.
 
-### 3. OIDC, so a Pod can have its own IAM role
+</LabStep>
+
+<LabStep n={3} title="OIDC, so a Pod can have its own IAM role" proves="You can create the OIDC provider that lets a ServiceAccount assume an IAM role" criterion={2}>
 
 ```hcl
 data "tls_certificate" "eks" {
@@ -159,7 +171,9 @@ Without this, the only way to give a Pod AWS permissions is to attach them to
 the **node role** — which grants them to every Pod on that node. The IRSA lab
 builds on this.
 
-### 4. Add-ons
+</LabStep>
+
+<LabStep n={4} title="Add-ons" proves="You can install the add-ons a cluster needs before anything useful runs on it">
 
 ```hcl
 resource "aws_eks_addon" "this" {
@@ -173,7 +187,9 @@ resource "aws_eks_addon" "this" {
 A cluster without `aws-ebs-csi-driver` cannot bind a PersistentVolumeClaim, and
 the failure is a PVC that stays `Pending` with nothing obviously wrong.
 
-### 5. Connect
+</LabStep>
+
+<LabStep n={5} title="Connect" proves="You can reach the cluster and see Ready nodes, and explain why update-kubeconfig succeeding does not mean kubectl will work" criterion={[1, 3]}>
 
 ```bash
 aws eks update-kubeconfig --name platform --region us-east-1
@@ -181,6 +197,8 @@ kubectl get nodes
 ```
 
 ---
+
+</LabStep>
 
 ## Two permission systems, not one
 
@@ -246,7 +264,7 @@ second.
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **`You must be logged in to the server (Unauthorized)`**
 
@@ -280,6 +298,8 @@ Kubernetes created load balancers and ENIs that Terraform does not know about.
 Delete Services of type LoadBalancer and Ingresses first.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

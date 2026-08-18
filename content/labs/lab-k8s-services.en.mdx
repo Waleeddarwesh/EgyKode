@@ -19,6 +19,19 @@ skills:
 tools:
   - "kind or minikube"
   - "kubectl 1.28+"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
 successCriteria:
   - "A ClusterIP Service routes traffic to three Pods, verified by repeated requests hitting different ones."
   - text: "`kubectl get endpoints` lists three addresses."
@@ -33,7 +46,7 @@ updated: 2026-08-10
 Pods are replaced constantly and get a new IP every time. Nothing can hold a Pod IP.
 
 A Service is the answer, and `kubectl get endpoints` is the single most useful command when one does not work.
-## 1. Why not just use the Pod IP?
+<LabStep n={1} title="Why not just use the Pod IP?" proves="You can explain why addressing a Pod directly stops working the moment it is replaced">
 
 ```bash
 kubectl get pods -o wide         # note an IP
@@ -44,7 +57,9 @@ kubectl get pods -o wide         # the replacement has a different IP
 Every rollout, eviction and node failure changes them. A Service is a stable
 name and virtual IP in front of whichever Pods currently match its selector.
 
-## 2. A ClusterIP Service
+</LabStep>
+
+<LabStep n={2} title="A ClusterIP Service" proves="You can route traffic to several Pods through one Service, and see the endpoints behind it" criterion={[1, 2]}>
 
 ```yaml
 apiVersion: v1
@@ -75,7 +90,9 @@ web    10.244.0.6:80,10.244.0.7:80,10.244.0.8:80   5s
 a controller watches for Pods matching the selector that are *ready*, and writes
 their addresses here. Everything else follows from this list.
 
-## 3. Reach it by name
+</LabStep>
+
+<LabStep n={3} title="Reach it by name" proves="You can reach a Service by name from another Pod, without an IP anywhere" criterion={3}>
 
 ```bash
 kubectl run client --rm -it --image=curlimages/curl --restart=Never -- sh
@@ -90,7 +107,9 @@ The short name works because `/etc/resolv.conf` has a search path. The fully
 qualified form is `<service>.<namespace>.svc.cluster.local`, and it is what you
 use across namespaces.
 
-## 4. Empty the endpoint list, twice
+</LabStep>
+
+<LabStep n={4} title="Empty the endpoint list, twice" proves="You can empty an endpoint list in two different ways, and explain each" criterion={4}>
 
 **Way one — a selector that matches nothing:**
 
@@ -119,7 +138,9 @@ That second case is the one that confuses people: the Pods are up, the logs look
 fine, and the Service returns nothing. **Readiness controls endpoint
 membership**, which is exactly what makes a rolling update safe.
 
-## 5. The three types
+</LabStep>
+
+<LabStep n={5} title="The three types" proves="You can choose between the Service types by what each one exposes and to whom">
 
 | Type | Gives you | Use it for |
 | --- | --- | --- |
@@ -131,7 +152,9 @@ membership**, which is exactly what makes a rolling update safe.
 That is why production puts one Ingress in front of many ClusterIP Services
 rather than a LoadBalancer each.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`ENDPOINTS` is `<none>`**
 
@@ -148,3 +171,6 @@ Check CoreDNS is running: `kubectl get pods -n kube-system -l k8s-app=kube-dns`.
 **Traffic only ever reaches one Pod**
 
 Expected with keep-alive connections — kube-proxy balances connections, not requests. Use `curl` in a loop without keep-alive to see the spread.
+
+</Troubleshooting>
+

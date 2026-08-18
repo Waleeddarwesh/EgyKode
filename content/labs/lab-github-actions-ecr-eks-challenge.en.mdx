@@ -20,6 +20,14 @@ tools:
   - "A GitHub repository"
   - "An AWS account"
   - "An EKS cluster (or adapt to any Kubernetes)"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A push builds an image tagged with the commit SHA and pushes it to ECR."
   - text: "No AWS access key exists in the repository — authentication is OIDC."

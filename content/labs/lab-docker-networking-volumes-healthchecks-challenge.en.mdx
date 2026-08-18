@@ -19,6 +19,17 @@ skills:
 tools:
   - "Docker"
   - "Docker Compose"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - "The application reaches PostgreSQL and Redis by service name, with no IP addresses anywhere."
   - text: "Database data survives `docker compose down` and returns after `up`."

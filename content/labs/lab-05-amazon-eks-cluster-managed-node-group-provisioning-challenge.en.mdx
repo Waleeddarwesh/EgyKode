@@ -20,6 +20,14 @@ cleanup:
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].[InstanceId,InstanceType]' --output table"
   - "# And load balancers created by Kubernetes Services are not in Terraform state:"
   - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerArn'"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "`kubectl get nodes` shows Ready nodes in private subnets."
     verify: command

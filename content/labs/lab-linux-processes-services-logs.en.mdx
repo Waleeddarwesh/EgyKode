@@ -19,6 +19,20 @@ skills:
 tools:
   - "Linux with systemd"
   - "sudo access"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    note: >-
+      Run these against the node1 container rather than the controller — it is
+      the machine with systemd. From the controller: `ssh node1`.
+    tools:
+      - bash
+    capabilities:
+      - init-system
 successCriteria:
   - text: "You can name the PID holding a given port, and the command that told you."
     verify: reasoning
@@ -35,7 +49,7 @@ updated: 2026-08-10
 A service is down. `systemctl status` says `failed`, which tells you *that* it failed and nothing about why.
 
 This lab builds the sequence that gets from that word to the cause.
-## 1. What is running, and what holds the port
+<LabStep n={1} title="What is running, and what holds the port" proves="You can name the process holding a given port, and the command that told you" criterion={1}>
 
 ```bash
 ps aux --sort=-%mem | head -10       # heaviest processes first
@@ -48,7 +62,9 @@ pgrep -a nginx                       # PIDs by name, with their command line
 **p**rocess. If nothing is listening, the service is not running and the network
 was never involved.
 
-## 2. Ask systemd, then ask the application
+</LabStep>
+
+<LabStep n={2} title="Ask systemd, then ask the application" proves="You can read a service's own logs, and tell failed, inactive and activating apart" criterion={[2, 4]}>
 
 ```bash
 systemctl status nginx               # what systemd thinks happened
@@ -70,7 +86,9 @@ is the step people skip.
 | `failed` | It tried and exited non-zero — read the logs |
 | `activating` | Still starting, or stuck in a start loop |
 
-## 3. Break it, then fix it
+</LabStep>
+
+<LabStep n={3} title="Break it, then fix it" proves="You can diagnose a service that refuses to start from its logs, and restore it" criterion={3}>
 
 ```bash
 sudo sed -i 's/^user /usr /' /etc/nginx/nginx.conf   # a deliberate typo
@@ -95,7 +113,9 @@ sudo sed -i 's/^usr /user /' /etc/nginx/nginx.conf
 sudo systemctl restart nginx && systemctl is-active nginx
 ```
 
-## 4. Signals, and what a restart really does
+</LabStep>
+
+<LabStep n={4} title="Signals, and what a restart really does" proves="You can choose between reload and restart knowing which one drops live connections">
 
 ```bash
 sudo systemctl reload nginx          # SIGHUP — re-read config, keep connections
@@ -108,7 +128,9 @@ kill -9 <pid>                        # last resort; no cleanup happens
 every in-flight request; `reload` re-reads the configuration without doing so —
 if the service supports it.
 
-## 5. When the logs are empty
+</LabStep>
+
+<LabStep n={5} title="When the logs are empty" proves="You can explain why a service's journal is empty and find where its output actually went">
 
 ```bash
 journalctl -u myapp --since today | wc -l
@@ -120,7 +142,9 @@ A unit with `StandardOutput=null` writes nothing to the journal, and its output
 is wherever the application was told to put it. `systemctl cat` shows the unit
 as systemd actually sees it, including drop-ins you did not know existed.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`systemctl status` shows failed with no useful output**
 
@@ -137,3 +161,5 @@ as systemd actually sees it, including drop-ins you did not know existed.
 **Changes to the unit file do nothing**
 
 `sudo systemctl daemon-reload` after editing a unit, then restart it.
+
+</Troubleshooting>

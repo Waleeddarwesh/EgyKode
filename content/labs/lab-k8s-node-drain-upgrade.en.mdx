@@ -20,6 +20,19 @@ skills:
 tools:
   - "kind (multi-node)"
   - "kubectl 1.28+"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
 successCriteria:
   - "A node is drained with no failed requests to the application."
   - "A PodDisruptionBudget blocks a drain that would breach availability."
@@ -56,7 +69,7 @@ kubectl get nodes
 A single-node cluster cannot demonstrate any of this — there is nowhere to
 reschedule to, and every Pod simply goes `Pending`.
 
-## 1. Something to keep alive
+<LabStep n={1} title="Something to keep alive" proves="You can deploy a workload whose availability you can measure while the cluster changes underneath it">
 
 ```bash
 kubectl create deployment web --image=nginx:1.27-alpine --replicas=4
@@ -71,7 +84,9 @@ kubectl run load --rm -it --image=curlimages/curl --restart=Never -- \
   sh -c 'while true; do curl -s -o /dev/null -w "%{http_code} " http://web; sleep 0.2; done'
 ```
 
-## 2. Cordon, then drain
+</LabStep>
+
+<LabStep n={2} title="Cordon, then drain" proves="You can drain a node without the application dropping a request" criterion={1}>
 
 ```bash
 kubectl cordon ops-worker
@@ -92,7 +107,9 @@ kubectl drain ops-worker --ignore-daemonsets --delete-emptydir-data
 
 Watch the traffic terminal. Count non-200 responses.
 
-## 3. If you saw failures, the workload was not ready
+</LabStep>
+
+<LabStep n={3} title="If you saw failures, the workload was not ready" proves="You can identify a workload that cannot reschedule cleanly, and say why" criterion={3}>
 
 The Pod stayed in the Service's endpoints while it was terminating. The fix is
 in the workload, not in the drain:
@@ -115,7 +132,9 @@ concurrently: the Pod is removed from endpoints, and `SIGTERM` is sent. The
 five seconds let the endpoint removal propagate to every kube-proxy *before*
 the process starts shutting down, so no traffic is routed to a dying Pod.
 
-## 4. Protect availability
+</LabStep>
+
+<LabStep n={4} title="Protect availability" proves="You can write a PodDisruptionBudget that blocks a drain which would breach availability" criterion={2}>
 
 ```yaml
 apiVersion: policy/v1
@@ -143,7 +162,9 @@ maintenance.
 `minAvailable` must be lower than the replica count, or no drain can ever
 proceed.
 
-## 5. Back into service
+</LabStep>
+
+<LabStep n={5} title="Back into service" proves="You can return a node to service and confirm it receives Pods again" criterion={4}>
 
 ```bash
 kubectl uncordon ops-worker
@@ -155,7 +176,9 @@ Note that nothing moves back on its own. Kubernetes does not rebalance running
 Pods, so after a drain the remaining nodes stay loaded until something forces a
 reschedule.
 
-## 6. What a real upgrade adds
+</LabStep>
+
+<LabStep n={6} title="What a real upgrade adds" proves="You can describe what a real version upgrade adds beyond the drain itself">
 
 ```text
 cordon → drain → upgrade kubelet/kubeadm → uncordon → verify → next node
@@ -173,7 +196,9 @@ kubectl get --raw /metrics | grep apiserver_requested_deprecated_apis
 That metric names what is still calling a deprecated API, which is exactly the
 list you want before an upgrade rather than after.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`drain` hangs indefinitely**
 
@@ -192,6 +217,9 @@ Nowhere to reschedule — a single-node cluster, or the remaining nodes lack cap
 Expected. Kubernetes does not rebalance running Pods; force it with `kubectl rollout restart`.
 
 ---
+
+</Troubleshooting>
+
 
 ## Clean up
 

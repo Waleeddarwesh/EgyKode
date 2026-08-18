@@ -1,0 +1,218 @@
+#!/usr/bin/env bash
+# EgyKode lab environment control.
+#
+#   ./egykode start [profile]   bring the environment up
+#   ./egykode start k8s         …and a three-node Kubernetes cluster
+#   ./egykode shell             a prompt inside the controller
+#   ./egykode status            what is running
+#   ./egykode doctor [lab]      what is present, and what a lab needs
+#   ./egykode cluster calico    rebuild the cluster so NetworkPolicy is enforced
+#   ./egykode stop              stop, keeping your work
+#   ./egykode reset             destroy and recreate — DELETES your work
+#
+# A wrapper so nobody has to learn Compose to start a lab. Every command it
+# runs is printed, so it teaches rather than hides.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+run() { echo "+ $*"; "$@"; }
+
+CLUSTER=egykode
+
+# Asked of Compose rather than written down. The first version hardcoded
+# `egykode-lab-controller-1` — Compose's generated name — but the file sets
+# `container_name: egykode-controller`, so every lookup missed. The linking
+# step guards with `|| return 0`, so it did not fail: it skipped, the
+# controller never received a kubeconfig, and `./egykode start k8s` reported
+# success having wired up nothing.
+controller_name() { docker compose ps -q controller 2>/dev/null | head -1; }
+
+# ── Kubernetes ──────────────────────────────────────────────────────────────
+#
+# kind is not installed in the controller image, and that is deliberate. kind
+# builds a cluster out of Docker containers, so running it inside a container
+# means either mounting the host's Docker socket — handing a lab environment
+# control of the machine it runs on — or nesting Docker in Docker, which is
+# slow and fails in ways that teach nothing.
+#
+# So the cluster is created on the host, and the controller is joined to its
+# network. `kubectl` inside the controller then talks to a real multi-node
+# cluster over the network, exactly as it would to a managed one.
+
+kind_missing() {
+  cat <<'MSG'
+kind is not installed on this machine.
+
+It creates the Kubernetes cluster, and it has to run here rather than inside
+the lab container — see the comment in ./egykode for why.
+
+  macOS          brew install kind
+  Windows        winget install Kubernetes.kind
+  Linux          https://kind.sigs.k8s.io/docs/user/quick-start/#installation
+
+Then run this command again.
+MSG
+  exit 1
+}
+
+cluster_up() {
+  config="clusters/${1:-kind-default}.yaml"
+  command -v kind >/dev/null 2>&1 || kind_missing
+  [ -f "$config" ] || { echo "No such cluster config: $config"; exit 1; }
+
+  if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then
+    echo "Cluster '$CLUSTER' already exists. Delete it with: ./egykode cluster delete"
+  else
+    run kind create cluster --config "$config" --wait 120s
+  fi
+}
+
+# Join the controller to kind's network and give it a kubeconfig that resolves
+# there. The kubeconfig kind writes for the host points at 127.0.0.1, which
+# inside a container means the container itself — the single most confusing
+# failure available here, because kubectl reports "connection refused" against
+# an address that is genuinely listening on the host.
+cluster_link() {
+  cid="$(controller_name)"
+  # A hard failure, not a skip. If the controller is missing, `start k8s` has
+  # not done what it says.
+  [ -n "$cid" ] || { echo "The controller container is not running — ./egykode start first."; exit 1; }
+
+  if ! docker network inspect kind --format '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null \
+      | grep -q "$(docker inspect -f '{{.Name}}' "$cid" | sed 's|^/||')"; then
+    run docker network connect kind "$cid"
+  fi
+
+  echo "+ kind get kubeconfig --internal > controller ~/.kube/config"
+  # 0600, because the file holds a client certificate that is admin on the
+  # cluster. Written with the default umask it is world-readable, and helm says
+  # so on every single command — which teaches learners to scroll past a
+  # credential warning, the exact habit these labs are meant to break.
+  kind get kubeconfig --name "$CLUSTER" --internal \
+    | docker exec -i -u learner "$cid" sh -c \
+        'mkdir -p ~/.kube && umask 077 && cat > ~/.kube/config && chmod 600 ~/.kube/config'
+
+  # Prove it, rather than announcing it. A silent success here is how a learner
+  # ends up debugging their manifest when the problem was the connection.
+  if ! docker exec -u learner "$cid" kubectl get nodes >/dev/null 2>&1; then
+    echo "The controller still cannot reach the cluster. Run ./egykode doctor."
+    exit 1
+  fi
+
+  # Wait for the workers too. `kind create --wait` covers the control plane
+  # only, so the previous version printed two NotReady workers and "Ready" in
+  # the same breath — and a learner who deploys in that window gets Pods stuck
+  # Pending against a cluster they were just told was up.
+  echo "+ kubectl wait --for=condition=Ready nodes --all"
+  docker exec -u learner "$cid" kubectl wait --for=condition=Ready nodes --all --timeout=180s >/dev/null \
+    || { echo "Nodes did not become Ready. Check: ./egykode status"; exit 1; }
+  docker exec -u learner "$cid" kubectl get nodes
+}
+
+case "${1:-help}" in
+  start)
+    profile="${2:-}"
+    case "$profile" in
+      k8s)
+        # Not a Compose profile: the base containers plus a real cluster.
+        run docker compose up -d
+        cluster_up kind-default
+        cluster_link
+        ;;
+      "")
+        run docker compose up -d
+        ;;
+      *)
+        run docker compose --profile "$profile" up -d
+        ;;
+    esac
+    echo
+    echo "Ready. Open a shell with:  ./egykode shell"
+    ;;
+
+  cluster)
+    case "${2:-help}" in
+      calico)
+        # NetworkPolicy labs. Recreates the cluster: the CNI is chosen when the
+        # cluster is built and cannot be swapped afterwards.
+        if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then
+          echo "Replacing the existing cluster — anything running in it is lost."
+          read -r -p "Type 'yes' to continue: " reply
+          [ "$reply" = "yes" ] || { echo "Cancelled."; exit 0; }
+          run kind delete cluster --name "$CLUSTER"
+        fi
+        cluster_up kind-calico
+        echo "+ installing Calico (nodes stay NotReady until it is running)"
+        kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml
+        run kubectl -n kube-system rollout status daemonset/calico-node --timeout=300s
+        # HPA reads from metrics-server, which is not part of kind. Its serving
+        # certs are self-signed, hence the flag.
+        kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+        run kubectl -n kube-system patch deployment metrics-server --type=json \
+          -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+        run kubectl -n kube-system rollout status deployment/metrics-server --timeout=180s
+        cluster_link
+        ;;
+      delete)
+        run kind delete cluster --name "$CLUSTER"
+        ;;
+      *)
+        echo "./egykode cluster calico    rebuild with a CNI that enforces NetworkPolicy"
+        echo "./egykode cluster delete    remove the cluster, keeping the containers"
+        ;;
+    esac
+    ;;
+
+  shell)
+    run docker compose exec controller bash
+    ;;
+
+  status)
+    run docker compose ps
+    # The cluster is not a Compose service, so `compose ps` cannot see it. Left
+    # out, "nothing is running" would be wrong whenever a cluster is up.
+    if command -v kind >/dev/null 2>&1 && kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then
+      echo
+      echo "Kubernetes cluster '$CLUSTER':"
+      kubectl get nodes 2>/dev/null || echo "  up, but kubectl on this machine cannot reach it"
+    fi
+    ;;
+
+  doctor)
+    # Inside the container when it is up, on the host when it is not — the
+    # question is the same either way.
+    if docker compose ps --status running 2>/dev/null | grep -q controller; then
+      run docker compose exec controller egykode-doctor
+    else
+      echo "Environment is not running; checking this machine instead."
+      echo
+      node scripts/doctor.mjs "${2:-}"
+    fi
+    ;;
+
+  stop)
+    run docker compose --profile all stop
+    echo "Stopped. Your work is kept — ./egykode start brings it back."
+    ;;
+
+  reset)
+    # Destructive, so it asks. Learners break things on purpose in these labs;
+    # they should not lose a week's work to a typo.
+    echo "This deletes the lab containers AND the work volume."
+    read -r -p "Type 'reset' to confirm: " reply
+    [ "$reply" = "reset" ] || { echo "Cancelled."; exit 0; }
+    run docker compose --profile all down -v
+    # The cluster survives `compose down` because kind does not belong to the
+    # Compose project. Leaving it behind makes "reset" a lie the next time a
+    # broken cluster is the thing being reset.
+    if command -v kind >/dev/null 2>&1 && kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then
+      run kind delete cluster --name "$CLUSTER"
+    fi
+    run docker compose up -d
+    echo "Reset. A clean environment is running."
+    ;;
+
+  *)
+    sed -n '3,12p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+esac

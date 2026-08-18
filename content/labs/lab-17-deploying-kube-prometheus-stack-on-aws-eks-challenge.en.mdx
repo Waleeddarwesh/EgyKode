@@ -16,6 +16,26 @@ cleanup:
   - "helm uninstall kube-prometheus-stack -n monitoring"
   - "kubectl delete pvc --all -n monitoring   # PVCs are NOT removed by uninstall"
   - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    note: >-
+      Installs on kind unchanged; EKS control-plane metrics are the only gap.
+    tools:
+      - docker
+      - kubectl
+      - kind
+      - helm
+    capabilities:
+      - kubernetes-cluster
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "Prometheus is scraping the cluster and your application, verified in Targets."
     verify: state

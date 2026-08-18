@@ -250,6 +250,16 @@ samp,
     margin-inline-end: -5rem;
     max-width: calc(100% + 5rem);
   }
+
+  /* …except inside a lab step, where there is no margin to reach into.
+     A step is a padded card that clips its own overflow, so the breakout
+     pushed the code block 80px past the card edge and took the "Copy command"
+     button with it — the button was still there, still clickable in theory,
+     and cut in half by the card border. */
+  [data-step] .prose figure[data-rehype-pretty-code-figure] {
+    margin-inline-end: 0;
+    max-width: 100%;
+  }
 }
 .prose pre { max-width: 100%; }
 .prose pre > code {

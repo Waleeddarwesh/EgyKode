@@ -11,6 +11,17 @@ tier: guided
 estimatedMinutes: 39
 cloudCost: false
 costTier: free
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - "Nginx serves static files directly and proxies everything else to Gunicorn."
   - "The stack starts in a working order — the app waits for a *ready* database, not a started one."
@@ -54,7 +65,7 @@ up with.
 
 ## Build it
 
-### 1. The Nginx configuration
+<LabStep n={1} title="The Nginx configuration" proves="You can serve static files directly, proxy the rest, and pass the real client IP through" criterion={[1, 4]}>
 
 ```nginx
 # nginx/default.conf
@@ -99,7 +110,9 @@ application sees every request as coming from the Nginx container's IP, so
 rate limiting, audit logs and geolocation all break in a way that looks
 correct in testing — because in testing there is one client.
 
-### 2. The Compose file
+</LabStep>
+
+<LabStep n={2} title="The Compose file" proves="You can express start order and persistence in Compose, so the app waits for a ready database and its data survives a restart" criterion={[2, 3]}>
 
 ```yaml
 services:
@@ -165,7 +178,9 @@ Three details worth pointing at:
 - **The `static` volume is mounted twice** — read-write by `web`, read-only by
   `nginx`. That is how Nginx serves files a Python process collected.
 
-### 3. Start it
+</LabStep>
+
+<LabStep n={3} title="Start it" proves="You can bring the stack up and check each claim against the running system rather than the file">
 
 ```bash
 export DB_PASSWORD=labonly
@@ -174,6 +189,8 @@ docker compose ps            # db and cache show "healthy", not "running"
 ```
 
 ---
+
+</LabStep>
 
 ## Verify it worked
 
@@ -200,7 +217,7 @@ too, and it is one character away.
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **502 Bad Gateway from Nginx**
 
@@ -233,6 +250,8 @@ to start. PostgreSQL accepts connections several seconds after that.
 top-level `volumes:` block persist.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

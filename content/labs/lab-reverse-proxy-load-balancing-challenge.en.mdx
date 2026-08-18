@@ -19,6 +19,16 @@ skills:
 tools:
   - "Docker"
   - "Docker Compose"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - bash
+      - curl
 successCriteria:
   - "Requests through the proxy reach both backends, demonstrated by repeated calls."
   - text: "Stopping one backend does not produce errors for the client."

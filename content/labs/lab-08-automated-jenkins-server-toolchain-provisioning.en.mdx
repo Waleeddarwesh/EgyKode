@@ -15,6 +15,25 @@ costEstimate: "Free tier — one `t3.micro` for Jenkins. Note that Jenkins wants
 cleanup:
   - "terraform destroy -auto-approve"
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    note: >-
+      The lab text targets an EC2 instance. Locally the same playbook targets the
+      node1 container instead — the inventory changes, the roles and handlers do
+      not.
+    tools:
+      - ansible
+    capabilities:
+      - init-system
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "One playbook takes a bare instance to a working Jenkins with its toolchain."
   - "The second run reports `changed=0`."
@@ -56,7 +75,7 @@ change risks everything.
 
 ## Build it
 
-### 1. The composition
+<LabStep n={1} title="The composition" proves="You can compose roles into one playbook that takes a bare instance to a working build host" criterion={1}>
 
 ```yaml
 # playbooks/site.yml
@@ -86,7 +105,9 @@ change risks everything.
 that reports `changed` on every run makes `changed=0` unreachable, and once the
 number is never zero nobody looks at it again.
 
-### 2. A role, in full
+</LabStep>
+
+<LabStep n={2} title="A role, in full" proves="You can write role tasks that declare state, so a second run reports no change" criterion={2}>
 
 ```yaml
 # roles/jenkins/tasks/main.yml
@@ -152,7 +173,9 @@ belongs in `defaults`, or you have written a role only you can use.
 different server next week, which is the opposite of what configuration
 management is for.
 
-### 3. Secrets from Vault
+</LabStep>
+
+<LabStep n={3} title="Secrets from Vault" proves="You can keep secrets in Vault and reference them indirectly, so no password sits in the repository" criterion={4}>
 
 ```bash
 ansible-vault create group_vars/all/vault.yml
@@ -176,7 +199,9 @@ decrypting anything.
 ansible-playbook playbooks/site.yml --vault-password-file .vault_pass
 ```
 
-### 4. A verify playbook that asserts
+</LabStep>
+
+<LabStep n={4} title="A verify playbook that asserts" proves="You can assert each service and binary in a verify playbook that fails loudly when one is missing" criterion={3}>
 
 ```yaml
 # playbooks/verify.yml
@@ -207,6 +232,8 @@ prints a version and is never checked passes whatever it prints.
 
 ---
 
+</LabStep>
+
 ## Verify it worked
 
 ```bash
@@ -227,7 +254,7 @@ one-shot installer.
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **The second run still reports changes**
 
@@ -254,6 +281,8 @@ Group membership applies at next login. `reset_connection` in the play, or
 `become` for the tasks that need it.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

@@ -1,0 +1,45 @@
+# The cluster the NetworkPolicy labs need.
+#
+# kind's default CNI (kindnet) does not implement NetworkPolicy. It does not
+# reject the objects — the API server accepts them, `kubectl get networkpolicy`
+# lists them, and the policy is enforced by nothing at all. A learner writes a
+# default-deny policy, sees it created, curls between two Pods, and the traffic
+# flows. Nothing in the output says why.
+#
+# That is the worst kind of failure this platform can ship: the lab appears to
+# pass while teaching the opposite of the truth. So NetworkPolicy labs run on a
+# cluster with a CNI that enforces them.
+#
+# `disableDefaultCNI` leaves the cluster without networking until Calico is
+# installed — nodes stay NotReady and CoreDNS stays Pending until then. That is
+# expected, and `./egykode cluster calico` does the install straight after.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: egykode
+
+networking:
+  disableDefaultCNI: true
+  # Calico's default IPv4 pool. Matching it here avoids having to patch the
+  # installation manifest afterwards.
+  podSubnet: "192.168.0.0/16"
+
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.31.4
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 8081
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 8443
+        protocol: TCP
+  - role: worker
+    image: kindest/node:v1.31.4
+  - role: worker
+    image: kindest/node:v1.31.4

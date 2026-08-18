@@ -20,6 +20,19 @@ skills:
 tools:
   - "kind or minikube"
   - "kubectl 1.28+"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
 successCriteria:
   - "Data written into a container is gone after the Pod is deleted — demonstrated, not assumed."
   - text: "The same data survives a Pod deletion once a PVC is mounted."
@@ -44,7 +57,7 @@ This lab shows the difference concretely, then walks into the access mode that s
 > **This lab deletes Pods and volumes on purpose.** Run it on a throwaway
 > cluster, never against anything holding data you need.
 
-## 1. Prove the filesystem is disposable
+<LabStep n={1} title="Prove the filesystem is disposable" proves="You can demonstrate that a container filesystem is disposable rather than assume it" criterion={1}>
 
 ```bash
 kubectl run scratch --image=busybox --restart=Never -- sh -c "sleep 3600"
@@ -57,7 +70,9 @@ kubectl exec scratch -- cat /data.txt      # No such file
 The writable layer belongs to the container, and it goes when the container
 does.
 
-## 2. The three objects
+</LabStep>
+
+<LabStep n={2} title="The three objects" proves="You can name the three storage objects and what each one is responsible for">
 
 | Object | Says | Created by |
 | --- | --- | --- |
@@ -72,7 +87,9 @@ kubectl get storageclass
 A Pod references a PVC; the PVC binds to a PV; the PV is created on demand from
 the StorageClass. Application authors write only the middle one.
 
-## 3. A claim, and a Pod that uses it
+</LabStep>
+
+<LabStep n={3} title="A claim, and a Pod that uses it" proves="You can mount a claim and show the same data surviving a Pod deletion" criterion={2}>
 
 ```yaml
 apiVersion: v1
@@ -112,7 +129,9 @@ kubectl apply -f storage.yaml
 kubectl exec writer -- cat /data/file.txt      # survives
 ```
 
-## 4. The access mode that blocks a rollout
+</LabStep>
+
+<LabStep n={4} title="The access mode that blocks a rollout" proves="You can explain why a three-replica Deployment on one ReadWriteOnce claim leaves Pods Pending" criterion={3}>
 
 ```bash
 kubectl create deployment web --image=nginx --replicas=3
@@ -132,7 +151,9 @@ options:
   volume.
 - `ReadWriteMany` — needs a file system such as NFS or EFS, not a block device.
 
-## 5. What happens to the disk
+</LabStep>
+
+<LabStep n={5} title="What happens to the disk" proves="You can state what happens to the underlying disk when a claim is deleted, for your StorageClass" criterion={4}>
 
 ```bash
 kubectl get pv -o custom-columns=NAME:.metadata.name,RECLAIM:.spec.persistentVolumeReclaimPolicy
@@ -152,7 +173,9 @@ Two behaviours worth remembering:
 - **`helm uninstall` does not remove PVCs either** — which is how a deleted
   monitoring stack keeps billing for volumes nobody can see.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **PVC stays `Pending`**
 
@@ -171,6 +194,9 @@ The reclaim policy was `Delete`. That is the default and it is working as design
 A finalizer is waiting on something still using it. Confirm no Pod mounts it, then inspect `kubectl get pv <name> -o yaml` for the finalizer.
 
 ---
+
+</Troubleshooting>
+
 
 ## Clean up
 

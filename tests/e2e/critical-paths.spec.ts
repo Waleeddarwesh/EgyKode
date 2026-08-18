@@ -117,18 +117,20 @@ test.describe("theme", () => {
     const html = page.locator("html");
     const before = await html.getAttribute("data-theme");
 
-    // system -> light -> dark; two clicks guarantees a change from any start.
-    const toggle = page.getByRole("button", { name: /change theme|تغيير المظهر/i });
-    await toggle.click();
-    await toggle.click();
-
-    const after = await html.getAttribute("data-theme");
-    expect(after).not.toBe(null);
+    // The control is a three-option switch, so the theme can be named rather
+    // than cycled towards. Dark is chosen explicitly, then asserted — a cycling
+    // test could pass while landing on the theme it started in.
+    await page.getByRole("radio", { name: /^(dark|داكن)$/i }).click();
+    await expect(html).toHaveAttribute("data-theme", "dark");
 
     await page.reload();
     // No flash: the value is correct in the very first frame.
-    await expect(html).toHaveAttribute("data-theme", after!);
-    expect(["light", "dark"]).toContain(after!);
+    await expect(html).toHaveAttribute("data-theme", "dark");
+    // The switch agrees with the page — the mismatch this control replaced.
+    await expect(page.getByRole("radio", { name: /^(dark|داكن)$/i })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
     void before;
   });
 });
@@ -207,6 +209,203 @@ test.describe("projects and roadmaps", () => {
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(named!);
     });
   }
+});
+
+test.describe("lab steps", () => {
+  /**
+   * The step format on lab-20 is the prototype the other labs will follow, so
+   * the parts a reader depends on are pinned here before it is rolled out.
+   */
+  const LAB = "/en/labs/lab-20-linux-server-administration";
+
+  test("a step states what it proves before the work", async ({ page }) => {
+    await page.goto(LAB);
+    const step = page.locator('section[data-step="2"]');
+    await expect(step).toBeVisible();
+
+    // Steps after the first start collapsed, so open it before measuring.
+    await step.locator("button[aria-controls]").click();
+
+    // The claim comes before the commands: a reader should know what they are
+    // demonstrating without having to infer it from the prose afterwards.
+    const proving = step.getByText(/What you are proving/);
+    await expect(proving).toBeVisible();
+    const provingY = (await proving.boundingBox())!.y;
+    const firstCommandY = (await step.locator("pre").first().boundingBox())!.y;
+    expect(provingY).toBeLessThan(firstCommandY);
+  });
+
+  test("marking a step persists and settles its declared criterion", async ({ page }) => {
+    await page.goto(LAB);
+    // Steps start collapsed.
+    await page.locator('section[data-step="1"] button[aria-controls]').click();
+    const mark = page.locator('section[data-step="1"] button[aria-pressed]');
+    await expect(mark).toHaveAttribute("aria-pressed", "false");
+
+    await mark.click();
+    await expect(mark).toHaveAttribute("aria-pressed", "true");
+
+    // The step declares `criterion={1}`, so the checklist follows the work
+    // rather than asking the reader to confirm the same thing twice.
+    //
+    // The two stores stay distinct — step marks record where you are, criteria
+    // record what is proven — but a step that names a criterion writes into it.
+    // Only a declared mapping does this: inferring it from position would tick
+    // the wrong box in every lab whose steps and criteria do not align.
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem("egykode_lab_criteria")))
+      .toContain('"lab-20-linux-server-administration":[0]');
+
+    await page.reload();
+    await expect(page.locator('section[data-step="1"] button[aria-pressed]')).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  test("unmarking a step releases the criterion again", async ({ page }) => {
+    // Otherwise a mis-click permanently credits work nobody did, and the only
+    // way back is clearing site data.
+    await page.goto(LAB);
+    const step = page.locator('section[data-step="1"]');
+    // Steps start collapsed, so open it before the button inside is reachable.
+    await step.locator("button[aria-controls]").click();
+    await step.locator("button[aria-pressed]").click();
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem("egykode_lab_criteria")))
+      .toContain("[0]");
+
+    // A completed step collapses, so it has to be reopened to undo it.
+    await step.locator("button[aria-controls]").click();
+    await step.locator("button[aria-pressed]").click();
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem("egykode_lab_criteria")))
+      .not.toContain("lab-20-linux-server-administration");
+  });
+
+  test("the rail lists steps only, and fills exactly the completed ones", async ({ page }) => {
+    // Two bugs this pins. The rail listed leftover section headings ("The
+    // work") beside the steps, which read as a step whose circle never fills.
+    // And it read the DOM when the store fired rather than when the attribute
+    // changed, so it ran a mark behind: completing step 1 filled nothing, and
+    // completing all of them filled all but the last.
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.goto(LAB);
+
+    const rail = () =>
+      page.evaluate(() => {
+        const nav = document.querySelector<HTMLElement>('nav[aria-label="Lab sections"]')!;
+        return {
+          entries: nav.innerText.split("\n").filter(Boolean).length,
+          filled: Array.from(nav.querySelectorAll("li"))
+            .map((li) => (li.querySelector("svg") ? "X" : "o"))
+            .join(""),
+        };
+      });
+
+    // Start, four steps, End — and nothing else.
+    expect((await rail()).entries).toBe(6);
+    expect((await rail()).filled).toBe("oooooo");
+
+    const s1 = page.locator('section[data-step="1"]');
+    await s1.locator("button[aria-controls]").click();
+    await s1.locator("button[aria-pressed]").click();
+    await expect.poll(async () => (await rail()).filled).toBe("oXoooo");
+  });
+
+  test("a step's copy button stays inside the step card", async ({ page }) => {
+    // Code blocks break out into the right margin on wide screens, which is
+    // right for the article column and wrong inside a padded card that clips
+    // its overflow — it cut the "Copy command" button in half.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(LAB);
+    // Steps start collapsed.
+    await page.locator('section[data-step="1"] button[aria-controls]').click();
+    const inside = await page.evaluate(() => {
+      const step = document.querySelector('section[data-step="1"]')!;
+      const copy = step.querySelector("figure button, div.my-6 button");
+      if (!copy) return null;
+      return copy.getBoundingClientRect().right <= step.getBoundingClientRect().right + 0.5;
+    });
+    expect(inside).toBe(true);
+  });
+
+  test("every step in the rail resolves to a step on the page", async ({ page }) => {
+    // Not a scroll-position test. Two attempts at one were written and both
+    // passed against a deliberately broken component: `scroll-padding-top` on
+    // <html> already offsets every anchor on the site, so nothing this
+    // component does changes where the browser lands.
+    //
+    // What can genuinely break is the link between the rail and the steps.
+    // The rail is built by parsing the MDX for `<LabStep n={…}>`; the ids come
+    // from the component. A change to either side alone leaves rail entries
+    // pointing at nothing, and the reader clicks and stays where they are.
+    await page.goto(LAB);
+    const hrefs = await page.locator('a[href^="#step-"]').evaluateAll((links) =>
+      links.map((l) => l.getAttribute("href")!),
+    );
+    expect(hrefs.length).toBeGreaterThan(0);
+
+    for (const href of hrefs) {
+      await expect(page.locator(`section${href.replace("#", "#")}`)).toHaveCount(1);
+    }
+  });
+
+  test("a hint stays closed until asked for", async ({ page }) => {
+    await page.goto(LAB);
+    const step = page.locator('section[data-step="3"]');
+    await step.locator("button[aria-controls]").click();
+
+    // Not `button[aria-expanded]` — the step header carries that too, so the
+    // bare selector matches two controls and the test silently checks the
+    // wrong one. The hint is the one with no aria-controls.
+    const hint = step.locator("button[aria-expanded]:not([aria-controls])");
+    await expect(hint).toHaveAttribute("aria-expanded", "false");
+    await hint.click();
+    await expect(hint).toHaveAttribute("aria-expanded", "true");
+  });
+
+  test("steps start collapsed and completing one opens the next", async ({ page }) => {
+    // The lab opens as a readable list of what it covers rather than as five
+    // expanded steps, which is the working-memory problem the format exists to
+    // remove. Completing a step then hands the page to the one after it.
+    await page.goto(LAB);
+    const expanded = () =>
+      page.evaluate(() =>
+        Array.from(document.querySelectorAll("section[data-step]"))
+          .filter((s) => s.querySelector("button[aria-controls]")!.getAttribute("aria-expanded") === "true")
+          .map((s) => s.getAttribute("data-step")),
+      );
+
+    expect(await expanded()).toEqual([]);
+
+    const step1 = page.locator('section[data-step="1"]');
+    await step1.locator("button[aria-controls]").click();
+    expect(await expanded()).toEqual(["1"]);
+
+    await step1.locator("button[aria-pressed]").click();
+    await expect(step1).toHaveAttribute("data-done", "true");
+    await expect.poll(expanded).toEqual(["2"]);
+  });
+
+  test("the success criteria sit after the work, not before it", async ({ page }) => {
+    // Above the steps, a 0/4 scorecard met the reader before they had been
+    // shown any of the work it scored.
+    await page.goto(LAB);
+    const order = await page.evaluate(() => {
+      const lastStep = Array.from(document.querySelectorAll("section[data-step]")).pop()!;
+      const heading = Array.from(document.querySelectorAll("h2, h3, p")).find((e) =>
+        /^success criteria$/i.test(e.textContent!.trim()),
+      );
+      if (!heading) return null;
+      return {
+        step: lastStep.getBoundingClientRect().top + window.scrollY,
+        criteria: heading.getBoundingClientRect().top + window.scrollY,
+      };
+    });
+    expect(order).not.toBeNull();
+    expect(order!.criteria).toBeGreaterThan(order!.step);
+  });
 });
 
 test.describe("progress and disclosure", () => {

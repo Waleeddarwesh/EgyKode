@@ -20,6 +20,17 @@ tools:
   - "Docker"
   - "Jenkins with the Docker Pipeline plugin"
   - "A registry account"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: cicd
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - text: "A push produces an image tagged with the short commit SHA in the registry."
     verify: state
@@ -37,7 +48,7 @@ updated: 2026-08-10
 ---
 ## The scenario
 The pipeline builds an image and pushes it as `latest`. Nobody can say which commit is in production, the scan runs after the push, and the registry password is an environment variable in the job configuration.
-## The pipeline
+<LabStep n={1} title="The pipeline" proves="You can produce an image tagged with the commit that built it" criterion={1}>
 
 ```groovy
 pipeline {
@@ -107,7 +118,9 @@ pipeline {
 }
 ```
 
-## The four decisions in that file
+</LabStep>
+
+<LabStep n={2} title="The four decisions in that file" proves="You can keep credentials out of the build log, and say why the latest tag is not what gets deployed" criterion={[3, 4]}>
 
 **1. Tag with the commit SHA, never `latest`.** `latest` is not a version — it
 is whatever was pushed most recently, so the same manifest deployed twice can
@@ -126,7 +139,9 @@ the log; `--password-stdin` keeps the password out of the process list, where
 **4. `when { branch 'main' }`.** Feature branches build and scan — the feedback
 a developer needs — but only `main` publishes.
 
-## Prove the gate works
+</LabStep>
+
+<LabStep n={3} title="Prove the gate works" proves="You can prove the vulnerability gate stops a build, using an image you know is old" criterion={2}>
 
 ```dockerfile
 FROM debian:10        # end of life, plenty of unfixed CVEs
@@ -145,14 +160,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 ```
 
-## Order the stages by cost
+</LabStep>
+
+<LabStep n={4} title="Order the stages by cost" proves="You can order stages so the cheapest check fails first">
 
 Unit tests before the image build; the image build before the scan. A test suite
 that fails in 40 seconds should not run after a six-minute build. Engineers learn
 about a broken test in under a minute, and the expensive stages only run on code
 that has earned them.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`docker: permission denied` in the pipeline**
 
@@ -171,6 +190,8 @@ The database failed to download and it exited 0. Check the stage output for a DB
 `checkout scm` has not run yet, or the job is not backed by SCM. Compute the tag after checkout.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

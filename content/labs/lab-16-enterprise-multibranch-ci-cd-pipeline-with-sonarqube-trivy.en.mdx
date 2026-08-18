@@ -16,6 +16,25 @@ cleanup:
   - "terraform destroy -auto-approve"
   - "aws ecr list-images --repository-name <repo> --query 'imageIds[].imageTag'"
   - "aws ecr batch-delete-image --repository-name <repo> --image-ids imageTag=<tag>"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: cicd
+    note: >-
+      Stages 1–7 run locally: checkout, build, unit tests, SonarQube analysis,
+      quality gate, image build and Trivy scan all work against the local registry.
+      The last stages push to ECR and deploy to EKS, and those need an AWS account.
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A commit builds, tests, scans and deploys with no manual step."
   - text: "A deliberately vulnerable image fails the build and is never pushed."
@@ -53,7 +72,7 @@ Cheap checks first, so an expensive scan only runs on code that compiles.
 
 ## Build it
 
-### 1. The Jenkinsfile
+<LabStep n={1} title="The Jenkinsfile" proves="You can build, test, scan and deploy from one commit with no manual step, and fail the pipeline when a gate or a rollout does not pass" criterion={[1, 3, 4]}>
 
 ```groovy
 pipeline {
@@ -147,7 +166,9 @@ Four details that separate this from a pipeline that only looks finished:
   pipeline fail when the deploy fails. `helm upgrade` alone returns as soon as
   the API accepts the manifest.
 
-### 2. Credentials the pipeline never stores
+</LabStep>
+
+<LabStep n={2} title="Credentials the pipeline never stores" proves="You can authenticate to a registry with no credential stored in Jenkins at all" criterion={2}>
 
 ```groovy
 // Avoid this:
@@ -158,7 +179,9 @@ The Jenkins host runs with an **IAM instance profile**, so `aws` and `docker
 login` work with no stored key at all. A credential that does not exist cannot
 leak from the credential store.
 
-### 3. Multibranch: the same file, different behaviour
+</LabStep>
+
+<LabStep n={3} title="Multibranch: the same file, different behaviour" proves="You can put the branch policy in the file everyone reviews, rather than in job configuration nobody sees">
 
 ```groovy
     stage('Deploy') {
@@ -173,6 +196,8 @@ policy is visible in it rather than living in job configuration nobody can
 review.
 
 ---
+
+</LabStep>
 
 ## Verify it worked
 
@@ -207,7 +232,7 @@ A gate you have never seen fail is a gate you cannot claim works.
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **`waitForQualityGate` hangs until the timeout**
 
@@ -240,6 +265,8 @@ access entry for the Jenkins instance role.
 `disableConcurrentBuilds()`.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

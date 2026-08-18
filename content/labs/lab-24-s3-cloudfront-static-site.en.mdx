@@ -20,6 +20,14 @@ skills:
 tools:
   - "AWS CLI v2, configured"
   - "An AWS account"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "The site loads over HTTPS on the CloudFront domain."
     verify: state
@@ -53,7 +61,7 @@ real-world data exposure, it cannot do HTTPS on your own domain, and it has no
 edge cache. The pattern below keeps the bucket **private** and lets exactly one
 CloudFront distribution read it.
 
-## 1. A private bucket
+<LabStep n={1} title="A private bucket" proves="You can create a bucket that blocks public access from the moment it exists">
 
 ```bash
 BUCKET="egykode-lab-$(date +%s)"
@@ -73,7 +81,9 @@ Note the `--cache-control` at upload time. S3 stores it as object metadata and
 CloudFront honours it, so the header is set once at the source rather than
 patched at the edge.
 
-## 2. Origin Access Control
+</LabStep>
+
+<LabStep n={2} title="Origin Access Control" proves="You can let CloudFront read a private bucket while a direct S3 URL is refused" criterion={2}>
 
 OAC is how CloudFront proves it is allowed to read a private bucket. It replaces
 the older Origin Access Identity.
@@ -86,7 +96,9 @@ OAC_ID=$(aws cloudfront create-origin-access-control \
 echo "$OAC_ID"
 ```
 
-## 3. The distribution
+</LabStep>
+
+<LabStep n={3} title="The distribution" proves="You can serve the site over HTTPS from the CloudFront domain, using the REST origin rather than the public website endpoint" criterion={1}>
 
 Create it in the console or with `aws cloudfront create-distribution`, with:
 
@@ -101,7 +113,9 @@ Create it in the console or with `aws cloudfront create-distribution`, with:
 Then attach the bucket policy CloudFront prints for you, which allows
 `s3:GetObject` only for that distribution's ARN.
 
-## 4. Verify, rather than assume
+</LabStep>
+
+<LabStep n={4} title="Verify, rather than assume" proves="You can read the response headers to confirm compression is actually happening, rather than assume it" criterion={4}>
 
 ```bash
 DOMAIN=$(aws cloudfront get-distribution --id "$DIST_ID" \
@@ -128,7 +142,9 @@ curl -s -o /dev/null -w '%{http_code}\n' "https://$BUCKET.s3.amazonaws.com/index
 
 That 403 is the lab's most important result.
 
-## 5. Cache headers that make sense
+</LabStep>
+
+<LabStep n={5} title="Cache headers that make sense" proves="You can cache fingerprinted assets forever and still have HTML revalidate" criterion={3}>
 
 Two kinds of file, two opposite requirements:
 
@@ -146,7 +162,10 @@ Getting this backwards is the classic mistake: cache HTML for a year and your
 next deploy is invisible for a year; revalidate assets on every request and you
 have paid for a CDN that does nothing.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
+
 The failure is where the learning is. These are the ones that actually happen:
 
 **AccessDenied through CloudFront, not just S3**
@@ -164,6 +183,8 @@ The edge is still serving a cached copy. `aws cloudfront create-invalidation --p
 **`Content-Encoding` is absent**
 
 Compression is off on the behaviour, or the object's content type is not in CloudFront's compressible list.
+
+</Troubleshooting>
 
 ## Clean up
 Run this even if the lab is unfinished. Everything above is inside the free tier, but an account full of half-built experiments is how a surprise bill starts.

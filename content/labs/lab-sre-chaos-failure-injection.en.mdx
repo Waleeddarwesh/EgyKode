@@ -20,6 +20,17 @@ skills:
 tools:
   - "kind or minikube"
   - "kubectl 1.28+"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - "A killed Pod is replaced automatically, and you measured how long it took."
   - "You found at least one case where recovery did *not* happen as expected."
@@ -51,7 +62,7 @@ Every experiment has four parts, and the first is the one people skip:
 
 An experiment without a hypothesis is just an outage you caused.
 
-## 1. Something to break
+<LabStep n={1} title="Something to break" proves="You can put a workload under steady traffic, so a failure is something you observe rather than infer">
 
 ```bash
 kubectl create deployment web --image=nginx:1.27-alpine --replicas=3
@@ -66,7 +77,9 @@ kubectl run load --rm -it --image=curlimages/curl --restart=Never -- \
   sh -c 'while true; do curl -s -o /dev/null -w "%{http_code} " http://web; sleep 0.2; done'
 ```
 
-## 2. Experiment one — kill a Pod
+</LabStep>
+
+<LabStep n={2} title="Experiment one — kill a Pod" proves="You can kill a Pod, measure how long the replacement took, and count the requests that failed" criterion={1}>
 
 **Hypothesis:** no failed requests; a replacement is Ready within 30 seconds.
 
@@ -81,7 +94,9 @@ If you saw failures, the hypothesis was wrong, and that is the useful outcome:
 the Service kept the dying Pod in its endpoints until it was fully terminated.
 The fix is a `preStop` hook and a readiness probe that fails first.
 
-## 3. Experiment two — take the whole Deployment down
+</LabStep>
+
+<LabStep n={3} title="Experiment two — take the whole Deployment down" proves="You can measure the real recovery time for a bad deploy, on purpose and in daylight" criterion={2}>
 
 **Hypothesis:** requests fail until Pods return, and recovery is automatic.
 
@@ -94,7 +109,9 @@ kubectl scale deployment web --replicas=3
 Measure the gap. This is a controlled version of a bad deploy, and the number
 you get is your real recovery time for one.
 
-## 4. Experiment three — drain a node
+</LabStep>
+
+<LabStep n={4} title="Experiment three — drain a node" proves="You can drain a node and discover where your replicas actually were">
 
 **Hypothesis:** draining a node moves the Pods without downtime.
 
@@ -111,7 +128,9 @@ the same node, which quietly defeats the point of having three.
 kubectl uncordon <node>
 ```
 
-## 5. Protect against the eviction
+</LabStep>
+
+<LabStep n={5} title="Protect against the eviction" proves="You can write a PodDisruptionBudget that refuses an eviction which would cause an outage" criterion={3}>
 
 ```yaml
 apiVersion: policy/v1
@@ -150,14 +169,18 @@ Spreading matters too:
 
 Three replicas on one node is one node failure away from zero.
 
-## 6. Write it down
+</LabStep>
+
+<LabStep n={6} title="Write it down" proves="You can write a hypothesis before each experiment, and treat the ones it disproves as the result" criterion={4}>
 
 For each experiment: the hypothesis, what happened, and what you changed.
 
 The experiments that *disprove* a hypothesis are the entire value. An experiment
 that confirms what you already believed has told you nothing you did not know.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **Requests fail when a single Pod is deleted**
 
@@ -176,6 +199,8 @@ The scheduler had no reason to spread them. That is what `topologySpreadConstrai
 `minAvailable` equals the replica count leaves no room for disruption. It must be lower than `replicas`.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

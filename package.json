@@ -25,7 +25,7 @@
     "search": "node scripts/build-search-index.mjs",
     "test:e2e": "playwright test --project=desktop tests/e2e/critical-paths.spec.ts",
     "test:visual": "playwright test tests/e2e/visual-matrix.spec.ts",
-    "verify": "npm run lint:mdx && npm run lint:diagrams && npm run content:lint && npm run lint:refs && npm run lint:resources && npm run lint:rtl && npm run check:translation && npm run test:edge && npm run typecheck && npm run lint && npm run build:verify && npm run test:e2e",
+    "verify": "npm run lint:mdx && npm run lint:diagrams && npm run content:lint && npm run lint:killercoda && npm run lint:lab-env && npm run lint:refs && npm run lint:resources && npm run lint:rtl && npm run check:translation && npm run test:edge && npm run typecheck && npm run lint && npm run build:verify && npm run test:e2e",
     "topics": "node scripts/build-topics.mjs",
     "audit:topics": "node scripts/audit-topics.mjs",
     "audit:concepts": "node scripts/audit-concepts.mjs",
@@ -37,7 +37,11 @@
     "check:live": "node scripts/check-live.mjs",
     "lint:resources": "node scripts/check-resources.mjs",
     "check:links": "node scripts/check-resources.mjs --live",
-    "build:id": "node scripts/write-build-id.mjs"
+    "build:id": "node scripts/write-build-id.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "lint:killercoda": "node scripts/lint-killercoda.mjs",
+    "lab-env:sync": "node scripts/sync-lab-env.mjs .lab-env --write",
+    "lint:lab-env": "node scripts/sync-lab-env.mjs .lab-env --check"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

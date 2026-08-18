@@ -20,6 +20,19 @@ tools:
   - "kind or minikube"
   - "kubectl 1.28+"
   - "A Gateway API controller (Envoy Gateway or NGINX Gateway Fabric)"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
 successCriteria:
   - text: "The same application is reachable through an Ingress and through an HTTPRoute."
     verify: state

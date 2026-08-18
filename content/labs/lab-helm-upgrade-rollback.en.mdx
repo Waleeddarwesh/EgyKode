@@ -19,6 +19,20 @@ skills:
 tools:
   - "Helm 3.14+"
   - "kind or minikube"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+      - helm
+    capabilities:
+      - kubernetes-cluster
 successCriteria:
   - text: "Three revisions exist and `helm history` shows their status."
     verify: command
@@ -35,7 +49,7 @@ updated: 2026-08-10
 ---
 ## The scenario
 The chart lab taught you to build a chart. This is the other 95% of the job: upgrading it, discovering the new version does not start, and getting back to the one that did — under time pressure.
-## 1. A release to operate
+<LabStep n={1} title="A release to operate" proves="You can install a release you can then operate on">
 
 ```bash
 kubectl create namespace demo
@@ -44,7 +58,9 @@ helm install demo oci://registry-1.docker.io/bitnamicharts/nginx \
 helm list -n demo
 ```
 
-## 2. History is the feature
+</LabStep>
+
+<LabStep n={2} title="History is the feature" proves="You can read a release's revision history and the status of each revision" criterion={1}>
 
 ```bash
 helm history demo -n demo
@@ -59,7 +75,9 @@ Helm keeps every revision's rendered manifests and values in a Secret in the
 namespace. That is what makes rollback instant — nothing is rebuilt or
 re-fetched.
 
-## 3. See the change before making it
+</LabStep>
+
+<LabStep n={3} title="See the change before making it" proves="You can see what an upgrade would change before applying it">
 
 ```bash
 helm plugin install https://github.com/databus23/helm-diff
@@ -70,7 +88,9 @@ helm diff upgrade demo oci://registry-1.docker.io/bitnamicharts/nginx \
 `helm upgrade` with no preview is the Terraform equivalent of applying without
 a plan. The diff shows exactly which fields change.
 
-## 4. Upgrade atomically
+</LabStep>
+
+<LabStep n={4} title="Upgrade atomically" proves="You can explain what atomic does that wait alone does not" criterion={4}>
 
 ```bash
 helm upgrade demo oci://registry-1.docker.io/bitnamicharts/nginx \
@@ -87,7 +107,9 @@ helm upgrade demo oci://registry-1.docker.io/bitnamicharts/nginx \
 **`--wait` tells you the release broke. `--atomic` un-breaks it.** The
 difference is whether a failed deploy at 5pm is an incident or a message.
 
-## 5. Break one deliberately
+</LabStep>
+
+<LabStep n={5} title="Break one deliberately" proves="You can break an upgrade and find the release still serving the previous revision" criterion={2}>
 
 ```bash
 helm upgrade demo oci://registry-1.docker.io/bitnamicharts/nginx \
@@ -107,7 +129,9 @@ kubectl get pods -n demo       # still serving the working image
 The release history records the failure — which is what you want. A rollback
 that hides the attempt makes the postmortem harder.
 
-## 6. Roll back deliberately
+</LabStep>
+
+<LabStep n={6} title="Roll back deliberately" proves="You can roll back to a named revision and verify the image that is actually running" criterion={3}>
 
 ```bash
 helm rollback demo 1 -n demo --wait
@@ -118,7 +142,9 @@ kubectl get deploy -n demo -o jsonpath='{.items[0].spec.template.spec.containers
 A rollback is itself a new revision, so history stays append-only and you can
 always move forward again.
 
-## 7. What to hold onto
+</LabStep>
+
+<LabStep n={7} title="What to hold onto" proves="You can say which of these habits survive into a GitOps workflow">
 
 - **Never `helm upgrade` without `--atomic` in production.** The only reason to
   omit it is when you want to inspect a broken state deliberately.
@@ -130,7 +156,9 @@ always move forward again.
 - `helm get values demo -n demo` shows what a release is *actually* running,
   which is frequently not what the values file in Git says.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`another operation is in progress`**
 
@@ -149,6 +177,9 @@ The rollback restored the manifest, and a Pod may still be pulling. `kubectl rol
 `helm uninstall` removes it unless `--keep-history` was passed. There is nothing to roll back to.
 
 ---
+
+</Troubleshooting>
+
 
 ## Clean up
 

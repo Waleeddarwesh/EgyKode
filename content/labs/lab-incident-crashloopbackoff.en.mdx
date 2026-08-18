@@ -19,6 +19,19 @@ skills:
 tools:
   - "kind or minikube"
   - "kubectl 1.28+"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
 successCriteria:
   - text: "The Pod reaches `Running` with `READY 1/1` and stays there for two minutes."
     verify: state
@@ -122,7 +135,7 @@ The second half matters as much as the first.
    restarted because a Deployment expects a long-running process.
 6. A liveness probe is killing a healthy but slow-starting container.
 
-## When it goes wrong
+<Troubleshooting>
 
 **`--previous` says there is no previous container**
 
@@ -137,6 +150,8 @@ Suspect a liveness probe rather than a crash. `describe` will show `Liveness pro
 That is not CrashLoopBackOff — it is `CreateContainerConfigError` or `ImagePullBackOff`. `describe` names which.
 
 ---
+
+</Troubleshooting>
 
 ## Check your reasoning
 

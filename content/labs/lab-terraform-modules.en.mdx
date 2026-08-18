@@ -19,6 +19,14 @@ skills:
 tools:
   - "Terraform >= 1.6"
   - "AWS CLI v2, configured"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A `modules/network` module creates a VPC and subnets from inputs, exposing subnet ids as outputs."
   - "A `modules/compute` module places an instance into a subnet it did not create."
@@ -53,7 +61,7 @@ Anything a caller needs must leave through an `output`. There is no reaching
 inside for a resource, and that restriction is precisely what makes a module
 safe to change later.
 
-## 1. The network module
+<LabStep n={1} title="The network module" proves="You can write a module that creates a network from inputs and exposes the ids others need" criterion={1}>
 
 ```hcl
 # modules/network/variables.tf
@@ -91,7 +99,9 @@ output "vpc_id"     { value = aws_vpc.this.id }
 output "subnet_ids" { value = [for s in aws_subnet.public : s.id] }
 ```
 
-## 2. The compute module
+</LabStep>
+
+<LabStep n={2} title="The compute module" proves="You can write a module that places an instance into a subnet it did not create" criterion={[2, 5]}>
 
 ```hcl
 # modules/compute/variables.tf
@@ -108,7 +118,9 @@ module is handed a subnet id and does not care where it came from. That is the
 whole point — it could be given a subnet from a different module, or one that
 already existed.
 
-## 3. Wiring them together
+</LabStep>
+
+<LabStep n={3} title="Wiring them together" proves="You can wire modules together with no hardcoded ids anywhere" criterion={3}>
 
 ```hcl
 # main.tf
@@ -139,7 +151,9 @@ terraform apply
 `terraform init` after adding a module trips everyone up once. A new or moved
 module source is not picked up until you re-init.
 
-## 4. Calling it twice
+</LabStep>
+
+<LabStep n={4} title="Calling it twice" proves="You can call one module twice and get two independent environments" criterion={4}>
 
 ```hcl
 module "network_staging" {
@@ -153,6 +167,8 @@ module "network_staging" {
 One definition, two networks that cannot drift apart. That is the return on the
 directory structure.
 
+</LabStep>
+
 ## When not to write a module
 
 A module costs a directory, two extra files and a layer of indirection. It earns
@@ -164,7 +180,7 @@ reader to open two files to understand one resource. The useful test:
 **would a second caller ever exist?** If not, write the resource directly and
 extract it the day the second caller appears.
 
-## When it goes wrong
+<Troubleshooting>
 
 **`Module not installed` after adding a module block**
 
@@ -183,6 +199,8 @@ The second module call reused the default. Pass `cidr_block` explicitly to each.
 You asked for more subnet bits than the parent CIDR has room for. A /16 with `8` gives /24s; a /24 with `8` does not fit.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

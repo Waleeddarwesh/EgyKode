@@ -15,6 +15,24 @@ costEstimate: "Free tier — Ansible itself is free; the cost is whichever EC2 i
 cleanup:
   - "terraform destroy -auto-approve"
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    note: >-
+      The architecture, inventory and playbook sections run against the node1
+      container using the static inventory the controller ships with. The
+      dynamic-inventory section is the exception — the aws_ec2 plugin queries the
+      EC2 API, so that part needs an AWS account.
+    tools:
+      - ansible
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "`ansible -m ping all` succeeds against hosts nobody typed into a file."
     verify: command
@@ -59,7 +77,7 @@ there is nothing to keep running.
 
 ## Build it
 
-### 1. `ansible.cfg` — the settings you will otherwise repeat forever
+<LabStep n={1} title="ansible.cfg — the settings you will otherwise repeat forever" proves="You can set the connection defaults once, instead of repeating them on every command">
 
 ```ini
 [defaults]
@@ -95,7 +113,9 @@ Three of these are worth understanding rather than copying:
   keys change on every rebuild, and wrong for long-lived servers, where it
   removes your protection against a man-in-the-middle.
 
-### 2. Inventory generated from AWS, not typed
+</LabStep>
+
+<LabStep n={2} title="Inventory generated from AWS, not typed" proves="You can generate an inventory from AWS tags, so a new instance is managed without editing a file" criterion={[2, 3]}>
 
 ```yaml
 # inventory/aws_ec2.yml
@@ -135,7 +155,9 @@ ansible-inventory --graph
 edits anything, and the inventory cannot drift from reality because it *is*
 reality, queried on each run.
 
-### 3. Prove the connection before writing a playbook
+</LabStep>
+
+<LabStep n={3} title="Prove the connection before writing a playbook" proves="You can prove SSH, the user, become and Python all work before writing a playbook, and explain why no agent is needed on the target" criterion={[1, 4]}>
 
 ```bash
 ansible -m ping all
@@ -149,6 +171,8 @@ ansible -m setup --tree /tmp/facts all      # everything Ansible knows
 before any real task depends on them.
 
 ---
+
+</LabStep>
 
 ## Verify it worked
 
@@ -169,7 +193,7 @@ ansible -m ping tag_Role_worker              # the new host is simply there
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **`Failed to connect to the host via ssh: Permission denied (publickey)`**
 
@@ -200,6 +224,8 @@ That is the static-inventory failure this lab removes. A generated inventory
 cannot list an instance that is not running.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

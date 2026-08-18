@@ -11,6 +11,17 @@ tier: challenge
 estimatedMinutes: 19
 cloudCost: false
 costTier: free
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - "Nginx serves static files directly and proxies everything else to Gunicorn."
   - "The stack starts in a working order — the app waits for a *ready* database, not a started one."

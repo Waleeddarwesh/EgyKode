@@ -19,6 +19,17 @@ skills:
 tools:
   - "Docker"
   - "Docker Compose"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: cicd
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - text: "Jenkins is running with its home directory on a named volume, surviving a container restart."
     verify: state

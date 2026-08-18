@@ -16,6 +16,29 @@ cleanup:
   - "kubectl delete networkpolicy --all -A"
   - "kubectl delete hpa --all -A"
   - "kubectl get nodes  # confirm the HPA did not leave extra nodes running"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    note: >-
+      Run `./egykode cluster calico` first — on the default kind CNI a NetworkPolicy is
+      accepted and ignored, so the challenge would pass without blocking any
+      traffic.
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
+      - networkpolicy-enforced
+      - metrics-server
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "With default-deny applied, an unrelated Pod cannot reach the application — demonstrated."
   - "The application still reaches the database and DNS."

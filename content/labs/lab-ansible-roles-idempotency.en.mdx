@@ -19,6 +19,15 @@ skills:
 tools:
   - "Ansible 2.15+"
   - "A target host or container"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - ansible
 successCriteria:
   - "A role installs and configures a service from variables, with no hardcoded values in tasks."
   - "The second run reports `changed=0` — demonstrated, not assumed."
@@ -33,7 +42,7 @@ updated: 2026-08-10
 The playbook works. Running it twice restarts production, because every task reports `changed` whether or not anything changed.
 
 Idempotency is the property that makes configuration management safe to run continuously, and it does not happen by accident.
-## 1. The role layout
+<LabStep n={1} title="The role layout" proves="You can lay out a role so Ansible finds each part by name rather than by configuration">
 
 ```text
 roles/webserver/
@@ -57,7 +66,9 @@ and is effectively unoverridable.
 Every variable a caller might reasonably change belongs in `defaults`. Put it in
 `vars` and you have written a role only you can use.
 
-## 2. Tasks that tell the truth
+</LabStep>
+
+<LabStep n={2} title="Tasks that tell the truth" proves="You can write tasks that take their values from variables, with nothing hardcoded" criterion={1}>
 
 ```yaml
 # roles/webserver/tasks/main.yml
@@ -89,7 +100,9 @@ installed; `template` compares a checksum and rewrites only on difference.
 runs `nginx -t` against it, and only installs it if it parses. A broken template
 can never take the service down.
 
-## 3. Handlers: once, at the end
+</LabStep>
+
+<LabStep n={3} title="Handlers: once, at the end" proves="You can restart a service exactly once at the end, through a handler rather than inline" criterion={3}>
 
 ```yaml
 # roles/webserver/handlers/main.yml
@@ -103,7 +116,9 @@ Three tasks can all `notify` this and nginx restarts **once**, after everything
 has converged. Restarting inline per task would bounce the service repeatedly
 during a single run.
 
-## 4. Prove it
+</LabStep>
+
+<LabStep n={4} title="Prove it" proves="You can demonstrate changed=0 on a second run, rather than assuming it" criterion={2}>
 
 ```bash
 ansible-playbook -i inventory site.yml
@@ -122,7 +137,9 @@ ansible-playbook -i inventory site.yml --check --diff
 
 `--check` is a dry run; `--diff` shows exactly what it wants to alter.
 
-## 5. The two ways people break it
+</LabStep>
+
+<LabStep n={5} title="The two ways people break it" proves="You can name two ways a task silently breaks idempotency, and guard against them" criterion={4}>
 
 **`command` and `shell` always report changed.** They have no idea what state
 they produce, so Ansible assumes the worst:
@@ -146,7 +163,9 @@ in the template makes the checksum differ every time, so it rewrites and
 notifies a restart forever. Anything genuinely dynamic belongs outside the
 managed file.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **The second run still reports changed**
 
@@ -163,3 +182,5 @@ It is in `vars/` rather than `defaults/`. `vars` outranks nearly everything a ca
 **A bad template took the service down**
 
 Add `validate:` to the template task so a config that does not parse is never installed.
+
+</Troubleshooting>

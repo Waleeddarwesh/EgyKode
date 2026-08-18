@@ -18,6 +18,20 @@ skills:
   - "Verify a change from a second session before trusting it"
 tools:
   - "A Linux host you can reach another way (console, snapshot, or a second VM)"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    note: >-
+      Run these against the node1 container rather than the controller — it is
+      the machine with systemd. From the controller: `ssh node1`.
+    tools:
+      - bash
+    capabilities:
+      - init-system
 successCriteria:
   - "Key-based login works for a non-root administrative user."
   - "Password authentication and direct root login are both refused."
@@ -35,7 +49,7 @@ This lab closes it down. The order matters more than the settings: get it wrong 
 > verified from a *second* connection. If something is wrong, the first session
 > is the only way back in.
 
-## 1. An administrative user that is not root
+<LabStep n={1} title="An administrative user that is not root" proves="You can create an administrative account that records who did what, rather than sharing root">
 
 ```bash
 sudo adduser --gecos "" deploy
@@ -46,7 +60,9 @@ sudo install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
 Root should not be a login account. Every action becomes anonymous the moment
 several people share one, and `sudo` records who did what.
 
-## 2. A key, and the permissions that make it work
+</LabStep>
+
+<LabStep n={2} title="A key, and the permissions that make it work" proves="You can install an SSH key with the permissions sshd silently requires" criterion={1}>
 
 On your **own machine**:
 
@@ -69,7 +85,9 @@ sudo chmod 600 /home/deploy/.ssh/authorized_keys
 **SSH silently ignores an `authorized_keys` it considers too permissive**, and
 logs nothing helpful. If key auth "does not work", check these two modes first.
 
-## 3. Prove the key works — before changing anything
+</LabStep>
+
+<LabStep n={3} title="Prove the key works — before changing anything" proves="You can verify a new login path works before removing the one you are currently using">
 
 ```bash
 # from a SECOND terminal, leaving the first connected
@@ -79,7 +97,9 @@ ssh -i ~/.ssh/egykode deploy@<host> 'whoami && sudo -n true && echo "sudo ok"'
 Do not proceed until this succeeds. This single step is the difference between
 a hardening exercise and a support ticket.
 
-## 4. Now close the doors
+</LabStep>
+
+<LabStep n={4} title="Now close the doors" proves="You can disable password and root login without locking yourself out" criterion={2}>
 
 ```bash
 sudo tee /etc/ssh/sshd_config.d/99-hardening.conf <<'EOF'
@@ -102,7 +122,9 @@ sessions alive, where `restart` does not.
 A drop-in under `sshd_config.d/` rather than editing `sshd_config` means a
 package upgrade cannot silently revert your changes.
 
-## 5. Verify from a third session
+</LabStep>
+
+<LabStep n={5} title="Verify from a third session" proves="You can prove each authentication route behaves as intended from a separate session" criterion={3}>
 
 ```bash
 ssh -i ~/.ssh/egykode deploy@<host> 'echo ok'      # must succeed
@@ -112,7 +134,9 @@ ssh root@<host>                                     # must be refused
 
 Only when all three behave should you close the original session.
 
-## 6. A firewall that allows what you actually use
+</LabStep>
+
+<LabStep n={6} title="A firewall that allows what you actually use" proves="You can enable a firewall in an order that does not disconnect you" criterion={4}>
 
 ```bash
 sudo ufw default deny incoming
@@ -126,7 +150,9 @@ Add the SSH rule **before** enabling. `ufw enable` on a remote machine with no
 SSH rule disconnects you immediately, and it is the single most common way
 people lock themselves out.
 
-## 7. Read the log you just protected
+</LabStep>
+
+<LabStep n={7} title="Read the log you just protected" proves="You can show how much real attack traffic a host on the internet receives">
 
 ```bash
 sudo journalctl -u ssh --since "1 hour ago" | grep -ci "failed password"
@@ -135,7 +161,9 @@ sudo journalctl -u ssh --since "1 hour ago" | grep -ci "failed password"
 Run this on any host that has been on the internet for a day. The number is
 usually in the thousands, and it is the argument for everything above.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **Key auth fails with no useful error**
 
@@ -152,3 +180,5 @@ The allow rule must come first. Recover via console, then `ufw allow 22/tcp`.
 **`sudo` asks for a password in scripts**
 
 Expected, and correct. Use a dedicated automation user with a narrowly scoped NOPASSWD rule rather than disabling it globally.
+
+</Troubleshooting>

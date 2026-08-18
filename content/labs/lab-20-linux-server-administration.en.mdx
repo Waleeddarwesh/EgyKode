@@ -20,6 +20,21 @@ skills:
 tools:
   - "Any Linux (Ubuntu 22.04+ or RHEL 9)"
   - "sudo access"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    note: >-
+      Run these against the node1 container rather than the controller — it is
+      the machine with systemd. From the controller: `ssh node1`, or prefix a
+      command with `ansible node1 -b -m shell -a "…"`.
+    tools:
+      - bash
+    capabilities:
+      - init-system
 successCriteria:
   - text: "A deploy user exists, belongs to a shared group, and can read the application directory without being root."
     verify: state
@@ -29,7 +44,7 @@ successCriteria:
   - "You can state which directory is consuming the most disk, with the command that told you."
 challengeId: lab-20-linux-server-administration-challenge
 authors: [waleed]
-updated: 2026-08-10
+updated: 2026-08-18
 ---
 ## The scenario
 You have been handed SSH access to a server somebody else built. A colleague needs to deploy to it, the application directory is owned by root, and the disk is at 91%. Nobody documented any of it.
@@ -37,10 +52,15 @@ You have been handed SSH access to a server somebody else built. A colleague nee
 This is the most common first task in the job, and none of it is exotic — it is users, permissions, services and disk.
 ## The work
 
-### 1. A user for the job, not for the person
+<LabStep n={1} title="A user for the job, not for the person" criterion={1} proves="You can create a service account whose access outlives the person who set it up.">
+
+<Why>
 
 Create a group first, then a user in it. The group is what makes access
-survivable when a second person needs it.
+survivable when a second person needs it — a colleague joins by being added to
+`deployers`, and nothing about the files has to change.
+
+</Why>
 
 ```bash
 sudo groupadd --system deployers
@@ -49,11 +69,36 @@ sudo passwd -l deploy          # no password login; SSH keys only
 id deploy
 ```
 
+<Expect>
+
+`id deploy` prints the user with `deployers` as its primary group — something
+like `uid=998(deploy) gid=998(deployers) groups=998(deployers)`. The numbers
+will differ; the group name is the part that matters.
+
+</Expect>
+
 `--gid deployers` puts the user in the group at creation. `passwd -l` locks the
 password so the account cannot be used for interactive password login — an SSH
 key is the only way in.
 
-### 2. Permissions that hold when a second person arrives
+<ProductionNote>
+
+A service account belongs to the job, not to a person. When the engineer who
+created it leaves, nothing about the deployment changes — which is exactly what
+does not happen when deployments run under someone's personal login.
+
+</ProductionNote>
+
+</LabStep>
+
+<LabStep n={2} title="Permissions that hold when a second person arrives" criterion={2} proves="You can set group ownership that new files inherit, rather than re-fixing permissions after every deploy.">
+
+<Why>
+
+Ownership decides who can write today. The setgid bit decides who can write to
+the files created tomorrow — which is the part that breaks weeks later.
+
+</Why>
 
 ```bash
 sudo mkdir -p /opt/app
@@ -73,7 +118,47 @@ sudo -u deploy touch /opt/app/test.txt
 ls -l /opt/app/test.txt        # group must be "deployers"
 ```
 
-### 3. A service that survives a reboot
+<Expect>
+
+`ls -ld /opt/app` shows `drwxrwsr-x` — note the `s` where the group execute bit
+would be. The new file's group is `deployers`, not `deploy`.
+
+</Expect>
+
+<Incident title="sudo -u deploy touch gives Permission denied">
+
+`/opt/app` is not group-writable. Check `ls -ld /opt/app` — you want
+`drwxrwsr-x` with the `s`, not `drwxr-xr-x`.
+
+</Incident>
+
+<Incident title="A new file has the wrong group">
+
+The setgid bit is missing. `chmod g+s /opt/app` and create the file again;
+existing files keep their old group.
+
+</Incident>
+
+<ProductionNote>
+
+`chmod 777` makes both of these symptoms disappear, which is why it is so
+common and why it keeps being wrong. It grants every user on the machine write
+access to your application directory to solve a problem that group ownership
+solves precisely. The same reasoning returns later as container users and IAM
+policies: grant the narrowest thing that works.
+
+</ProductionNote>
+
+</LabStep>
+
+<LabStep n={3} title="A service that survives a reboot" criterion={3} proves="You can tell a service that is running from one that will still be running after the machine restarts.">
+
+<Why>
+
+`enable` and `start` are different things, and nothing in the output of a
+working service tells you which one you did.
+
+</Why>
 
 ```bash
 sudo apt-get update && sudo apt-get install -y nginx   # or dnf on RHEL
@@ -82,12 +167,44 @@ sudo systemctl enable --now nginx
 systemctl is-enabled nginx     # must print "enabled"
 ```
 
-`enable` and `start` are different things. `--now` does both. A service that is
-started but not enabled works perfectly until the machine reboots at 3am and
-never comes back — and that failure looks like a mystery unless you know to
-check this.
+<Expect>
 
-### 4. Find the disk
+`systemctl is-enabled nginx` prints `enabled`. `systemctl status nginx` shows
+`Active: active (running)` and, on the `Loaded:` line, `enabled` — both facts
+are there, and only one of them survives a reboot.
+
+</Expect>
+
+`--now` does both. A service that is started but not enabled works perfectly
+until the machine reboots at 3am and never comes back — and that failure looks
+like a mystery unless you know to check this.
+
+<Incident title="The service is running but gone after reboot">
+
+It was started, never enabled. `systemctl is-enabled <service>` tells you
+which.
+
+</Incident>
+
+<Hint label="How would I catch this before the reboot?">
+
+`systemctl is-enabled` is the whole check, and it costs nothing to run. On a
+server you did not build, run it against every service you depend on — the
+answer is frequently not what the person who set it up intended.
+
+</Hint>
+
+</LabStep>
+
+<LabStep n={4} title="Find the disk" criterion={4} proves="You can go from 'the disk is full' to the specific directory responsible, with the command that told you.">
+
+<Why>
+
+A full disk breaks things that look unrelated — Docker cannot pull, Kubernetes
+evicts Pods, the database refuses writes — and every error message points
+somewhere else. Finding the cause is a fixed procedure, not a guess.
+
+</Why>
 
 ```bash
 df -h                          # which filesystem is full?
@@ -103,25 +220,28 @@ the problem:
 sudo journalctl --vacuum-time=7d
 ```
 
-A full disk is worth recognising because it breaks things that look unrelated —
-Docker cannot pull, Kubernetes evicts Pods, the database refuses writes, and
-every error message points somewhere else.
+<Expect>
 
-## When it goes wrong
-The failure is where the learning is. These are the ones that actually happen:
+`df -h` shows one filesystem near 100%, and the last line of the `du` output
+names the directory holding most of it. You should be able to say both out
+loud: which filesystem, and which directory inside it.
 
-**`sudo -u deploy touch` gives Permission denied**
+</Expect>
 
-`/opt/app` is not group-writable. Check `ls -ld /opt/app` — you want `drwxrwsr-x` with the `s`, not `drwxr-xr-x`.
+<Incident title="df says the disk is full but du finds nothing">
 
-**A new file has the wrong group**
+A deleted file is still held open by a process. `sudo lsof +L1` lists them;
+restarting the holder releases the space.
 
-The setgid bit is missing. `chmod g+s /opt/app` and create the file again; existing files keep their old group.
+</Incident>
 
-**The service is running but gone after reboot**
+<ProductionNote>
 
-It was started, never enabled. `systemctl is-enabled <service>` tells you which.
+This is the difference between a filesystem and a directory tree. `du` walks
+names; `df` asks the filesystem. A file whose last name has been removed is
+gone from `du` and still occupying blocks, because the process holding it open
+keeps the inode alive. That gap is the whole explanation.
 
-**`df` says the disk is full but `du` finds nothing**
+</ProductionNote>
 
-A deleted file is still held open by a process. `sudo lsof +L1` lists them; restarting the holder releases the space.
+</LabStep>

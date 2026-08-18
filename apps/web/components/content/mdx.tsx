@@ -1,4 +1,13 @@
 import { AlertTriangle, Info, Lightbulb, ShieldAlert, Terminal as TerminalIcon } from "lucide-react";
+import {
+  Expect,
+  Hint,
+  Incident,
+  LabStep,
+  ProductionNote,
+  Troubleshooting,
+  Why,
+} from "@/components/labs/lab-step";
 import type { ReactNode } from "react";
 
 import { CopyButton } from "./copy-button";
@@ -35,6 +44,8 @@ export interface MdxLabels {
   destructive: string;
   destructiveBody: string;
   locale: string;
+  /** Bound into the lab step components; absent outside labs. */
+  labId?: string;
 }
 
 /**
@@ -201,5 +212,28 @@ export function mdxComponents(labels: MdxLabels) {
     blockquote: Blockquote,
     a: (props: { href?: string; children?: ReactNode }) => <Anchor {...props} locale={labels.locale} />,
     table: Table,
+
+    /**
+     * Lab step parts.
+     *
+     * `labId` is bound here rather than written on every `<LabStep>`, because
+     * an author repeating the lab's own id on each of its steps is a fact
+     * stored once per step that can only ever be wrong in one direction.
+     *
+     * Available in every MDX document, not only labs: an unused component
+     * costs nothing, and a component missing from the map fails the build
+     * rather than degrading, which is the behaviour worth having.
+     */
+    LabStep: (props: { n: number; title: string; proves?: string; criterion?: number | number[]; children?: ReactNode }) => (
+      <LabStep {...props} labId={labels.labId ?? ""}>
+        {props.children}
+      </LabStep>
+    ),
+    Why,
+    Expect,
+    Hint,
+    ProductionNote,
+    Incident,
+    Troubleshooting,
   };
 }

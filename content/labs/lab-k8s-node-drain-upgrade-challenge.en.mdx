@@ -20,6 +20,19 @@ skills:
 tools:
   - "kind (multi-node)"
   - "kubectl 1.28+"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
 successCriteria:
   - "A node is drained with no failed requests to the application."
   - "A PodDisruptionBudget blocks a drain that would breach availability."

@@ -22,6 +22,14 @@ tools:
   - "Terraform >= 1.6, kubectl, Helm, Docker, the AWS CLI"
   - "A GitHub repository"
   - "Four uninterrupted hours, and a budget alert you set beforehand"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "The application is reachable over HTTPS on a domain you control, served from Kubernetes on AWS."
     verify: state

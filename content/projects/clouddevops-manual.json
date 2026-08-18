@@ -6,7 +6,7 @@
   "summaryAr": "نفس منصة الإنتاج، بعد إزالة الملفات. ثمانية modules موجّهة تكتب فيها كل سطر بنفسك، والمستودع المكتمل هو ورقة الإجابة لا نقطة البداية.",
   "why": "Most tutorials hand you a finished 200-line file and call it the config. You copy it, it works, and you have learned nothing you could reproduce a week later.\n\nThis is the inverse. The workspace ships empty on purpose — seven phase directories and `src`, and nothing in them. Every module states the problem first, shows why the naive approach fails, and only then has you write the file. The finished platform sits in a separate repository as the answer key, to check yourself against when you have been stuck for fifteen minutes.\n\nIt is the same system either way: EKS provisioned by Terraform, a build host configured by Ansible, Jenkins building and scanning, Argo CD reconciling, Prometheus watching. One route hands you the answer; this one makes you derive it.",
   "author": "waleed",
-  "repo": "https://github.com/Waleeddarwesh/CloudDevOpsProject-Manual",
+  "repo": "https://github.com/Waleeddarwesh/CloudDevOpsProject-Guided",
   "license": "MIT",
   "level": "intermediate",
   "featured": false,

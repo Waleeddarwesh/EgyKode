@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Reports what this environment has. Changes nothing.
+#
+# The in-image twin of `npm run doctor` on the website. A learner inside a
+# container cannot run the repo's Node script, and the question they have is
+# the same one: what do I have, and is it enough?
+echo "EgyKode Lab Environment"
+echo
+
+# Not every tool answers to --version. kubectl and helm reject it outright, and
+# this printed their error text beside a tick: "✓ kubectl error: unknown flag".
+# A check that shows the reader an error and calls it a pass is worse than one
+# that is simply absent.
+version_cmd() {
+  case "$1" in
+    kubectl) echo "kubectl version --client" ;;
+    helm)    echo "helm version --short" ;;
+    *)       echo "$1 --version" ;;
+  esac
+}
+
+have() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    printf '  ✗ %-16s not installed\n' "$1"
+    return 1
+  fi
+  # Present but unable to report its own version means broken, not installed.
+  if ! $2 >/dev/null 2>&1; then
+    printf '  ✗ %-16s present but not working\n' "$1"
+    return 1
+  fi
+  printf '  ✓ %-16s %s\n' "$1" "$($2 2>&1 | head -1 | cut -c1-42)"
+  return 0
+}
+
+missing=0
+echo "Core"
+have git     "git --version"        || missing=$((missing+1))
+have bash    "bash --version"       || missing=$((missing+1))
+have python3 "python3 --version"    || missing=$((missing+1))
+have curl    "curl --version"       || missing=$((missing+1))
+have jq      "jq --version"         || missing=$((missing+1))
+
+# Only report on tools this image was built to carry, so a base image does not
+# list Terraform as missing when it was never meant to have it.
+for t in docker terraform ansible kubectl helm kind; do
+  command -v "$t" >/dev/null 2>&1 || continue
+  [ "$t" = "docker" ] && { echo; echo "Containers"; }
+  [ "$t" = "terraform" ] && { echo; echo "IaC"; }
+  [ "$t" = "kubectl" ] && { echo; echo "Kubernetes"; }
+  have "$t" "$(version_cmd "$t")"
+done
+
+# A CLI is not a working backend. These are the two that most often look
+# installed and still cannot do anything.
+if command -v docker >/dev/null 2>&1; then
+  echo
+  if docker info >/dev/null 2>&1; then
+    printf '  ✓ %-16s reachable\n' "docker daemon"
+  else
+    printf '  ✗ %-16s not reachable from inside this container\n' "docker daemon"
+    echo "      the host runs the daemon; this image carries the CLI only"
+  fi
+fi
+if command -v kubectl >/dev/null 2>&1; then
+  if kubectl cluster-info --request-timeout=3s >/dev/null 2>&1; then
+    printf '  ✓ %-16s reachable\n' "kubernetes"
+  else
+    printf '  ✗ %-16s no cluster reachable\n' "kubernetes"
+    echo "      a cluster is separate from having kind installed"
+  fi
+fi
+
+echo
+[ "$missing" -eq 0 ] && echo "Core tooling present." || echo "$missing core tool(s) missing."
+echo "Nothing was installed or changed."

@@ -15,6 +15,24 @@ costEstimate: "**Depends on an existing cluster.** Alert rules and dashboards ar
 cleanup:
   - "kubectl delete prometheusrule --all -n monitoring"
   - "kubectl delete configmap -l grafana_dashboard -n monitoring"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+      - helm
+    capabilities:
+      - kubernetes-cluster
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "An alert you wrote moves from inactive to pending to firing, and you caused it."
     verify: state

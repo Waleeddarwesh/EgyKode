@@ -105,6 +105,7 @@ export function SuccessCriteria({
 
   return (
     <section
+      id="success-criteria"
       className="card p-5"
       style={allDone ? { borderColor: "var(--clr-primary)", background: "var(--clr-success-bg)" } : undefined}
     >

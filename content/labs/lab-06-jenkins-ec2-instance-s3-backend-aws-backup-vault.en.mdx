@@ -16,6 +16,14 @@ cleanup:
   - "terraform destroy -auto-approve"
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
   - "aws backup list-recovery-points-by-backup-vault --backup-vault-name <vault> --query 'RecoveryPoints[].RecoveryPointArn'"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "State lives in S3 with DynamoDB locking, and a second concurrent apply is refused."
   - "The state bucket has versioning, so a deleted state file is recoverable."
@@ -45,7 +53,7 @@ not an accident of tooling.
   stage 2  →  every other stack uses them as a remote backend
 ```
 
-### 1. The backend, created locally
+<LabStep n={1} title="The backend, created locally" proves="You can create the backend that holds state, and recover a deleted state file from versioning" criterion={2}>
 
 ```hcl
 resource "aws_s3_bucket" "state" {
@@ -79,7 +87,9 @@ Two properties doing two different jobs:
 `PAY_PER_REQUEST` costs effectively nothing at this volume — a few writes per
 apply.
 
-### 2. Point the other stacks at it
+</LabStep>
+
+<LabStep n={2} title="Point the other stacks at it" proves="You can move state into S3 with locking, so a second concurrent apply is refused rather than racing" criterion={1}>
 
 ```hcl
 terraform {
@@ -106,7 +116,9 @@ state file.
 evaluates anything, so these values are literals or come from
 `-backend-config` flags. This surprises everyone once.
 
-### 3. A host with an address that does not move
+</LabStep>
+
+<LabStep n={3} title="A host with an address that does not move" proves="You can give a host an address that survives a stop and start" criterion={3}>
 
 ```hcl
 resource "aws_instance" "jenkins" {
@@ -152,7 +164,9 @@ point at an address, and every stop would otherwise mean reconfiguring them.
 An EIP is free while attached and **billed while unattached**, which is the
 reverse of what people assume and a common small mystery charge.
 
-### 4. Backups, by tag
+</LabStep>
+
+<LabStep n={4} title="Backups, by tag" proves="You can select resources for backup by tag, and verify a recovery point actually exists" criterion={4}>
 
 ```hcl
 resource "aws_backup_vault" "main" {
@@ -190,6 +204,8 @@ somebody has to remember, and eventually will not.
 
 ---
 
+</LabStep>
+
 ## Verify it worked
 
 ```bash
@@ -219,7 +235,7 @@ find that out either now or during a restore.
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **`Error acquiring the state lock`**
 
@@ -253,6 +269,8 @@ The tag does not match, or the IAM role lacks the AWS Backup service policy.
 `aws backup list-backup-jobs --by-state FAILED` gives the reason.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

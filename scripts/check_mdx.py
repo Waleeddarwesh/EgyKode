@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
 """
-Verify migrated MDX has no unescaped `{`, `}` or `<` outside code.
+Verify MDX has no unescaped `{`, `}` or `<` outside code and outside JSX.
 
 MDX v3 treats those as expression/JSX syntax, so an unescaped one in prose is a
 build failure. This runs before the Next.js build so the error names the file
 and line instead of surfacing as an opaque parser stack trace.
+
+Lab content deliberately uses components — `<LabStep>`, `<Why>`, `<Expect>` and
+the rest — so a rule that rejected every `<` would make the step format
+unauthorable. Instead, tags for components that are actually registered in the
+MDX map are allowed and everything else is still rejected.
+
+The allowed set is read from `mdx.tsx` rather than listed here. A second list
+would drift, and the failure it produced would be the confusing kind: a
+component that works in the browser but fails lint, or worse, a typo like
+`<Expct>` that lint waves through and MDX renders as an unknown element.
 """
 from __future__ import annotations
 
@@ -16,6 +26,36 @@ ROOT = Path(__file__).resolve().parents[1]
 INLINE_CODE = re.compile(r"(`[^`]*`)")
 HAZARD_BRACE = re.compile(r"(?<!\\)[{}]")
 HAZARD_LT = re.compile(r"(?<!\\)<(?!https?://)")
+
+MDX_MAP = ROOT / "apps" / "web" / "components" / "content" / "mdx.tsx"
+
+
+def known_components() -> set[str]:
+    """Capitalised keys of the object `mdxComponents` returns."""
+    if not MDX_MAP.exists():
+        return set()
+    text = MDX_MAP.read_text(encoding="utf-8")
+    start = text.find("export function mdxComponents")
+    if start == -1:
+        return set()
+    block = text[start:]
+    # `LabStep: (props…) =>` and the shorthand `Why,` forms both appear.
+    named = set(re.findall(r"^\s{4}([A-Z]\w+)\s*[,:]", block, re.MULTILINE))
+    return named
+
+
+KNOWN = known_components()
+
+# A line that is nothing but an opening or closing tag of a known component.
+# Attributes may contain braces and quotes; the tag must close on the same line.
+def is_component_line(line: str) -> bool:
+    stripped = line.strip()
+    if not stripped.startswith("<"):
+        return False
+    match = re.match(r"^</?([A-Z]\w*)\b", stripped)
+    if not match or match.group(1) not in KNOWN:
+        return False
+    return stripped.endswith(">")
 
 
 def check(path: Path) -> list[tuple[int, str]]:
@@ -30,6 +70,8 @@ def check(path: Path) -> list[tuple[int, str]]:
             in_fence = not in_fence
             continue
         if in_fence:
+            continue
+        if is_component_line(line):
             continue
         for segment in INLINE_CODE.split(line):
             if segment.startswith("`") and segment.endswith("`") and len(segment) > 1:
@@ -54,7 +96,9 @@ def main() -> int:
                 rel = f.relative_to(ROOT)
                 print(f"  {rel}:{lineno}  {snippet}")
 
-    print(f"\nchecked {len(files)} files — {total} unescaped MDX hazard(s)")
+    known = ", ".join(sorted(KNOWN)) or "none found"
+    print(f"\nchecked {len(files)} files - {total} unescaped MDX hazard(s)")
+    print(f"components allowed in prose: {known}")
     return 1 if total else 0
 
 

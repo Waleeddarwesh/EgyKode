@@ -19,6 +19,17 @@ skills:
 tools:
   - "Docker"
   - "Docker Compose"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: cicd
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - text: "Jenkins is running with its home directory on a named volume, surviving a container restart."
     verify: state
@@ -41,7 +52,7 @@ Neither is acceptable, and both are fixed before writing a single pipeline.
 > Grounded in the iVolve internship labs 21–23, which are procedures that have
 > actually been run rather than assembled from documentation.
 
-## 1. Jenkins that survives its container
+<LabStep n={1} title="Jenkins that survives its container" proves="You can run Jenkins so its home survives the container being replaced" criterion={1}>
 
 ```yaml
 # compose.yaml
@@ -70,7 +81,9 @@ credentials, plugins and build history all live there. Without it, `docker
 compose down` destroys your CI server — which is how people end up with a
 Jenkins nobody dares upgrade.
 
-## 2. A job that builds on push
+</LabStep>
+
+<LabStep n={2} title="A job that builds on push" proves="You can make a commit trigger a build without anyone pressing a button" criterion={2}>
 
 Install **Git** and **Pipeline** plugins, then create a Pipeline job with:
 
@@ -114,7 +127,9 @@ The trailing slash on `/github-webhook/` is required. Without it GitHub gets a
 404 and the delivery shows red in the webhook's Recent Deliveries — which is the
 first place to look when pushes do not trigger builds.
 
-## 3. Role-based access
+</LabStep>
+
+<LabStep n={3} title="Role-based access" proves="You can create an administrator and a read-only user, and demonstrate that the second cannot start a build" criterion={[3, 4]}>
 
 Install **Role-based Authorization Strategy**, then
 **Manage Jenkins → Security → Authorization → Role-Based Strategy**.
@@ -136,14 +151,18 @@ logging in as the read-only user:
 looks right and behaves differently is the normal case, and the only proof is
 attempting the action.
 
-## 4. Why this comes before pipelines
+</LabStep>
+
+<LabStep n={4} title="Why this comes before pipelines" proves="You can say why persistence and access control come before pipelines, not after">
 
 A Jenkins with `jenkins_home` in a container and every user an administrator
 will work perfectly until the day it does not — and then there is no history to
 consult and no way to tell who changed what. Both problems are ten minutes of
 configuration now and a rebuild later.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **The webhook fires but no build starts**
 
@@ -162,6 +181,8 @@ No user has Overall/Administer. Edit `config.xml` in `jenkins_home` to set `<use
 The tool is not in the container. Either install it in a custom image or run the stage on an agent that has it.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

@@ -81,6 +81,76 @@ export interface LabMeta {
   /** Tools and versions the lab expects. */
   tools?: string[];
   successCriteria: LabCriterion[];
+  /**
+   * Where this lab can actually be performed.
+   *
+   * Three peers, not one primary with fallbacks. A lab can legitimately offer
+   * all three at once — Kubernetes Workloads runs in a sandbox, on a local
+   * kind cluster, and on EKS — and an earlier shape that treated Killercoda as
+   * the main concept could not express that without contorting.
+   *
+   * Every option is absent by default. Absent means "not offered", never
+   * "broken": a lab whose subject is IAM has nothing to apologise for by
+   * requiring AWS.
+   *
+   * EgyKode stays static throughout. `online` is a link, `local` is a set of
+   * requirements the learner's own machine satisfies, and `cloud` is their
+   * account. Nothing here provisions anything.
+   */
+  handsOn?: {
+    /** A hosted sandbox. Free, zero install, and not available for every lab. */
+    online?: {
+      platform: "killercoda";
+      enabled: boolean;
+      /**
+       * Full https://killercoda.com/… URL, validated by content lint.
+       *
+       * Optional so a lab can carry `enabled: false` while its scenario exists
+       * in `killercoda/` but is unpublished. A URL is written only once it has
+       * been opened and confirmed — an invented one renders a button that
+       * takes a learner nowhere, which is worse than no button.
+       */
+      url?: string;
+    };
+    /**
+     * The learner's own machine. Broadest coverage of the three, because a
+     * local kind cluster can have as many nodes as it likes and a local VM has
+     * a real init system.
+     *
+     * `tools` and `capabilities` are what `npm run doctor` evaluates, so the
+     * lab stays the source of truth — encoding "the Kubernetes labs need kind"
+     * inside the tool would put that fact in two places and guarantee drift.
+     */
+    local?: {
+      enabled: boolean;
+      /** Compose profile that provides it: base, multinode, k8s, cicd… */
+      environment?: string;
+      tools?: string[];
+      capabilities?: string[];
+      /**
+       * What differs from the lab text when run locally, in the learner's
+       * words rather than ours.
+       *
+       * Many labs are written against the EKS cluster the AWS phase builds,
+       * but their *subject* — Argo CD, Helm, Prometheus — is portable and runs
+       * on a local kind cluster unchanged. Offering a local path for those is
+       * only honest if the page also says what to substitute, and where the
+       * local run genuinely stops short.
+       *
+       * This matters most where a local run *appears* to succeed: kind's
+       * default CNI accepts NetworkPolicy objects and enforces none of them,
+       * so a learner would tick "traffic is blocked" having blocked nothing.
+       */
+      note?: string;
+    };
+    /** Real infrastructure, when the platform itself is the subject. */
+    cloud?: {
+      enabled: boolean;
+      platform: "aws";
+      /** Always true today; explicit so the UI never implies we pay for it. */
+      requiresOwnAccount: boolean;
+    };
+  };
   challengeId?: string;
   guidedLabId?: string;
   /** The incident variant of this lab, where one exists. */
@@ -440,6 +510,16 @@ export function splitLabMission(body: string): { mission: string; rest: string }
       continue;
     }
     if (inFence) continue;
+    // The work begins at the first step, whatever the headings do.
+    //
+    // Splitting purely on the second `##` broke labs whose steps *were* the
+    // `##` headings: once converted to components, the only headings left were
+    // "The scenario" and "Troubleshooting", so the split landed at the end and
+    // every step rendered inside the mission — above the hands-on panel, and
+    // invisible to the progress rail, which reads what comes after the split.
+    if (/^\s*<LabStep\b/.test(line)) {
+      return { mission: lines.slice(0, i).join("\n").trimEnd(), rest: lines.slice(i).join("\n") };
+    }
     if (/^## +\S/.test(line)) {
       seen += 1;
       if (seen === 2) {
@@ -483,6 +563,27 @@ export function getLabSteps(body: string): LabStep[] {
     }
     if (inFence) continue;
 
+    // A step written as a component rather than a heading.
+    //
+    // `<LabStep>` renders its own heading, so there is no `###` line for this
+    // loop to find — a lab converted to the component form would have silently
+    // lost every entry in its rail, leaving a reader with no sense of where
+    // they were in exactly the labs meant to be easiest to follow.
+    //
+    // The id matches the `step-N` anchor LabStep renders, so the rail scrolls
+    // to the right place.
+    const component = raw.match(/^\s*<LabStep\s+n=\{(\d+)\}\s+title="([^"]+)"/);
+    if (component?.[1] && component[2]) {
+      steps.push({ id: `step-${component[1]}`, title: component[2], depth: 3 });
+      continue;
+    }
+
+    // The troubleshooting section is a component too, for the same reason.
+    if (/^\s*<Troubleshooting/.test(raw)) {
+      steps.push({ id: "troubleshooting", title: "Troubleshooting & Incidents", depth: 2 });
+      continue;
+    }
+
     // Both levels: some labs number their steps as `##`, others put them as
     // `###` under a single `## The work`. Taking only `##` gave the second
     // shape a two-item rail that said nothing about where you were.
@@ -504,5 +605,19 @@ export function getLabSteps(body: string): LabStep[] {
     seen.set(base, n + 1);
     steps.push({ id: n === 0 ? base : `${base}-${n}`, title, depth });
   }
-  return steps;
+
+  /**
+   * Once a lab has steps, the rail shows only those.
+   *
+   * A converted lab still has section headings around the steps — "The work",
+   * "What you built" — and listing them alongside put entries in the rail that
+   * are not steps and cannot be completed. On screen that read as a step whose
+   * circle never fills, sitting between two that do.
+   *
+   * Troubleshooting survives the filter: it is a real destination, and the
+   * component marks it as reference rather than as work.
+   */
+  const hasSteps = steps.some((s) => s.id.startsWith("step-"));
+  if (!hasSteps) return steps;
+  return steps.filter((s) => s.id.startsWith("step-") || s.id === "troubleshooting");
 }

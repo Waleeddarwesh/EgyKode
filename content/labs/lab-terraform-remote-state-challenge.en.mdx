@@ -19,6 +19,14 @@ skills:
 tools:
   - "Terraform >= 1.6"
   - "AWS CLI v2, configured"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "State lives in S3, and `terraform.tfstate` is no longer written locally."
     verify: command

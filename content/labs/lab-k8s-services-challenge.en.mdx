@@ -19,6 +19,19 @@ skills:
 tools:
   - "kind or minikube"
   - "kubectl 1.28+"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
 successCriteria:
   - "A ClusterIP Service routes traffic to three Pods, verified by repeated requests hitting different ones."
   - text: "`kubectl get endpoints` lists three addresses."

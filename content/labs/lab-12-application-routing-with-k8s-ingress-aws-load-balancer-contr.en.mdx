@@ -17,6 +17,14 @@ cleanup:
   - "# The ALB is deleted by the controller, asynchronously. Confirm it is gone:"
   - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].[LoadBalancerName,State.Code]' --output table"
   - "# An orphaned ALB keeps billing after the cluster is destroyed."
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A real ALB is provisioned from a Kubernetes manifest, and you can find it in the AWS console."
   - "Path-based routing sends two paths to two different Services."
@@ -57,7 +65,7 @@ networking, and knowing to check for the controller first saves hours.
 
 ## Build it
 
-### 1. The controller, and its AWS identity
+<LabStep n={1} title="The controller, and its AWS identity" proves="You can give a cluster controller its own AWS identity so it may create load balancers">
 
 ```bash
 helm repo add eks https://aws.github.io/eks-charts
@@ -76,7 +84,9 @@ kubectl annotate serviceaccount aws-load-balancer-controller -n kube-system \
   eks.amazonaws.com/role-arn=arn:aws:iam::111122223333:role/alb-controller
 ```
 
-### 2. Subnets must be tagged, or nothing happens
+</LabStep>
+
+<LabStep n={2} title="Subnets must be tagged, or nothing happens" proves="You can explain what target-type ip changes, and why subnet tags decide whether anything happens at all" criterion={3}>
 
 ```bash
 aws ec2 create-tags --resources subnet-0abc subnet-0def \
@@ -91,7 +101,9 @@ tags produce `unable to discover at least one subnet` in the controller log and
 nothing at all on the Ingress — which is why the controller log is the first
 place to look, not the last.
 
-### 3. The Ingress
+</LabStep>
+
+<LabStep n={3} title="The Ingress" proves="You can provision a real ALB from a manifest, route two paths to two Services, and prove that deleting the Ingress removes it" criterion={[1, 2, 4]}>
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -141,6 +153,8 @@ rather than an error.
 
 ---
 
+</LabStep>
+
 ## Verify it worked
 
 ```bash
@@ -171,7 +185,7 @@ and its ENIs block the VPC from being destroyed later.
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **`ADDRESS` stays empty**
 
@@ -206,6 +220,8 @@ The ALB still exists because the Ingress was never deleted. Its ENIs hold the
 subnets.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

@@ -61,6 +61,27 @@ export function setLabDone(labId: string, criteriaCount: number, done: boolean):
 }
 
 /**
+ * Tick or untick one criterion.
+ *
+ * Used when a step declares which criterion it satisfies, so marking the step
+ * run also settles that criterion — without the step becoming a second record
+ * of completion. Criteria remain the only answer to "is this lab done"; a step
+ * writes into that answer rather than keeping a rival copy of it.
+ *
+ * Indices are 0-based here and 1-based in content, because a lab author counts
+ * criteria from one and every other index in this file counts from zero.
+ */
+export function setCriterion(labId: string, index: number, done: boolean): void {
+  const all = readLabCriteria();
+  const current = new Set(all[labId] ?? []);
+  if (done) current.add(index);
+  else current.delete(index);
+  if (current.size) all[labId] = [...current].sort((a, b) => a - b);
+  else delete all[labId];
+  writeLabCriteria(all);
+}
+
+/**
  * Subscribe to the store.
  *
  * `null` until it has been read, so a first render can show nothing rather

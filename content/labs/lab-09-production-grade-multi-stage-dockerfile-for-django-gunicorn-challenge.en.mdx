@@ -11,6 +11,17 @@ tier: challenge
 estimatedMinutes: 15
 cloudCost: false
 costTier: free
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - "The final image is under 200 MB and contains no compiler."
   - text: "The container runs as a non-root user — proven with `docker exec ... id`."

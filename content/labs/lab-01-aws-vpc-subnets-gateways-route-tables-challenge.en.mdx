@@ -18,6 +18,14 @@ cleanup:
   - "aws ec2 describe-nat-gateways --filter Name=state,Values=available --query 'NatGateways[].NatGatewayId'"
   - "# Release any Elastic IP left behind (an unattached EIP is billed hourly):"
   - "aws ec2 describe-addresses --query 'Addresses[?AssociationId==`null`].[PublicIp,AllocationId]' --output table"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A VPC spans two availability zones with a public and a private subnet in each."
   - "An instance in a private subnet reaches the internet outbound and cannot be reached inbound."

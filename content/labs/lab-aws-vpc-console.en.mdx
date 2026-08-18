@@ -19,6 +19,14 @@ skills:
 tools:
   - "AWS CLI v2, configured"
   - "An AWS account"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "A VPC with one public and one private subnet exists, built by hand."
     verify: state
@@ -41,7 +49,7 @@ updated: 2026-08-10
 The Terraform VPC lab produces a working network in one command, which is the point of Terraform and also the problem: nothing about it explains why it works.
 
 Build the same thing by hand once, and every later `terraform apply` becomes readable.
-## 1. The VPC and two subnets
+<LabStep n={1} title="The VPC and two subnets" proves="You can build a VPC with a public and a private subnet by hand, so you know what the module was doing" criterion={1}>
 
 ```bash
 VPC=$(aws ec2 create-vpc --cidr-block 10.50.0.0/16 \
@@ -57,7 +65,9 @@ PRIV=$(aws ec2 create-subnet --vpc-id $VPC --cidr-block 10.50.2.0/24 \
 At this point **both subnets are private**. Nothing distinguishes them yet — the
 names are a convention, not a setting.
 
-## 2. The one route that changes everything
+</LabStep>
+
+<LabStep n={2} title="The one route that changes everything" proves="You can point at the single route that makes a subnet public" criterion={3}>
 
 ```bash
 IGW=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
@@ -81,7 +91,9 @@ aws ec2 describe-route-tables --route-table-ids $RT \
 Routes match **most-specific-first**: traffic to `10.50.x.x` matches the `local`
 route and stays inside; anything else falls through to `0.0.0.0/0`.
 
-## 3. Security groups, and what stateful means
+</LabStep>
+
+<LabStep n={3} title="Security groups, and what stateful means" proves="You can explain why a security group needs no return rule">
 
 ```bash
 SG=$(aws ec2 create-security-group --group-name lab-ssh \
@@ -100,7 +112,9 @@ A NACL is stateless — allow inbound 22 and the reply is still dropped unless y
 also allow outbound on the ephemeral range. The symptom is a *hang*, not a
 refusal, which is why people debug the application instead of the network.
 
-## 4. Public and private instances
+</LabStep>
+
+<LabStep n={4} title="Public and private instances" proves="You can show one instance reachable over SSH and the other not" criterion={2}>
 
 ```bash
 aws ec2 run-instances --image-id <al2023-ami> --instance-type t3.micro \
@@ -114,7 +128,9 @@ aws ec2 run-instances --image-id <al2023-ami> --instance-type t3.micro \
 The second has no public IP and no route to the internet. It is unreachable from
 outside and cannot reach out — which is correct, and inconvenient.
 
-## 5. Reaching the private instance without a NAT Gateway
+</LabStep>
+
+<LabStep n={5} title="Reaching the private instance without a NAT Gateway" proves="You can reach a private instance without giving it a public IP or paying for a NAT Gateway" criterion={4}>
 
 The obvious answer is a NAT Gateway, and it bills ~$32/month whether or not
 traffic flows. For a lab, use **SSM Session Manager** instead:
@@ -132,7 +148,9 @@ bastion host does not give you.
 "we need a NAT Gateway" requirements dissolve into SSM plus VPC endpoints, and
 that is a real monthly saving.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **SSH times out to the public instance**
 
@@ -151,6 +169,8 @@ That is correct behaviour — there is no NAT Gateway. Use SSM, or VPC endpoints
 The instance needs the SSM instance profile and a path to the SSM endpoints. Check the instance profile first.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

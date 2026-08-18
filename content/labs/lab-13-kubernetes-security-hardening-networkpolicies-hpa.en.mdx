@@ -16,6 +16,30 @@ cleanup:
   - "kubectl delete networkpolicy --all -A"
   - "kubectl delete hpa --all -A"
   - "kubectl get nodes  # confirm the HPA did not leave extra nodes running"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    note: >-
+      Create the cluster with `./egykode cluster calico` for this one. kind's default
+      CNI accepts NetworkPolicy objects and enforces none of them, so your policies
+      would appear to apply while blocking nothing. HPA also needs metrics-server,
+      which the same command installs.
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
+      - networkpolicy-enforced
+      - metrics-server
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "With default-deny applied, an unrelated Pod cannot reach the application — demonstrated."
   - "The application still reaches the database and DNS."
@@ -52,7 +76,7 @@ many of it there are.
 
 ## Build it
 
-### 1. Default deny — start by breaking it
+<LabStep n={1} title="Default deny — start by breaking it" proves="You can apply a default-deny policy and demonstrate that traffic is genuinely blocked, not merely accepted" criterion={[1, 4]}>
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -69,7 +93,9 @@ An empty `podSelector` selects everything; no rules means nothing is allowed.
 Apply this first and confirm the application breaks — a default-deny you cannot
 prove is doing anything is indistinguishable from one that is silently ignored.
 
-### 2. Allow exactly what is needed
+</LabStep>
+
+<LabStep n={2} title="Allow exactly what is needed" proves="You can allow exactly the traffic an application needs, including the DNS everyone forgets" criterion={2}>
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -124,7 +150,9 @@ Two more things worth holding onto:
   default-deny exists; without it, adding a policy to one Pod leaves every
   other Pod wide open.
 
-### 3. The HPA
+</LabStep>
+
+<LabStep n={3} title="The HPA" proves="You can scale a workload on CPU, and explain why an HPA with no requests does nothing" criterion={3}>
 
 ```yaml
 apiVersion: autoscaling/v2
@@ -175,6 +203,8 @@ minutes of extra capacity.
 
 ---
 
+</LabStep>
+
 ## Verify it worked
 
 ```bash
@@ -206,7 +236,7 @@ making.
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **The policy has no effect and everything still connects**
 
@@ -240,6 +270,8 @@ Add a `scaleDown` stabilization window. Without one, a brief dip removes the
 capacity you just added.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

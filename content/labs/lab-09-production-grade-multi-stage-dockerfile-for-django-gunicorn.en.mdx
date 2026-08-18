@@ -11,6 +11,17 @@ tier: guided
 estimatedMinutes: 31
 cloudCost: false
 costTier: free
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - "The final image is under 200 MB and contains no compiler."
   - text: "The container runs as a non-root user — proven with `docker exec ... id`."
@@ -56,7 +67,7 @@ Three things this buys you, and the second is the one that matters most:
 
 ## Build it
 
-### 1. The Dockerfile
+<LabStep n={1} title="The Dockerfile" proves="You can write a multi-stage build whose final image carries no compiler or build toolchain" criterion={1}>
 
 ```dockerfile
 # ---------- Stage 1: build ----------
@@ -106,7 +117,9 @@ carries headers needed to *compile* the driver; the runtime needs only the
 shared library. Copying that distinction wholesale is what keeps the second
 stage small.
 
-### 2. Layer order is the build-time win
+</LabStep>
+
+<LabStep n={2} title="Layer order is the build-time win" proves="You can order layers so that changing application code does not reinstall dependencies" criterion={3}>
 
 ```dockerfile
 COPY requirements.txt .        # changes rarely
@@ -127,7 +140,9 @@ echo "# touch" >> app/views.py
 docker build -t app:1.1 .          # look for "CACHED" on the pip layer
 ```
 
-### 3. An entrypoint that waits instead of crashing
+</LabStep>
+
+<LabStep n={3} title="An entrypoint that waits instead of crashing" proves="You can make a container wait for its database instead of crash-looping against it" criterion={4}>
 
 ```bash
 #!/bin/sh
@@ -148,7 +163,9 @@ which does not forward it, and the container is killed 10 seconds later after
 dropping in-flight requests. With `exec`, Gunicorn *becomes* PID 1 and shuts
 down gracefully.
 
-### 4. Build and measure
+</LabStep>
+
+<LabStep n={4} title="Build and measure" proves="You can measure the image you built and prove it runs as a non-root user" criterion={2}>
 
 ```bash
 docker build -t app:1.0 .
@@ -157,6 +174,8 @@ docker history app:1.0 | head
 ```
 
 ---
+
+</LabStep>
 
 ## Verify it worked
 
@@ -181,7 +200,7 @@ prove only that a build ran.
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **`pip install` fails in the runtime stage with a missing header**
 
@@ -214,6 +233,8 @@ The command runs *inside* the container, so anything it calls must exist there.
 output of the last few probes.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

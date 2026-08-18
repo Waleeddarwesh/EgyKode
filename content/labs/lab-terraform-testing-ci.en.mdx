@@ -21,6 +21,18 @@ tools:
   - "tflint"
   - "trivy or checkov"
   - "A GitHub repository"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - terraform
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - "`fmt`, `validate`, `tflint` and a security scan all run in CI on a pull request."
   - text: "A misformatted or insecure change fails the pipeline — proven deliberately."
@@ -45,7 +57,7 @@ Cheapest first. `fmt` takes a second; a security scan takes twenty; `plan` calls
 AWS. Failing early means the expensive steps only run on changes that deserve
 them.
 
-## 1. The local checks
+<LabStep n={1} title="The local checks" proves="You can run the checks locally that CI will run, before pushing">
 
 ```bash
 terraform fmt -check -recursive      # -check fails rather than rewriting
@@ -56,7 +68,9 @@ terraform validate
 `-backend=false` matters in CI: validation needs no credentials and no state, so
 it can run on a pull request from a fork.
 
-## 2. Lint what `validate` cannot see
+</LabStep>
+
+<LabStep n={2} title="Lint what validate cannot see" proves="You can catch the mistakes validate cannot see">
 
 ```bash
 tflint --init
@@ -67,7 +81,9 @@ tflint --recursive
 HCL and wrong anyway: a nonexistent instance type, a deprecated argument, a
 missing required tag.
 
-## 3. Scan for insecure defaults
+</LabStep>
+
+<LabStep n={3} title="Scan for insecure defaults" proves="You can scan configuration for insecure defaults rather than reviewing for them by eye">
 
 ```bash
 trivy config --severity HIGH,CRITICAL --exit-code 1 .
@@ -77,7 +93,9 @@ Catches the classics — an unencrypted bucket, a security group open to
 `0.0.0.0/0`, public access left unblocked. `--exit-code 1` is what makes it a
 gate rather than a report.
 
-## 4. Plan as an artifact
+</LabStep>
+
+<LabStep n={4} title="Plan as an artifact" proves="You can apply a saved plan rather than re-planning at apply time" criterion={3}>
 
 ```bash
 terraform plan -out=tfplan -input=false
@@ -94,7 +112,9 @@ This is the important habit. Re-planning at apply time means the change that
 runs is not the change that was reviewed — the world may have moved in between.
 A saved plan cannot drift between approval and execution.
 
-## 5. The workflow
+</LabStep>
+
+<LabStep n={5} title="The workflow" proves="You can make a misformatted or insecure change fail the pipeline, proven deliberately" criterion={[1, 2]}>
 
 ```yaml
 name: terraform
@@ -146,7 +166,9 @@ jobs:
 **The plan role should be read-only.** A pull request from anywhere should be
 able to *show* you what it would do and never be able to do it.
 
-## 6. Drift detection
+</LabStep>
+
+<LabStep n={6} title="Drift detection" proves="You can schedule a run that reports drift when something changes outside Terraform" criterion={4}>
 
 ```bash
 terraform plan -detailed-exitcode
@@ -158,7 +180,9 @@ changed AWS by hand — and finding that on a Monday morning is considerably
 better than finding it mid-incident, when you cannot tell whether the drift is
 the cause or a previous fix.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`fmt -check` fails and you cannot see why**
 
@@ -175,3 +199,6 @@ Suppress it inline with a documented reason. A blanket `--skip` teaches everyone
 **The saved plan is rejected at apply**
 
 State moved since the plan. That is the protection working — re-plan and review again.
+
+</Troubleshooting>
+

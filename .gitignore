@@ -70,3 +70,7 @@ apps/web/public/build-id.txt
 # every commit carried the churn — a machine-local artifact in the diff of
 # changes that had nothing to do with it.
 *.tsbuildinfo
+
+# Generated mirror of the standalone lab environment repo.
+# Built by scripts/sync-lab-env.mjs; lint:lab-env fails when it drifts.
+.lab-env/

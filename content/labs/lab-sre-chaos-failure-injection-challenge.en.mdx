@@ -20,6 +20,17 @@ skills:
 tools:
   - "kind or minikube"
   - "kubectl 1.28+"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - "A killed Pod is replaced automatically, and you measured how long it took."
   - "You found at least one case where recovery did *not* happen as expected."

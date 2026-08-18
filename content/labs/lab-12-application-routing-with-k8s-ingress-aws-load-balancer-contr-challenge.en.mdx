@@ -17,6 +17,14 @@ cleanup:
   - "# The ALB is deleted by the controller, asynchronously. Confirm it is gone:"
   - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].[LoadBalancerName,State.Code]' --output table"
   - "# An orphaned ALB keeps billing after the cluster is destroyed."
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A real ALB is provisioned from a Kubernetes manifest, and you can find it in the AWS console."
   - "Path-based routing sends two paths to two different Services."

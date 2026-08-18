@@ -20,6 +20,14 @@ skills:
 tools:
   - "Terraform >= 1.6"
   - "AWS CLI v2, configured"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "You detected a manual change and can explain both ways to resolve it."
     verify: state
@@ -42,7 +50,7 @@ All three are recoverable. None of them require rebuilding the infrastructure �
 > **This lab deletes state and modifies resources on purpose.** Use a scratch
 > configuration, never a real environment.
 
-## 1. Drift, detected
+<LabStep n={1} title="Drift, detected" proves="You can detect a manual change and explain both ways to resolve it" criterion={1}>
 
 ```bash
 terraform apply -auto-approve
@@ -72,7 +80,9 @@ closed the port again at the worst moment.
 `-detailed-exitcode` returns `2` for drift, which is designed for a scheduled
 job — finding drift on a Monday is much better than finding it mid-incident.
 
-## 2. A resource Terraform does not know about
+</LabStep>
+
+<LabStep n={2} title="A resource Terraform does not know about" proves="You can import a resource Terraform did not create, until plan reports no changes" criterion={2}>
 
 ```bash
 aws s3api create-bucket --bucket tfstate-recovery-demo-$(date +%s)   # by hand
@@ -105,7 +115,9 @@ import {
 }
 ```
 
-## 3. The state file is gone
+</LabStep>
+
+<LabStep n={3} title="The state file is gone" proves="You can restore a deleted state file from versioning and confirm it matches reality" criterion={3}>
 
 ```bash
 aws s3 rm s3://<state-bucket>/demo/terraform.tfstate      # simulate it
@@ -131,7 +143,9 @@ terraform plan      # No changes
 delete leaves a delete marker and the object is still there. Without versioning,
 the only recovery is importing every resource by hand.
 
-## 4. Refactoring without destroying
+</LabStep>
+
+<LabStep n={4} title="Refactoring without destroying" proves="You can move resources in state without destroying and recreating them" criterion={4}>
 
 Renaming a resource in your configuration makes Terraform plan a destroy and a
 create — same infrastructure, different address:
@@ -155,14 +169,18 @@ keeps running and billing, invisible to your configuration. It is the right tool
 for handing a resource to another stack, and a good way to create an orphan by
 accident.
 
-## 5. Habits worth keeping
+</LabStep>
+
+<LabStep n={5} title="Habits worth keeping" proves="You can name the habits that keep state recoverable before you need to recover it">
 
 - Versioning **and** locking on the state bucket, always.
 - `-detailed-exitcode` on a schedule, so drift finds you rather than the reverse.
 - `plan -out` then `apply` that file, so what runs is what was reviewed.
 - Before anything risky: `terraform state pull > backup.tfstate`.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`import` says the resource already exists in state**
 
@@ -181,6 +199,9 @@ Versioning was not enabled. There is no recovery beyond importing everything; en
 Addresses are exact, including index keys such as `[0]` or `["us-east-1a"]`. Copy them from `terraform state list` rather than typing them.
 
 ---
+
+</Troubleshooting>
+
 
 ## Clean up
 

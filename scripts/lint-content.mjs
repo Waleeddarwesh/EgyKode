@@ -111,6 +111,243 @@ for (const domain of readdirSync(learnDir, { withFileTypes: true })) {
   }
 }
 
+// ── 2b. Execution options ───────────────────────────────────────────────────
+//
+// `handsOn` is optional and each of its three options is optional within it —
+// a lab whose subject is IAM has nothing to apologise for by offering only
+// `cloud`. So the checks are narrow: a link, once written, must be real, and
+// an option claiming to be enabled must carry what it needs to work. A typo
+// here ships a button that takes a learner nowhere.
+/**
+ * What `./egykode start <name>` can actually bring up.
+ *
+ * Read from the tooling rather than listed here. A hardcoded set would be a
+ * third copy of the same fact — after the lab frontmatter and the tooling
+ * itself — and the first one to go stale would be the one asserting the other
+ * two are fine.
+ */
+const ENVIRONMENTS = (() => {
+  const found = new Set(["base"]); // no profile: controller + node, always up
+  const compose = join(ROOT, "docker-compose.yml");
+  if (existsSync(compose)) {
+    for (const m of readFileSync(compose, "utf8").matchAll(/^\s*profiles:\s*\[([^\]]+)\]/gm)) {
+      for (const p of m[1].split(",")) found.add(p.trim());
+    }
+  }
+  // Names the wrapper handles itself. `k8s` is not a Compose profile — it
+  // creates a kind cluster on the host and joins the controller to it.
+  //
+  // Scoped to the `start)` branch: scanning the whole file also collected the
+  // `cluster)` subcommands, so `environment: delete` would have linted clean.
+  const cli = join(ROOT, "egykode");
+  if (existsSync(cli)) {
+    const start = readFileSync(cli, "utf8").match(/^ {2}start\)$([\s\S]*?)^ {4};;$/m)?.[1] ?? "";
+    for (const m of start.matchAll(/^ {6}(\w[\w-]*)\)\s*$/gm)) found.add(m[1]);
+  }
+  return found;
+})();
+
+{
+  const labsDir = join(CONTENT, "labs");
+  if (existsSync(labsDir)) {
+    for (const file of readdirSync(labsDir).filter((f) => f.endsWith(".mdx"))) {
+      const raw = readFileSync(join(labsDir, file), "utf8");
+      // `(?=^\S|\Z)` here had the same literal-"Z" bug described below. It
+      // happened to work because `successCriteria:` always follows handsOn, so
+      // `^\S` always matched — a latent failure waiting for the day handsOn is
+      // written last. Ends at the next top-level key or the end of input.
+      const handsOn = raw.match(/^handsOn:\s*$([\s\S]*?)(?=^\S|$(?![\s\S]))/m)?.[1];
+      if (!handsOn) continue;
+
+      const where = `content/labs/${file}`;
+
+      // Split on the two-space-indented keys rather than using a lookahead.
+      //
+      // The first version ended each option with `(?=^  \w|\Z)`, and `\Z` is
+      // not a JavaScript token — it matched a literal "Z". The last option in
+      // the block therefore never matched at all and its rule was skipped
+      // silently, which a mutation test caught and a passing run never would.
+      const option = (name) => {
+        const lines = handsOn.split(/\r?\n/);
+        const start = lines.findIndex((l) => new RegExp(`^  ${name}:\\s*$`).test(l));
+        if (start === -1) return undefined;
+        const body = [];
+        for (const line of lines.slice(start + 1)) {
+          if (/^ {0,2}\S/.test(line)) break; // next option, or back to top level
+          body.push(line);
+        }
+        return body.join("\n");
+      };
+
+      const online = option("online");
+      if (online) {
+        const enabled = /^\s+enabled:\s*true\s*$/m.test(online);
+        const url = online.match(/^\s+url:\s*["']?([^"'\r\n]*)["']?\s*$/m)?.[1]?.trim();
+        if (enabled && !url) {
+          fail(where, null, "handsOn.online.enabled is true but no url is set");
+        } else if (enabled && !/^https:\/\/(www\.)?killercoda\.com\/\S+$/.test(url)) {
+          fail(where, null, `handsOn.online.url "${url}" is not an https killercoda.com URL`);
+        }
+      }
+
+      // A local option with no tools cannot tell a learner what to install,
+      // and `doctor` has nothing to evaluate against.
+      const local = option("local");
+      if (local && /^\s+enabled:\s*true\s*$/m.test(local) && !/^\s+tools:\s*$/m.test(local)) {
+        fail(where, null, "handsOn.local is enabled but lists no tools");
+      }
+
+      // The environment must be one `./egykode` actually provides.
+      //
+      // 27 labs once declared `environment: k8s` when no such thing existed.
+      // The lab page rendered `./egykode start k8s`, Compose accepts an unknown
+      // profile without complaint, and the command printed "Ready" having
+      // started nothing — so the failure surfaced minutes later as a kubectl
+      // connection error with no path back to its cause.
+      if (local) {
+        const env = local.match(/^\s+environment:\s*(\S+)\s*$/m)?.[1];
+        if (env && !ENVIRONMENTS.has(env)) {
+          fail(
+            where,
+            null,
+            `handsOn.local.environment "${env}" is not provided by ./egykode ` +
+              `(known: ${[...ENVIRONMENTS].sort().join(", ")})`,
+          );
+        }
+      }
+
+      // The UI must never imply EgyKode pays for a learner's cloud usage.
+      const cloud = option("cloud");
+      if (cloud && /^\s+enabled:\s*true\s*$/m.test(cloud) && !/requiresOwnAccount:\s*true/.test(cloud)) {
+        fail(where, null, "handsOn.cloud is enabled but does not set requiresOwnAccount: true");
+      }
+    }
+  }
+}
+
+/**
+ * How many success criteria a lab declares.
+ *
+ * Counted from the block only — reading to the end of the frontmatter also
+ * swept up `cleanup:` commands, which would let a step point at a criterion
+ * index that does not exist while lint called it valid.
+ */
+function countCriteria(raw) {
+  const fm = raw.match(/^---([\s\S]*?)\r?\n---/)?.[1] ?? "";
+  const lines = fm.split(/\r?\n/);
+  const at = lines.findIndex((l) => /^successCriteria:/.test(l));
+  if (at === -1) return 0;
+  let n = 0;
+  for (const line of lines.slice(at + 1)) {
+    if (/^\S/.test(line)) break;
+    if (/^\s+-\s+/.test(line)) n += 1;
+  }
+  return n;
+}
+
+// ── 2c. Lab step format ─────────────────────────────────────────────────────
+//
+// These apply only to labs that have been migrated to `<LabStep>`. A lab using
+// the older heading format is untouched, which is what makes the rollout
+// incremental: converting a lab opts it into the contract, and nothing has to
+// happen to the other 113 on the same day.
+{
+  const labsDir = join(CONTENT, "labs");
+  if (existsSync(labsDir)) {
+    for (const file of readdirSync(labsDir).filter((f) => f.endsWith(".mdx"))) {
+      const raw = readFileSync(join(labsDir, file), "utf8");
+      const where = `content/labs/${file}`;
+      const body = raw.replace(/^---[\s\S]*?\r?\n---/, "");
+
+      const steps = [...body.matchAll(/<LabStep\b([^>]*)>/g)];
+      const migrated = steps.length > 0;
+
+      if (migrated) {
+        for (const [, attrs] of steps) {
+          const n = attrs.match(/n=\{(\d+)\}/)?.[1] ?? "?";
+
+          // `proves` is the step's reason for existing. Without it a step is a
+          // list of commands, which is the shape the format was built to
+          // replace — so it is required rather than encouraged.
+          const proves = attrs.match(/proves="([^"]*)"/)?.[1];
+          if (!proves?.trim()) {
+            fail(where, null, `<LabStep n={${n}}> has no proves — every step must state the capability it gives the learner`);
+            continue;
+          }
+
+          // A capability, not a transcript. "You ran ss" describes what
+          // happened; "You can identify the process holding a port" describes
+          // what the learner can now do, and only the second is checkable by
+          // the person who did it.
+          if (/^\s*you\s+(ran|executed|typed|copied|used\s+the\s+command|created\s+a\s+file\s+called)\b/i.test(proves)) {
+            fail(where, null, `<LabStep n={${n}}> proves describes an action, not a capability: "${proves.slice(0, 60)}"`);
+          }
+          if (!/^\s*you\s+can\b/i.test(proves)) {
+            fail(where, null, `<LabStep n={${n}}> proves should read as a capability, starting "You can …": "${proves.slice(0, 60)}"`);
+          }
+
+          // The criterion a step settles must exist, and must be written as a
+          // number or an array literal.
+          //
+          // `criterion={1,4}` is not a syntax error — it is a JS comma
+          // expression evaluating to 4 — so MDX renders it happily and the step
+          // ticks one criterion instead of two. An index past the end is the
+          // same class of quiet wrong: the tick lands on nothing.
+          const rawCriterion = attrs.match(/criterion=\{([^}]*)\}/)?.[1]?.trim();
+          if (rawCriterion !== undefined) {
+            if (/^\d+\s*,/.test(rawCriterion)) {
+              fail(where, null, `<LabStep n={${n}}> criterion={${rawCriterion}} is a comma expression — write criterion={[${rawCriterion}]}`);
+            } else {
+              const indices = rawCriterion.startsWith("[")
+                ? rawCriterion.slice(1, -1).split(",").map((v) => Number(v.trim()))
+                : [Number(rawCriterion)];
+              const total = countCriteria(raw);
+              for (const idx of indices) {
+                if (!Number.isInteger(idx) || idx < 1 || idx > total) {
+                  fail(where, null, `<LabStep n={${n}}> criterion ${idx} does not exist — the lab has ${total}`);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // The troubleshooting section is a peer of the steps, not a child of one.
+      //
+      // The converter matched only markdown headings when deciding where a step
+      // ended, so the last step swallowed the whole <Troubleshooting> block —
+      // which then rendered inside a collapsed step body instead of as its own
+      // section. Fifteen labs shipped that way and nothing failed: the tags
+      // balanced, the MDX compiled, and the section was simply invisible.
+      for (const [, stepBody] of body.matchAll(/<LabStep[^>]*>([\s\S]*?)<\/LabStep>/g)) {
+        if (/<Troubleshooting\b/.test(stepBody)) {
+          fail(where, null, "<Troubleshooting> is nested inside a <LabStep> — it belongs after the steps");
+        }
+      }
+
+      // Every lab teaches at least one failure, wherever it lives: inside a
+      // step for a failure that step causes, or in the trailing section for one
+      // that spans the system. A lab with neither teaches only the happy path.
+      const tier = raw.match(/^tier:\s*(.*)$/m)?.[1]?.trim();
+      if (tier === "guided") {
+        const hasStepIncident = /<Incident\b/.test(body);
+        // Either shape: the heading in an unconverted lab, or the component
+        // that replaces it once the lab has been converted.
+        const hasSection =
+          /^## Troubleshooting & Incidents\s*$/m.test(body) || /<Troubleshooting\b/.test(body);
+        if (!hasStepIncident && !hasSection) {
+          fail(where, null, "no troubleshooting — add an <Incident> to a step, or a Troubleshooting section");
+        }
+        // The old heading, caught so the corpus does not drift back into two
+        // names for one section.
+        if (/^## When it goes wrong\s*$/m.test(body)) {
+          fail(where, null, "'## When it goes wrong' is now '## Troubleshooting & Incidents'");
+        }
+      }
+    }
+  }
+}
+
 // ── 3. Cross-references resolve ─────────────────────────────────────────────
 const ids = new Set(chapters.map((c) => c.fm.contentId));
 for (const { file, raw } of chapters) {

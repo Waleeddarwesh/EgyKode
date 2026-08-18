@@ -18,7 +18,7 @@
   "titleAr": "ابنِه بنفسك — مشروع Cloud DevOps الختامي",
   "summary": "Eight guided modules that build the same platform from an empty workspace. You write every line; the finished repository is the answer key, not the starting point.",
   "summaryAr": "ثمانية modules موجّهة تبني نفس المنصة من مساحة عمل فارغة. أنت تكتب كل سطر، والمستودع المكتمل ورقة إجابة لا نقطة بداية.",
-  "repo": "CloudDevOpsProject-Manual"
+  "repo": "CloudDevOpsProject-Guided"
  },
  "phases": [
   {

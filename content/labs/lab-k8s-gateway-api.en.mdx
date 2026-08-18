@@ -20,6 +20,19 @@ tools:
   - "kind or minikube"
   - "kubectl 1.28+"
   - "A Gateway API controller (Envoy Gateway or NGINX Gateway Fabric)"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
 successCriteria:
   - text: "The same application is reachable through an Ingress and through an HTTPRoute."
     verify: state
@@ -40,7 +53,7 @@ updated: 2026-08-10
 Ingress is stable, everywhere, and feature-frozen. Everything it cannot express — header matching, traffic splitting, timeouts — moved into vendor annotations that mean different things on different controllers.
 
 Gateway API is the replacement. Learn Ingress first, because it is what existing clusters run; learn this, because new ones will not.
-## 1. Install a controller and the CRDs
+<LabStep n={1} title="Install a controller and the CRDs" proves="You can install Gateway API alongside a controller that implements it">
 
 ```bash
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.1.0/standard-install.yaml
@@ -51,7 +64,9 @@ kubectl get gatewayclass
 Gateway API ships as CRDs, not as part of core Kubernetes. Nothing works until
 both the CRDs and a controller implementing them are present.
 
-## 2. The same routing, both ways
+</LabStep>
+
+<LabStep n={2} title="The same routing, both ways" proves="You can serve the same application through an Ingress and through an HTTPRoute" criterion={1}>
 
 **Ingress — one object, one owner:**
 
@@ -115,7 +130,9 @@ infrastructure or asking anyone.
 Under Ingress, both live in one object, so either everyone edits the shared
 routing or nobody can change their own.
 
-## 3. What Ingress cannot express
+</LabStep>
+
+<LabStep n={3} title="What Ingress cannot express" proves="You can split traffic by weight with no annotations involved" criterion={2}>
 
 ```yaml
   rules:
@@ -146,7 +163,9 @@ Roughly 90/10. Doing that with Ingress requires controller-specific annotations
 that do not port between NGINX, Traefik and ALB — which is exactly the
 fragmentation Gateway API exists to end.
 
-## 4. The comparison
+</LabStep>
+
+<LabStep n={4} title="The comparison" proves="You can name two things Gateway API expresses that Ingress cannot" criterion={3}>
 
 | | Ingress | Gateway API |
 | --- | --- | --- |
@@ -158,7 +177,9 @@ fragmentation Gateway API exists to end.
 | Portability | Annotations differ per controller | Conformance-tested |
 | Status | Frozen | Actively developed |
 
-## 5. Migrating
+</LabStep>
+
+<LabStep n={5} title="Migrating" proves="You can say who owns a Gateway and who owns an HTTPRoute, and why that split matters" criterion={4}>
 
 Both can run at once, on different hostnames or different controllers. The
 sensible path is a new Gateway alongside the existing Ingress, one route moved
@@ -173,7 +194,9 @@ kubectl get httproute web -o jsonpath='{.status.parents}' | jq
 accepted reports `Accepted: False` with a reason — and unlike an Ingress that
 silently does nothing, it tells you why.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`no matches for kind Gateway`**
 
@@ -192,6 +215,9 @@ Check `status.parents` — the Gateway's `allowedRoutes` may not permit that nam
 Weights are statistical, not per-request, and keep-alive reuses connections. Send more requests without keep-alive.
 
 ---
+
+</Troubleshooting>
+
 
 ## Clean up
 

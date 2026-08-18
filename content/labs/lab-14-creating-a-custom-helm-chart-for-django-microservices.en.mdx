@@ -15,6 +15,27 @@ costEstimate: "**Depends on an existing cluster.** Helm itself is free; the work
 cleanup:
   - "helm uninstall <release> -n <namespace>"
   - "kubectl get all -n <namespace>"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    note: >-
+      Where the values file points at an ECR image, point it at a local image
+      instead and load it with `kind load docker-image`.
+    tools:
+      - docker
+      - kubectl
+      - kind
+      - helm
+    capabilities:
+      - kubernetes-cluster
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "One chart installs into two environments with different values and no edited templates."
   - text: "`helm template` renders correct YAML before anything touches the cluster."
@@ -56,7 +77,7 @@ and diff are possible. `kubectl apply -f` has no memory of what it applied.
 
 ## Build it
 
-### 1. `Chart.yaml`
+<LabStep n={1} title="Chart.yaml" proves="You can define a chart's identity and the versions it carries">
 
 ```yaml
 apiVersion: v2
@@ -71,7 +92,9 @@ Two versions because they change for different reasons. Editing a template
 without bumping `version` means two different charts share a number, and
 `helm history` stops being able to tell you what ran.
 
-### 2. Helpers, so names are defined once
+</LabStep>
+
+<LabStep n={2} title="Helpers, so names are defined once" proves="You can define resource names once and reuse them across every template">
 
 ```yaml
 {{/* templates/_helpers.tpl */}}
@@ -106,7 +129,9 @@ that does not mention labels.
 `trunc 63` is not decoration either: Kubernetes label values are limited to 63
 characters, and a long release name silently produces an invalid object.
 
-### 3. A template
+</LabStep>
+
+<LabStep n={3} title="A template" proves="You can write a template whose config change causes a rollout rather than mutating Pods that never restart" criterion={3}>
 
 ```yaml
 apiVersion: apps/v1
@@ -152,7 +177,9 @@ Pod spec change, which makes it a rollout.
 HPA exists: leaving `replicas` in the manifest makes Helm and the HPA fight,
 and each `helm upgrade` resets the count.
 
-### 4. `values.yaml` is the interface
+</LabStep>
+
+<LabStep n={4} title="values.yaml is the interface" proves="You can install one chart into two environments through values alone, with no edited templates" criterion={1}>
 
 ```yaml
 replicaCount: 2
@@ -198,7 +225,9 @@ resources:
   limits:   { cpu: "2", memory: 1Gi }
 ```
 
-### 5. Render before you install
+</LabStep>
+
+<LabStep n={5} title="Render before you install" proves="You can render and lint a chart before anything touches the cluster" criterion={[2, 4]}>
 
 ```bash
 helm lint ./myapp
@@ -211,6 +240,8 @@ check; piping it to `--dry-run=server` adds validation against the real API,
 including admission webhooks. Both belong in CI.
 
 ---
+
+</LabStep>
 
 ## Verify it worked
 
@@ -234,7 +265,7 @@ helm history rel -n platform
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **`field is immutable` on upgrade**
 
@@ -263,6 +294,8 @@ indents by 4 — `indent` does not add the newline. Rendering with
 admission control.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

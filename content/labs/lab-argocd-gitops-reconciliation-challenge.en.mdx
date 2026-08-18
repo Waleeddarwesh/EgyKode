@@ -16,6 +16,25 @@ cleanup:
   - "kubectl delete application <name> -n argocd"
   - "kubectl get all -n ivolve      # confirm the cascade removed the workloads"
   - "helm uninstall argocd -n argocd && kubectl delete ns argocd"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    note: >-
+      Works on kind. Substitute a local image for the ECR reference.
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "A new application version is running, and the only thing you changed was the contents of a Git repository."
     verify: state

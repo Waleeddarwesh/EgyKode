@@ -19,6 +19,15 @@ skills:
 tools:
   - "A GitHub repository you own"
   - "git 2.30+"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - git
 successCriteria:
   - "A direct push to the protected branch is rejected."
   - "A pull request cannot merge while its status check is failing."
@@ -33,7 +42,7 @@ updated: 2026-08-10
 Trunk-based development only works when `main` is always releasable. That is not a matter of discipline — it is a matter of configuration.
 
 This lab makes the repository enforce it.
-## 1. A check for the branch to depend on
+<LabStep n={1} title="A check for the branch to depend on" proves="You can create a check that has run at least once, which is what branch protection can then require">
 
 ```yaml
 # .github/workflows/ci.yml
@@ -58,7 +67,9 @@ jobs:
 Branch protection can only require a check that has run at least once, so merge
 this first.
 
-## 2. Protect the branch
+</LabStep>
+
+<LabStep n={2} title="Protect the branch" proves="You can protect a branch so direct pushes are rejected and a failing check blocks the merge, and say why requiring branches to be up to date matters" criterion={[1, 2, 4]}>
 
 **Settings → Branches → Add rule**, pattern `main`:
 
@@ -84,7 +95,9 @@ function, the other adds a caller. Neither PR ever saw the other. With it, the
 branch must be rebased onto current `main` and the checks re-run against the
 combination that will actually exist.
 
-## 3. CODEOWNERS
+</LabStep>
+
+<LabStep n={3} title="CODEOWNERS" proves="You can route review automatically to the person responsible for a path" criterion={3}>
 
 ```text
 # .github/CODEOWNERS
@@ -98,7 +111,9 @@ Last matching pattern wins — the opposite of `.gitignore`. Combined with
 "Require review from Code Owners", a change to `/infrastructure/` cannot merge
 without the person responsible for it seeing it.
 
-## 4. Commit messages a machine can read
+</LabStep>
+
+<LabStep n={4} title="Commit messages a machine can read" proves="You can write commit messages a release process can read">
 
 ```text
 feat(labs): add incident tier
@@ -114,7 +129,9 @@ drives release automation. `fix` produces a patch release, `feat` a minor, and
 git log --oneline --grep '^feat' | head
 ```
 
-## 5. The pull request
+</LabStep>
+
+<LabStep n={5} title="The pull request" proves="You can open a pull request that says what a reader can now do, not merely what changed">
 
 ```bash
 git switch -c fix/typo
@@ -129,7 +146,9 @@ Two habits that make review useful rather than ceremonial:
 - **Keep it small.** A 40-line PR gets a real review. A 2,000-line PR gets
   "LGTM", which is not a review.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **The status check cannot be selected in branch protection**
 
@@ -146,3 +165,5 @@ It must be on the *default* branch, in `.github/`, `docs/` or the root, and the 
 **PRs stay blocked after checks pass**
 
 'Up to date' is on and `main` moved. Rebase and let the checks re-run.
+
+</Troubleshooting>

@@ -1,0 +1,45 @@
+# The cluster `./egykode start k8s` creates.
+#
+# Three nodes, not one. A single-node cluster runs every workload manifest in
+# the platform and hides most of what Kubernetes is for: nothing schedules
+# anywhere interesting, `kubectl drain` has nowhere to move a Pod to, node
+# affinity and anti-affinity are unobservable, and a tolerations lab passes
+# whatever you write. Two workers is the smallest cluster where those labs
+# behave the way they do in production.
+#
+# It costs about 700MB more RAM than a single node, which is the right trade on
+# a machine that can run Docker at all.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: egykode
+
+nodes:
+  # Pinned, and pinned to match KUBECTL_VERSION in docker/all/Dockerfile.
+  #
+  # Unpinned, the Kubernetes version is whatever the learner's kind release
+  # defaults to — so two people following the same lab a few months apart get
+  # different API versions and different output, and neither has any way to see
+  # why. It also drifted the controller's kubectl five minor versions ahead of
+  # the server, well outside the ±1 kubectl supports.
+  - role: control-plane
+    image: kindest/node:v1.31.4
+    # Ingress labs need a port on the host to curl. Without these the NodePort
+    # exists, the Service is correct, and nothing outside the cluster can reach
+    # it — which reads as "my Ingress is broken" and is not.
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 8081        # 8080 is Jenkins in the cicd profile
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 8443
+        protocol: TCP
+  - role: worker
+    image: kindest/node:v1.31.4
+  - role: worker
+    image: kindest/node:v1.31.4

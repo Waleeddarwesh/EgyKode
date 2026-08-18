@@ -19,6 +19,19 @@ skills:
 tools:
   - "kind or minikube"
   - "kubectl 1.28+"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
 successCriteria:
   - "A Deployment with 3 replicas is running, and you can name the ReplicaSet that owns the Pods."
   - text: "Deleting a Pod causes a replacement to appear; deleting the Deployment does not."

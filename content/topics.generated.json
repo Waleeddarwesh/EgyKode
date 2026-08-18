@@ -130,9 +130,9 @@
       ],
       "labs": [
         "lab-20-linux-server-administration",
-        "lab-aws-iam-least-privilege",
         "lab-linux-ssh-hardening",
-        "lab-02-iam-roles-irsa-policies-security-groups"
+        "lab-02-iam-roles-irsa-policies-security-groups",
+        "lab-aws-iam-least-privilege"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -156,8 +156,8 @@
       ],
       "labs": [
         "lab-linux-processes-services-logs",
-        "lab-22-bash-automation-backup-healthcheck",
         "lab-20-linux-server-administration",
+        "lab-22-bash-automation-backup-healthcheck",
         "lab-linux-ssh-hardening"
       ],
       "roadmaps": [
@@ -354,8 +354,8 @@
         "git-and-github"
       ],
       "labs": [
-        "lab-23-git-branching-collaboration",
         "lab-git-professional-collaboration",
+        "lab-23-git-branching-collaboration",
         "lab-git-recovery-history",
         "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy"
       ],
@@ -640,8 +640,8 @@
       "labs": [
         "lab-aws-iam-least-privilege",
         "lab-02-iam-roles-irsa-policies-security-groups",
-        "lab-aws-ec2-cloudwatch-ssm",
-        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa"
+        "lab-15-managing-eks-cluster-add-ons-with-helm-irsa",
+        "lab-aws-ec2-cloudwatch-ssm"
       ],
       "roadmaps": [
         "aws-cloud-engineer",
@@ -1226,8 +1226,8 @@
         "lab-k8s-services",
         "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
         "lab-11-core-kubernetes-workloads-configmaps-secrets",
-        "lab-k8s-rbac-service-accounts",
         "lab-k8s-node-drain-upgrade",
+        "lab-k8s-rbac-service-accounts",
         "lab-k8s-storage",
         "lab-loki-centralized-logging"
       ],
@@ -1266,9 +1266,9 @@
       "labs": [
         "lab-k8s-workloads",
         "lab-13-kubernetes-security-hardening-networkpolicies-hpa",
+        "lab-k8s-storage",
         "lab-11-core-kubernetes-workloads-configmaps-secrets",
         "lab-k8s-node-drain-upgrade",
-        "lab-k8s-storage",
         "lab-k8s-rbac-service-accounts",
         "lab-k8s-services"
       ],
@@ -1303,8 +1303,8 @@
       "labs": [
         "lab-k8s-services",
         "lab-11-core-kubernetes-workloads-configmaps-secrets",
-        "lab-k8s-rbac-service-accounts",
         "lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr",
+        "lab-k8s-rbac-service-accounts",
         "lab-20-linux-server-administration",
         "lab-linux-processes-services-logs"
       ],
@@ -1641,7 +1641,9 @@
         "kustomize",
         "disaster-recovery"
       ],
-      "labs": [],
+      "labs": [
+        "lab-argocd-gitops-reconciliation"
+      ],
       "roadmaps": [
         "aws-cloud-engineer",
         "cloud-devops-engineer",
@@ -1990,7 +1992,8 @@
         "lab-sre-backup-disaster-recovery",
         "lab-aws-rds-backup-restore",
         "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
-        "lab-22-bash-automation-backup-healthcheck"
+        "lab-22-bash-automation-backup-healthcheck",
+        "lab-linux-processes-services-logs"
       ],
       "roadmaps": [
         "aws-cloud-engineer",

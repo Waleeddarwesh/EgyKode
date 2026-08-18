@@ -19,6 +19,14 @@ skills:
 tools:
   - "Terraform >= 1.6"
   - "AWS CLI v2, configured"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "State lives in S3, and `terraform.tfstate` is no longer written locally."
     verify: command
@@ -42,7 +50,7 @@ updated: 2026-08-10
 State is on your laptop. A colleague runs `terraform apply` from theirs, sees none of your resources, and creates a second copy of everything — or worse, destroys yours.
 
 This is the lab that makes Terraform usable by more than one person.
-## 1. The backend has a chicken-and-egg problem
+<LabStep n={1} title="The backend has a chicken-and-egg problem" proves="You can create a state bucket that is versioned, encrypted and closed to the public, and explain why it cannot be created by the backend that uses it" criterion={2}>
 
 The bucket that holds state cannot itself be created by the configuration that
 stores state in it. So it is created first, on its own:
@@ -74,7 +82,9 @@ Each of those four bucket settings is there for a reason:
 - **Public access block** — it should not need saying, and it does.
 - **DynamoDB** — the lock. `LockID` as the hash key is what Terraform expects.
 
-## 2. Declare the backend and migrate
+</LabStep>
+
+<LabStep n={2} title="Declare the backend and migrate" proves="You can migrate existing state into S3 without any resource being destroyed and recreated" criterion={[1, 4]}>
 
 ```hcl
 terraform {
@@ -107,7 +117,9 @@ terraform plan          # must report: No changes
 That `No changes` is the proof the migration was clean. If it wants to create
 everything, the state did not come across and you should stop.
 
-## 3. Prove the lock works
+</LabStep>
+
+<LabStep n={3} title="Prove the lock works" proves="You can prove a second concurrent apply fails on the lock rather than corrupting state" criterion={3}>
 
 In one terminal:
 
@@ -133,7 +145,9 @@ Lock Info:
 That error is the feature. Without it, two applies write the same file and the
 result is a state that matches neither reality nor either engineer's intent.
 
-## 4. When a lock goes stale
+</LabStep>
+
+<LabStep n={4} title="When a lock goes stale" proves="You can recognise a stale lock and release it deliberately rather than by force">
 
 A crashed apply — closed laptop, dropped connection — leaves the lock held.
 
@@ -145,7 +159,9 @@ Read the lock info **before** you do this. `Who` and `Created` tell you whether
 a colleague is mid-apply right now, in which case force-unlocking is how you
 create the corruption the lock existed to prevent.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`terraform init` wants to create every resource again**
 
@@ -164,6 +180,9 @@ The principal needs `s3:PutObject` on the key and `dynamodb:PutItem`/`DeleteItem
 Versioning keeps every old object. Delete all versions, not just current objects — see the cleanup steps.
 
 ---
+
+</Troubleshooting>
+
 
 ## Clean up
 

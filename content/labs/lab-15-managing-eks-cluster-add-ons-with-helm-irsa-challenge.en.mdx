@@ -18,6 +18,14 @@ cleanup:
   - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName'"
   - "# Unattached EBS volumes are billed per GB-month:"
   - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A controller calls the AWS API using its own IAM role, not the node's."
   - text: "`aws sts get-caller-identity` from inside the Pod returns the IRSA role."

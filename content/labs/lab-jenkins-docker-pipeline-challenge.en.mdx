@@ -20,6 +20,17 @@ tools:
   - "Docker"
   - "Jenkins with the Docker Pipeline plugin"
   - "A registry account"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: cicd
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - text: "A push produces an image tagged with the short commit SHA in the registry."
     verify: state

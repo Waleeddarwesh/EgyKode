@@ -19,6 +19,17 @@ skills:
 tools:
   - "Docker"
   - "Docker Compose"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - "The application reaches PostgreSQL and Redis by service name, with no IP addresses anywhere."
   - text: "Database data survives `docker compose down` and returns after `up`."
@@ -38,7 +49,7 @@ updated: 2026-08-10
 The application connects fine on your machine and fails in the pipeline with 'connection refused'. It starts before the database is ready, and everything it wrote last night is gone.
 
 These three problems are the same three you will meet again as Services, PersistentVolumes and readiness probes — which is why this lab sits before Kubernetes.
-## 1. Names, not addresses
+<LabStep n={1} title="Names, not addresses" proves="You can reach a service by name, with no IP address written down anywhere" criterion={1}>
 
 ```yaml
 services:
@@ -82,7 +93,9 @@ Compose puts every service on one network and makes each **service name**
 resolvable. Container IPs change on every recreate, so a hardcoded address is
 broken by design.
 
-## 2. Prove isolation is real
+</LabStep>
+
+<LabStep n={2} title="Prove isolation is real" proves="You can explain why two containers on separate networks cannot see each other, having proved it" criterion={4}>
 
 ```bash
 docker network create isolated
@@ -105,7 +118,9 @@ docker exec lonely ps aux         # a PID namespace: it is PID 1 to itself
 Three namespaces, three commands. The isolation is not Docker's — Docker asked
 the kernel for it, which is why the same primitives reappear under Kubernetes.
 
-## 3. Volumes versus bind mounts
+</LabStep>
+
+<LabStep n={3} title="Volumes versus bind mounts" proves="You can choose between a volume and a bind mount by what survives a rebuild" criterion={2}>
 
 ```bash
 docker compose exec db psql -U postgres -c "CREATE TABLE t (id int); INSERT INTO t VALUES (1);"
@@ -127,7 +142,9 @@ docker compose down -v       # -v ALSO removes named volumes
 `down -v` is the command that deletes data. It is one character from `down`,
 and it is why the backup lab exists.
 
-## 4. Started is not ready
+</LabStep>
+
+<LabStep n={4} title="Started is not ready" proves="You can make a dependent service wait for readiness rather than for a process to exist" criterion={3}>
 
 ```bash
 docker compose down && docker compose up -d
@@ -152,7 +169,9 @@ running.
 **This is a readiness probe.** The Kubernetes lab later uses the same idea with
 different syntax.
 
-## 5. Break each one deliberately
+</LabStep>
+
+<LabStep n={5} title="Break each one deliberately" proves="You can break each mechanism on purpose and recognise the symptom it produces">
 
 ```bash
 # wrong service name
@@ -165,7 +184,9 @@ docker compose exec app curl -s --max-time 3 telnet://db:5433 || echo "refused o
 Learn the difference now: **no such host** is name resolution, **refused** means
 something answered, **timeout** means nothing did.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`could not resolve host` between containers**
 
@@ -184,6 +205,9 @@ You used `down -v`, or the volume is anonymous. Named volumes in the top-level `
 The command runs *inside* the container — `pg_isready` must exist there. `docker inspect --format '{{json .State.Health}}' <c>` shows the output.
 
 ---
+
+</Troubleshooting>
+
 
 ## Clean up
 

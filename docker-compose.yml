@@ -1,0 +1,151 @@
+# EgyKode DevOps Lab Environment
+#
+# A reproducible local environment for practising the majority of the
+# curriculum without cloud costs. Not all of it — see the limits at the bottom.
+#
+#   ./egykode start          controller + node
+#   ./egykode start k8s      and a Kubernetes cluster
+#   ./egykode shell          a prompt inside the controller
+#
+# Two containers are always up, because that pair is what makes Ansible real:
+# a controller with nothing to manage can only target localhost, which hides
+# inventories, SSH and every failure mode worth learning. Everything else is a
+# profile, started only when a lab needs it.
+name: egykode-lab
+
+services:
+  # ── Always on ─────────────────────────────────────────────────────────────
+  controller:
+    image: ${EGYKODE_REPO:-waleeddarwesh}/controller:${EGYKODE_VERSION:-1.0}
+    # Published image when it exists, local build when it does not. A learner
+    # never runs `docker build` — that is a maintainer step, not a lesson.
+    build:
+      context: ./docker/all
+    container_name: egykode-controller
+    hostname: controller
+    networks: [lab]
+    volumes:
+      # The learner's work survives restarts. "One system, built phase by
+      # phase" is the promise; an environment that resets between labs would
+      # break it on the first restart.
+      - work:/home/learner/work
+      - keys:/keys
+    # The lab key lives in the shared volume, not in the image.
+    #
+    # It used to be generated at build time. Rebuilding the controller then
+    # produced a new key while the node still held the old one from its own
+    # boot, and every playbook failed with "Permission denied (publickey)" —
+    # which reads as a broken lab, not as a stale key. Generating it once into
+    # the volume means image rebuilds cannot invalidate it, and `./egykode
+    # reset` (which removes volumes) regenerates it cleanly.
+    command: >
+      bash -c "sudo test -f /keys/id_ed25519 ||
+                 sudo ssh-keygen -q -t ed25519 -N '' -C egykode-lab -f /keys/id_ed25519;
+               sudo install -m 600 -o learner -g learner /keys/id_ed25519 ~/.ssh/id_ed25519 &&
+               sudo install -m 644 -o learner -g learner /keys/id_ed25519.pub ~/.ssh/id_ed25519.pub &&
+               sudo install -m 644 /keys/id_ed25519.pub /keys/authorized_keys &&
+               echo 'Controller ready. Try: ansible all -m ping' &&
+               sleep infinity"
+
+  node:
+    image: ${EGYKODE_REPO:-waleeddarwesh}/node:${EGYKODE_VERSION:-1.0}
+    build:
+      context: ./docker/managed-node
+    container_name: egykode-node
+    hostname: node1
+    networks: [lab]
+    # systemd needs a writable cgroup tree and tmpfs on /run. This is what
+    # `privileged: true` is usually reached for; these three settings are the
+    # part that is actually required, and they grant nothing else.
+    cgroup: host
+    tmpfs:
+      - /run
+      - /run/lock
+    volumes:
+      - keys:/keys:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    command: >
+      bash -c "until [ -f /keys/authorized_keys ]; do sleep 1; done;
+               install -o learner -g learner -m 600 /keys/authorized_keys /home/learner/.ssh/authorized_keys;
+               ( while :; do
+                   cmp -s /keys/authorized_keys /home/learner/.ssh/authorized_keys ||
+                     install -o learner -g learner -m 600 /keys/authorized_keys /home/learner/.ssh/authorized_keys;
+                   sleep 5;
+                 done ) &
+               exec /sbin/init"
+
+  # ── Optional: a second node, for labs that need more than one target ──────
+  node2:
+    image: ${EGYKODE_REPO:-waleeddarwesh}/node:${EGYKODE_VERSION:-1.0}
+    build:
+      context: ./docker/managed-node
+    container_name: egykode-node2
+    hostname: node2
+    profiles: [multinode, all]
+    networks: [lab]
+    # systemd needs a writable cgroup tree and tmpfs on /run. This is what
+    # `privileged: true` is usually reached for; these three settings are the
+    # part that is actually required, and they grant nothing else.
+    cgroup: host
+    tmpfs:
+      - /run
+      - /run/lock
+    volumes:
+      - keys:/keys:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    command: >
+      bash -c "until [ -f /keys/authorized_keys ]; do sleep 1; done;
+               install -o learner -g learner -m 600 /keys/authorized_keys /home/learner/.ssh/authorized_keys;
+               ( while :; do
+                   cmp -s /keys/authorized_keys /home/learner/.ssh/authorized_keys ||
+                     install -o learner -g learner -m 600 /keys/authorized_keys /home/learner/.ssh/authorized_keys;
+                   sleep 5;
+                 done ) &
+               exec /sbin/init"
+
+  # ── Optional: CI/CD ───────────────────────────────────────────────────────
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: egykode-jenkins
+    profiles: [cicd, all]
+    networks: [lab]
+    ports: ["8080:8080"]
+    volumes: [jenkins:/var/jenkins_home]
+
+  # ── Optional: observability ───────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: egykode-prometheus
+    profiles: [observability, all]
+    networks: [lab]
+    ports: ["9090:9090"]
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: egykode-grafana
+    profiles: [observability, all]
+    networks: [lab]
+    ports: ["3001:3000"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: egykode
+
+networks:
+  lab:
+
+volumes:
+  work:      # the learner's files, deliberately persistent
+  keys:      # throwaway SSH key shared controller → nodes
+  jenkins:
+
+# ── What this cannot do ───────────────────────────────────────────────────
+#
+# Not every lab fits here, and pretending otherwise would send a beginner in
+# circles:
+#
+#   AWS labs        EC2, VPC, RDS, EKS, IAM — these need a real AWS account.
+#                   That is the subject of those labs, not an obstacle to it.
+#   Reboot labs     A container cannot be rebooted. Use a VM.
+#   systemd labs    Same reason.
+#   Kubernetes      `kind` runs on the *host's* Docker, not in here. Run
+#                   `kind create cluster` on your machine; the controller's
+#                   kubectl talks to it.

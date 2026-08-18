@@ -45,16 +45,30 @@ const nextConfig = {
   outputFileTracingRoot: join(dirname(fileURLToPath(import.meta.url)), "..", ".."),
   images: {
     /**
+     * Always off, not only in export mode.
+     *
      * The optimiser is a server route (`/_next/image`). A static export has no
-     * server, so it must be off — otherwise every `next/image` renders a src
-     * pointing at an endpoint that does not exist and the image is broken in
-     * production while working perfectly in `next start`.
+     * server, so it must be off there — otherwise every `next/image` renders a
+     * src pointing at an endpoint that does not exist and the image is broken
+     * in production while working perfectly in `next start`.
+     *
+     * It used to be `NEXT_OUTPUT === "export"`, which left the optimiser on
+     * for `build:verify`. That build runs in server mode, so on a cold cache
+     * the optimiser had to generate every image on demand — and under eight
+     * parallel Playwright workers it could not, so the author-photo test
+     * failed on every cold run while passing warm. CI is always cold, so that
+     * was a scheduled failure.
+     *
+     * Turning it off everywhere means the verification build serves images the
+     * same way production does, which is what a verification build is for. The
+     * cost is that `next dev` no longer resizes, which matters for nothing
+     * here: the only remote images are author avatars, already small.
      *
      * This lives here rather than in the export block above because a second
      * `images` key in the same object literal silently overwrote it, which is
-     * exactly how the author photos shipped broken.
+     * exactly how the author photos shipped broken once before.
      */
-    unoptimized: process.env.NEXT_OUTPUT === "export",
+    unoptimized: true,
     // Imported author avatars only. Anything else must be mirrored locally.
     remotePatterns: [
       { protocol: "https", hostname: "avatars.githubusercontent.com" },

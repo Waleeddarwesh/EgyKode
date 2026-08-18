@@ -21,6 +21,17 @@ tools:
   - "Docker"
   - "Docker Compose"
   - "psql"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - "A backup is taken, verified, and restored into a clean database."
   - "You can state the RTO you measured and the RPO your schedule implies."

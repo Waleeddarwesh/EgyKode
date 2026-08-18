@@ -20,6 +20,14 @@ tools:
   - "A GitHub repository"
   - "An AWS account"
   - "An EKS cluster (or adapt to any Kubernetes)"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A push builds an image tagged with the commit SHA and pushes it to ECR."
   - text: "No AWS access key exists in the repository — authentication is OIDC."
@@ -40,7 +48,7 @@ updated: 2026-08-10
 The Jenkins pipeline works, and it needs a server, plugins, backups and upgrades. For a project that already lives on GitHub, there is a path with none of that.
 
 This is not a replacement for the Jenkins lab. Knowing both, and why you would pick each, is the actual skill.
-## 1. A role GitHub can assume, with no stored key
+<LabStep n={1} title="A role GitHub can assume, with no stored key" proves="You can let a workflow assume an AWS role with no access key stored anywhere" criterion={2}>
 
 ```bash
 aws iam create-open-id-connect-provider \
@@ -78,7 +86,9 @@ can assume this role.
 > guessing. The design is deliberate: renaming an account cannot transfer access
 > to whoever claims the old name.
 
-## 2. The workflow
+</LabStep>
+
+<LabStep n={2} title="The workflow" proves="You can build an image tagged with the commit, scan it, and fail before pushing when the scan finds something serious" criterion={[1, 3]}>
 
 ```yaml
 name: deploy
@@ -139,7 +149,9 @@ jobs:
 request. Without it the workflow goes green the moment the API accepts the
 change, whether or not a single Pod ever became ready.
 
-## 3. EKS has its own permission layer
+</LabStep>
+
+<LabStep n={3} title="EKS has its own permission layer" proves="You can grant a role access to the Kubernetes API, and make the workflow fail when a rollout does not complete" criterion={4}>
 
 `update-kubeconfig` succeeding means IAM let you *describe the cluster*. Talking
 to the Kubernetes API is separate:
@@ -158,7 +170,9 @@ On older clusters this is the `aws-auth` ConfigMap instead. Either way, "I have
 IAM access" and "I can use kubectl" are two different grants, and confusing them
 produces a confident `error: You must be logged in to the server`.
 
-## 4. Jenkins or Actions?
+</LabStep>
+
+<LabStep n={4} title="Jenkins or Actions?" proves="You can choose between Jenkins and Actions by what each one asks you to maintain">
 
 | | Jenkins | GitHub Actions |
 | --- | --- | --- |
@@ -178,7 +192,9 @@ operate a CI server — which is most projects, including this one.
 Neither is the modern choice and the other legacy. The one that fails least
 often is the one your team can debug.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`Not authorized to perform sts:AssumeRoleWithWebIdentity`**
 
@@ -197,6 +213,8 @@ IAM let you describe the cluster; Kubernetes has not authorised the principal. A
 `kubectl set image` returns immediately. Without `rollout status --timeout` a failed rollout never fails the job.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

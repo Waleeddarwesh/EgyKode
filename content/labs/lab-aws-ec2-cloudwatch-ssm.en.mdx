@@ -19,6 +19,14 @@ skills:
 tools:
   - "AWS CLI v2, configured"
   - "An AWS account"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "You ran a command on the instance with no SSH key and no inbound rule."
   - text: "Application logs appear in a CloudWatch log group and you can query them."
@@ -40,7 +48,7 @@ updated: 2026-08-10
 An instance has port 22 open to the world, a key everyone shares, and logs that exist only on its disk — so when it is replaced, the evidence goes with it.
 
 All three are avoidable, and the alternatives are free.
-## 1. An instance with no inbound ports
+<LabStep n={1} title="An instance with no inbound ports" proves="You can run a command on an instance with no SSH key and no inbound rule" criterion={1}>
 
 ```bash
 aws iam create-role --role-name lab-ec2-ssm \
@@ -69,7 +77,9 @@ aws ssm send-command --instance-ids <instance-id> \
 `send-command` runs across many instances at once and records who ran what.
 That audit trail is something a shared SSH key can never provide.
 
-## 2. Ship the logs off the instance
+</LabStep>
+
+<LabStep n={2} title="Ship the logs off the instance" proves="You can ship logs and memory metrics off an instance, and explain why the default EC2 metrics include neither" criterion={4}>
 
 ```bash
 sudo dnf install -y amazon-cloudwatch-agent
@@ -109,7 +119,9 @@ hypervisor, which can see CPU, network and disk I/O but has no visibility inside
 the guest. Memory and filesystem usage require an agent. A great deal of
 "CloudWatch does not show memory" confusion is this, and only this.
 
-## 3. Query the logs
+</LabStep>
+
+<LabStep n={3} title="Query the logs" proves="You can query those logs for the errors you care about, over a time window" criterion={2}>
 
 ```bash
 aws logs start-query \
@@ -118,7 +130,9 @@ aws logs start-query \
   --query-string 'fields @timestamp, @message | filter @message like /ERROR/ | sort @timestamp desc | limit 20'
 ```
 
-## 4. Alarm on something that matters
+</LabStep>
+
+<LabStep n={4} title="Alarm on something that matters" proves="You can alarm on something that reflects user impact, and justify the threshold you chose" criterion={3}>
 
 ```bash
 aws logs put-metric-filter \
@@ -145,7 +159,9 @@ Two deliberate choices:
 **Alarm on errors, not CPU.** CPU at 90% with happy users is not an incident;
 errors at 10 per five minutes is, whatever the CPU is doing.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **The instance does not appear in Session Manager**
 
@@ -164,6 +180,8 @@ A metric filter emits data points only when the pattern matches. Set `--treat-mi
 Expected. The hypervisor cannot see inside the guest — the agent provides it.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

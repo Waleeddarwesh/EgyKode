@@ -15,6 +15,22 @@ costEstimate: "Free tier — Ansible itself is free; the cost is whichever EC2 i
 cleanup:
   - "terraform destroy -auto-approve"
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    note: >-
+      Runs against the node1 container with the static inventory. Anything the
+      challenge asks you to discover dynamically from EC2 needs an AWS account.
+    tools:
+      - ansible
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "`ansible -m ping all` succeeds against hosts nobody typed into a file."
     verify: command

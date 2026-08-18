@@ -9,8 +9,35 @@ const ORDER: Pref[] = ["system", "light", "dark"];
 const ICON = { system: Monitor, light: Sun, dark: Moon } as const;
 
 /**
- * Cycles system → light → dark. State lives on <html data-theme>, so the flip
- * is a CSS variable swap with no React re-render (§4.1).
+ * The colour each option takes when it is the active one.
+ *
+ * All three were --clr-primary-dark, so the sun was a dark green shape whose
+ * thin rays disappeared against the light surface behind it. Colouring them
+ * apart also means the current theme is readable at a glance rather than by
+ * comparing three similar icons for which has a background.
+ */
+const ACTIVE_COLOUR = {
+  system: "var(--clr-primary-dark)",
+  light: "var(--clr-sun)",
+  dark: "var(--clr-moon)",
+} as const;
+
+/**
+ * Theme switch: system, light, dark, all three visible.
+ *
+ * This was one button that cycled through the three, showing only the icon of
+ * the current preference. Two problems, both reported: you could not tell what
+ * the control did without clicking it, and on the default preference it showed
+ * a monitor glyph while the site was plainly dark — so the button and the page
+ * disagreed about the theme.
+ *
+ * Showing every option costs about 50px of topbar and removes the guessing:
+ * the current state is the highlighted segment, and the other two say what
+ * else is available. It also makes "system" meaningful rather than mysterious
+ * — it sits beside the manual choices it defers to.
+ *
+ * State lives on <html data-theme>, so switching is a CSS variable swap with
+ * no React re-render (§4.1).
  */
 export function ThemeToggle({ labels }: { labels: Record<Pref | "action", string> }) {
   const [pref, setPref] = useState<Pref>("system");
@@ -38,8 +65,7 @@ export function ThemeToggle({ labels }: { labels: Record<Pref | "action", string
     return () => media.removeEventListener("change", apply);
   }, [pref, mounted]);
 
-  function cycle() {
-    const next = ORDER[(ORDER.indexOf(pref) + 1) % ORDER.length]!;
+  function choose(next: Pref) {
     setPref(next);
     const root = document.documentElement;
     root.setAttribute("data-theme-pref", next);
@@ -59,18 +85,37 @@ export function ThemeToggle({ labels }: { labels: Record<Pref | "action", string
     }
   }
 
-  const Icon = ICON[pref];
-
   return (
-    <button
-      type="button"
-      onClick={cycle}
-      title={labels.action}
-      aria-label={`${labels.action}: ${labels[pref]}`}
-      className="btn btn-outline h-9 w-9 !px-0"
+    <div
+      role="radiogroup"
+      aria-label={labels.action}
+      className="flex h-9 items-center gap-0.5 rounded-md border p-0.5"
     >
-      {/* Render a stable icon until mounted so SSR and client agree. */}
-      <Icon size={17} aria-hidden className={mounted ? "" : "opacity-0"} />
-    </button>
+      {ORDER.map((option) => {
+        const Icon = ICON[option];
+        // Before mount the stored preference is unknown, so nothing is marked
+        // active — picking one would flash the wrong segment on every load.
+        const active = mounted && pref === option;
+        return (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-label={labels[option]}
+            title={labels[option]}
+            onClick={() => choose(option)}
+            className="flex h-8 w-8 items-center justify-center rounded transition-colors"
+            style={
+              active
+                ? { background: "var(--clr-surface-active)", color: ACTIVE_COLOUR[option] }
+                : { color: "var(--clr-text-muted)" }
+            }
+          >
+            <Icon size={15} aria-hidden />
+          </button>
+        );
+      })}
+    </div>
   );
 }

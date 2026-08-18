@@ -15,6 +15,24 @@ costEstimate: "**Depends on an existing cluster.** Alert rules and dashboards ar
 cleanup:
   - "kubectl delete prometheusrule --all -n monitoring"
   - "kubectl delete configmap -l grafana_dashboard -n monitoring"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+      - helm
+    capabilities:
+      - kubernetes-cluster
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "An alert you wrote moves from inactive to pending to firing, and you caused it."
     verify: state
@@ -53,7 +71,7 @@ looking.
 
 ## Build it
 
-### 1. A PrometheusRule
+<LabStep n={1} title="A PrometheusRule" proves="You can write an alert, cause it to fire, and explain what for does to pager noise" criterion={[1, 4]}>
 
 ```yaml
 apiVersion: monitoring.coreos.com/v1
@@ -125,7 +143,9 @@ what users experience.
 reconstruct what the alert means. If you cannot write the runbook, the alert is
 probably not actionable — which is itself a useful signal.
 
-### 2. Route it
+</LabStep>
+
+<LabStep n={2} title="Route it" proves="You can route an alert so it arrives carrying enough context to act on without opening a dashboard" criterion={2}>
 
 ```yaml
 alertmanager:
@@ -159,7 +179,9 @@ alertmanager:
 `group_wait` and `inhibit_rules` are what stop one failure producing forty
 notifications. A node failing should page once, not once per Pod.
 
-### 3. A dashboard, kept in Git
+</LabStep>
+
+<LabStep n={3} title="A dashboard, kept in Git" proves="You can build a dashboard of request rate, error rate and latency, and keep it in Git" criterion={3}>
 
 ```yaml
 apiVersion: v1
@@ -195,6 +217,8 @@ histogram_quantile(0.95,
 ```
 
 ---
+
+</LabStep>
 
 ## Verify it worked
 
@@ -234,7 +258,7 @@ An alert that has never fired is a hypothesis. Watching it go
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **The rule does not appear in Prometheus**
 
@@ -264,6 +288,8 @@ It was created in the UI on a Pod with no persistence. Put it in a ConfigMap.
 Use `humanize`, `humanizePercentage` or `humanizeDuration`.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

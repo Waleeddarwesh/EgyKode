@@ -18,6 +18,15 @@ skills:
   - "Remove a file from history, and know what that does not achieve"
 tools:
   - "git 2.30+"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - git
 successCriteria:
   - "You recovered work after `reset --hard`, after deleting a branch, and after an aborted rebase."
   - "You can state when `revert` is correct and when `reset` is."
@@ -40,7 +49,7 @@ for i in 1 2 3 4 5; do echo "line $i" >> file.txt; git add -A; git commit -qm "c
 git log --oneline
 ```
 
-## 1. `reset --hard`, undone
+<LabStep n={1} title="reset --hard, undone" proves="You can recover commits the reflog still knows about after a hard reset">
 
 ```bash
 git reset --hard HEAD~3
@@ -53,7 +62,9 @@ git reset --hard HEAD@{1}  # back
 for about 90 days even when no branch points at it. Almost nothing done locally
 is truly destructive.
 
-## 2. A deleted branch
+</LabStep>
+
+<LabStep n={2} title="A deleted branch" proves="You can restore a branch you deleted, from the hash the reflog kept">
 
 ```bash
 git switch -c feature && echo work >> file.txt && git commit -qam "feature work"
@@ -63,7 +74,9 @@ git reflog | grep feature      # the commit hash is still here
 git switch -c feature-restored <hash>
 ```
 
-## 3. An abandoned rebase
+</LabStep>
+
+<LabStep n={3} title="An abandoned rebase" proves="You can abandon a rebase mid-flight and return the repository to where it started" criterion={1}>
 
 ```bash
 git rebase -i HEAD~3    # not available non-interactively; abort instead
@@ -73,7 +86,9 @@ git rebase --abort      # puts everything back exactly as it was
 `--abort` is always available mid-rebase, and it is complete. Trying a rebase
 costs nothing.
 
-## 4. revert, reset or restore
+</LabStep>
+
+<LabStep n={4} title="revert, reset or restore" proves="You can choose between revert, reset and restore by what each does to shared history" criterion={2}>
 
 The three are not interchangeable, and picking the wrong one on a shared branch
 is how you create the next problem:
@@ -92,7 +107,9 @@ git revert --no-edit HEAD
 git log --oneline -2        # the original and its revert, both present
 ```
 
-## 5. A secret in history
+</LabStep>
+
+<LabStep n={5} title="A secret in history" proves="You can remove a secret from every commit and verify by searching that it is gone" criterion={3}>
 
 ```bash
 echo "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG" > .env
@@ -126,7 +143,9 @@ git log --all --oneline -S 'wJalrXUtnFEMI'      # gone
 Doing 2 without 1 is theatre. The key was in a public repository, in CI logs, in
 forks, and quite possibly in a scraper's database within minutes.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`reflog` does not show the commit**
 
@@ -143,3 +162,5 @@ Expected — every commit hash changed. They must re-clone or rebase onto the ne
 **The secret still appears on GitHub after rewriting**
 
 GitHub keeps unreferenced commits accessible for a while and caches PR views. Contact support to purge, and rotate regardless.
+
+</Troubleshooting>

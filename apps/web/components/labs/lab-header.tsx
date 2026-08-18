@@ -222,11 +222,22 @@ export function BeforeYouStart({
   labels,
 }: {
   lab: LabMeta;
-  labels: { heading: string; tools: string; cost: string; cleanup: string; skills: string };
+  labels: {
+    heading: string;
+    tools: string;
+    cost: string;
+    cleanup: string;
+    skills: string;
+    toolsProvided: string;
+  };
 }) {
   const tier = TIER[costTierOf(lab)];
   const hasAnything = lab.tools?.length || lab.costEstimate || lab.cleanup?.length;
   if (!hasAnything) return null;
+
+  // Only claim the tools are provided where an environment actually provides
+  // them. On a cloud-only lab they genuinely are the learner's to bring.
+  const provided = Boolean(lab.handsOn?.local?.enabled || lab.handsOn?.online?.enabled);
 
   return (
     <section className="card mt-6 p-6" aria-labelledby="before-you-start">
@@ -250,6 +261,21 @@ export function BeforeYouStart({
                 </li>
               ))}
             </ul>
+
+            {/* Where the list stops being a barrier.
+                A tick beside "Linux with systemd" and "sudo access" reads as
+                a wall: things you must already own before this page is for
+                you. For most labs it is not true — the lab environment below
+                provides exactly these, and a beginner has no way to know that
+                from a checklist. So when there is a way to get them, the list
+                says so and points at it. */}
+            {provided && (
+              <p className="mt-3 text-xs leading-relaxed text-content-muted">
+                <a href="#hands-on" className="underline underline-offset-2">
+                  {labels.toolsProvided}
+                </a>
+              </p>
+            )}
           </div>
         )}
 

@@ -19,6 +19,14 @@ skills:
 tools:
   - "Terraform >= 1.6"
   - "AWS CLI v2, configured"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A `modules/network` module creates a VPC and subnets from inputs, exposing subnet ids as outputs."
   - "A `modules/compute` module places an instance into a subnet it did not create."

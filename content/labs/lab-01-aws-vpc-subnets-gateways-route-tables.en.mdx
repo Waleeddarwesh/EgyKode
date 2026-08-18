@@ -18,6 +18,14 @@ cleanup:
   - "aws ec2 describe-nat-gateways --filter Name=state,Values=available --query 'NatGateways[].NatGatewayId'"
   - "# Release any Elastic IP left behind (an unattached EIP is billed hourly):"
   - "aws ec2 describe-addresses --query 'Addresses[?AssociationId==`null`].[PublicIp,AllocationId]' --output table"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A VPC spans two availability zones with a public and a private subnet in each."
   - "An instance in a private subnet reaches the internet outbound and cannot be reached inbound."
@@ -66,7 +74,7 @@ architecture with everything in `us-east-1a` goes down with it.
 
 ## Build it
 
-### 1. The network
+<LabStep n={1} title="The network" proves="You can lay out a VPC across two availability zones with a public and a private subnet in each" criterion={1}>
 
 ```hcl
 variable "azs" {
@@ -119,7 +127,9 @@ The `kubernetes.io/role/*` tags are how the AWS Load Balancer Controller
 discovers which subnets to place load balancers in. Without them, the
 Kubernetes ingress lab fails with an error that says nothing about tags.
 
-### 2. The NAT Gateway, and what it costs
+</LabStep>
+
+<LabStep n={2} title="The NAT Gateway, and what it costs" proves="You can give private subnets outbound internet access that cannot be reached inbound, and say what it costs per hour" criterion={2}>
 
 ```hcl
 resource "aws_eip" "nat" {
@@ -145,7 +155,9 @@ trade-off, not an oversight.
 The `depends_on` is required: a NAT Gateway created before the IGW is attached
 comes up unable to route, and the failure appears later as a timeout.
 
-### 3. Route tables — where public and private are actually decided
+</LabStep>
+
+<LabStep n={3} title="Route tables — where public and private are actually decided" proves="You can point at the route table entry that makes a subnet public, rather than at its name" criterion={3}>
 
 ```hcl
 resource "aws_route_table" "public" {
@@ -182,7 +194,9 @@ table**, which has no internet route. Nothing errors; instances simply cannot
 reach anything, and the cause is an association you forgot rather than a rule
 you got wrong.
 
-### 4. Apply
+</LabStep>
+
+<LabStep n={4} title="Apply" proves="You can apply until a second plan reports no changes" criterion={4}>
 
 ```bash
 terraform init
@@ -191,6 +205,8 @@ terraform apply tfplan
 ```
 
 ---
+
+</LabStep>
 
 ## Verify it worked
 
@@ -215,7 +231,7 @@ terraform plan -detailed-exitcode; echo "exit $?"    # 0 = no drift
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **A private instance cannot reach the internet**
 
@@ -246,6 +262,8 @@ An Elastic IP that was released from the NAT but not deallocated.
 `aws ec2 describe-addresses --query 'Addresses[?AssociationId==null]'`.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

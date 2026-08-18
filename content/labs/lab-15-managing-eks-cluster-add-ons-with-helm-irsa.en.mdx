@@ -18,6 +18,14 @@ cleanup:
   - "aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName'"
   - "# Unattached EBS volumes are billed per GB-month:"
   - "aws ec2 describe-volumes --filters Name=status,Values=available --query 'Volumes[].[VolumeId,Size]' --output table"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A controller calls the AWS API using its own IAM role, not the node's."
   - text: "`aws sts get-caller-identity` from inside the Pod returns the IRSA role."
@@ -57,7 +65,7 @@ expire.
 
 ## Build it
 
-### 1. The role, trusted by one ServiceAccount
+<LabStep n={1} title="The role, trusted by one ServiceAccount" proves="You can scope an IAM role to a single ServiceAccount rather than to the whole node" criterion={1}>
 
 ```hcl
 data "aws_iam_policy_document" "lbc_trust" {
@@ -93,7 +101,9 @@ token minted for another audience is accepted.
 
 `oidc_host` is the issuer URL with `https://` stripped.
 
-### 2. The ServiceAccount carries the ARN
+</LabStep>
+
+<LabStep n={2} title="The ServiceAccount carries the ARN" proves="You can prove a Pod assumes its own role, and that one without the annotation is refused" criterion={[2, 3]}>
 
 ```yaml
 apiVersion: v1
@@ -113,7 +123,9 @@ Pod using the ServiceAccount. Every AWS SDK finds them with no configuration.
 affect Pods that already exist — they must be restarted, and this is the reason
 IRSA "does not work" more often than any misconfigured trust policy.
 
-### 3. Install the add-ons
+</LabStep>
+
+<LabStep n={3} title="Install the add-ons" proves="You can install the add-ons that give kubectl top and an HPA a metric to read" criterion={4}>
 
 ```bash
 helm repo add eks https://aws.github.io/eks-charts
@@ -139,6 +151,8 @@ back to the node role — which usually *works*, so nothing looks wrong.
 Pin chart versions with `--version` for the same reason you pin images.
 
 ---
+
+</LabStep>
 
 ## Verify it worked
 
@@ -173,7 +187,7 @@ an unannotated Pod gets something different does.
 
 ---
 
-## When it goes wrong
+<Troubleshooting>
 
 **`WebIdentityErr: failed to retrieve credentials`**
 
@@ -199,6 +213,8 @@ clusters it needs `--kubelet-insecure-tls`; understand why before adding it.
 That is the failure this lab is about. Run the negative test.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

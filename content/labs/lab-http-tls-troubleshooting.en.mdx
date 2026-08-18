@@ -21,6 +21,17 @@ tools:
   - "openssl"
   - "dig"
   - "nc"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - "You can print a site's certificate subject, issuer and expiry without a browser."
   - "You can state which layer failed for three different broken URLs."
@@ -60,7 +71,7 @@ curl -v https://egykode.com/ 2>&1 | head -20
 
 Whichever line is missing is the layer that failed.
 
-## 1. DNS
+<LabStep n={1} title="DNS" proves="You can settle whether a name resolves before blaming anything above it">
 
 ```bash
 dig +short egykode.com
@@ -70,7 +81,9 @@ dig egykode.com | grep -A2 "ANSWER SECTION"
 A wrong-but-cached answer is the common case; the TTL in the answer tells you
 whether you are looking at cache or configuration.
 
-## 2. TCP, without TLS in the way
+</LabStep>
+
+<LabStep n={2} title="TCP, without TLS in the way" proves="You can prove a port is reachable independently of whether TLS succeeds" criterion={4}>
 
 ```bash
 nc -vz egykode.com 443
@@ -80,7 +93,9 @@ This proves reachability on its own. If `nc` connects and `curl` still fails,
 the network is fine and the problem is TLS or above — which removes firewalls
 and security groups from the investigation entirely.
 
-## 3. TLS
+</LabStep>
+
+<LabStep n={3} title="TLS" proves="You can read a certificate's subject, issuer and expiry from the command line, and say what a verification failure implies" criterion={[1, 3]}>
 
 ```bash
 echo | openssl s_client -connect egykode.com:443 -servername egykode.com 2>/dev/null \
@@ -109,7 +124,9 @@ The second is the subtle one: it works in browsers, which cache intermediates
 from previous sites, and fails in curl and in your application. "It works in
 Chrome" is not evidence the chain is complete.
 
-## 4. HTTP
+</LabStep>
+
+<LabStep n={4} title="HTTP" proves="You can separate an application error from a transport error in the response itself">
 
 ```bash
 curl -sI https://egykode.com/ | head -5
@@ -119,7 +136,9 @@ curl -s -o /dev/null -w 'code=%{http_code} tls=%{time_appconnect} total=%{time_t
 `time_appconnect` is when TLS finished. If it is close to `time_total`, the
 handshake is your latency, not the application.
 
-## 5. Practise on deliberately broken endpoints
+</LabStep>
+
+<LabStep n={5} title="Practise on deliberately broken endpoints" proves="You can name which layer failed for a broken URL you have not seen before" criterion={2}>
 
 ```bash
 curl -v https://expired.badssl.com/        2>&1 | grep -i "certificate"
@@ -132,7 +151,9 @@ Read each error and name the layer before moving on. `-k` skips verification and
 is useful to *confirm* the diagnosis — if `-k` works, the transport is fine and
 the fault is purely certificate validation.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **Works in the browser, fails in curl**
 
@@ -149,3 +170,5 @@ You omitted `-servername`, so the server returned its default certificate.
 **`nc` connects but curl times out**
 
 The port is open and nothing is speaking HTTPS on it — check you are not hitting a plain HTTP port with https://.
+
+</Troubleshooting>

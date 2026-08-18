@@ -19,6 +19,19 @@ skills:
 tools:
   - "kind or minikube with ingress-nginx"
   - "kubectl 1.28+"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
 successCriteria:
   - text: "The application returns HTTP 200 through the Ingress."
     verify: state
@@ -135,7 +148,7 @@ A 502 through an Ingress is nearly always one of these:
 Each is distinguishable by the commands above. That is the point of running them
 in order rather than reading the list and guessing.
 
-## When it goes wrong
+<Troubleshooting>
 
 **You changed several things and it works**
 
@@ -150,6 +163,8 @@ Then the fault is behind the Service, not in front of it — selector labels or 
 Everything from the Pod inwards is fine. Compare the Service's targetPort with the port that worked.
 
 ---
+
+</Troubleshooting>
 
 ## Check your reasoning
 

@@ -19,6 +19,14 @@ skills:
 tools:
   - "AWS CLI v2, configured"
   - "An AWS account"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A user can read one specific S3 bucket and nothing else, proven by an allowed call and a denied one."
   - text: "You can explain why `s3:ListBucket` and `s3:GetObject` need different resource ARNs."
@@ -43,7 +51,7 @@ This lab replaces it with a policy you can defend, and a role instead of a key.
 > deliberately — when a permission fails at 3am you will be reading the console,
 > and a resource you have only ever seen through HCL is one you cannot debug.
 
-## 1. The anatomy of a policy
+<LabStep n={1} title="The anatomy of a policy" proves="You can explain why ListBucket and GetObject need different resource ARNs" criterion={2}>
 
 ```json
 {
@@ -70,7 +78,9 @@ This lab replaces it with a policy you can defend, and a role instead of a key.
 it*. Granting only one produces the most common IAM confusion in existence: a
 policy that "clearly allows S3" and returns AccessDenied.
 
-## 2. Create and attach
+</LabStep>
+
+<LabStep n={2} title="Create and attach" proves="You can attach a policy to a principal and know which of the two you are changing">
 
 ```bash
 aws iam create-user --user-name lab-reader
@@ -81,7 +91,9 @@ aws iam attach-user-policy --user-name lab-reader \
   --policy-arn arn:aws:iam::<account>:policy/lab-read-config
 ```
 
-## 3. Prove what it allows *and* what it blocks
+</LabStep>
+
+<LabStep n={3} title="Prove what it allows *and* what it blocks" proves="You can prove what a policy allows and what it refuses, without waiting to be surprised" criterion={1}>
 
 ```bash
 aws iam simulate-principal-policy \
@@ -95,7 +107,9 @@ aws iam simulate-principal-policy \
 matters as much as the grants** — a policy that works is not the same as a
 policy that is narrow.
 
-## 4. Roles instead of keys
+</LabStep>
+
+<LabStep n={4} title="Roles instead of keys" proves="You can assume a role and receive credentials that expire, instead of carrying a key" criterion={3}>
 
 A user carries long-lived credentials. A role is assumed and issues credentials
 that expire in an hour.
@@ -130,7 +144,9 @@ aws sts assume-role \
 
 Read which action the error names, and you know which document to open.
 
-## 5. Deny always wins
+</LabStep>
+
+<LabStep n={5} title="Deny always wins" proves="You can say what an explicit Deny does to an Allow, from any policy" criterion={4}>
 
 ```json
 { "Effect": "Deny", "Action": "s3:DeleteObject", "Resource": "*" }
@@ -140,7 +156,9 @@ An explicit `Deny` overrides every `Allow`, from any policy, including an
 administrator's. That is how guardrails and SCPs work — you cannot grant your
 way past one.
 
-## 6. When permissions behave strangely
+</LabStep>
+
+<LabStep n={6} title="When permissions behave strangely" proves="You can check which principal you actually are before blaming the policy">
 
 ```bash
 aws sts get-caller-identity
@@ -150,7 +168,9 @@ Run this first, always. The most common cause of "the policy is not working" is
 that you are not the principal you assumed you were — a profile, an assumed
 role, or an instance role is in play.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **AccessDenied on a policy that clearly allows it**
 
@@ -169,6 +189,8 @@ Something else denies it — an SCP, a permission boundary, or a bucket policy. 
 Detach all policies and delete access keys and login profile first.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

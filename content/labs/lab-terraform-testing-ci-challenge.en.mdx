@@ -21,6 +21,18 @@ tools:
   - "tflint"
   - "trivy or checkov"
   - "A GitHub repository"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - terraform
+      - docker
+    capabilities:
+      - docker-daemon
 successCriteria:
   - "`fmt`, `validate`, `tflint` and a security scan all run in CI on a pull request."
   - text: "A misformatted or insecure change fails the pipeline — proven deliberately."

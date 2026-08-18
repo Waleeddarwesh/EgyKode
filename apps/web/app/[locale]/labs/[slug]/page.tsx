@@ -13,6 +13,7 @@ import remarkGfm from "remark-gfm";
 import { JsonLd } from "@/components/seo/json-ld";
 import { breadcrumbs, graph, learningResource } from "@/lib/structured-data";
 import { LabHeader, BeforeYouStart } from "@/components/labs/lab-header";
+import { HandsOn } from "@/components/labs/hands-on";
 import { LabComplete } from "@/components/labs/lab-complete";
 import { LabSteps } from "@/components/labs/lab-steps";
 import { NextLab } from "@/components/labs/next-lab";
@@ -124,6 +125,7 @@ export default async function LabPage({
     destructive: t("code.destructive"),
     destructiveBody: t("code.destructiveBody"),
     locale: typed,
+    labId: lab.labId,
   });
 
   return (
@@ -241,6 +243,7 @@ export default async function LabPage({
           heading: t("labs.beforeYouStart"),
           tools: t("labs.toolsNeeded"),
           skills: t("labs.skillsProved"),
+          toolsProvided: t("labs.toolsProvided"),
           cost: t("labs.costLabel"),
           cleanup: t("labs.cleanupLink"),
         }}
@@ -257,6 +260,64 @@ export default async function LabPage({
         </div>
       )}
 
+      {/* After the mission, before the criteria: the reader now knows what the
+          task is, and this is the moment they decide to start doing it. */}
+      {/* Only where there is something to offer. Rendering this on all 114
+          labs meant 111 carried a paragraph explaining an absence — the
+          platform apologising for a limitation on most pages a learner opens.
+          The component itself returns null when nothing is available, so this
+          guard only avoids the work. */}
+      {lab.handsOn && (
+      <HandsOn
+        online={lab.handsOn?.online}
+        local={lab.handsOn?.local}
+        cloud={lab.handsOn?.cloud}
+        tier={lab.tier}
+        labels={{
+          heading: t("labs.handsOnHeading"),
+          onlineTitle: t("labs.handsOnOnlineTitle"),
+          onlineBody: t("labs.handsOnBody"),
+          onlineCta: t("labs.handsOnStart"),
+          onlineCtaChallenge: t("labs.handsOnStartChallenge"),
+          onlineOpensIn: t("labs.handsOnOpensIn"),
+          onlinePending: t("labs.handsOnPending"),
+          localTitle: t("labs.handsOnLocalHeading"),
+          localBody: t("labs.handsOnLocalBody"),
+          localCta: t("labs.handsOnLocalDoctor"),
+          localNeeds: t("labs.handsOnLocalNeeds"),
+          localFirstRun: t("labs.handsOnLocalFirstRun"),
+          cloudTitle: t("labs.handsOnCloudTitle"),
+          cloudBody: t("labs.handsOnCloudBody"),
+          verifyNote: t("labs.handsOnVerifyNote"),
+        }}
+      />
+      )}
+
+
+      {/* Position within the work. Rendered next to the body rather than in
+          it, so it can be a rail in the empty margin on a wide screen and a
+          single sticky line on a narrow one. */}
+      <LabSteps
+        steps={steps}
+        labId={lab.labId}
+        labels={{
+          heading: t("labs.stepsHeading"),
+          position: t("labs.stepPosition"),
+          of: t("roadmap.of"),
+        }}
+      />
+
+      <div id="build" className="prose mt-10" lang={contentLang} dir={contentDir}>
+        <MDXRemote source={rest} options={mdxOptions} components={mdxParts} />
+      </div>
+
+      {/* The checklist, after the work rather than before it.
+          Above the steps it competed with them: a reader arriving at the lab
+          met a 0/4 scorecard for work they had not been shown yet, and had to
+          hold four criteria in mind while reading step 1. Each step now
+          carries its own "what you are proving", so this reads as the summary
+          it always was — and it sits where a reader reaches it having done
+          the work it scores. */}
       <div className="mt-8">
         <SuccessCriteria
           labId={lab.labId}
@@ -273,28 +334,6 @@ export default async function LabPage({
             evidenceSelf: t("labs.evidenceSelf"),
           }}
         />
-      </div>
-
-      {/* Position within the work. Rendered next to the body rather than in
-          it, so it can be a rail in the empty margin on a wide screen and a
-          single sticky line on a narrow one. */}
-      <LabSteps
-        steps={steps}
-        labId={lab.labId}
-        // Text only: the evidence label belongs with the full checklist above,
-        // where there is room to say what actually settles the criterion.
-        criteria={(lab.successCriteria ?? []).map((c) => (typeof c === "string" ? c : c.text))}
-        labels={{
-          heading: t("labs.stepsHeading"),
-          position: t("labs.stepPosition"),
-          criteria: t("labs.criteria"),
-          of: t("roadmap.of"),
-          railHint: t("labs.railHint"),
-        }}
-      />
-
-      <div id="build" className="prose mt-10" lang={contentLang} dir={contentDir}>
-        <MDXRemote source={rest} options={mdxOptions} components={mdxParts} />
       </div>
 
       {/* Appears only once every criterion is met. Placed after the work

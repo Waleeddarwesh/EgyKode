@@ -16,6 +16,14 @@ cleanup:
   - "terraform destroy -auto-approve"
   - "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId'"
   - "aws backup list-recovery-points-by-backup-vault --backup-vault-name <vault> --query 'RecoveryPoints[].RecoveryPointArn'"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "State lives in S3 with DynamoDB locking, and a second concurrent apply is refused."
   - "The state bucket has versioning, so a deleted state file is recoverable."

@@ -16,6 +16,24 @@ cleanup:
   - "terraform destroy -auto-approve"
   - "aws ecr list-images --repository-name <repo> --query 'imageIds[].imageTag'"
   - "aws ecr batch-delete-image --repository-name <repo> --image-ids imageTag=<tag>"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: cicd
+    note: >-
+      Everything up to and including the Trivy gate runs locally. The push and
+      deploy stages need AWS.
+    tools:
+      - docker
+    capabilities:
+      - docker-daemon
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A commit builds, tests, scans and deploys with no manual step."
   - text: "A deliberately vulnerable image fails the build and is never pushed."

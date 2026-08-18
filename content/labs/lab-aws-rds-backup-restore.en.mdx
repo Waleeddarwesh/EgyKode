@@ -20,6 +20,14 @@ skills:
 tools:
   - "AWS CLI v2, configured"
   - "psql"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "A manual snapshot exists and you can list it."
     verify: state
@@ -45,7 +53,7 @@ A backup that has not been restored is a hope, not a backup — and the only way
 > **This lab destroys data on purpose.** Use a database you created for it and
 > nothing else.
 
-## 1. A database with backups on
+<LabStep n={1} title="A database with backups on" proves="You can create a database with backups already on, rather than adding them after the first incident">
 
 ```bash
 aws rds create-db-instance \
@@ -63,7 +71,9 @@ in your shell history. `--backup-retention-period 7` is what enables
 point-in-time recovery — with `0`, automated backups are **off** and PITR is not
 available at all.
 
-## 2. Data worth losing
+</LabStep>
+
+<LabStep n={2} title="Data worth losing" proves="You can put data in that you are willing to lose, so the recovery is a real one">
 
 ```sql
 CREATE TABLE orders (id serial PRIMARY KEY, customer text, total numeric);
@@ -72,7 +82,9 @@ INSERT INTO orders (customer, total)
 SELECT count(*) FROM orders;   -- 1000
 ```
 
-## 3. A manual snapshot
+</LabStep>
+
+<LabStep n={3} title="A manual snapshot" proves="You can take a manual snapshot, and say why it outlives the instance when automated backups do not" criterion={1}>
 
 ```bash
 aws rds create-db-snapshot \
@@ -86,7 +98,9 @@ aws rds wait db-snapshot-completed \
 Automated backups follow the instance and are deleted with it. A **manual**
 snapshot survives, which is what you want before anything risky.
 
-## 4. The incident
+</LabStep>
+
+<LabStep n={4} title="The incident" proves="You can start the clock at the moment of the decision, which is where RTO is actually measured">
 
 ```sql
 DELETE FROM orders WHERE total > 500;
@@ -96,7 +110,9 @@ SELECT count(*) FROM orders;   -- 50
 **Start a timer now.** RTO is wall-clock time from the decision to recover until
 service is restored, and it is always longer than people guess.
 
-## 5. Restore
+</LabStep>
+
+<LabStep n={5} title="Restore" proves="You can restore from a snapshot and verify the data is back by querying it" criterion={2}>
 
 ```bash
 aws rds restore-db-instance-from-db-snapshot \
@@ -129,7 +145,9 @@ Stop the timer:
 SELECT count(*) FROM orders;   -- 1000
 ```
 
-## 6. What you just measured
+</LabStep>
+
+<LabStep n={6} title="What you just measured" proves="You can state the RTO you measured, and explain why the restored instance answers on a different endpoint" criterion={[3, 4]}>
 
 | | Meaning | What you did |
 | --- | --- | --- |
@@ -143,7 +161,9 @@ of "since the last snapshot", which can be a whole day.
 Write both numbers down. A DR plan with numbers nobody has measured is a
 document, not a plan.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **`restore-db-instance-to-point-in-time` rejects the time**
 
@@ -162,6 +182,8 @@ That is the default. `--skip-final-snapshot` for a lab; never in production.
 An older CLI or engine version. Upgrade the CLI, or set a password and rotate it afterwards.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

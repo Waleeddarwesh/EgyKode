@@ -16,6 +16,27 @@ cleanup:
   - "kubectl delete application ivolve-app -n argocd   # the finalizer removes the workloads it created"
   - "kubectl get all -n ivolve                          # confirm the namespace is empty before moving on"
   - "helm uninstall argocd -n argocd && kubectl delete ns argocd"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    note: >-
+      Argo CD reconciles a kind cluster exactly as it does EKS. Point the
+      Application at your own repository and use a locally built image in the
+      kustomization instead of the ECR reference.
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - text: "The Argo CD Application points at the manifests directory in your repository, and reports `Synced` and `Healthy`."
     verify: state
@@ -67,7 +88,7 @@ Kubernetes
 
 ---
 
-## 1. Install Argo CD and look at what it is
+<LabStep n={1} title="Install Argo CD and look at what it is" proves="You can install a reconciler and describe what it watches and compares">
 
 ```bash
 kubectl create namespace argocd
@@ -88,7 +109,9 @@ Argo CD is a controller. It has no knowledge of your pipeline and no webhook
 into it; it watches a Git path and a cluster, and works to make the second look
 like the first.
 
-## 2. Point it at your manifests
+</LabStep>
+
+<LabStep n={2} title="Point it at your manifests" proves="You can point an Application at a repository path, and know which namespace it must live in" criterion={1}>
 
 Create the Application. This is the whole configuration — everything else is
 consequence:
@@ -128,7 +151,9 @@ Two details that cause silent failures:
 kubectl apply -f argocd-application.yaml
 ```
 
-## 3. Establish the baseline
+</LabStep>
+
+<LabStep n={3} title="Establish the baseline" proves="You can tell a synced cluster from a healthy one, and say why those answer different questions">
 
 ```bash
 kubectl -n argocd get application ivolve-app
@@ -150,7 +175,9 @@ manifests — `1` for the database, `2` for the backends, `3` for the frontend,
 `4` for the ingress. Without it everything applies at once and the services that
 need the database crash-loop until it happens to be ready.
 
-## 4. Deploy by changing Git
+</LabStep>
+
+<LabStep n={4} title="Deploy by changing Git" proves="You can deploy by committing, without running a command against the cluster" criterion={2}>
 
 This is the part that replaces every `kubectl apply` you have run so far.
 
@@ -179,7 +206,9 @@ kubectl -n argocd get application ivolve-app -w
 
 `Synced → OutOfSync → Synced`. You did not touch the cluster.
 
-## 5. Verify against the Pod, not the manifest
+</LabStep>
+
+<LabStep n={5} title="Verify against the Pod, not the manifest" proves="You can verify a deployment against the running Pod and the sync history rather than against your own commit" criterion={[3, 4]}>
 
 The manifest says what you asked for. The Pod says what happened:
 
@@ -202,7 +231,9 @@ because it *is* the thing that caused reality.
 
 ---
 
-## 6. Now break it on purpose
+</LabStep>
+
+<LabStep n={6} title="Now break it on purpose" proves="You can change the cluster by hand and watch reconciliation put it back" criterion={5}>
 
 Everything so far shows the happy path. The interesting behaviour is what
 happens when the cluster and Git disagree.
@@ -243,7 +274,9 @@ kubectl -n argocd get application ivolve-app -o jsonpath='{.status.operationStat
 production had one replica while the repository said three. Here the repository
 is not documentation of the system. It is the system.
 
-## 7. Understand what you gave up
+</LabStep>
+
+<LabStep n={7} title="Understand what you gave up" proves="You can state what self-heal costs you, and how a rollback works once it is on" criterion={6}>
 
 Self-heal has a cost, and pretending otherwise is how people get surprised at
 3am:
@@ -261,6 +294,67 @@ git push
 ```
 
 ---
+
+</LabStep>
+
+<Troubleshooting>
+
+Three failures you will hit, and the reasoning that separates them. All three
+look like "Argo CD is broken"; none of them are.
+
+### Nothing happens at all
+
+No sync, no error, no event. The Application sits there.
+
+```bash
+kubectl -n argocd get application ivolve-app -o jsonpath='{.status.sync.status}'; echo
+kubectl -n argocd describe application ivolve-app | tail -20
+```
+
+The controller is working perfectly and looking somewhere you are not. Check
+`spec.source.path` against what is actually in the repository, and check the
+Application's own namespace — an Application created outside `argocd` is
+ignored silently, with no error to find.
+
+**Production lesson:** a reconciler that finds nothing to do is
+indistinguishable from a reconciler that is broken, unless you look at what it
+believes its desired state is.
+
+### It reports `Synced` while the application is down
+
+```bash
+kubectl -n argocd get application ivolve-app
+kubectl -n ivolve get pods
+```
+
+`SYNC STATUS: Synced` and `HEALTH STATUS: Degraded` together are not a
+contradiction. Sync answers *does the cluster match Git*; health answers *do
+the workloads work*. A manifest with a typo in the image tag syncs perfectly
+and never becomes healthy.
+
+**Production lesson:** alert on health, not on sync. A green sync status tells
+you your pipeline worked, not that your users can reach anything.
+
+### The Pod runs an image you did not expect
+
+```bash
+kubectl -n ivolve get pod -l app.kubernetes.io/name=ivolve-frontend \
+  -o jsonpath='{.items[*].spec.containers[*].image}'; echo
+kubectl -n ivolve describe pod -l app.kubernetes.io/name=ivolve-frontend | grep -A5 Events
+```
+
+`ImagePullBackOff` here means the tag in the manifest does not exist in ECR —
+the commit was valid, the sync succeeded, and the tag was still wrong. Argo CD
+applied exactly what you asked for.
+
+**Production lesson:** GitOps guarantees the cluster matches the repository. It
+guarantees nothing about whether the repository is correct, which is why the
+review on that commit is the actual control.
+
+---
+
+</Troubleshooting>
+
 
 ## Clean up
 

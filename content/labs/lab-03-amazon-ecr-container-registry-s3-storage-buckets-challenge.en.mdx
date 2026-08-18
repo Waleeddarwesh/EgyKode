@@ -16,6 +16,14 @@ cleanup:
   - "aws ecr delete-repository --repository-name <name> --force"
   - "aws s3 rm s3://<bucket> --recursive && aws s3api delete-bucket --bucket <bucket>"
   - "terraform destroy -auto-approve"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "An image pushed to ECR is scanned automatically and you can read the findings."
   - "A lifecycle policy expires untagged images, and you can state how many it will keep."

@@ -20,6 +20,15 @@ skills:
 tools:
   - "git 2.30+"
   - "a GitHub account"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: base
+    tools:
+      - git
 successCriteria:
   - "A feature branch is merged into main through a pull request, with a linear history."
   - "You resolved a real conflict — not by taking one side wholesale, but by reading both."
@@ -34,7 +43,7 @@ updated: 2026-08-10
 You are contributing to a repository other people are also changing. Main has moved since you branched, your history has a conflict in it, and at some point you will reset something you did not mean to.
 
 All three are normal. None of them should cost you work.
-## The daily loop
+<LabStep n={1} title="The daily loop" proves="You can take a change from branch to merged pull request with a history that stays linear" criterion={1}>
 
 ```bash
 git switch -c feat/add-healthcheck      # branch from main
@@ -54,7 +63,9 @@ them reviewable and revertible.
 this morning is a small conflict you still remember the context for. Replaying
 three weeks of work is every conflict at once, in a hurry.
 
-## Resolving a conflict properly
+</LabStep>
+
+<LabStep n={2} title="Resolving a conflict properly" proves="You can resolve a conflict by reading both sides, rather than taking one wholesale" criterion={2}>
 
 ```bash
 git rebase origin/main
@@ -84,7 +95,9 @@ git rebase --continue
 `git rebase --abort` puts everything back exactly as it was. Nothing is lost by
 trying.
 
-## The recovery everybody needs eventually
+</LabStep>
+
+<LabStep n={3} title="The recovery everybody needs eventually" proves="You can recover a commit after a hard reset, using the reflog" criterion={3}>
 
 ```bash
 git reset --hard HEAD~3      # three commits, apparently gone
@@ -98,7 +111,9 @@ reachable for ~90 days even after every branch pointing at it is gone. Almost
 nothing done locally in git is actually destructive, and knowing that changes
 how confidently you work.
 
-## A secret in history
+</LabStep>
+
+<LabStep n={4} title="A secret in history" proves="You can remove a secret from history, and explain why that does not make it safe" criterion={4}>
 
 ```bash
 git rm --cached .env
@@ -116,7 +131,10 @@ every clone**. The order that matters:
 
 Doing step 2 without step 1 is theatre.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
+
 The failure is where the learning is. These are the ones that actually happen:
 
 **`git push` is rejected as non-fast-forward**
@@ -134,3 +152,5 @@ You branched from an old main. Abort, fetch, and rebase onto the current one.
 **A force-push erased a colleague's commits**
 
 Use `--force-with-lease` instead — it refuses when the remote has moved since you last fetched.
+
+</Troubleshooting>

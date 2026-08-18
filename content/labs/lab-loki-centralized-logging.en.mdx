@@ -20,6 +20,19 @@ tools:
   - "kind or minikube"
   - "Helm 3.14+"
   - "kubectl"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  local:
+    enabled: true
+    environment: k8s
+    tools:
+      - docker
+      - kubectl
+      - kind
+    capabilities:
+      - kubernetes-cluster
 successCriteria:
   - text: "Logs from every namespace are queryable in Grafana."
     verify: state
@@ -39,7 +52,7 @@ updated: 2026-08-10
 A Pod crashed at 3am. It has been replaced, and `kubectl logs` shows the new one. The evidence went with the old container.
 
 Metrics told you *that* something broke. Logs are how you find out *why* — but only if they left the node before the Pod did.
-## 1. Install the stack
+<LabStep n={1} title="Install the stack" proves="You can install a logging stack and query logs from every namespace in one place" criterion={1}>
 
 ```bash
 helm repo add grafana https://grafana.github.io/helm-charts
@@ -59,7 +72,9 @@ Three parts, and the split matters:
 - **Loki** stores it, indexing **only the labels**.
 - **Grafana** queries it.
 
-## 2. Why label-only indexing
+</LabStep>
+
+<LabStep n={2} title="Why label-only indexing" proves="You can explain why selecting by label first is what makes the query affordable, and what happens to a deleted Pod's logs with and without Loki" criterion={4}>
 
 Elasticsearch indexes the full text of every line, which is powerful and
 expensive — the index often exceeds the logs. Loki indexes only labels
@@ -76,7 +91,9 @@ The practical consequence: **always select by label first**.
 
 That last query is the one people write first and the one that times out.
 
-## 3. Queries you will actually use
+</LabStep>
+
+<LabStep n={3} title="Queries you will actually use" proves="You can filter to one Deployment's errors over a time window" criterion={2}>
 
 ```logql
 {namespace="production", app="api"} |= "ERROR"
@@ -91,7 +108,9 @@ sum(rate({namespace="production"} |= "ERROR" [5m])) by (app)
 That last one turns logs into a **metric**, so an error rate derived from log
 lines can be graphed beside Prometheus data and alerted on the same way.
 
-## 4. Cause a crash and find it
+</LabStep>
+
+<LabStep n={4} title="Cause a crash and find it" proves="You can cause a crash and find its cause from the logs alone, including the container that already died" criterion={3}>
 
 ```bash
 kubectl create deployment crasher --image=busybox -- \
@@ -117,7 +136,9 @@ container back; Loki gives you all of them, including the ones from before the
 Pod was rescheduled onto a different node — which is the case `--previous`
 cannot reach at all.
 
-## 5. Retention, before it costs you
+</LabStep>
+
+<LabStep n={5} title="Retention, before it costs you" proves="You can bound how long logs are kept before the bill decides it for you">
 
 ```yaml
 loki:
@@ -131,7 +152,9 @@ loki:
 Logs grow without limit by default. Seven days is a reasonable start: long
 enough for an investigation, short enough to bound the volume.
 
-## 6. Metrics and logs together
+</LabStep>
+
+<LabStep n={6} title="Metrics and logs together" proves="You can say which question belongs to metrics and which to logs">
 
 Prometheus tells you the error rate rose at 02:14. Loki tells you what the
 errors said. The two are complementary and neither replaces the other:
@@ -142,7 +165,9 @@ errors said. The two are complementary and neither replaces the other:
 Use the same label names in both (`namespace`, `app`, `pod`) and a Grafana
 dashboard can jump from a spike straight to the lines underneath it.
 
-## When it goes wrong
+</LabStep>
+
+<Troubleshooting>
 
 **No logs appear at all**
 
@@ -161,6 +186,8 @@ Retention expired, or the PVC filled. `kubectl get pvc -n monitoring` and check 
 Promtail's relabel config drops most Kubernetes metadata by default. Only labels you keep are queryable.
 
 ---
+
+</Troubleshooting>
 
 ## Clean up
 

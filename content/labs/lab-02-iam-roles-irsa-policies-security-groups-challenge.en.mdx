@@ -15,6 +15,14 @@ costEstimate: "Free — IAM roles, policies and security groups cost nothing. On
 cleanup:
   - "terraform destroy -auto-approve"
   - "aws iam list-roles --query 'Roles[?starts_with(RoleName, `ivolve`)].RoleName'"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "Each role's trust policy names exactly one service, and its permissions policy names exactly the actions it needs."
   - "Security groups reference each other rather than CIDR ranges, so no rule contains a hardcoded IP."

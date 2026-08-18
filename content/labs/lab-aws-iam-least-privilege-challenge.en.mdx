@@ -19,6 +19,14 @@ skills:
 tools:
   - "AWS CLI v2, configured"
   - "An AWS account"
+handsOn:
+  online:
+    platform: killercoda
+    enabled: false
+  cloud:
+    enabled: true
+    platform: aws
+    requiresOwnAccount: true
 successCriteria:
   - "A user can read one specific S3 bucket and nothing else, proven by an allowed call and a denied one."
   - text: "You can explain why `s3:ListBucket` and `s3:GetObject` need different resource ARNs."
