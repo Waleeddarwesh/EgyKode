@@ -35,33 +35,38 @@ VERSION="${2:-1.0}"
 export KUBECTL_VERSION="${KUBECTL_VERSION:-v1.31.0}"
 export HELM_VERSION="${HELM_VERSION:-v3.16.2}"
 
-CONTROLLER="${USER_NS}/controller"
-NODE="${USER_NS}/node"
+CONTROLLER="${USER_NS}/egykode"
+CONTROLLER_TAG="controller-${VERSION}"
+CONTROLLER_LATEST="controller-latest"
 
-echo "Building ${CONTROLLER} and ${NODE} at ${VERSION}"
+NODE="${USER_NS}/egykode"
+NODE_TAG="node-${VERSION}"
+NODE_LATEST="node-latest"
+
+echo "Building ${CONTROLLER}:${CONTROLLER_TAG} and ${NODE}:${NODE_TAG}"
 echo
 
 docker build \
   --build-arg "KUBECTL_VERSION=${KUBECTL_VERSION}" \
   --build-arg "HELM_VERSION=${HELM_VERSION}" \
-  -t "${CONTROLLER}:${VERSION}" -t "${CONTROLLER}:latest" \
+  -t "${CONTROLLER}:${CONTROLLER_TAG}" -t "${CONTROLLER}:${CONTROLLER_LATEST}" \
   docker/all
 
 docker build \
-  -t "${NODE}:${VERSION}" -t "${NODE}:latest" \
+  -t "${NODE}:${NODE_TAG}" -t "${NODE}:${NODE_LATEST}" \
   docker/managed-node
 
 echo
 echo "Built:"
-docker images "${CONTROLLER}" --format '  {{.Repository}}:{{.Tag}}	{{.Size}}'
-docker images "${NODE}" --format '  {{.Repository}}:{{.Tag}}	{{.Size}}'
+docker images "${CONTROLLER}" --format '  {{.Repository}}:{{.Tag}}	{{.Size}}' | grep "controller-" || true
+docker images "${NODE}" --format '  {{.Repository}}:{{.Tag}}	{{.Size}}' | grep "node-" || true
 
 # A smoke test before publishing, because a broken image is worse than a
 # missing one: the learner pulls it, follows the lab, and the failure looks
 # like their mistake.
 echo
 echo "Checking the controller carries what the labs expect…"
-docker run --rm "${CONTROLLER}:${VERSION}" bash -lc '
+docker run --rm "${CONTROLLER}:${CONTROLLER_TAG}" bash -lc '
   set -e
   for t in git ansible terraform kubectl helm docker; do
     command -v "$t" >/dev/null || { echo "MISSING: $t"; exit 1; }
@@ -69,7 +74,7 @@ docker run --rm "${CONTROLLER}:${VERSION}" bash -lc '
   echo "  all tools present"
 '
 echo "Checking the node runs systemd…"
-docker run --rm --entrypoint sh "${NODE}:${VERSION}" -c '
+docker run --rm --entrypoint sh "${NODE}:${NODE_TAG}" -c '
   test -x /sbin/init || { echo "MISSING: /sbin/init"; exit 1; }
   command -v systemctl >/dev/null || { echo "MISSING: systemctl"; exit 1; }
   command -v sshd >/dev/null || test -x /usr/sbin/sshd || { echo "MISSING: sshd"; exit 1; }
@@ -80,10 +85,10 @@ echo
 read -r -p "Push these to Docker Hub? [y/N] " reply
 [[ "$reply" =~ ^[Yy]$ ]] || { echo "Not pushed."; exit 0; }
 
-for image in "${CONTROLLER}" "${NODE}"; do
-  docker push "${image}:${VERSION}"
-  docker push "${image}:latest"
-done
+docker push "${CONTROLLER}:${CONTROLLER_TAG}"
+docker push "${CONTROLLER}:${CONTROLLER_LATEST}"
+docker push "${NODE}:${NODE_TAG}"
+docker push "${NODE}:${NODE_LATEST}"
 
 echo
 echo "Published. Learners now pull these by setting, in their shell or a .env:"

@@ -16,7 +16,7 @@ name: egykode-lab
 services:
   # ── Always on ─────────────────────────────────────────────────────────────
   controller:
-    image: ${EGYKODE_REPO:-waleeddarwesh}/controller:${EGYKODE_VERSION:-1.0}
+    image: ${EGYKODE_REPO:-waleeddarwesh}/egykode:controller-${EGYKODE_VERSION:-1.0}
     # Published image when it exists, local build when it does not. A learner
     # never runs `docker build` — that is a maintainer step, not a lesson.
     build:
@@ -48,7 +48,7 @@ services:
                sleep infinity"
 
   node:
-    image: ${EGYKODE_REPO:-waleeddarwesh}/node:${EGYKODE_VERSION:-1.0}
+    image: ${EGYKODE_REPO:-waleeddarwesh}/egykode:node-${EGYKODE_VERSION:-1.0}
     build:
       context: ./docker/managed-node
     container_name: egykode-node
@@ -76,7 +76,7 @@ services:
 
   # ── Optional: a second node, for labs that need more than one target ──────
   node2:
-    image: ${EGYKODE_REPO:-waleeddarwesh}/node:${EGYKODE_VERSION:-1.0}
+    image: ${EGYKODE_REPO:-waleeddarwesh}/egykode:node-${EGYKODE_VERSION:-1.0}
     build:
       context: ./docker/managed-node
     container_name: egykode-node2
