@@ -30,8 +30,22 @@ built on that would teach you that you had administered a machine you had not
 touched.
 
 **So criterion 1 is left to the cloud version of this lab**, on a real account
-with a real instance. Everything else here is real: the log group holds events
-you shipped, the query returns them, and the alarm exists with the threshold
-you chose.
+with a real instance.
+
+Three smaller gaps you will meet as you go, each measured rather than assumed,
+and each pointed at in the step where it bites:
+
+| Thing | Here |
+| --- | --- |
+| Log events stored and retrieved | real |
+| Time-bounded queries (`--start-time`) | real |
+| `--filter-pattern` | **accepted and ignored** |
+| Alarm evaluation | **never runs** |
+
+None of that makes the work fake — you are writing configuration that is
+correct for real AWS, and the checks look at what genuinely exists. But it does
+mean the environment will happily agree with a query that is wrong, so the
+steps show you how to catch it doing that. Learning to tell "accepted" from
+"honoured" is worth as much as the CloudWatch syntax.
 
 Setup runs in the background and takes about a minute.

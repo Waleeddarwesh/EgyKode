@@ -15,19 +15,28 @@ and put an alarm on a symptom.
 - Justify every argument of a `put-metric-alarm`: the metric, the statistic,
   the evaluation periods, and what missing data means
 
-**Two things this environment could not show you**
+**What this environment could not show you**
 
-**Running a command with no SSH key**, the lab's first criterion, needs SSM Run
-Command against an agent registered from a real instance. LocalStack accepts
-`send-command` and reports `Success` with an empty output, and the API that
-would reveal no agent ever registered is not implemented — so it is left to the
-cloud version of this lab rather than faked here.
+Four gaps, all measured. They are listed because a scenario that hid them would
+be teaching you to trust an emulator:
 
-**The reserved-namespace rule is not enforced.** Real CloudWatch refuses a
-`PutMetricData` into `AWS/EC2`; this environment accepts it. That gap is worth
-carrying with you generally: an emulator agreeing with your code is weaker
-evidence than it feels, and the things it does not enforce are exactly the
-things you will meet for the first time in production.
+| Behaviour | Real AWS | Here |
+| --- | --- | --- |
+| `ssm send-command` on an instance | runs, returns output | reports `Success`, runs nothing |
+| `--filter-pattern` on a log query | selects events | accepted and ignored |
+| Alarm evaluation | state moves to `ALARM` | never evaluates |
+| `PutMetricData` into `AWS/EC2` | refused | accepted |
+
+Notice the shape they share: **every one of them is a case where the emulator
+says yes.** None of them errors. An API that rejects what it cannot do is easy
+to work with; one that accepts everything and does nothing is how you end up
+confident about something untrue — the same reason a scan that silently finds
+nothing is worse than a scan that fails.
+
+The habit worth taking away is the one step 2 makes you practise: after a query
+returns what you expected, run the one that **must** return nothing, and check
+that it does. That is the difference between a result and a coincidence, and it
+costs one command.
 
 **Next**
 

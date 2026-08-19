@@ -55,6 +55,12 @@ awslocal cloudwatch describe-alarms --alarm-names egykode-lab-errors \
 evaluation window yet. It is not a failure, and an alarm that jumps straight to
 `OK` before it has any data would be lying to you.
 
+**Here it is also permanent.** LocalStack stores the alarm but never evaluates
+it: publish a value far past the threshold and the state does not move -
+measured. So what you are building in this step is the *configuration* of an
+alarm, which is exactly what criterion 3 asks for, and not its behaviour. On a
+real account the state moves to `ALARM` and something has to happen next.
+
 ## What this does not cover
 
 The alarm has no action attached. On a real account this is where an SNS topic
