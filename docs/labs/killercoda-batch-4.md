@@ -275,18 +275,28 @@ Patterns checked:
   assertion was about absence and the check passed. The file is now required.
 - Three unbounded `curl` calls now carry `--max-time`.
 
-### Outstanding, needs a cluster to fix properly
+### Also fixed, tested on a live cluster
 
-**`k8s-workloads/verify2.sh`** asserts only absences: no Deployment, zero
-ReplicaSets, zero Pods. A learner who never created the Deployment satisfies all
-three. In practice Killercoda gates step 2 behind step 1 — whose verifier does
-require the Deployment with 3 ready replicas — so the exposure is small, but the
-check is weaker than the rest.
+**`k8s-workloads/verify2.sh`** asserted only absences: no Deployment, zero
+ReplicaSets, zero Pods — all true of a cluster where the Deployment was never
+created. The step leaves no artifact behind, so the evidence comes from
+**Kubernetes events, which outlive the objects they describe**: after the
+cascade deletes the Deployment, ReplicaSet and Pods, the ReplicaSet's
+`SuccessfulCreate` events remain and prove it existed.
 
-The fix needs an artifact proving the resources existed before being deleted
-(the step currently leaves none) and should be tested against a live cluster
-before shipping. **This scenario is already enabled on the site**, so the change
-is worth making deliberately rather than blind.
+Verified in four states on a kind cluster:
+
+| State | Result |
+| --- | --- |
+| Namespace where nothing was ever built | FAIL (correct) |
+| Deployment created, then deleted | PASS |
+| Deployment still running | FAIL (correct) |
+| Deleted again | PASS |
+
+One caveat recorded deliberately: events have a one-hour default TTL. A learner
+who spends more than an hour on this step would lose the evidence and see a
+false failure. Killercoda sessions are time-limited to about the same, so the
+window holds — but if session length ever increases, this check needs revisiting.
 
 ### False positive
 
