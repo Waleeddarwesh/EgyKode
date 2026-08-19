@@ -978,3 +978,93 @@ fails because `debian:12-slim` then measures 13.
 Cold cost on an Ubuntu host with an empty cache: `trivy image` 60s, database
 101s and **108 MiB** — not the 40-60 MB estimated earlier. That drives the
 setup's wait loop.
+
+## `jenkins-docker-pipeline`: built, tested, published
+
+| Scenario | Lab | Backend |
+| --- | --- | --- |
+| `jenkins-docker-pipeline` | lab-jenkins-docker-pipeline | ubuntu |
+
+Three steps, covering criteria 1, 2 and 3; criterion 4 (`latest` is not what
+gets deployed) is settled inside steps 1 and 2 rather than on its own. Verified
+end to end from a wiped machine.
+
+### Four bugs the test rig found, none of them visible on inspection
+
+**Jenkins refuses a local-directory checkout.** Current git-plugin versions
+abort with *"references a local directory, which may be insecure"* — hardening
+against a job on a shared controller reading arbitrary host paths. A job whose
+SCM url is `/srv/app` fails before the pipeline starts. Fixed with
+`-Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true` in `JAVA_OPTS`, which is
+defensible only because the VM is single-user and disposable.
+
+**Waiting on `lastBuild` reads the previous build.** A build POSTed to Jenkins
+sits in the queue for a moment, during which `lastBuild` still points at the
+prior run — whose result is already final. A loop that breaks on any terminal
+result therefore returns *instantly*, reporting the wrong build's outcome.
+
+Worse, it compounds: **Jenkins coalesces identical queued triggers.** Step 3
+triggered the broken build, read the stale `SUCCESS`, committed the fix and
+triggered again — and Jenkins merged the two into one build that checked out the
+*fixed* commit. The vulnerable image was never built at all, and every visible
+signal said the step had passed. Caught only by counting builds: three existed
+where four were expected.
+
+The fix is to claim `nextBuildNumber` before triggering and poll that number.
+`/job/<name>/<N>/api/json` 404s while queued, which the loop treats as
+still-running, so it cannot terminate early or on the wrong run.
+
+**An unencoded `tree` query returns 200 and an empty body.**
+`?tree=builds[number,result]` sent raw looks exactly like a job with no builds,
+so `verify3` would have reported "no build was stopped by the scan" whatever the
+learner did. The brackets must be `%5B` / `%5D`.
+
+**`make` is absent from `jenkins/jenkins:lts-jdk17`.** The cheap-check stage
+exits 127, which reads as a broken pipeline rather than a missing package.
+
+### One inaccuracy in written material, found by reading the output
+
+A skipped stage still appears in the pipeline log — Jenkins enters the block and
+declines to run its steps. The step text claimed "no `Push`" while the stage list
+plainly showed `Push`. It now points at the two things that *are* evidence: the
+`Stage "Push" skipped due to earlier failure(s)` line and a `Login Succeeded`
+count of zero.
+
+### Measured
+
+| Item | Cost |
+| --- | --- |
+| `setup.sh`, images already pulled | 91s |
+| `setup.sh`, re-run with everything warm | 12s |
+| `jenkins/jenkins:lts-jdk17` pull (nested vfs) | 281s |
+| Gate on `debian:12.5-slim` | `Total: 20 (HIGH: 18, CRITICAL: 2)` |
+
+`setup.sh` asserts the gate has something to find and says so in
+`/root/ci/setup.log` (20 finding rows for 15 distinct CVEs), so a Trivy database
+that failed to download surfaces there rather than as a green build on a
+vulnerable image.
+
+### Mutation tests, three states each
+
+| Verifier | Passes after | Rejects "not done" | Rejects wrong answer |
+| --- | --- | --- | --- |
+| `verify1` | commit-tagged image in registry | registry empty | image also pushed as `latest` |
+| `verify2` | authenticated push, no secret in log | no successful build | password hardcoded in the Jenkinsfile |
+| `verify3` | build gated, rebuild passed | no scan-stopped build in history | build failed at unit tests, not the gate |
+
+`verify2` requires `Login Succeeded` and a push digest *before* asserting the
+password is absent. Without that presence check, a build that never reached the
+push satisfies "no credential in the log" by default — the same failure shape as
+the absence checks recorded earlier in this file.
+
+`verify1` retries the registry tag query: it was observed answering
+`NAME_UNKNOWN` briefly after a push that had already printed its digest, and a
+verifier that flakes teaches people to click it twice and stop reading it.
+
+### Test rig
+
+A privileged `ubuntu:24.04` container running its own `dockerd`. `overlay2` is
+unavailable inside it (`driver not supported`), so `vfs` — which is why the
+Jenkins pull measured 281s against the 1m48s recorded for `jenkins-fundamentals`
+on a real host. Alpine `docker:dind` was rejected: these verifiers are
+`#!/bin/bash` with GNU coreutils, matching Killercoda's ubuntu backend.
