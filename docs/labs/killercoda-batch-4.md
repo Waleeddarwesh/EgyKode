@@ -689,3 +689,101 @@ enforcement. **Cloud-only.**
 The general rule this confirms: when a lab's criteria are of the form "and this
 is refused" or "and this stops working if you remove it", LocalStack community
 cannot host it, however completely it implements the happy path.
+
+## Step-criteria triage: all 51 finished, one real mapping bug
+
+`node scripts/audit-step-criteria.mjs` listed 51 steps across 37 labs owning no
+criterion. **All 51 have now been read against their lab's criteria.** One was
+wrong. The other 50 are correct as they stand — do not re-triage this list.
+
+The count is now **50 across 36 labs**, and that number should be expected to
+stay there. It is a floor, not a backlog.
+
+### The one that was wrong
+
+**`lab-03-amazon-ecr-container-registry-s3-storage-buckets`.** Step 1 owned
+`{[1, 2]}` and step 3 owned nothing. Criterion 1 is "an image pushed to ECR is
+scanned automatically **and you can read the findings**" — but step 1 only
+creates the repository with `scan_on_push = true`. Nothing is pushed and no
+finding exists until step 3. Step 1 now owns `{2}` (the lifecycle policy, which
+it does write) and step 3 owns `{1}`.
+
+Moved rather than shared, deliberately — see the pre-tick rule below.
+
+### The two rules the triage settled
+
+**A step owns a criterion when it contains the work or the observation that
+makes the criterion true** — not when it is a prerequisite for it. Creating the
+EKS cluster, installing the Argo CD operator, writing `ansible.cfg`, `kind
+create cluster`, deploying the workload a chaos experiment will kill: all are
+required, none is described by any criterion. They stay unowned.
+
+**Never add a criterion an *earlier* step already owns.** Marking the earlier
+step ticks the criterion, and the later step — which reads its done-ness from
+the criteria store — immediately shows "done" for work the reader has not
+started. Eight labs already carry overlapping ownership from before this rule
+was written; adding more would make it worse. Where a later step is the true
+owner, move the criterion rather than share it.
+
+That second rule is why several *tempting* cases were left alone:
+
+- `lab-10` step 3 "Start it" shows `docker compose ps` reporting `healthy`,
+  which is exactly criterion 2's claim — but step 2 owns it and comes first.
+- `lab-argocd` step 3 "Establish the baseline" waits for `Synced` and
+  `Healthy`, the second half of criterion 1 — step 2 owns it and comes first.
+- `lab-sre-chaos` step 4 "Experiment three — drain a node" opens with a written
+  hypothesis (criterion 4) and its finding is that recovery does *not* happen
+  as expected (criterion 2). Both are owned by steps that sit either side of
+  it. This is the closest call in the whole list; it was left unowned.
+
+### The mirror-image problem, which is the real one
+
+Five labs have a criterion **no step settles**, and in every case it is the
+*last* one:
+
+| Lab | Criteria | Orphaned |
+| --- | --- | --- |
+| `lab-01-aws-vpc-subnets-gateways-route-tables` | 5 | 5 |
+| `lab-03-amazon-ecr-container-registry-s3-storage-buckets` | 4 | 4 |
+| `lab-24-s3-cloudfront-static-site` | 5 | 5 |
+| `lab-git-recovery-history` | 4 | 4 |
+| `lab-terraform-fundamentals` | 5 | 5 |
+
+The cause is structural, not a typo: each of these labs demonstrates its last
+criterion in the lab-level **"Verify it worked"** section, which sits outside
+every `<LabStep>`. lab-03's criterion 4 wants a deleted S3 object recovered
+through versioning, and the `aws s3api list-object-versions` that does it is in
+that section. No step can own it without claiming the reader did something the
+step does not contain.
+
+This matters more than the unowned steps, because a reader working purely
+through the steps can never reach "all criteria met" in these five labs — and
+since explanatory steps now follow lab completion (see below), those labs also
+keep their explanatory steps grey until the last criterion is ticked by hand.
+
+Fixing it means either moving the demonstration into a final step or accepting
+the checklist tick. That is a content decision per lab, not a mapping pass, so
+it is recorded here rather than guessed at.
+
+## `totalCriteria`: explanatory steps now follow the finished lab
+
+The residual design issue is closed. `LabStep` never received the lab's
+criteria count, so a step settling no criterion knew only its own mark — and a
+lab could show "all criteria met", render the completion card, and still leave
+its explanatory steps grey with unfilled circles in the rail.
+
+`totalCriteria` is now bound in the MDX component map beside `labId`, from
+`lab.successCriteria.length`. An unowned step reads it to answer one question:
+is every criterion ticked? Counted by **length**, the same way `LabComplete`
+counts it, so the two cannot disagree about the same lab.
+
+Such a step also drops its "I've run this" button once the lab is complete. The
+button could no longer change what it shows — the mark records *where was I*,
+and there is nowhere left to be — and a control that cannot affect its own
+state is worse than no control. A line saying why the step is ticked replaces
+it.
+
+Mutation-tested, as everything here is: with the prop unthreaded at the lab
+page, the new e2e test fails on exactly the reported symptom —
+`data-done="false"` on step 1 of `lab-k8s-services` with all four criteria in
+storage. Restored, it passes. Full spec: **29 passed, 4 skipped**.

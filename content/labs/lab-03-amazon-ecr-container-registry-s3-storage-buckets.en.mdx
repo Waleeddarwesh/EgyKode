@@ -53,7 +53,7 @@ Two storage services that get grouped together and behave nothing alike:
 
 ## Build it
 
-<LabStep n={1} title="A registry that scans and prunes" proves="You can create a registry that scans what you push and expires what you stop tagging" criterion={[1, 2]}>
+<LabStep n={1} title="A registry that scans and prunes" proves="You can create a registry that scans what you push and expires what you stop tagging" criterion={2}>
 
 ```hcl
 resource "aws_ecr_repository" "app" {
@@ -167,7 +167,7 @@ without it. That is a lab of its own later in the path.
 
 </LabStep>
 
-<LabStep n={3} title="Push an image" proves="You can push an image and read the scan findings it produced">
+<LabStep n={3} title="Push an image" proves="You can push an image and read the scan findings it produced" criterion={1}>
 
 ```bash
 aws ecr get-login-password --region us-east-1 \
