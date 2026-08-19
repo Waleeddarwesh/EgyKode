@@ -60,6 +60,7 @@ export function LabStep({
   proves,
   criterion,
   labId,
+  totalCriteria = 0,
   children,
 }: {
   n: number;
@@ -79,6 +80,15 @@ export function LabStep({
    */
   criterion?: number | number[];
   labId: string;
+  /**
+   * How many criteria the lab declares, bound by the MDX component map.
+   *
+   * Only a step settling none of them reads this, and only to answer one
+   * question: is the lab already finished? Defaults to 0, which reads as
+   * "unknown" and leaves such a step on its own mark — the behaviour before
+   * this prop existed, and the right fallback anywhere the count is absent.
+   */
+  totalCriteria?: number;
   children: ReactNode;
 }) {
   const { marked, ready, toggle } = useStepMarks(labId);
@@ -93,16 +103,34 @@ export function LabStep({
    * left the step still showing "done", and the page then disagreed with
    * itself in two visible spots.
    *
-   * Steps without a criterion keep their own mark, which is the only thing
-   * that records them.
+   * Steps without a criterion keep their own mark — and, once every criterion
+   * is met, follow the lab. Left on the mark alone, an explanatory step sat
+   * unticked under a page already showing "all criteria met", so the rail and
+   * the completion card disagreed about a lab that was plainly finished.
    */
   // A step can settle more than one criterion: five steps of work commonly
   // prove four criteria, and a lab whose last criterion mapped to no step
   // could never be completed by working through the steps at all.
   const owned = criterion === undefined ? [] : Array.isArray(criterion) ? criterion : [criterion];
+
+  // Counted the way the completion card counts it — length, not membership —
+  // so the two cannot reach different answers about the same lab. Criteria are
+  // stored deduplicated, so the length is the number of distinct ones ticked.
+  const labComplete = totalCriteria > 0 && (criteria?.[labId]?.length ?? 0) >= totalCriteria;
+
+  /**
+   * An unowned step whose done-ness comes from the lab rather than the reader.
+   *
+   * It gets no "I've run this" button: the mark records *where was I*, and
+   * once every criterion is met there is no place left to be. Offering the
+   * toggle anyway would be offering a control that cannot change what it
+   * shows — clicking it would write the mark and leave the step still done.
+   */
+  const settledByLab = !owned.length && labComplete;
+
   const done = owned.length
     ? owned.every((c) => Boolean(criteria?.[labId]?.includes(c - 1)))
-    : ready && marked.includes(n);
+    : (ready && marked.includes(n)) || labComplete;
 
   /**
    * Open or closed.
@@ -218,33 +246,42 @@ export function LabStep({
 
           <div className="prose prose-sm mt-4 max-w-none">{children}</div>
 
-          <button
-            type="button"
-            onClick={() => {
-              // Write to whichever store backs this step, not to both: a
-              // criterion-backed step reads from criteria, so also keeping a
-              // step mark would leave a stale record behind it.
-              if (owned.length) for (const c of owned) setCriterion(labId, c - 1, !done);
-              else toggle(n);
-              if (!done) handOff(n);
-              // Collapse on completion and hand the page to the next step:
-              // `null` returns this step to following the lab, and the step
-              // after it becomes the first unmarked one.
-              if (!done) setChoice(false);
-              else setChoice(null);
-            }}
-            aria-pressed={done}
-            className={`btn mt-5 h-10 px-4 ${done ? "btn-outline" : "btn-primary"}`}
-          >
-            {done ? (
-              <>
-                <Check size={15} aria-hidden />
-                Step {n} complete
-              </>
-            ) : (
-              "I've run this"
-            )}
-          </button>
+          {settledByLab ? (
+            // Said rather than shown as a pressed button, so the reader can
+            // see why this step is ticked when they never ticked it.
+            <p className="mt-5 flex items-center gap-2 text-sm text-content-muted">
+              <Check size={15} aria-hidden style={{ color: "var(--clr-success)" }} />
+              Every success criterion for this lab is met.
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                // Write to whichever store backs this step, not to both: a
+                // criterion-backed step reads from criteria, so also keeping a
+                // step mark would leave a stale record behind it.
+                if (owned.length) for (const c of owned) setCriterion(labId, c - 1, !done);
+                else toggle(n);
+                if (!done) handOff(n);
+                // Collapse on completion and hand the page to the next step:
+                // `null` returns this step to following the lab, and the step
+                // after it becomes the first unmarked one.
+                if (!done) setChoice(false);
+                else setChoice(null);
+              }}
+              aria-pressed={done}
+              className={`btn mt-5 h-10 px-4 ${done ? "btn-outline" : "btn-primary"}`}
+            >
+              {done ? (
+                <>
+                  <Check size={15} aria-hidden />
+                  Step {n} complete
+                </>
+              ) : (
+                "I've run this"
+              )}
+            </button>
+          )}
         </div>
       </section>
     </StepContext.Provider>

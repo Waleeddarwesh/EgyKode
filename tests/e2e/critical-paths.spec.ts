@@ -263,6 +263,43 @@ test.describe("lab steps", () => {
     );
   });
 
+  test("a step settling no criterion follows the lab once every criterion is met", async ({
+    page,
+  }) => {
+    // The page used to disagree with itself: the checklist said "all criteria
+    // met" and the completion card appeared, while the explanatory steps sat
+    // unticked with grey rules, because a step settling no criterion knew only
+    // its own mark and never the lab's total.
+    //
+    // lab-k8s-services is the case in point — steps 1 ("Why not just use the
+    // Pod IP?") and 5 ("The three types") are reference material that proves
+    // nothing on the checklist, and are meant to stay that way.
+    const SERVICES = "/en/labs/lab-k8s-services";
+    await page.goto(SERVICES);
+
+    const explanatory = page.locator('section[data-step="1"]');
+    await expect(explanatory).toHaveAttribute("data-done", "false");
+
+    // Settle the lab from the checklist rather than the steps, which is the
+    // route that produced the disagreement: four criteria, none of them owned
+    // by step 1.
+    await page.evaluate(() =>
+      localStorage.setItem(
+        "egykode_lab_criteria",
+        JSON.stringify({ "lab-k8s-services": [0, 1, 2, 3] }),
+      ),
+    );
+    await page.reload();
+
+    await expect(explanatory).toHaveAttribute("data-done", "true");
+
+    // And it offers no "I've run this": the mark records where the reader is,
+    // and a control that cannot change what it shows is worse than no control.
+    await explanatory.locator("button[aria-controls]").click();
+    await expect(explanatory.locator("button[aria-pressed]")).toHaveCount(0);
+    await expect(explanatory.getByText(/Every success criterion for this lab is met/)).toBeVisible();
+  });
+
   test("unmarking a step releases the criterion again", async ({ page }) => {
     // Otherwise a mis-click permanently credits work nobody did, and the only
     // way back is clearing site data.

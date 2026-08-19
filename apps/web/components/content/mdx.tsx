@@ -46,6 +46,14 @@ export interface MdxLabels {
   locale: string;
   /** Bound into the lab step components; absent outside labs. */
   labId?: string;
+  /**
+   * How many success criteria the lab declares.
+   *
+   * Bound here for the same reason as `labId`, and needed by the one kind of
+   * step that cannot work it out for itself: a step settling no criterion has
+   * no way to tell that the lab around it is finished.
+   */
+  totalCriteria?: number;
 }
 
 /**
@@ -225,7 +233,7 @@ export function mdxComponents(labels: MdxLabels) {
      * rather than degrading, which is the behaviour worth having.
      */
     LabStep: (props: { n: number; title: string; proves?: string; criterion?: number | number[]; children?: ReactNode }) => (
-      <LabStep {...props} labId={labels.labId ?? ""}>
+      <LabStep {...props} labId={labels.labId ?? ""} totalCriteria={labels.totalCriteria ?? 0}>
         {props.children}
       </LabStep>
     ),

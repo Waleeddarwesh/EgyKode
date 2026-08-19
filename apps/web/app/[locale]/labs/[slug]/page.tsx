@@ -143,6 +143,7 @@ export default async function LabPage({
     destructiveBody: t("code.destructiveBody"),
     locale: typed,
     labId: lab.labId,
+    totalCriteria: lab.successCriteria?.length ?? 0,
   });
 
   return (
