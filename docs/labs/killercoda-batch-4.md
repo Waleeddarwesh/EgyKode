@@ -412,3 +412,34 @@ Suggested shape:
 3. Who owns what: a Gateway owned by the platform team, HTTPRoutes owned by
    application teams in their own namespaces, joined by `allowedRoutes` — which
    is one of the two things Ingress cannot express (criteria 3 and 4)
+
+### lab-aws-iam-least-privilege is infeasible — IAM is not enforced
+
+Tested directly with `ENFORCE_IAM=1` on `localstack/localstack:3.8`:
+
+- created user `lab-reader`
+- attached a policy allowing `s3:ListBucket` on `arn:aws:s3:::allowed-bucket`
+  and `s3:GetObject` on `arn:aws:s3:::allowed-bucket/*`, and nothing else
+- listed **both** buckets with that user's own access key
+
+```
+--- allowed bucket:
+2026-08-19 03:37:01          6 f.txt
+exit=0
+--- secret bucket (should be AccessDenied):
+2026-08-19 03:37:01          6 f.txt
+exit=0
+```
+
+The denied call succeeds. The lab's first criterion is "a user can read one
+specific S3 bucket and nothing else, **proven by an allowed call and a denied
+one**", and the denial cannot be produced. A scenario built here would teach a
+policy the environment silently ignores — the precise failure this whole effort
+exists to avoid.
+
+`ENFORCE_IAM` is a Pro feature in practice. **Cloud-only.**
+
+The same reasoning rules out the other policy-shaped cloud labs: anything whose
+criterion is "and this call is refused" needs an authoriser, and LocalStack
+community is not one. Note the contrast with Kubernetes RBAC, where
+`kubectl auth can-i` asks a real authoriser and the refusals are genuine.
