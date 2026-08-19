@@ -362,3 +362,53 @@ should be demonstrated by showing the backend's own 404 page before fixing it.
 `lab-12` also covers the AWS Load Balancer Controller, which needs EKS and stays
 cloud-only — the scenario should say so rather than imply the whole lab is
 covered.
+
+### Correction: lab-12 is not the Ingress scenario
+
+Reading its criteria before building changed the plan. Three of the four are
+**ALB-specific**:
+
+- "A real ALB is provisioned from a Kubernetes manifest, and you can find it in
+  the AWS console"
+- "You can explain what `target-type: ip` changes"
+- "Deleting the Ingress removes the ALB — verified, not assumed"
+
+Only path-based routing is reproducible without AWS. An ingress-nginx scenario
+would cover one criterion of four and teach a different controller than the lab
+does, so **lab-12 stays cloud-only**. The ingress-nginx findings above remain
+useful — they belong to the Gateway API scenario, which compares the two.
+
+### lab-k8s-gateway-api is proved and should be built next
+
+Its criteria are implementation-neutral, and the interesting one is measurable:
+
+```
+Gateway API CRDs (v1.1.0 standard-install)   ~2s
+NGINX Gateway Fabric v1.4.0                  ~40s to rolled out
+GatewayClass "nginx"                         ACCEPTED True
+```
+
+The controller's Service is a LoadBalancer with a NodePort, so it works on
+`kubernetes-kubeadm-1node` without any cluster flags. Note the deployment is
+named **`nginx-gateway`** in namespace `nginx-gateway` — not the Helm-style name
+the docs suggest.
+
+**A weighted split, measured over 100 requests against a declared 80/20:**
+
+```
+     88 v1
+     12 v2
+```
+
+That is criterion 2 — "a weighted split sends traffic to two Services, with no
+annotations" — as a number rather than a claim. A verifier should allow a
+generous band (say v1 in 60–95, v2 in 5–40 of 100) since it is weighted
+round-robin, not a quota, while still failing an even split or a single backend.
+
+Suggested shape:
+
+1. The same app through an Ingress and an HTTPRoute, both reachable (criterion 1)
+2. The weighted split, counted (criterion 2)
+3. Who owns what: a Gateway owned by the platform team, HTTPRoutes owned by
+   application teams in their own namespaces, joined by `allowedRoutes` — which
+   is one of the two things Ingress cannot express (criteria 3 and 4)
