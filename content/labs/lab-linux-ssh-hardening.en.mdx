@@ -49,7 +49,7 @@ This lab closes it down. The order matters more than the settings: get it wrong 
 > verified from a *second* connection. If something is wrong, the first session
 > is the only way back in.
 
-<LabStep n={1} title="An administrative user that is not root" proves="You can create an administrative account that records who did what, rather than sharing root">
+<LabStep n={1} title="An administrative user that is not root" proves="You can create an administrative account that records who did what, rather than sharing root" criterion={1}>
 
 ```bash
 sudo adduser --gecos "" deploy
@@ -87,7 +87,7 @@ logs nothing helpful. If key auth "does not work", check these two modes first.
 
 </LabStep>
 
-<LabStep n={3} title="Prove the key works — before changing anything" proves="You can verify a new login path works before removing the one you are currently using">
+<LabStep n={3} title="Prove the key works — before changing anything" proves="You can verify a new login path works before removing the one you are currently using" criterion={1}>
 
 ```bash
 # from a SECOND terminal, leaving the first connected

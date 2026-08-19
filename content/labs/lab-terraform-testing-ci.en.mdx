@@ -57,7 +57,7 @@ Cheapest first. `fmt` takes a second; a security scan takes twenty; `plan` calls
 AWS. Failing early means the expensive steps only run on changes that deserve
 them.
 
-<LabStep n={1} title="The local checks" proves="You can run the checks locally that CI will run, before pushing">
+<LabStep n={1} title="The local checks" proves="You can run the checks locally that CI will run, before pushing" criterion={1}>
 
 ```bash
 terraform fmt -check -recursive      # -check fails rather than rewriting
@@ -70,7 +70,7 @@ it can run on a pull request from a fork.
 
 </LabStep>
 
-<LabStep n={2} title="Lint what validate cannot see" proves="You can catch the mistakes validate cannot see">
+<LabStep n={2} title="Lint what validate cannot see" proves="You can catch the mistakes validate cannot see" criterion={1}>
 
 ```bash
 tflint --init
@@ -83,7 +83,7 @@ missing required tag.
 
 </LabStep>
 
-<LabStep n={3} title="Scan for insecure defaults" proves="You can scan configuration for insecure defaults rather than reviewing for them by eye">
+<LabStep n={3} title="Scan for insecure defaults" proves="You can scan configuration for insecure defaults rather than reviewing for them by eye" criterion={1}>
 
 ```bash
 trivy config --severity HIGH,CRITICAL --exit-code 1 .

@@ -74,7 +74,7 @@ INSERT INTO orders (customer, total)
 
 </LabStep>
 
-<LabStep n={2} title="A backup that verifies itself" proves="You can write a backup that checks itself rather than one that only appears to have run">
+<LabStep n={2} title="A backup that verifies itself" proves="You can write a backup that checks itself rather than one that only appears to have run" criterion={1}>
 
 ```bash
 #!/usr/bin/env bash
@@ -108,7 +108,7 @@ Three things make this a backup rather than a file:
 
 </LabStep>
 
-<LabStep n={3} title="The disaster" proves="You can destroy the data deliberately and start the clock at the decision">
+<LabStep n={3} title="The disaster" proves="You can destroy the data deliberately and start the clock at the decision" criterion={1}>
 
 ```bash
 docker compose down -v      # the volume, and every byte in it, is gone
