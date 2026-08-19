@@ -179,11 +179,15 @@ export function LabSteps({
                 <a
                   href={`#${step.id}`}
                   aria-current={active ? "step" : undefined}
-                  className="relative flex items-center gap-3 py-2 text-xs transition-colors"
+                  className="relative flex items-center gap-3 py-2 ps-[3px] text-xs transition-colors"
                   style={{ color: active ? "var(--clr-text)" : "var(--clr-text-muted)" }}
                 >
+                  {/* 18px wide at a 3px inset puts the centre on 12px, which is
+                      where the connector and the Start/End nodes sit. At 17px
+                      with no inset it centred on 8.5px, so the line met the
+                      ring off-centre and read as a gap in it. */}
                   <span
-                    className="z-10 flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full border-2 transition-colors"
+                    className="z-10 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 transition-colors"
                     style={{
                       background: done ? "var(--clr-primary)" : "var(--clr-bg)",
                       borderColor: done
@@ -192,8 +196,11 @@ export function LabSteps({
                           ? "var(--clr-primary)"
                           : "var(--clr-surface-border)",
                       // The current step gets a halo rather than a fill, so it
-                      // is never mistaken for a completed one.
-                      boxShadow: active && !done ? "0 0 0 3px var(--clr-primary-pale)" : undefined,
+                      // is never mistaken for a completed one. The glow token is
+                      // translucent in both themes; the pale one is a near-white
+                      // mint that reads as a second solid ring on a dark
+                      // backgroundrather than a halo behind the first.
+                      boxShadow: active && !done ? "0 0 0 3px var(--clr-primary-glow)" : undefined,
                     }}
                     aria-hidden
                   >

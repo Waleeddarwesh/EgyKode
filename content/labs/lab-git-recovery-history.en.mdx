@@ -50,7 +50,7 @@ for i in 1 2 3 4 5; do echo "line $i" >> file.txt; git add -A; git commit -qm "c
 git log --oneline
 ```
 
-<LabStep n={1} title="reset --hard, undone" proves="You can recover commits the reflog still knows about after a hard reset">
+<LabStep n={1} title="reset --hard, undone" proves="You can recover commits the reflog still knows about after a hard reset" criterion={1}>
 
 ```bash
 git reset --hard HEAD~3
@@ -65,7 +65,7 @@ is truly destructive.
 
 </LabStep>
 
-<LabStep n={2} title="A deleted branch" proves="You can restore a branch you deleted, from the hash the reflog kept">
+<LabStep n={2} title="A deleted branch" proves="You can restore a branch you deleted, from the hash the reflog kept" criterion={1}>
 
 ```bash
 git switch -c feature && echo work >> file.txt && git commit -qam "feature work"
