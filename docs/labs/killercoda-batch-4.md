@@ -1120,3 +1120,72 @@ That is a product judgement rather than a technical one, so it is recorded here
 rather than decided unilaterally. The technical position: **criteria 1 and 4 are
 out of reach on one VM; criterion 3 is affordable on its own if the quality gate
 is judged worth the weight.**
+
+## The two remaining probes, now tested
+
+Both were listed as "never probed, verdict unknown". They have been probed.
+
+### First: `localstack/localstack:latest` no longer starts
+
+```
+Localstack returning with exit code 55. Reason:
+License activation failed!
+Reason: No credentials were found in the environment.
+```
+
+The `latest` tag now requires an auth token and **quits** without one. Every
+scenario in this repository pins `localstack/localstack:3.8`, which is why they
+still work. Anyone probing with `latest` will read this as a broken environment
+rather than a licensing change.
+
+### `lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault` — infeasible
+
+AWS Backup is not in the community image. Same error as ECR:
+
+```
+An error occurred (InternalFailure) when calling the CreateBackupVault operation:
+API for service 'backup' not yet implemented or pro feature
+```
+
+`CreateBackupVault`, `ListBackupVaults` and `CreateBackupPlan` all fail this way.
+Criterion 4 — "a backup plan exists and you verified a recovery point was
+actually created" — cannot be shown, and it is the criterion the lab is named
+for. Criteria 1 and 2 are S3 state and versioning, already covered by
+`terraform-remote-state`, and criterion 3 wants a *Jenkins host* with a stable
+address, which needs an instance that actually runs something. **Cloud-only.**
+
+### `lab-aws-ec2-cloudwatch-ssm` — 3 of 4, with the headline criterion out
+
+Tested and working on 3.8:
+
+| API | Result |
+| --- | --- |
+| `ssm put-parameter` / `get-parameter --with-decryption` | SecureString round-trips |
+| `logs create-log-group` / `create-log-stream` / `put-log-events` | OK |
+| `logs filter-log-events --filter-pattern ERROR` | returns the matching message |
+| `cloudwatch put-metric-alarm` / `describe-alarms` | alarm created and listed |
+
+So criterion 2 (logs queryable in a log group), criterion 3 (an alarm on a
+metric) and criterion 4 (reasoning) are all demonstrable.
+
+**Criterion 1 is not, and it fails in the dangerous direction.** "You ran a
+command on the instance with no SSH key and no inbound rule" needs SSM Run
+Command against an agent on a running machine. LocalStack accepts the call and
+reports success:
+
+```
+"Status": "Success",  "ResponseCode": 0,  "StandardOutputContent": ""
+```
+
+Nothing ran — `whoami` produced no output. And `describe-instance-information`,
+the API that would show the instance was never SSM-managed, returns *"has not
+been implemented"*, so the learner cannot detect it even by looking. An emulated
+success is worse than an unimplemented API: the criterion is "you ran a command
+on the instance", and the emulator says you did.
+
+**Verdict: a scenario covering criteria 2, 3 and 4 is buildable and honest**,
+provided it does not claim Run Command — the same shape as
+`jenkins-fundamentals`, which covers 2 of its lab's 4. That would be CloudWatch
+log querying, an alarm with a justified threshold, and Parameter Store, all on
+the proven LocalStack pattern. It is the only new scenario the two probes
+unlocked.
