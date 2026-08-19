@@ -303,3 +303,62 @@ window holds — but if session length ever increases, this check needs revisiti
 The 30 "never exits 0 explicitly" findings are wrong — those scripts end with
 `echo "PASS"`, which exits 0. The pattern should look for a non-zero final
 command, not a literal `exit 0`.
+
+---
+
+## Next group de-risked: Kubernetes Ingress
+
+Proved on a kind cluster before committing to the scenario, the same way
+LocalStack was proved before the IaC batch.
+
+**ingress-nginx installs fast.** The baremetal manifest for
+`controller-v1.11.3` applies in ~2s and the controller rolls out in ~30s. It
+exposes a NodePort, so no cluster-creation flags are needed — it will work on
+Killercoda's `kubernetes-kubeadm-1node` backend as-is.
+
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.3/deploy/static/provider/baremetal/deploy.yaml
+kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=300s
+NODEPORT=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.spec.ports[0].nodePort}')
+```
+
+**Host routing is genuinely enforced**, so it is measurable rather than
+assumed:
+
+| Request | Result |
+| --- | --- |
+| `Host: shop.example.com` | **200** |
+| `Host: other.example.com` | 404 |
+| no Host header | 404 |
+
+### Two lessons the probe produced by accident
+
+**An Ingress with no `ingressClassName` is silently orphaned.** It is accepted,
+listed by `kubectl get ingress`, and never picked up by any controller:
+
+```
+NAME     CLASS    HOSTS                ADDRESS      PORTS
+orphan   <none>   orphan.example.com                80
+shop     nginx    shop.example.com     172.22.0.2   80
+```
+
+The tell is the **empty ADDRESS column** — the controller writes it when it
+adopts the resource. Requests to the orphan host return 404. This is verifiable
+state (`.status.loadBalancer.ingress` is absent) and belongs in step 1.
+
+**A path prefix is passed through to the backend unchanged.** Routing `/api` to
+a service whose application serves from `/` produces a 404 *from the backend*,
+not from the Ingress — which looks identical to a routing failure and is not
+one. That is the `nginx.ingress.kubernetes.io/rewrite-target` lesson, and it
+should be demonstrated by showing the backend's own 404 page before fixing it.
+
+### Suggested shape
+
+1. Two services behind one Ingress, host routing proved with the 404s above,
+   and the orphaned-Ingress failure
+2. Path routing and `rewrite-target`, using the backend 404 as the symptom
+3. TLS termination with a self-signed secret
+
+`lab-12` also covers the AWS Load Balancer Controller, which needs EKS and stays
+cloud-only — the scenario should say so rather than imply the whole lab is
+covered.
