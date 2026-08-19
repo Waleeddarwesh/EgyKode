@@ -577,3 +577,64 @@ the Pod rather than the manifest, and it is now in the failure message.
 
 Loki, the Jenkins docker pipeline, and lab-16 (SonarQube/Trivy). Nothing found
 so far says they are infeasible.
+
+---
+
+## Loki: built, tested, published
+
+`grafana/loki-stack`, which the lab installs, is archived. Built on the current
+`grafana/loki` 7.3.0 chart in SingleBinary mode plus `grafana/promtail` 6.17.1.
+
+### Two failures that cost the most time
+
+**`mkdir /var/loki: read-only file system`.** With `persistence.enabled: false`
+the chart mounts nothing at `/var/loki` and the container's root filesystem is
+read-only, so Loki dies on startup with an error about storage that is really
+about a missing volume. Fixed with an `emptyDir` through
+`singleBinary.extraVolumes`. A PVC would work and would need a default
+StorageClass, which `k8s-storage-persistence` already records as not guaranteed
+on this backend.
+
+**An agent installed before its backend answers goes quiet permanently.**
+Promtail was installed while Loki was still starting. It exhausted its retry
+budget, dropped those batches, and then never discovered the Pods created
+afterwards. `loki_ingester_streams_created_total` stayed at 0 while every Pod
+was Running and promtail's own positions file showed it had read 46KB of
+kube-apiserver logs. A `rollout restart` fixed it instantly: 0 → 12 streams.
+
+That second one became step 1 rather than something `setup.sh` hides, because
+"green Pods, no logs" reads as a broken query for as long as you let it.
+
+### Measurements
+
+```
+373 lines scanned   {namespace="production"} |= "ERROR"
+247 lines scanned   {namespace="production", app="api"} |= "ERROR"
+crasher restart 1   t+11s
+3 FATALs in Loki    t+61s   (CrashLoopBackOff backs off exponentially)
+9 FATALs in Loki    by the time step 3 was finished
+```
+
+`kubectl expose statefulset` does not work — it fails with a NotFound about
+the Service it declined to create. The NodePort is a written-out manifest.
+
+### What the checks rest on
+
+verify2 runs the learner's own query and requires four things of it: Loki
+accepts it, it returns lines, every line is an error, and every line comes from
+one Deployment. It also requires the *selector* to name the workload — a
+namespace-wide selector narrowed by `|=` returns the right answer here only
+because nothing else logs the word ERROR, and that is not the skill.
+
+verify3 requires **three or more** copies of the crash message in Loki, because
+`kubectl logs --previous` can already show two. Fewer than three proves nothing
+that Kubernetes could not have told you.
+
+| State | Result |
+|---|---|
+| no promtail | verify1 FAIL |
+| `{} \|= "ERROR"` | verify2 FAIL — Loki refuses it outright |
+| `{namespace="production"} \|= "ERROR"` | verify2 FAIL — selector names no workload |
+| `{namespace="production", app="api"}` | verify2 FAIL — 25 of 50 lines are healthchecks |
+| no crasher / placeholder / "it crashed" | verify3 FAIL |
+| happy path | all three PASS |
