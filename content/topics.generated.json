@@ -1003,8 +1003,8 @@
         "lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault",
         "lab-terraform-remote-state",
         "lab-terraform-state-recovery",
-        "lab-terraform-fundamentals",
         "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
+        "lab-terraform-fundamentals",
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration"
       ],
       "roadmaps": [

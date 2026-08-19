@@ -829,7 +829,104 @@ fail on purpose.
 Mapping it to step 2 would be wrong: marking step 2 would tick a criterion for a
 recovery nobody has performed yet, which is the rule that stopped the tempting
 cases in the previous pass. The options are to promote that section to a final
-step, or to leave the checklist tick as the way it is settled. Left as-is,
-because `## Verify it worked` appears in several labs with the same meaning and
-changing it in one makes the set inconsistent — but this is the one of the five
-where a case exists.
+step, or to leave the checklist tick as the way it is settled.
+
+**Resolved: promoted.** The consistency objection was checked and does not hold.
+Of the 18 labs carrying a `## Verify it worked` section, **exactly one** — lab-03
+— has that section carrying a criterion no step owns. Everywhere else the
+section re-confirms criteria the steps already settle, which is why it belongs
+there and why moving it here does not split a uniform set. lab-03 was already
+the outlier.
+
+The three cleanup criteria are a different case and stay where they are. lab-01,
+lab-24 and lab-terraform-fundamentals each orphan a `terraform destroy` /
+"everything is deleted" criterion inside `## Clean up`, a section that opens
+"Run this even if you did not finish." On a billed lab the destroy has to be
+reachable *without* working through the steps first; turning it into a step
+buries the one instruction that stops the meter. lab-03's orphan had no such
+justification — nothing about recovering a deleted object needs to be reachable
+early.
+
+lab-03 now has a step 4, "Delete an object, then get it back", owning criterion
+4. Only the versioning-recovery block moved; the scan-findings read, the
+immutable-tag push and the lifecycle preview stay in `## Verify it worked`,
+because those confirm criteria steps 1–3 already own. No earlier step owned 4,
+so there is no pre-tick problem. Every criterion in lab-03 is now settled by a
+step.
+
+## Batch 7 probe: the Jenkins Docker pipeline gate
+
+Not yet built. The scan gate — the whole of criterion 2 — was measured first,
+because it is the part that can silently stop working, and the measurements
+changed the design twice.
+
+### `--ignore-unfixed` empties the gate on an EOL base image
+
+This is the finding that matters, and it contradicts the lab's own Jenkinsfile.
+Distinct CVEs at HIGH/CRITICAL, `--ignore-unfixed`, `--scanners vuln`:
+
+| Base image | Distinct CVEs |
+| --- | --- |
+| `debian:10` (the lab's example) | **1** |
+| `debian:11-slim`, `ubuntu:18.04`, `ubuntu:20.04` | **0** |
+| `alpine:3.16` | 1 |
+| `python:3.9-slim` | 12 |
+| `node:16-slim` | 20 |
+| **`debian:12.5-slim`** | **15** |
+
+An end-of-life distro ships no fixes, so *by construction* almost everything it
+carries is `status: unfixed` and `--ignore-unfixed` discards it. `ubuntu:18.04`
+scans clean for exactly the wrong reason. The lab's `FROM debian:10` survives on
+a single CVE — CVE-2024-33599 in glibc, which Trivy reports as two rows
+(`libc-bin`, `libc6`) and which is easy to misread as two findings. If that one
+CVE is reclassified, the gate empties and the scenario teaches that a vulnerable
+image passes.
+
+**Use a frozen point release instead.** `debian:12.5-slim` is a snapshot of a
+*supported* distro: Debian 12 keeps shipping fixes, the snapshot never rebuilds,
+so its packages accumulate `status: fixed` findings. Fifteen today, and the
+number grows over time rather than shrinking. `debian:12-slim` — the same distro
+and variant, currently rebuilt — measures **0**, so the fix passes.
+
+That pair is same-family, needs no archive.debian.org workaround, and teaches a
+better lesson than end-of-life does: a base image is a frozen snapshot, and
+rebuilding is what picks up the fixes.
+
+### Dead ends, so they are not re-tried
+
+- **A language-runtime pair.** `node:16-slim` (20) → `node:22-slim` is **8**, and
+  `python:3.9-slim` (12) → `python:3.12-slim` is **1**. The fix side fails the
+  gate. Runtime images always carry OS packages behind the distro;
+  `python:3.12-slim`'s single finding is `util-linux`, not something `pip
+  install --upgrade` clears.
+- **Dropping `--ignore-unfixed`.** Gives `debian:10` a 28-CVE gate, but
+  `debian:12-slim` then measures **13**, so the fixed side fails too. The flag
+  has to stay.
+
+### Costs, measured cold on an Ubuntu host with an empty cache
+
+| Item | Cost |
+| --- | --- |
+| `aquasec/trivy:latest` pull | 60s |
+| Trivy DB download | **101s, 108 MiB** |
+
+The DB is **108 MiB**, not the 40–60 MB estimated earlier. Warm-cache timings
+are meaningless for Killercoda; setup must prefetch the DB and the step must
+wait on a bounded loop, as `jenkins-fundamentals` does for Jenkins itself.
+
+### What setup.sh must assert
+
+Silent emptying is the failure mode this project exists to prevent, so the gate
+depth must not be assumed. `setup.sh` should scan the vulnerable base once and
+**fail loudly with the count** if it finds nothing at HIGH/CRITICAL, rather than
+letting a passing build be mistaken for a passing lab. The verifier for that step
+checks behaviour — the build failed at the scan stage and no new tag reached the
+registry — and, if the build succeeded, says plainly that the base image no
+longer trips the gate, so the cause is diagnosable rather than mysterious.
+
+### Test rig
+
+Measured on a privileged `ubuntu:24.04` container running its own `dockerd`
+(`--storage-driver=vfs`), not on the Windows host. Killercoda's backend is
+Ubuntu with GNU coreutils and `#!/bin/bash`; the Alpine `docker:dind` image is
+the wrong shape for the same reason it had no `python3` earlier in this file.

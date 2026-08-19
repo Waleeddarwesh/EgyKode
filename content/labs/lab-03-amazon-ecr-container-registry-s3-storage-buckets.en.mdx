@@ -188,6 +188,47 @@ production", which is the question you will be asked during an incident.
 
 </LabStep>
 
+<LabStep n={4} title="Delete an object, then get it back" proves="You can recover a deleted object from a versioned bucket, rather than trusting that versioning would have worked" criterion={4}>
+
+Versioning was enabled in step 2. That is a setting, not a demonstration — and
+a backup nobody has restored from is a belief, not a control. Prove it.
+
+```bash
+BUCKET=$(terraform output -raw state_bucket)
+
+echo "recover me" > test.txt
+aws s3 cp test.txt "s3://$BUCKET/test.txt"
+aws s3 rm "s3://$BUCKET/test.txt"
+
+# Gone from the listing...
+aws s3 ls "s3://$BUCKET/test.txt"
+
+# ...but not actually deleted. The delete added a marker on top.
+aws s3api list-object-versions --bucket "$BUCKET" --prefix test.txt \
+  --query '{versions:Versions[].VersionId,markers:DeleteMarkers[].VersionId}'
+```
+
+**A delete in a versioned bucket writes a delete marker.** The object is still
+there, hidden behind it. Removing the marker is the restore:
+
+```bash
+MARKER=$(aws s3api list-object-versions --bucket "$BUCKET" --prefix test.txt \
+  --query 'DeleteMarkers[0].VersionId' --output text)
+
+aws s3api delete-object --bucket "$BUCKET" --key test.txt --version-id "$MARKER"
+aws s3 cp "s3://$BUCKET/test.txt" - # "recover me"
+```
+
+Note what `delete-object` did there: given a version id it removed *that
+version* — the marker — rather than the object. Without the version id it would
+have written another marker.
+
+This is the same mechanism the state-recovery lab relies on later in the path,
+where the object that came back is a Terraform state file rather than a text
+file.
+
+</LabStep>
+
 ## Verify it worked
 
 ```bash
@@ -205,12 +246,6 @@ aws ecr get-lifecycle-policy-preview --repository-name platform/api \
 
 # No bucket is public
 aws s3api get-public-access-block --bucket "$(terraform output -raw state_bucket)"
-
-# Versioning recovers a delete
-aws s3 cp test.txt "s3://$(terraform output -raw state_bucket)/test.txt"
-aws s3 rm "s3://$(terraform output -raw state_bucket)/test.txt"
-aws s3api list-object-versions --bucket "$(terraform output -raw state_bucket)" --prefix test.txt
-# delete the delete marker to restore it
 ```
 
 `get-lifecycle-policy-preview` is worth knowing: it shows what the policy
