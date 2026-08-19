@@ -16,12 +16,28 @@ if ! command -v aws >/dev/null 2>&1; then
   apt-get update -qq >/dev/null 2>&1
   DEBIAN_FRONTEND=noninteractive apt-get install -y -qq awscli >/dev/null 2>&1
 fi
-if ! command -v aws >/dev/null 2>&1; then
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq unzip curl >/dev/null 2>&1
-  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip 2>/dev/null
-  unzip -q -o /tmp/awscliv2.zip -d /tmp 2>/dev/null
-  /tmp/aws/install --update >/dev/null 2>&1
-fi
+
+# The version is pinned, and not for the usual reproducibility reasons.
+#
+# Amazon CloudWatch is migrating from the AWS Query protocol to AWS JSON 1.0,
+# and current AWS CLI v2 already sends the new format. LocalStack still parses
+# the old one, so every CloudWatch call against it fails with HTTP 500 and
+# "Operation detection failed. Missing Action in request for query-protocol
+# service ServiceModel(cloudwatch)". Reproduced here with aws-cli 2.36.26
+# against LocalStack 3.8 and 4.0 alike; it is upstream issue
+# localstack/localstack#13028, still open, with no environment variable or
+# client setting that forces the old protocol.
+#
+# CloudWatch Logs is unaffected - it was already JSON - which is why the log
+# half of this scenario works with any CLI and the metric half does not.
+#
+# So: a CLI old enough to predate the change. Unpin this once LocalStack
+# supports the new protocol, and delete the smoke test below with it.
+AWSCLI_VERSION=2.15.30
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq unzip curl >/dev/null 2>&1
+curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWSCLI_VERSION}.zip" -o /tmp/awscliv2.zip 2>/dev/null
+unzip -q -o /tmp/awscliv2.zip -d /tmp 2>/dev/null
+/tmp/aws/install --update >/dev/null 2>&1
 command -v aws >/dev/null 2>&1 || echo "WARNING: the AWS CLI did not install - every step below will fail"
 aws --version 2>&1 | head -1
 
@@ -66,5 +82,21 @@ INFO  GET /api/orders 200 88ms
 ERROR upstream payments returned 503
 INFO  GET /api/orders 200 91ms
 LOG
+
+# Smoke-test CloudWatch before the learner meets it.
+#
+# The failure this guards against is not subtle to read but is very hard to
+# attribute: every metric command returns HTTP 500 for a protocol reason that
+# has nothing to do with anything the learner typed. Better to say so here,
+# once, than to let it surface as a mystery in step 1.
+if aws --endpoint-url=http://localhost:4566 cloudwatch put-metric-data \
+     --namespace EgyKode/Setup --metric-name SetupCheck --value 1 >/dev/null 2>&1; then
+  echo "CloudWatch metrics: OK"
+else
+  echo "WARNING: CloudWatch metric calls are failing against LocalStack."
+  echo "         This is the query-protocol mismatch, not anything you did:"
+  echo "         the pinned AWS CLI ($AWSCLI_VERSION) may still be too new."
+  echo "         Steps 1 and 3 will not work; step 2 (logs) is unaffected."
+fi
 
 echo done
