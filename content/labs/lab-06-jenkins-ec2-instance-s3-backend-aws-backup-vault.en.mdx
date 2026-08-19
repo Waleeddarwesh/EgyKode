@@ -140,9 +140,9 @@ resource "aws_instance" "jenkins" {
 
   user_data = <<-EOF
     #!/bin/bash
-    dnf install -y java-17-amazon-corretto docker git
+    dnf install -y java-21-amazon-corretto docker git
     systemctl enable --now docker
-    curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key       -o /etc/pki/rpm-gpg/jenkins.key
+    curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.io-2026.key       -o /etc/pki/rpm-gpg/jenkins.key
     rpm --import /etc/pki/rpm-gpg/jenkins.key
     dnf install -y jenkins
     systemctl enable --now jenkins

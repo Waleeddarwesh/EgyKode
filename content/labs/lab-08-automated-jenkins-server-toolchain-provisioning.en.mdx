@@ -56,7 +56,7 @@ A role per concern, composed by one playbook:
   playbooks/site.yml
       |
       +-- common      packages, timezone, users, hardening
-      +-- java        OpenJDK 17 (Jenkins will not start without it)
+      +-- java        OpenJDK 21 (Jenkins refuses to start on 17)
       +-- docker      engine, the jenkins user in the docker group
       +-- jenkins     repository, package, plugins, service
       +-- aws_cli     v2 from the official installer
@@ -113,7 +113,7 @@ number is never zero nobody looks at it again.
 # roles/jenkins/tasks/main.yml
 - name: Add the Jenkins repository key
   ansible.builtin.get_url:
-    url: https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+    url: https://pkg.jenkins.io/redhat-stable/jenkins.io-2026.key
     dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins
     mode: "0644"
 
