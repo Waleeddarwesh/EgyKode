@@ -80,6 +80,22 @@ export default async function LabPage({
   const colour = domainColor(lab.domain);
   const isChallenge = lab.tier === "challenge";
   const counterpart = isChallenge ? lab.guidedLabId : lab.challengeId;
+  /**
+   * A challenge with no scenario of its own borrows the guided lab's.
+   *
+   * The two are the same task on the same machine — the challenge just removes
+   * the steps — so the environment that runs one runs the other. Without this,
+   * every challenge offered only the local Docker path, and a learner who came
+   * to the site precisely because they cannot install Docker was handed the
+   * guided lab in a browser terminal and its challenge on paper.
+   *
+   * Read from the guided lab rather than copied into the challenge's own
+   * frontmatter: one scenario, one URL, one place it can go stale.
+   */
+  const borrowedScenario =
+    isChallenge && !lab.handsOn?.online?.enabled && counterpart
+      ? getLabMeta(counterpart)?.handsOn?.online
+      : undefined;
   // The concept behind the lab — practice without the explanation is a recipe.
   const relatedChapters = getTopic(lab.domain).chapters.slice(0, 3);
   // Where this sits in the Project Path, so a lab does not dead-end at its
@@ -270,7 +286,8 @@ export default async function LabPage({
           guard only avoids the work. */}
       {lab.handsOn && (
       <HandsOn
-        online={lab.handsOn?.online}
+        online={borrowedScenario ?? lab.handsOn?.online}
+        onlineFromGuided={Boolean(borrowedScenario)}
         local={lab.handsOn?.local}
         cloud={lab.handsOn?.cloud}
         tier={lab.tier}
@@ -281,6 +298,7 @@ export default async function LabPage({
           onlineCta: t("labs.handsOnStart"),
           onlineCtaChallenge: t("labs.handsOnStartChallenge"),
           onlineOpensIn: t("labs.handsOnOpensIn"),
+          onlineFromGuidedNote: t("labs.handsOnFromGuided"),
           onlinePending: t("labs.handsOnPending"),
           localTitle: t("labs.handsOnLocalHeading"),
           localBody: t("labs.handsOnLocalBody"),

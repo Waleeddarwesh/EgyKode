@@ -301,6 +301,7 @@
   "labs.handsOnStart": "Open the terminal",
   "labs.handsOnStartChallenge": "Start the challenge",
   "labs.handsOnOpensIn": "Opens in Killercoda, in a new tab — keep this page open for the steps.",
+  "labs.handsOnFromGuided": "This is the guided lab's environment — the same machine, with its walkthrough on the left. Work from the task above and leave those steps alone until you are done, or you are reading the answers.",
   "labs.handsOnUnavailable": "This lab has no free environment.",
   "labs.handsOnUnavailableWhy": "It provisions real cloud infrastructure, which a shared sandbox cannot give you. Run it in your own account, and follow the cost and cleanup notes above.",
   "labs.handsOnPending": "A free environment for this lab is being prepared. Until then, run it on your own machine using the steps below.",

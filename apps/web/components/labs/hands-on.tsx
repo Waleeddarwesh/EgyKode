@@ -30,12 +30,29 @@ const LAB_ENV_REPO = "https://github.com/Waleeddarwesh/EgyKode-lab";
 
 export function HandsOn({
   online,
+  onlineFromGuided,
   local,
   cloud,
   tier,
   labels,
 }: {
   online?: { enabled: boolean; url?: string };
+  /**
+   * The scenario belongs to the guided lab, and this is its challenge.
+   *
+   * A challenge is the same task on the same machine with the walkthrough
+   * taken away, so it has no scenario of its own and never will — building a
+   * second copy of every environment to publish it without its steps is a lot
+   * of duplication to buy one thing the page can say in a sentence instead.
+   * Borrowing the guided one gives a learner with no Docker somewhere to
+   * actually do the work, which is the whole point of the browser path.
+   *
+   * It does mean the answers are one click away, on the left of the screen.
+   * That is what the note below is for: the challenge already asks the reader
+   * not to open the guided lab, and this is the same request at the moment
+   * they are about to.
+   */
+  onlineFromGuided?: boolean;
   local?: {
     enabled: boolean;
     environment?: string;
@@ -52,6 +69,7 @@ export function HandsOn({
     onlineCta: string;
     onlineCtaChallenge: string;
     onlineOpensIn: string;
+    onlineFromGuidedNote: string;
     onlinePending: string;
     localTitle: string;
     localBody: string;
@@ -106,6 +124,17 @@ export function HandsOn({
           {/* Named, not hidden. A button that silently moves someone onto
               another company's site is worse than one that says where it goes. */}
           <p className="mt-2 text-xs text-content-muted">{labels.onlineOpensIn}</p>
+          {/* Above the button would be an obstacle; below it is a warning the
+              reader still sees before the new tab has finished loading. */}
+          {onlineFromGuided && (
+            <p
+              className="mt-3 flex gap-2 rounded-md px-3 py-2 text-xs leading-relaxed"
+              style={{ background: "var(--clr-warning-bg)", color: "var(--clr-warning)" }}
+            >
+              <AlertTriangle size={13} className="mt-px shrink-0" aria-hidden />
+              <span>{labels.onlineFromGuidedNote}</span>
+            </p>
+          )}
         </div>
       )}
 

@@ -37,8 +37,18 @@ for (const d of dirs) {
       add("HIGH", p, "every assertion is about absence - would pass on an environment where nothing was ever built");
 
     // 5. curl with no timeout can hang a verify indefinitely.
+    //
+    // A `curl` inside an echoed hint is text for the reader to type, not a
+    // request this script makes, and flagging it produced the only two
+    // findings this audit ever reported that were not worth acting on. Two
+    // false positives is enough to teach people to skim the output.
     lines.forEach((l, i) => {
-      if (/curl /.test(l) && !/--max-time/.test(l) && !/^\s*#/.test(l))
+      // Anything inside quotes is a message, a URL or a hint — never the
+      // invocation itself, which always starts unquoted. Stripping quoted
+      // spans leaves the flags intact, since `--max-time` is never quoted
+      // away from the command it belongs to.
+      const executable = l.replace(/"[^"]*"|'[^']*'/g, "");
+      if (/curl /.test(executable) && !/--max-time/.test(executable) && !/^\s*#/.test(l))
         add("LOW", `${p}:${i + 1}`, "curl without --max-time");
     });
 
