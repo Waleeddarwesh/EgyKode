@@ -202,3 +202,50 @@ guarantee, not the length of the race.
 Also worth noting: the app installs Gunicorn at container start, so a fresh
 `up` takes ~20s to answer. Both HTTP checks now wait in a bounded loop rather
 than firing once and failing on a stack that was merely still starting.
+
+---
+
+## Batch 6: measured feasibility notes
+
+**Jenkins is heavy but workable.** Measured on the `ubuntu` backend pattern:
+
+| Step | Cost |
+| --- | --- |
+| `jenkins/jenkins:lts-jdk17` pull | **1m48s** |
+| `jenkins-plugin-cli` (configuration-as-code, matrix-auth) | 14s |
+| First start to API answering 200 | ~30s |
+
+That is ~2.5 minutes, which is why `jenkins-fundamentals` runs its setup as
+`intro.background` and step 1 waits for readiness in a bounded loop rather than
+assuming it.
+
+**Do not pin an old Jenkins.** `jenkins/jenkins:2.479.1-lts-jdk17` fails to
+install current plugins outright — `scm-api` requires 2.504.3, `workflow-api`
+requires 2.504.1. Use the floating `lts` tag.
+
+**The CSRF crumb is session-bound.** `curl` fetching a crumb and posting without
+the matching cookie gets 403 even as an administrator. Every request in the
+scenario uses `-c`/`-b` with a cookie jar. This cost an hour of confusion and is
+worth knowing before writing any Jenkins automation.
+
+### Infeasible, with reasons
+
+**`lab-git-professional-collaboration`** — three of four criteria are GitHub
+server-side features: a rejected push to a protected branch, a pull request
+blocked by a failing status check, and CODEOWNERS auto-requesting a reviewer.
+None exist without a forge. A bare repo with a `pre-receive` hook would
+demonstrate a different mechanism and still could not do the other two.
+
+**`lab-jenkins-fundamentals` criterion 2** — a job that builds when a commit is
+pushed — is not covered by the scenario. It needs a repository Jenkins can be
+notified by; the local environment has one.
+
+### Prometheus notes
+
+`prometheus_http_requests_total` only counts Prometheus's own API handlers. A
+404 to an arbitrary path is **not** recorded — malformed queries against
+`/api/v1/query` produce real `code=400` series, which is what the scenario uses
+to drive the alert.
+
+`python3` is not present on every image (the Alpine-based test rig has none), so
+scenario steps use `sed` for in-place edits rather than a Python heredoc.
