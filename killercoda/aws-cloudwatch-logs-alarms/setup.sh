@@ -6,16 +6,17 @@
 # environment rather than a licensing change, so it is worth not discovering
 # by accident.
 echo "Installing the AWS CLI..."
-# Two paths on purpose. Ubuntu 24.04 dropped the `awscli` package entirely -
-# `apt-cache policy awscli` reports "Candidate: (none)" and the install fails
-# with "has no installation candidate" - so an apt-only setup leaves every
-# later command dying on "aws: not found", several steps after the real cause.
-# The official v2 installer is also what the lab actually calls for; the apt
-# package was v1.
-if ! command -v aws >/dev/null 2>&1; then
-  apt-get update -qq >/dev/null 2>&1
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq awscli >/dev/null 2>&1
-fi
+apt-get update -qq >/dev/null 2>&1
+
+# No apt attempt first, deliberately. The other LocalStack scenarios try apt
+# and fall back, which is right for them; here the pinned installer runs
+# unconditionally anyway, so an apt install would only add a *second* aws - v1
+# at /usr/bin/aws, v2 at /usr/local/bin/aws - and which one answers would come
+# down to PATH order. One binary, chosen on purpose.
+#
+# (Ubuntu 24.04 has no awscli package at all: apt-cache policy reports
+# "Candidate: (none)". So on 24.04 the apt path never worked; on 22.04 it
+# installed v1, which is not what these labs are written against.)
 
 # The version is pinned, and not for the usual reproducibility reasons.
 #
