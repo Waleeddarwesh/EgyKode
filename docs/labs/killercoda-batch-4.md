@@ -638,3 +638,54 @@ that Kubernetes could not have told you.
 | `{namespace="production", app="api"}` | verify2 FAIL — 25 of 50 lines are healthchecks |
 | no crasher / placeholder / "it crashed" | verify3 FAIL |
 | happy path | all three PASS |
+
+---
+
+## Route 53 and ACM: infeasible, and it fails in the dangerous direction
+
+`lab-aws-route53-acm-dns` is the last remaining lab with **no** hands-on option
+at all — its `handsOn` has only a `cloud` block, so today it needs an AWS
+account *and* a domain. That made it worth probing even though its headline
+criterion obviously needs real DNS.
+
+Both services are present and answer properly:
+
+```
+route53 create-hosted-zone       -> zone with real NS and SOA defaults
+acm request-certificate          -> PENDING_VALIDATION with a real
+                                    _<hash>.egykode.test CNAME to create
+```
+
+So far so good. Then:
+
+**LocalStack accepted a CNAME at the zone apex.** Real Route 53 refuses it:
+
+```
+InvalidChangeBatch: RRSet of type CNAME with DNS name egykode.test. is not
+permitted at apex in zone egykode.test.
+```
+
+It then accepted an `A` ALIAS at the *same* name, leaving a zone holding both a
+CNAME and an A record for the apex — a state Route 53 cannot be talked into.
+Criterion 2 is "you can state why an ALIAS is used at the apex instead of a
+CNAME", and the environment's answer to that question is "no reason, do either".
+
+**ACM issued the certificate without the validation record ever existing.** It
+moved `PENDING_VALIDATION -> ISSUED` on its own. Criterion 3 is "the
+validation record is present and you can explain why it must stay"; here it
+never had to be created at all, and deleting it would change nothing.
+
+### Verdict
+
+Of four criteria: one needs real public DNS and a real certificate chain and is
+plainly out. **Two of the remaining three would demonstrate the opposite of
+what AWS does.** That is worse than having no scenario — a learner would come
+away believing an apex CNAME is fine and that DNS validation is decorative.
+
+Same shape as `lab-aws-iam-least-privilege`: the service is emulated, the
+*enforcement* is not, and every criterion in these labs is about the
+enforcement. **Cloud-only.**
+
+The general rule this confirms: when a lab's criteria are of the form "and this
+is refused" or "and this stops working if you remove it", LocalStack community
+cannot host it, however completely it implements the happy path.
