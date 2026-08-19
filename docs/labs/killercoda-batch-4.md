@@ -1068,3 +1068,55 @@ unavailable inside it (`driver not supported`), so `vfs` — which is why the
 Jenkins pull measured 281s against the 1m48s recorded for `jenkins-fundamentals`
 on a real host. Alpine `docker:dind` was rejected: these verifiers are
 `#!/bin/bash` with GNU coreutils, matching Killercoda's ubuntu backend.
+
+## lab-16: SonarQube measured, and the shape of the problem
+
+Previously recorded as "confirmed feasible — same machinery plus SonarQube".
+That was the *Jenkins* half being confirmed; the earlier note said only
+"nothing found so far says they are infeasible", which is an absence of
+evidence rather than a test. SonarQube has now been measured.
+
+| Measurement | Value |
+| --- | --- |
+| `sonarqube:community` image | **1.43 GB** |
+| Pull, nested vfs rig | 724s |
+| Startup to `status: UP` | **72s** |
+| **Idle RSS once UP** | **2,205 MB** across 4 JVMs |
+| CPU while starting | 254% |
+
+`vm.max_map_count` is settable (`sysctl -w vm.max_map_count=262144`), so
+Elasticsearch's requirement is not a blocker. Startup at 72s is better than
+expected. The problem is memory, and it is structural.
+
+### The criteria split across two backends
+
+| Criterion | Needs |
+| --- | --- |
+| 1. builds, tests, scans and deploys with no manual step | **Kubernetes** |
+| 2. a vulnerable image fails the build and is never pushed | Jenkins + Trivy |
+| 3. a quality gate failure fails the pipeline | **SonarQube** |
+| 4. the pipeline fails when the rollout does not complete | **Kubernetes** |
+
+Criteria 1 and 4 need a real rollout, so full coverage means SonarQube *and* a
+kubeadm control plane on one VM: 2.2 GB idle for SonarQube, roughly 1.5–2 GB
+for the control plane, plus Jenkins, a registry, and the spike of an image
+build and a Trivy scan. That is 5–6 GB before any learner work.
+
+Killercoda's VM memory is still an open question in
+`killercoda-compatibility.md`, and it cannot be settled from here. But the
+requirement is now a measured number rather than a guess, and it is large
+enough that the combination should be treated as out of reach until someone
+checks a live VM with `free -m`.
+
+### What a partial scenario would actually add
+
+On the `ubuntu` backend without Kubernetes, Jenkins + SonarQube + registry +
+Trivy is roughly 3.5 GB and covers criteria 2 and 3. Criterion 2 is **already
+fully demonstrated** by `jenkins-docker-pipeline`, including the vulnerable
+image never reaching the registry. So the marginal gain is criterion 3 alone —
+the SonarQube quality gate — bought with a 1.43 GB pull and 2.2 GB of RAM.
+
+That is a product judgement rather than a technical one, so it is recorded here
+rather than decided unilaterally. The technical position: **criteria 1 and 4 are
+out of reach on one VM; criterion 3 is affordable on its own if the quality gate
+is judged worth the weight.**
