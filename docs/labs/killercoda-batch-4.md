@@ -787,3 +787,49 @@ Mutation-tested, as everything here is: with the prop unthreaded at the lab
 page, the new e2e test fails on exactly the reported symptom —
 `data-done="false"` on step 1 of `lab-k8s-services` with all four criteria in
 storage. Restored, it passes. Full spec: **29 passed, 4 skipped**.
+
+---
+
+## Criteria no step owns: four, not five, and three of those are correct
+
+Read all five after they were flagged. They are not one problem.
+
+**One was a plain mismap.** `lab-git-recovery-history` criterion 4 is "you can
+explain why removing it is still not sufficient", and step 5's body is that
+argument in as many words — *"Doing 2 without 1 is theatre. The key was in a
+public repository, in CI logs, in forks, and quite possibly in a scraper's
+database within minutes."* Step 5 → `criterion={[3, 4]}`. Nothing structural
+about it.
+
+**Three are cleanup criteria, and they belong outside the steps.**
+
+```
+lab-01                     terraform destroy removes the NAT Gateway
+lab-24                     everything created is deleted, verified by listing
+lab-terraform-fundamentals terraform destroy removes everything
+```
+
+Each lives in `## Clean up`, which opens with "Run this even if you did not
+finish." That is the point of the section: on a billed lab the destroy has to
+be reachable without working through the steps first. Turning it into a step
+would bury the one instruction that stops the meter running.
+
+The consequence — explanatory steps stay grey until the destroy box is ticked —
+is not a defect either. The lab genuinely is not finished until the
+infrastructure is gone, and on these three that is the most important box on the
+page.
+
+**One is a real decision, and it is `lab-03`.** Criterion 4 is "the state bucket
+has versioning enabled, and you demonstrated recovering a deleted object". Step 2
+creates the bucket with versioning; the recovery — `aws s3 rm` then
+`list-object-versions` then removing the delete marker — is in `## Verify it
+worked`, along with three other checks including an immutability test written to
+fail on purpose.
+
+Mapping it to step 2 would be wrong: marking step 2 would tick a criterion for a
+recovery nobody has performed yet, which is the rule that stopped the tempting
+cases in the previous pass. The options are to promote that section to a final
+step, or to leave the checklist tick as the way it is settled. Left as-is,
+because `## Verify it worked` appears in several labs with the same meaning and
+changing it in one makes the set inconsistent — but this is the one of the five
+where a case exists.

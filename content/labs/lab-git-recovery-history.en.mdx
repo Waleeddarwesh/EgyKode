@@ -110,7 +110,7 @@ git log --oneline -2        # the original and its revert, both present
 
 </LabStep>
 
-<LabStep n={5} title="A secret in history" proves="You can remove a secret from every commit and verify by searching that it is gone" criterion={3}>
+<LabStep n={5} title="A secret in history" proves="You can remove a secret from every commit and verify by searching that it is gone" criterion={[3, 4]}>
 
 ```bash
 echo "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG" > .env
