@@ -443,3 +443,54 @@ The same reasoning rules out the other policy-shaped cloud labs: anything whose
 criterion is "and this call is refused" needs an authoriser, and LocalStack
 community is not one. Note the contrast with Kubernetes RBAC, where
 `kubectl auth can-i` asks a real authoriser and the refusals are genuine.
+
+---
+
+## Argo CD probe: mostly feasible, with one gap that decides the design
+
+Measured on a kind cluster.
+
+```
+kubectl apply -f .../v2.13.1/manifests/install.yaml     ~4s to apply
+all pods Running / Application Synced+Healthy           ~4 minutes
+```
+
+Four of the five criteria in `lab-argocd-gitops-reconciliation` need only a
+**read-only public repository**, because the learner drifts the *cluster*, not
+the repo:
+
+**Drift and self-heal, measured:**
+
+```
+t+5s   replicas=4  sync=OutOfSync
+t+10s  replicas=1  sync=Synced
+```
+
+`kubectl scale` to 4 was detected as `OutOfSync` within five seconds and
+reverted within ten, with `syncPolicy.automated.selfHeal: true`. That is
+criterion 5 as two numbers.
+
+Criteria 1 (`Synced` and `Healthy`), 3 (the running Pod's image, checked against
+the Pod) and 4 (sync history against a revision) are all readable from the
+`Application` status and the Pod, so they need no write access either.
+
+### The gap
+
+Criterion 2 — "**a commit** that changes the image tag moves the Application to
+`OutOfSync` without anyone running `kubectl`" — requires a repository the
+learner can push to. A public example repo cannot demonstrate it.
+
+Options, in order of preference:
+
+1. **A git server in the cluster.** A tiny HTTP git repo as a Deployment, with
+   the Application pointing at `http://git.gitops.svc/repo.git`. The learner
+   commits and pushes to it over the cluster network. This is the only option
+   that covers all five criteria, and is the one to build
+2. Have the learner fork the example repo and paste their URL — needs a GitHub
+   account and a token in the terminal, which breaks the no-credentials rule
+3. Cover four criteria and say plainly that the commit-driven one needs a real
+   remote, as `jenkins-fundamentals` does for its push trigger
+
+Note the setup cost: ~4 minutes before step 1 can do anything, so `setup.sh`
+belongs in `intro.background` with step 1 waiting for `Synced` in a bounded
+loop, exactly as the Jenkins scenario does.
