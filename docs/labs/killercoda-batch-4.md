@@ -930,3 +930,51 @@ Measured on a privileged `ubuntu:24.04` container running its own `dockerd`
 (`--storage-driver=vfs`), not on the Windows host. Killercoda's backend is
 Ubuntu with GNU coreutils and `#!/bin/bash`; the Alpine `docker:dind` image is
 the wrong shape for the same reason it had no `python3` earlier in this file.
+
+---
+
+## `--ignore-unfixed` and an EOL base image cancel each other out
+
+Reproduced independently after the measurement was reported, because it
+contradicts what two published labs told readers to do.
+
+```
+                    distinct HIGH/CRITICAL, --ignore-unfixed
+debian:10                      1     exit 1
+debian:12.5-slim              15     exit 1
+debian:12-slim                 0     exit 0
+ubuntu:18.04                   0
+```
+
+An end-of-life distribution ships no fixes, so by construction almost
+everything it carries is **unfixed** — and `--ignore-unfixed` discards exactly
+that. `ubuntu:18.04` scans clean for the worst possible reason. `debian:10`,
+which `lab-jenkins-docker-pipeline` used as its "deliberately old base image"
+and annotated *"plenty of unfixed CVEs"*, resolves to **one** distinct CVE
+(CVE-2024-33599, reported twice because it affects `libc-bin` and `libc6`).
+
+A demonstration resting on one CVE stops working the day that CVE is patched
+in, and it fails silently: the gate reports success on a vulnerable image,
+which is the exact failure this project exists to prevent.
+
+**The replacement is a frozen point release of a supported distribution.**
+`debian:12.5-slim` is a snapshot Debian has since shipped fixes for, so those
+findings carry `status: fixed` and survive the flag. The gap widens over time
+rather than eroding, because the snapshot never rebuilds and the distribution
+keeps patching. `debian:12-slim` — the same tag, rebuilt — is the fix.
+
+Both labs are corrected. `lab-github-actions-ecr-eks` needed no change: it uses
+`ignore-unfixed: true` in a production pipeline, which is correct usage, not as
+a demonstration. The `--ignore-unfixed` policy discussion in
+`learn/security/supply-chain-security` is also unaffected — blocking on what
+nobody can act on really does teach people to bypass the gate. The flag is
+right; pairing it with an EOL base to *prove* a gate is what does not work.
+
+Dead ends, so nobody retries them: a node or python pair fails because the
+fixed side still scans dirty (`node:22-slim` 8, `python:3.12-slim` 1, and that
+one is `util-linux`, not something pip clears). Dropping `--ignore-unfixed`
+fails because `debian:12-slim` then measures 13.
+
+Cold cost on an Ubuntu host with an empty cache: `trivy image` 60s, database
+101s and **108 MiB** — not the 40-60 MB estimated earlier. That drives the
+setup's wait loop.

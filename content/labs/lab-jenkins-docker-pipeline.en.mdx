@@ -136,6 +136,13 @@ published the vulnerable image. `--exit-code 1` makes Trivy fail the stage;
 `--ignore-unfixed` removes findings you cannot act on, which is what stops the
 gate becoming noise people learn to ignore.
 
+That second flag has a consequence worth knowing before you rely on it: **an
+end-of-life distribution ships no fixes, so almost everything it carries is
+unfixed and `--ignore-unfixed` discards it.** Measured today, `debian:10` —
+end of life — reports exactly **one** distinct HIGH under this flag, and
+`ubuntu:18.04` reports none at all. The most dangerous base images are the ones
+this gate says least about, which is why step 3 does not use one.
+
 **3. `withCredentials`, and `--password-stdin`.** The block masks the values in
 the log; `--password-stdin` keeps the password out of the process list, where
 `ps aux` on the agent would otherwise show it.
@@ -147,8 +154,11 @@ a developer needs — but only `main` publishes.
 
 <LabStep n={3} title="Prove the gate works" proves="You can prove the vulnerability gate stops a build, using an image you know is old" criterion={2}>
 
+Use a **frozen point release of a supported distribution**, not an end-of-life
+one:
+
 ```dockerfile
-FROM debian:10        # end of life, plenty of unfixed CVEs
+FROM debian:12.5-slim   # a snapshot Debian has since shipped fixes for
 RUN apt-get update && apt-get install -y curl
 ```
 
@@ -156,13 +166,22 @@ Run the pipeline. The scan stage should fail and the push stage should never
 execute. **A gate you have not seen fail is a gate you cannot trust** — this is
 the only way to know it is wired up.
 
-Then fix it:
+Then fix it, by moving to the tag that still rebuilds:
 
 ```dockerfile
 FROM debian:12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 ```
+
+Measured today: `debian:12.5-slim` reports **15** distinct HIGH or CRITICAL
+findings and exits 1; `debian:12-slim` reports **0** and exits 0. Same
+distribution, same package set — the only difference is that one tag is a
+snapshot nobody rebuilds and the other is rebuilt as fixes land.
+
+**That is the lesson underneath the exercise.** A base image is a frozen point
+in time. Nothing about it improves on its own, and the gap between it and the
+fixes that exist only widens. `docker build --pull` is not housekeeping.
 
 </LabStep>
 

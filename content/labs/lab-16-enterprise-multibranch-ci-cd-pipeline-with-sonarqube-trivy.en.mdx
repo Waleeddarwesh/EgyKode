@@ -219,7 +219,10 @@ kubectl get deploy api -n platform \
 
 ```bash
 # 1. A knowingly vulnerable base — the build must FAIL at Scan, with no push
-echo "FROM debian:10" > Dockerfile.vuln
+#    A frozen point release, NOT an end-of-life distribution: an EOL distro
+#    ships no fixes, so --ignore-unfixed discards nearly everything it carries.
+#    Measured: debian:12.5-slim 15 findings, debian:10 exactly 1, ubuntu:18.04 none.
+echo "FROM debian:12.5-slim" > Dockerfile.vuln
 docker build -f Dockerfile.vuln -t probe:vuln .
 trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 probe:vuln
 echo "exit=$?"     # 1
