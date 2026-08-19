@@ -73,7 +73,7 @@ available at all.
 
 </LabStep>
 
-<LabStep n={2} title="Data worth losing" proves="You can put data in that you are willing to lose, so the recovery is a real one">
+<LabStep n={2} title="Data worth losing" proves="You can put data in that you are willing to lose, so the recovery is a real one" criterion={2}>
 
 ```sql
 CREATE TABLE orders (id serial PRIMARY KEY, customer text, total numeric);
@@ -100,7 +100,7 @@ snapshot survives, which is what you want before anything risky.
 
 </LabStep>
 
-<LabStep n={4} title="The incident" proves="You can start the clock at the moment of the decision, which is where RTO is actually measured">
+<LabStep n={4} title="The incident" proves="You can start the clock at the moment of the decision, which is where RTO is actually measured" criterion={2}>
 
 ```sql
 DELETE FROM orders WHERE total > 500;

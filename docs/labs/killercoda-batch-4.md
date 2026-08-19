@@ -494,3 +494,86 @@ Options, in order of preference:
 Note the setup cost: ~4 minutes before step 1 can do anything, so `setup.sh`
 belongs in `intro.background` with step 1 waiting for `Synced` in a bounded
 loop, exactly as the Jenkins scenario does.
+
+---
+
+## Argo CD: built, tested, published
+
+Option 1 above is what it became. Recorded here because the numbers decided
+several parts of the design, and none of them were what I expected.
+
+### The Git server
+
+`git daemon --export-all --enable=receive-pack` in a Pod, `alpine/git` plus
+`apk add --no-cache git-daemon` — the image ships every other git subcommand
+but not that one, and without it the container seeds the repository and then
+exits with `git: 'daemon' is not a git command`, which reads as a typo.
+
+Argo CD accepts a `git://` repoURL. That was the pivotal unknown and it was
+answered by a failure message: the first attempt reported
+`dial tcp 10.96.234.41:9418: connect: connection timed out`, which is a network
+error, not a scheme error — it had parsed the URL and tried to connect.
+
+Two URLs for one repository, because two clients need it from different sides:
+
+| Client | URL |
+|---|---|
+| the learner, on the node | `git://localhost:30418/app.git` (NodePort) |
+| Argo CD, in the cluster | `git://git.gitops.svc:9418/app.git` |
+
+The kind node has no `git` at all, which is why `setup.sh` checks for it rather
+than assuming. Killercoda's image has carried it every time, and "every time so
+far" is not a dependency declaration.
+
+### Measurements
+
+```
+push -> running Pod        26-50s   with timeout.reconciliation: 30s
+push -> running Pod        230s     on the 180s default
+kubectl scale -> reverted  ~1s
+sync wave 1 gating wave 2  107s     web Deployment did not exist while
+                                    postgres pulled and became ready
+```
+
+**The controller reads `timeout.reconciliation` once, at startup.** Patching
+`argocd-cm` alone leaves the default in place — measured 110s→50s only after
+`rollout restart statefulset/argocd-application-controller`. `setup.sh` does
+both.
+
+That asymmetry — Git polled, cluster watched — is now the spine of the
+scenario. Step 2 waits half a minute for a commit; step 3's drift is gone
+before you can read it.
+
+### What verify3 rests on
+
+Everything step 3 produces is transient: the drift lasts a second and the
+cluster ends where it started. The only durable trace is an event, and Argo CD
+distinguishes the two cases in one word:
+
+```
+Sync operation to <sha> succeeded            a commit you pushed
+Partial sync operation to <sha> succeeded    a self-heal
+```
+
+A partial sync does **not** append to `status.history`, so history cannot be
+used here. Events last an hour by default, which outlives a session.
+
+### Mutation tests run
+
+| State | Result |
+|---|---|
+| untouched cluster | all three FAIL |
+| `selfHeal: false` | verify1 FAIL |
+| `source.path: k8s` | verify1 FAIL |
+| committed tag that does not exist | verify2 FAIL — applies cleanly, reports `Synced`, never runs |
+| happy path | all three PASS |
+
+The bad-tag case is the one worth keeping: `nginx:9.99-doesnotexist` synced
+without complaint and the verifier reported both the Pending Pod on the new
+image and the Running one on the old. That is the whole argument for checking
+the Pod rather than the manifest, and it is now in the failure message.
+
+### Still not built
+
+Loki, the Jenkins docker pipeline, and lab-16 (SonarQube/Trivy). Nothing found
+so far says they are infeasible.
