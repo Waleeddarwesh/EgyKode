@@ -313,6 +313,20 @@ export function BeforeYouStart({
           <p className="mt-1.5 text-sm leading-relaxed text-content">
             {plainCost(lab.costEstimate)}
           </p>
+          {/* The estimate is about the reader's own cloud account. When a
+              browser scenario exists it costs nothing at all — the AWS labs
+              run against LocalStack, which answers the real API without an
+              account behind it. Saying so beside the warning matters: a cost
+              notice with no qualification is the thing that stops somebody
+              starting a lab they could have done for free. */}
+          {lab.handsOn?.online?.enabled && (
+            <p className="mt-2 text-sm leading-relaxed text-content">
+              <strong>Nothing to pay in the browser.</strong> Open the terminal
+              runs this against a simulated cloud — the same API calls and the
+              same commands, with no account and no bill. The figure above
+              applies only if you build it in your own.
+            </p>
+          )}
           {(lab.cleanup?.length ?? 0) > 0 && (
             <p className="mt-2 text-sm">
               <a href="#clean-up" className="font-medium underline underline-offset-2 text-content">
