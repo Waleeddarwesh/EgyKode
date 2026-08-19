@@ -249,3 +249,47 @@ to drive the alert.
 
 `python3` is not present on every image (the Alpine-based test rig has none), so
 scenario steps use `sed` for in-place edits rather than a Python heredoc.
+
+---
+
+## Audit of all shipped verifiers
+
+A script (`/tmp/audit.mjs`, pattern list below) was run across all 31 scenarios
+looking for the failure modes that recurred while building them. Worth re-running
+whenever a scenario is added.
+
+Patterns checked:
+
+1. A conditional guard that turns a failed measurement into a **skipped** check
+2. `date -d` on a raw Docker/ISO timestamp — busybox and GNU both reject
+   nanoseconds
+3. `python3` or `jq` used without `setup.sh` installing them
+4. **Every assertion about an absence** — passes where nothing was ever built
+5. `curl` with no `--max-time`
+6. `$?` read after a pipe, which reports the last command in the pipeline
+
+### Fixed
+
+- **`terraform-fundamentals/verify4.sh`** — its evidence file was checked with
+  `if [ -f ... ]`, so on an account where nothing was built every remaining
+  assertion was about absence and the check passed. The file is now required.
+- Three unbounded `curl` calls now carry `--max-time`.
+
+### Outstanding, needs a cluster to fix properly
+
+**`k8s-workloads/verify2.sh`** asserts only absences: no Deployment, zero
+ReplicaSets, zero Pods. A learner who never created the Deployment satisfies all
+three. In practice Killercoda gates step 2 behind step 1 — whose verifier does
+require the Deployment with 3 ready replicas — so the exposure is small, but the
+check is weaker than the rest.
+
+The fix needs an artifact proving the resources existed before being deleted
+(the step currently leaves none) and should be tested against a live cluster
+before shipping. **This scenario is already enabled on the site**, so the change
+is worth making deliberately rather than blind.
+
+### False positive
+
+The 30 "never exits 0 explicitly" findings are wrong — those scripts end with
+`echo "PASS"`, which exits 0. The pattern should look for a non-zero final
+command, not a literal `exit 0`.
