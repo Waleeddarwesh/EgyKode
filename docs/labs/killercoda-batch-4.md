@@ -1189,3 +1189,85 @@ provided it does not claim Run Command — the same shape as
 log querying, an alarm with a justified threshold, and Parameter Store, all on
 the proven LocalStack pattern. It is the only new scenario the two probes
 unlocked.
+
+---
+
+## Both probes reproduced, and one trap worth knowing
+
+Re-run independently rather than taken on report.
+
+### `localstack/localstack:latest` no longer starts
+
+```
+docker run --rm localstack/localstack:latest ; echo $?
+  ...
+  Please check that your credentials are set up correctly and that you have
+  an active license.
+  55
+```
+
+Exit **55**, License activation failed. Every scenario here pins `3.8`, which
+is why they still work. Anyone probing a new AWS lab with `:latest` will read
+this as a broken environment rather than a licensing change — pin the tag.
+
+(The first attempt to check this piped the run through `tail` and read `$?`,
+which reported the pipeline's exit rather than docker's. That is failure
+pattern 6 in `audit-verifiers.mjs`, caught here on a probe rather than in a
+verifier.)
+
+### `lab-06` — AWS Backup is not in the community image
+
+`CreateBackupVault`, `ListBackupVaults` and `CreateBackupPlan` all return
+*"API for service 'backup' not yet implemented or pro feature"*, the same
+wording ECR gives. That is the criterion the lab is named for. Its other
+criteria are S3 state and versioning — already covered by
+`terraform-remote-state` — and a Jenkins host that needs an instance actually
+running something. **Cloud-only.**
+
+### `lab-aws-ec2-cloudwatch-ssm` — 3 of 4, and the missing one is the dangerous kind
+
+Working, confirmed by test: SecureString parameters round-trip,
+`filter-log-events --filter-pattern ERROR` returns the matching message, and
+`put-metric-alarm` creates an alarm that `describe-alarms` lists.
+
+Criterion 1 is out, and it fails in the direction that matters:
+
+```
+ssm send-command --parameters 'commands=["echo PROVE_IT_RAN > /tmp/x; hostname"]'
+ssm get-command-invocation -> ["Success", 0, "", ""]
+```
+
+`Status: Success`, `ResponseCode: 0`, **empty output**. `hostname` produces a
+line on any real instance. Nothing ran.
+
+And the learner cannot find that out by looking:
+
+```
+ssm describe-instance-information
+  InternalFailure: The describe_instance_information action has not been implemented
+```
+
+The one API that would show no agent is registered is the one that is missing.
+When the criterion is "you ran a command on the instance", an emulated success
+is worse than a missing API — the same shape as the Route 53 apex CNAME and the
+ACM certificate that issued itself.
+
+**Buildable as 3 of 4**, provided it never claims Run Command — the same
+honesty `jenkins-fundamentals` applies to its push trigger.
+
+### The open questions, revisited
+
+`killercoda-compatibility.md` lists four. Three are now answered by what
+shipped: there is a real init system (three scenarios drive `systemctl` on the
+`ubuntu` backend), `kubernetes-kubeadm-2nodes` exists and `k8s-node-drain` uses
+it, and the storage-class question is still handled by warning rather than
+assuming.
+
+**The session time limit is still open, and VM memory should be added to the
+list.** Both are settled in one visit to any published scenario:
+
+```
+free -m; nproc; cat /etc/os-release | head -2
+```
+
+That number decides `lab-16`. See below.
