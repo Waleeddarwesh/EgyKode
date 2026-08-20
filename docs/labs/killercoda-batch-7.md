@@ -199,6 +199,20 @@ it: the policy that should deny *everything* denies nothing. The scenario makes
 the learner run the request that should fail, because **a deny you have not
 seen refuse something is a belief, not a control.**
 
+## The hazards are now checked automatically
+
+`npm run audit:hazards` (also inside `npm run verify`) runs five rules over
+every scenario, each one written because something shipped or nearly shipped
+with it: an unpinned image, `$?` after a pipe, the dead Jenkins key or Java 17,
+an apt-only `awscli` install, and a database password "proof" made from inside
+the database's own container.
+
+It is mutation-tested against fixtures — all five fire on a bad one, none fire
+on a good one — because a checker returning zero through broken rules is worse
+than no checker. Its first run produced two false positives (`||` is not a
+pipe; naming the 2023 key as the thing that broke is the correct teaching), and
+both rules were narrowed rather than the scenarios changed.
+
 ## Where the ceiling is now
 
 **42 of 55 guided labs.** The remaining 13 need enforcement or managed services
