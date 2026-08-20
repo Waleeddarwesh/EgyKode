@@ -126,9 +126,11 @@ underlying problem: a random password contains characters that something
 interprets.
 
 **The password is in `terraform.tfstate` and `grep` does not find it.** State
-is JSON, JSON escapes characters, and `&` is stored as `&`. A literal grep
-for the value returns nothing from a file that plainly contains it. The first
-version of that verifier grepped, and would have failed a correct answer.
+is JSON, and JSON stores an ampersand as its six-character unicode escape
+rather than as itself. A literal grep for the password therefore returns
+nothing from a file that plainly contains it. The first version of that
+verifier grepped, and would have failed a correct answer. (The exact escape is
+written out in the scenario's `verify1.sh` and `step1.md`.)
 
 > "I grepped the state file and the password was not there" is not evidence.
 > Read the attribute with `jq`.
