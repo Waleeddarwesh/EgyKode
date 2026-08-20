@@ -1,4 +1,4 @@
-# Killercoda batch 7 — four scenarios, and three verdicts that were wrong
+# Killercoda batch 7 — five scenarios, and three verdicts that were wrong
 
 | Scenario | Lab | Backend |
 | --- | --- | --- |
@@ -6,8 +6,9 @@
 | `kube-prometheus-stack` | lab-17-deploying-kube-prometheus-stack-on-aws-eks | kubernetes-kubeadm-1node |
 | `ansible-jenkins-vault` | lab-08-automated-jenkins-server-toolchain-provisioning | ubuntu |
 | `git-branch-protection` | lab-git-professional-collaboration | ubuntu |
+| `terraform-secrets-manager` | lab-04-amazon-rds-postgresql-aws-secrets-manager-integration | ubuntu |
 
-**36 → 40 scenarios.** Three of those four labs were on the do-not-build list.
+**36 → 41 scenarios.** Four of those five labs were on the do-not-build list.
 
 ## The mistake that hid three buildable labs
 
@@ -118,11 +119,49 @@ later" — neither allowed nor refused. Read as either, the check flakes.
 **An unencoded `tree` query returns 200 with an empty body**, indistinguishable
 from a job with no builds. Brackets must be `%5B`/`%5D`.
 
+## Four ways a generated password breaks a tool
+
+All four came out of `terraform-secrets-manager`, and they are the same
+underlying problem: a random password contains characters that something
+interprets.
+
+**The password is in `terraform.tfstate` and `grep` does not find it.** State
+is JSON, JSON escapes characters, and `&` is stored as `&`. A literal grep
+for the value returns nothing from a file that plainly contains it. The first
+version of that verifier grepped, and would have failed a correct answer.
+
+> "I grepped the state file and the password was not there" is not evidence.
+> Read the attribute with `jq`.
+
+**`sed`'s `&` in a replacement means "the whole match"**, so writing a generated
+password with `sed` silently mangles it.
+
+**An empty `$PW` makes `grep` match every line**, turning a "not present" check
+into a false leak report. Every such check needs a non-empty guard, and `-F`.
+
+**`terraform output -raw <name>` for an output that does not exist** prints a
+warning that a command substitution captures as if it were the value — which
+then got written into the secret *as the password*.
+
+## Postgres trusts its own container
+
+The application first connected with `docker exec` into the database, and
+accepted a **deliberately wrong password**. The official image ships
+`host all all 127.0.0.1/32 trust`, so any connection made from inside the
+container is accepted regardless of the password.
+
+The rotation proof proved nothing until the client moved outside the container
+and onto the published port, where `scram-sha-256` applies. Any scenario that
+proves something by "the wrong credential is refused" must check where the
+client is standing.
+
 ## Where the ceiling is now
 
-**40 of 55 guided labs.** The remaining 15 need enforcement or managed services
+**41 of 55 guided labs.** The remaining 14 need enforcement or managed services
 no free emulator provides, and every one is settled by test rather than by
-analogy. `lab-04` is the only remaining partial: Secrets Manager **is** in
-LocalStack community (tested), so three of its four criteria are reachable with
-a real Postgres standing in for RDS — only "Multi-AZ with no public endpoint" is
-genuinely out.
+analogy.
+
+`lab-04` shipped as a **three-of-four**: Secrets Manager is in the community
+image, so the credential criteria are real against a real PostgreSQL, and only
+"Multi-AZ with no public endpoint, verified from outside the VPC" needs an
+account. It is not simulated, and the scenario says so.
