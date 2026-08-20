@@ -104,6 +104,18 @@ services:
                exec /sbin/init"
 
   # ── Optional: CI/CD ───────────────────────────────────────────────────────
+  #
+  # `lts` floats deliberately, unlike everything else here. Pinning an older
+  # Jenkins breaks plugin installation outright: 2.479.1 cannot install current
+  # plugins at all, because scm-api requires 2.504.3 and workflow-api 2.504.1.
+  # A pinned Jenkins is a Jenkins that stops being able to install anything,
+  # which is worse than a moving one.
+  #
+  # Two things about it do move under you, both met while building the
+  # Killercoda scenarios: it now requires Java 21 or 25 and refuses 17, and its
+  # package signing key rotated in December 2025. Neither affects this image -
+  # the official image carries its own JRE - but both affect any lab that
+  # installs Jenkins onto a host.
   jenkins:
     image: jenkins/jenkins:lts
     container_name: egykode-jenkins
@@ -113,15 +125,25 @@ services:
     volumes: [jenkins:/var/jenkins_home]
 
   # ── Optional: observability ───────────────────────────────────────────────
+  #
+  # Pinned, and pinned to the same versions the Killercoda scenarios use, for
+  # the same reason the kind node image is pinned: two people following one lab
+  # a few months apart should see the same output, and a learner who does a lab
+  # here and then in the browser should not meet two different Grafanas.
+  #
+  # `latest` is not a version. It is whatever was pushed most recently, and this
+  # project has been bitten by exactly that - `localstack/localstack:latest`
+  # stopped starting without a licence token, and the failure read as a broken
+  # environment rather than as an upstream change.
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.54.1
     container_name: egykode-prometheus
     profiles: [observability, all]
     networks: [lab]
     ports: ["9090:9090"]
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.2.0
     container_name: egykode-grafana
     profiles: [observability, all]
     networks: [lab]
