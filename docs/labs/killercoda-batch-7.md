@@ -1,4 +1,4 @@
-# Killercoda batch 7 — five scenarios, and three verdicts that were wrong
+# Killercoda batch 7 — six scenarios, and three verdicts that were wrong
 
 | Scenario | Lab | Backend |
 | --- | --- | --- |
@@ -7,8 +7,9 @@
 | `ansible-jenkins-vault` | lab-08-automated-jenkins-server-toolchain-provisioning | ubuntu |
 | `git-branch-protection` | lab-git-professional-collaboration | ubuntu |
 | `terraform-secrets-manager` | lab-04-amazon-rds-postgresql-aws-secrets-manager-integration | ubuntu |
+| `registry-scanning-s3-hardening` | lab-03-amazon-ecr-container-registry-s3-storage-buckets | ubuntu |
 
-**36 → 41 scenarios.** Four of those five labs were on the do-not-build list.
+**36 → 42 scenarios.** Five of those six labs were on the do-not-build list.
 
 ## The mistake that hid three buildable labs
 
@@ -157,9 +158,50 @@ and onto the published port, where `scram-sha-256` applies. Any scenario that
 proves something by "the wrong credential is refused" must check where the
 client is standing.
 
+## A scanning registry that is not Harbor
+
+`lab-03` was cloud-only because ECR is Pro and two of its criteria are
+ECR-specific. Harbor substitutes and wants 4 GB. **zot is 240 MB** and does both
+jobs for real — Trivy scanning on arrival, and a retention policy that deletes
+tags off the disk.
+
+| Measured | Result |
+| --- | --- |
+| zot image | 240 MB |
+| scan after push | ~40s, once the 108 MiB CVE db is down |
+| `debian:12.5-slim` | 182 findings, 37 HIGH/CRITICAL |
+| `ubuntu:18.04` (end of life) | **0 findings** |
+| retention, keep 3 of v1..v5 | leaves exactly `["v3","v4","v5"]` |
+
+That EOL row is the point: **the most neglected image on the machine scans
+cleanest**, because a distribution shipping no fixes has nothing actionable to
+report. It is the same trap as `--ignore-unfixed` on an EOL base, from the
+other direction.
+
+**zot rejects `docker push` out of the box** with HTTP 415 — it wants OCI media
+types and the Docker client sends `vnd.docker.distribution.manifest.v2+json`.
+Layers upload and only the manifest is refused, so it reads as a broken image.
+Fix: `compat: ["docker2s2"]`, under `http`, not at the top level where it is
+rejected as an invalid key.
+
+**Untagged manifests behave differently from ECR.** zot drops an orphaned
+manifest immediately; ECR's `countUnit: days` deliberately leaves a window so a
+mistaken overwrite is recoverable. Knowing which you are on decides whether a
+bad push is a mistake or an incident.
+
+## LocalStack stores bucket policies without evaluating them
+
+A TLS-only deny on a plaintext endpoint — where every request should be denied
+— refuses nothing. Reads and writes both succeed.
+
+Same family as the SSM and filter-pattern findings, and the cleanest example of
+it: the policy that should deny *everything* denies nothing. The scenario makes
+the learner run the request that should fail, because **a deny you have not
+seen refuse something is a belief, not a control.**
+
 ## Where the ceiling is now
 
-**41 of 55 guided labs.** The remaining 14 need enforcement or managed services
+**42 of 55 guided labs.** The remaining 13 need enforcement or managed services
 no free emulator provides, and every one is settled by test rather than by
 analogy.
 
