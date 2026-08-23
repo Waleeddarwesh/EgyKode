@@ -77,6 +77,12 @@ const ELEMENTS = [
     // frontmatter is therefore NOT evidence the learner was told; this looks
     // for the chapter saying it out loud.
     re: /^#{2,3} .*\b(capstone|in the platform|where .* appears|appears in)/im,
+    // A dedicated section is one way; the other is a bold **In the capstone**
+    // line inside the opening bridge, which is where it does the most work -
+    // the learner is told what they are about to build it for before they
+    // start. Anchored to that exact marker rather than any mention of the word,
+    // so a passing reference in prose does not count as having told them.
+    altRe: /\*\*In the capstone\*\*/i,
     before: 1,
   },
   {

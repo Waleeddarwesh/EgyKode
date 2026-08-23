@@ -24,12 +24,40 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to Terraform
+## Why this comes after the AWS console
 
-In [Amazon Web Services](/learn/aws/aws-overview/), we learned that AWS is a massive warehouse of computers that we can rent. But how do we actually rent them? 
-If you use your mouse to click buttons on the AWS website to build 50 servers, you will make a mistake. You will forget to open a firewall port on server #37. 
+You have a VPC with public and private subnets, an IAM role, an EC2 instance, an
+S3 bucket, a load balancer, an auto scaling group and a container registry. You
+built all of it by hand, and it works.
 
-To solve this, we use **Infrastructure as Code (IaC)**. We write a text file describing exactly what we want, and a robot builds it for us perfectly every single time. **Terraform** is that robot.
+Now answer three questions about it. Which of those did you change last Tuesday,
+and why? Could you stand up a second, identical copy for staging this afternoon?
+If it were all deleted tonight, how long to get back — and would the result be
+the same, or merely similar?
+
+The honest answers are "I don't remember", "not identical", and "days, and no".
+Nothing you built was wrong. What is missing is a **description of the
+infrastructure that is also the thing that builds it**, so the description and
+the reality cannot drift apart — because they are the same file.
+
+That is Infrastructure as Code. This chapter rebuilds what you just clicked
+together as something you can review, diff, destroy and recreate.
+
+**In the capstone**, Terraform provisions the VPC, EKS, ECR and the Jenkins host
+from four modules, with state in S3 — the infrastructure every later phase
+deploys onto.
+
+---
+
+## What existed before: Bash scripts
+
+Before Terraform, engineers wrote complex Bash or Python scripts to talk to the AWS API. 
+*Why wasn't it enough?* Scripts are **Imperative** (Do this, then do this). If a script crashes halfway through, running it a second time might create duplicate servers.
+Terraform is **Declarative** (I want 3 servers). You can run `terraform apply` 100 times, and if you already have 3 servers, it will do absolutely nothing. This is called **Idempotency**.
+
+Keep that distinction in view for the rest of the chapter. Almost everything
+Terraform does that looks clever — the plan, the state file, refusing to act
+when nothing changed — follows from being declarative rather than imperative.
 
 ---
 
@@ -325,11 +353,6 @@ Prefer local modules inside a single repository — you get atomic changes and n
 version skew. Reach for a separately versioned module only when consumers need to
 upgrade on their own schedule.
 
-### What Existed Before? (Bash Scripts)
-Before Terraform, engineers wrote complex Bash or Python scripts to talk to the AWS API. 
-*Why wasn't it enough?* Scripts are **Imperative** (Do this, then do this). If a script crashes halfway through, running it a second time might create duplicate servers.
-Terraform is **Declarative** (I want 3 servers). You can run `terraform apply` 100 times, and if you already have 3 servers, it will do absolutely nothing. This is called **Idempotency**.
-
 ---
 
 ## Level 3 — Advanced
@@ -428,6 +451,152 @@ In a Fortune 500 company, you never put all your AWS resources into a single `ma
 - **Terraform:** Uses HCL (a proprietary config language).
 - **Pulumi / AWS CDK:** Allows developers to write infrastructure using real programming languages (Python, TypeScript). 
 - **The Decision:** We chose Terraform because HCL forces engineers to remain declarative. Using a full programming language for infrastructure often leads to dangerous `if/else` loops and imperative logic that makes the state unpredictable during disaster recovery.
+
+---
+
+## When it breaks
+
+Four failures account for most bad days with Terraform. Each one is worked the
+same way: **symptom → evidence → hypothesis → test → fix**. Reach for the
+evidence before the fix; Terraform is unusually good at telling you what it is
+about to do, and most damage comes from not reading it.
+
+### `apply` wants to replace something you did not touch
+
+**Symptom.** The plan says `1 to add, 0 to change, 1 to destroy`, and the
+resource being destroyed is a database or a load balancer you had no intention
+of replacing.
+
+**Evidence.** Read the plan properly rather than scrolling to the summary.
+Terraform marks the resource `-/+ destroy and then create replacement` and, on
+the attribute responsible, prints `# forces replacement`:
+
+```bash
+terraform plan
+```
+
+**Hypothesis.** Something changed an attribute that cannot be altered in place.
+Common causes: an AMI ID moved because it came from a data source that resolves
+"latest", a subnet or availability zone changed, a name was edited, or a
+provider upgrade changed a default.
+
+**Test.** Compare what Terraform believes exists with what the configuration now
+asks for:
+
+```bash
+terraform state show aws_instance.app
+```
+
+**Fix.** Decide whether the replacement is correct — sometimes it is exactly
+right, and the plan is doing its job. If the attribute genuinely should not
+churn, pin it: a fixed AMI ID rather than a "latest" lookup, or
+`lifecycle { ignore_changes = [ami] }` when the value is managed elsewhere. For
+something that must never be destroyed by an accident of configuration,
+`lifecycle { prevent_destroy = true }` turns the mistake into a failed plan
+instead of a deleted database.
+
+**Never** reach for `-target` to make the scary line disappear. It applies part
+of your configuration and leaves the state describing a system that no longer
+matches the code, which is the same problem one step further away from the
+evidence.
+
+### `Error acquiring the state lock`
+
+**Symptom.** `apply` refuses to start, reporting a lock held by another
+operation, with an ID, a user and a timestamp.
+
+**Evidence.** Read the whole message. It names who holds it and when they took
+it. A lock two minutes old belongs to a colleague or a pipeline that is still
+running.
+
+**Hypothesis.** Either a run is genuinely in progress, or a previous run was
+killed — a cancelled CI job, a closed laptop — and never released the lock.
+
+**Test.** Ask, or check whether the pipeline that took it is still running. The
+timestamp is usually decisive.
+
+**Fix.** If a run is in progress, wait — that is the lock working. Only when you
+have established that nothing is running:
+
+```bash
+terraform force-unlock <LOCK_ID>
+```
+
+Forcing a lock while another apply is genuinely running lets two processes write
+the same state, which corrupts it. This is the one Terraform command worth being
+slow about.
+
+### The console was edited behind you (drift)
+
+**Symptom.** A plan proposes changes nobody made in the code, undoing something
+that was done deliberately in the console during an incident.
+
+**Evidence.** Reconcile state with reality without changing anything:
+
+```bash
+terraform plan -refresh-only
+```
+
+That shows what the real infrastructure has that the state does not, and is the
+supported way to look — `terraform refresh` is deprecated precisely because it
+wrote to state as a side effect of asking a question.
+
+**Hypothesis.** Someone changed the resource outside Terraform. Under IaC that
+is drift by definition, however good the reason at 3am.
+
+**Test.** Compare the refresh-only plan against the change you believe was made.
+
+**Fix.** Pick one and mean it. Either bring the change into the code so the next
+apply keeps it, or apply the plan so the code wins and the manual change is
+reverted. Accepting the refresh-only plan updates state to match reality without
+touching infrastructure. What you must not do is leave it: every later plan will
+carry the same noise, and eventually someone stops reading plans carefully,
+which is how the first failure in this list becomes a deleted database.
+
+### `apply` failed halfway through
+
+**Symptom.** An error partway through, some resources created and some not.
+
+**Evidence.** The state file. Terraform records what it created before it
+failed, so the run is not lost.
+
+**Hypothesis.** Terraform does not roll back — it is not a transaction. It stops,
+records what exists, and reports the error. The usual causes are a permissions
+gap, a quota, or a dependency the provider could not satisfy.
+
+**Test.**
+
+```bash
+terraform plan
+```
+
+The plan now shows only the remainder, which also confirms the state is intact.
+
+**Fix.** Correct the underlying cause and apply again. Terraform creates what is
+missing and leaves what exists alone — this is idempotency doing exactly the job
+described at the top of this chapter. Do not delete resources by hand first: that
+puts state and reality further apart, and turns a resumable run into an
+investigation.
+
+---
+
+## Practise this
+
+Each lab covers one layer of this chapter, in the order the chapter built them.
+
+- [Terraform Fundamentals](/labs/lab-terraform-fundamentals) — provider,
+  resource, variable, output, and your first plan and apply
+- [Terraform Modules](/labs/lab-terraform-modules) — write infrastructure once
+  and use it twice
+- [Terraform Remote State & Locking](/labs/lab-terraform-remote-state) — the S3
+  backend the capstone uses, and what the lock is protecting you from
+- [Terraform Drift & State Recovery](/labs/lab-terraform-state-recovery) — the
+  console gets edited behind you; reconcile it
+- [Terraform Validation, Linting & CI](/labs/lab-terraform-testing-ci) — catch a
+  bad plan before it reaches an account
+
+**Next:** [Ansible](/learn/ansible/ansible/) — Terraform creates the machines,
+and something still has to configure what runs on them.
 
 ---
 
