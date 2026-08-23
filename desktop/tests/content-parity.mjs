@@ -54,11 +54,18 @@ function walk(dir) {
 
 const desktopFiles = existsSync("desktop") ? walk("desktop") : [];
 
-// README.md and docs/*.md are desktop documentation, not curriculum. Anything
-// else carrying content extensions is a copy that should not exist.
+// Desktop documentation is allowed: a README at any depth, and anything under
+// docs/ or store/. What must never appear is curriculum — an `.mdx` file
+// anywhere, or a stray `.md` that is not documentation.
+//
+// The distinction is the point of this check, so it is drawn narrowly: `.mdx`
+// is how every chapter and lab in this repository is written, and finding one
+// here means a copy has been made.
 const strayContent = desktopFiles.filter((f) => {
   const rel = relative("desktop", f).replace(/\\/g, "/");
-  if (rel === "README.md" || rel.startsWith("docs/") || rel.startsWith("store/")) return false;
+  if (extname(f) === ".mdx") return true; // never, wherever it is
+  if (rel.endsWith("README.md")) return false;
+  if (rel.startsWith("docs/") || rel.startsWith("store/")) return false;
   return CONTENT_EXT.has(extname(f));
 });
 if (strayContent.length) fail(`desktop/ contains content files: ${strayContent.join(", ")}`);
