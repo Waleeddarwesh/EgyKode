@@ -47,7 +47,7 @@ Imagine you want a cup of coffee.
 
 ### Why do we need it?
 - **Zero Idle Costs:** If a Kubernetes Node is running at 3:00 AM and nobody is visiting your website, you are still paying Amazon for the EC2 server. In AWS Lambda, if nobody visits your website, you pay $0.00. 
-- **Infinite Scaling:** If 10,000 people click a button at the exact same second, AWS Lambda instantly creates 10,000 copies of your code, runs them in parallel, and deletes them 1 second later. 
+- **Scales out fast, within limits:** if thousands of people click a button at once, Lambda runs many copies of your code in parallel and tears them down afterwards. It is not unbounded — an account has a concurrency limit and a burst rate, and requests beyond them are throttled — and an execution environment that has to be created first pays a cold start. "Infinite scaling" is marketing; "scales far past what you would provision by hand, and throttles rather than falling over" is the engineering claim. 
 
 ---
 
@@ -121,7 +121,7 @@ Enterprises use **KEDA (Kubernetes Event-driven Autoscaling)**.
 By default, the Kubernetes HPA (Horizontal Pod Autoscaler) scales Pods based on CPU. But what if your Pods are pulling messages from an AWS SQS Queue? The CPU might be at 5%, but there are 100,000 messages waiting in the queue. 
 
 KEDA allows Kubernetes to scale *like* a Serverless function.
-You configure KEDA to watch the AWS SQS Queue. If the queue length hits 10,000, KEDA instantly scales your Kubernetes Deployment from 0 to 50 Pods. When the queue hits 0, KEDA scales the Deployment back down to exactly 0 Pods, saving you money, just like AWS Lambda.
+You configure KEDA to watch the AWS SQS Queue. If the queue length hits 10,000, KEDA scales your Deployment up towards 50 Pods. It polls the queue on an interval rather than reacting to each message, so scaling follows the metric by design — it does not anticipate it. When the queue hits 0, KEDA scales the Deployment back down to exactly 0 Pods, saving you money, just like AWS Lambda.
 
 ### VPC Cold Starts and RDS Proxy
 If your AWS Lambda needs to talk to your private RDS database, the Lambda must be attached to your VPC. 

@@ -226,7 +226,7 @@ aws s3api list-object-versions --bucket ivolve-terraform-state --prefix environm
 ### What Existed Before Cloud? (On-Premises)
 Before AWS (launched in 2006), companies used "On-Premises" datacenters. 
 - **Disadvantage:** If you launch a game on Friday and a million people try to play, your servers crash. You call Dell to order more servers, but they take 3 weeks to arrive. Your game fails.
-- **The AWS Advantage:** With AWS Auto Scaling, if a million people log on, AWS instantly gives you 100 new servers in 30 seconds. When the players go to sleep, AWS deletes 99 servers, and you stop paying for them.
+- **The AWS Advantage:** With AWS Auto Scaling you ask for more servers and get them in minutes rather than the weeks a purchase order would take, and you give them back when the players go to sleep and stop paying for them. The gain is elasticity and the billing model, not instant capacity — scaling still has to boot machines, which is why you scale on a signal that arrives before the load does.
 
 ---
 

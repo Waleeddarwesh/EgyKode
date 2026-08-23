@@ -130,6 +130,11 @@ kubectl create secret generic db-credentials \
   --from-literal=password='S3cur3!'
 ```
 
+That command is fine for a lab and leaves the password in your shell history —
+and briefly in the process list, where any other user on the box can read it.
+For anything real, pipe from a file you delete, read from a secret store, or use
+`--from-file`.
+
 ```yaml
 apiVersion: v1
 kind: Secret

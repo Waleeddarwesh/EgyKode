@@ -218,7 +218,7 @@ spec:
 - **`server: https://kubernetes.default.svc`**: Deploy the files into the cluster that ArgoCD is currently running inside (the local cluster).
 - **`syncPolicy: automated:`**: Do not wait for a human to click a button. Deploy automatically.
 - **`prune: true`**: If an engineer deletes `api-deployment.yaml` from GitHub, ArgoCD will actively delete the API from the live Kubernetes cluster. (If this was false, the API would become an orphaned "ghost" process).
-- **`selfHeal: true`**: If an engineer manually types `kubectl delete pod` in the live cluster, ArgoCD detects the cluster is "OutOfSync" with Git, and instantly recreates the Pod.
+- **`selfHeal: true`**: If an engineer manually types `kubectl delete pod` in the live cluster, Argo CD notices the cluster no longer matches Git and puts it back. Not instantly — on its next comparison, which by default is a few minutes away unless a webhook from the repository triggers one sooner. During an incident that delay matters: a manual change can appear to work and then be undone while you are still watching.
 
 ---
 

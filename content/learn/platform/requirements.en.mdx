@@ -170,7 +170,7 @@ A: You missed the SSH Key requirement. Ansible is trying to log into the AWS EC2
 
 ### Senior
 **Q: Why do we enforce specific versions of Terraform and Ansible in our requirements? What happens if an engineer uses Terraform 1.6 and another uses 1.4?**
-A: This causes State File corruption. If an engineer uses Terraform 1.6, the remote `terraform.tfstate` file is upgraded to the 1.6 format. When the engineer with 1.4 tries to run a command, Terraform will throw an error and refuse to run, because older versions cannot parse newer state file formats. Version locking is critical.
+A: State becomes unusable by the older version. If an engineer runs 1.6, the remote `terraform.tfstate` is written in the newer format; when the engineer on 1.4 runs a command, Terraform refuses to proceed rather than proceeding badly — it will not parse a state file written by a newer version. That is a safety feature, not corruption, and it is why `required_version` is set in the configuration: the failure then happens immediately and says why, instead of halfway through somebody's apply.
 
 ### Principal/Architect
 **Q: How do you architect a secure mechanism for a CI/CD pipeline to provision AWS infrastructure without using static long-lived IAM Access Keys?**

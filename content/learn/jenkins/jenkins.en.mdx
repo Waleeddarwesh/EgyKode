@@ -512,7 +512,7 @@ image reaches the registry.
 **Evidence.** Look at how the gate is written. This is the shape to distrust:
 
 ```bash
-trivy image --severity HIGH,CRITICAL myapp:latest | tee scan.txt
+trivy image --severity HIGH,CRITICAL myapp:$GIT_COMMIT | tee scan.txt
 ```
 
 **Hypothesis.** A shell pipeline exits with the status of its **last** command.
@@ -526,7 +526,7 @@ never worked.
 
 ```bash
 set -o pipefail
-trivy image --exit-code 1 --severity HIGH,CRITICAL myapp:latest | tee scan.txt
+trivy image --exit-code 1 --severity HIGH,CRITICAL myapp:$GIT_COMMIT | tee scan.txt
 ```
 
 `--exit-code 1` is what makes Trivy fail the build rather than merely report it,

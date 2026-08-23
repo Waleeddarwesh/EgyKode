@@ -245,7 +245,7 @@ A: An Auto Scaling Group creates and destroys servers based on traffic. A Load B
 
 ### Intermediate
 **Q: If your ASG has `min_size = 2` and you manually go into the AWS Console and terminate one of the instances, what happens?**
-A: The ASG Health Checks will detect that the instance was terminated. Because the current capacity (1) is now below the `min_size` (2), the ASG will instantly launch a brand new instance to replace the terminated one.
+A: The ASG health checks detect that the instance is gone. Because current capacity (1) is below `min_size` (2), the group launches a replacement. Not instantly — the instance has to be provisioned and booted, and the group then waits out the health check grace period before judging it. Minutes, not seconds, which is why capacity headroom exists rather than relying on replacement speed.
 
 ### Senior
 **Q: Explain how `user_data` works in an EC2 Launch Template and why it is critical for immutable infrastructure.**

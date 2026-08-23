@@ -193,7 +193,7 @@ resource "aws_db_parameter_group" "this" {
 Encryption in transit enforced by the *server*, not requested politely by the
 client. A misconfigured application cannot accidentally connect in plaintext —
 it is refused.
-- **`multi_az = var.environment == "prod" ? true : false`**: This is a Terraform conditional. If we deploy to Dev, we get 1 database. If we deploy to Prod, AWS instantly creates a Synchronous Standby replica in a different Availability Zone.
+- **`multi_az = var.environment == "prod" ? true : false`**: This is a Terraform conditional. If we deploy to Dev, we get 1 database. If we deploy to Prod, AWS provisions a synchronous standby replica in a different Availability Zone. Converting an existing instance to Multi-AZ is an online operation but not a free one — it takes time and adds write latency, which is why it belongs in the plan rather than in an incident.
 - **`skip_final_snapshot = false`**: If an engineer runs `terraform destroy`, AWS will refuse to delete the database until it takes one final backup. This prevents catastrophic accidental data loss.
 
 ---
@@ -205,7 +205,9 @@ How does `multi_az = true` actually work at the kernel level?
 When the Kubernetes API writes a row of data to the RDS Master node in `us-east-1a`, the Master node does *not* immediately tell the API "Success". 
 Instead, the Master node replicates the data at the block-storage level across the AWS backbone network to the Standby node in `us-east-1b`. Only when the Standby confirms the data is saved does the Master return "Success" to Kubernetes. 
 
-**Failover:** If someone pulls the power cord on `us-east-1a`, the AWS DNS CNAME record instantly points to the Standby node. Because of synchronous replication, exactly ZERO bytes of data were lost.
+**Failover:** If someone pulls the power cord on `us-east-1a`, RDS promotes the standby and repoints the DNS CNAME at it. AWS states failover typically takes **60–120 seconds**, so plan for a short outage rather than none — and your application must reconnect, because existing connections are broken. A JVM that caches DNS forever will keep dialling the dead node until it is restarted, which is why AWS recommends a TTL of no more than 60 seconds.
+
+Because replication is synchronous, no *committed* transaction is lost. Transactions still in flight at the moment of failure are.
 
 **An Availability Zone is a separate building.** A region — `us-east-1` — is a
 group of AZs, each with its own power, cooling and network, far enough apart to

@@ -149,3 +149,142 @@ knows the technology.
 
 The next pass should read the core path in order and check claims against vendor
 documentation as it goes, with the same P0–P3 classification.
+
+---
+
+# Pass 2 — human E-class review (in progress)
+
+Finding format: **Chapter · Claim · Problem · Type · Severity · Correct wording ·
+Source.** Types: E1 incorrect, E2 outdated, E3 misleading simplification,
+E4 unsafe production advice, E5 unsupported claim, E6 version/provider dependent.
+
+## The systematic finding: "instantly"
+
+Not one defect but a pattern across nine chapters. Individually each reads as
+harmless enthusiasm; together they teach a beginner that distributed systems
+converge immediately, which is the belief most likely to produce a bad on-call
+decision. Two instances were outright incorrect.
+
+### E-7 (E1, P0) IAM — disabling the identity provider does not end access
+
+**Claim.** "When Bob quits, HR disables his Okta account, and he instantly loses
+access to AWS."
+
+**Problem.** Security-relevant and wrong. AWS: *"Temporary security credentials
+are valid until they expire"* — default session duration 12 hours. Disabling the
+IdP prevents **new** sessions; credentials already issued keep working, because
+they are evaluated against the role's permissions, not against Okta. A reader
+could believe offboarding is complete when it is not.
+
+**Now says** what disabling does and does not do, and that cutting off an
+in-flight session requires a deny policy or the role's *Revoke sessions* action.
+
+**Source.** [Disabling permissions for temporary security credentials](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_control-access_disable-perms.html)
+
+### E-8 (E1, P1) RDS — Multi-AZ failover is not instant, and connections break
+
+**Claim.** "the AWS DNS CNAME record instantly points to the Standby node …
+exactly ZERO bytes of data were lost."
+
+**Problem.** AWS: *"Failover times are typically 60–120 seconds."* The chapter
+also omitted that existing connections are broken and must be re-established,
+and that a JVM caching DNS forever will keep dialling the dead node — AWS
+recommends a TTL of no more than 60 seconds. "Exactly ZERO bytes" overstates:
+synchronous replication preserves *committed* transactions; in-flight ones are
+lost.
+
+**Source.** [Failing over a Multi-AZ DB instance](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZ.Failover.html)
+
+### E-9 (E3, P1) Argo CD — self-heal is not instant, and it contradicted this curriculum
+
+**Claim.** "ArgoCD detects the cluster is OutOfSync with Git, and instantly
+recreates the Pod."
+
+**Problem.** Reconciliation happens on the next comparison — minutes by default
+unless a webhook triggers one. This contradicted the troubleshooting section
+added in the previous pass, which correctly describes a 3am change being
+reverted minutes later. Now says so, and why the delay matters during an
+incident.
+
+### E-10 (E3, P2) Load balancer — targets are not removed on the first failure
+
+**Claim.** "the Load Balancer marks the server as Unhealthy and instantly
+removes it from the rotation."
+
+**Problem.** A target is marked unhealthy after a configured number of
+**consecutive** failures. Interval × threshold is how long a broken instance
+keeps receiving traffic — the number to reach for when asked why requests still
+hit a dead node.
+
+### E-11 (E3, P2) Auto Scaling and EC2 capacity
+
+Two claims: the ASG "will instantly launch" a replacement, and AWS "instantly
+gives you 100 new servers in 30 seconds" — which is self-contradictory. Both now
+say minutes, and note the health check grace period. The point made instead: the
+gain is elasticity and the billing model, and you scale on a signal that arrives
+before the load does.
+
+### E-12 (E3/E5, P2) Lambda "Infinite Scaling"
+
+**Claim.** "AWS Lambda instantly creates 10,000 copies of your code."
+
+**Problem.** Bounded by account concurrency and burst rate, and cold starts are
+real. Now distinguishes the marketing claim from the engineering one: scales far
+past what you would provision by hand, and throttles rather than falling over.
+
+Three smaller instances corrected: a Packer AMI booting "instantly", Multi-AZ
+conversion being instant, and KEDA scaling instantly when it polls on an
+interval. Two left alone as correct — base64 decoding *is* instant, and the
+restaurant-manager analogy is an analogy.
+
+## Other pass-2 findings
+
+### E-13 (E4, P2) Kubernetes Secret created on the command line
+
+`kubectl create secret --from-literal=password='...'` leaves the value in shell
+history and briefly in the process list. The chapter is otherwise excellent on
+Secrets — etcd plaintext, `EncryptionConfiguration`, tmpfs, what Secrets do not
+give you — so this was the one missing caveat. Added, with the boundary stated:
+fine for a lab, not for anything real.
+
+### E-14 (E4, P3) Jenkins examples used `:latest`
+
+The Docker and ECR chapters both say never to deploy `:latest`; the Jenkins scan
+examples then used `myapp:latest` for the image the pipeline builds and pushes.
+Valid syntax teaching a practice the curriculum forbids elsewhere. Changed to an
+immutable tag, matching the chapter's own `IMAGE_TAG` pattern. The
+supply-chain-security uses were left: there `:latest` is deliberate, because the
+section is about tags being mutable.
+
+### E-15 (E3, P3) Terraform state version skew called "corruption"
+
+**Claim.** "This causes State File corruption."
+
+**Problem.** The same answer then correctly says Terraform *refuses to run*.
+Refusing is a safety feature, not corruption. Reworded, and tied to why
+`required_version` exists: the failure happens immediately and says why, instead
+of halfway through somebody's apply.
+
+## Version drift audit
+
+Every explicit version in the corpus was collected and assessed against "does
+this need pinning at all?".
+
+| Version | Where | Verdict |
+| --- | --- | --- |
+| Gateway API v1.5.0 | `gateway-api` install | **Pin needed** — install URL must resolve. Fixed in pass 1 |
+| `required_version = ">= 1.6"` | `terraform` | Correct form already — a floor, not a pin |
+| `kubeadm upgrade apply v1.31.4` / `v1.29.0` | two chapters | Legitimate; the command takes a concrete version. The two chapters use different examples, which is cosmetic |
+| `pod-security.kubernetes.io/enforce-version: v1.31` | `k8s-security` | Legitimate — PSA pinning is deliberate |
+| Kubernetes 1.22 / 1.24 / 1.28 | history claims | Correct historical facts, not pins |
+| `busybox:1.36`, `curl:8.10.1` | examples | Good practice — pinned example images |
+| `api:1.4.0`, `ivolve-api:1.0.0` | examples | Illustrative artefact versions |
+
+No unnecessary pins found. The prose is version-agnostic where it can be, and
+concrete where a command requires it.
+
+## Still to do
+
+The remaining core chapters have not been read line by line for E3 and E6. The
+"instantly" pattern was found because it is greppable; claims of the form "X
+does Y" where Y depends on configuration are not, and need reading.
