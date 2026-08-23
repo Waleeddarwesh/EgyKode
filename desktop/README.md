@@ -78,14 +78,31 @@ desktop/
 
 ## Updating
 
-Two separate lifecycles, and keeping them separate is the point:
+Two separate lifecycles, and keeping them separate is the point.
 
-- **Content change** — a chapter correction, a new lab, a roadmap edit. Deploy
-  the website. Windows users receive it on next launch. **No Store submission.**
-- **Client change** — an icon, the app name, a new capability, a manifest field.
-  Rebuild the package and submit to the Store.
+The dividing line is narrower than "content vs. manifest", and it is worth
+stating precisely, because guessing it wrong costs a Store review. Unpacking the
+generated MSIX settles it: the package contains **only tile images and
+`AppxManifest.xml`** — no web content and no copy of the web manifest. It
+declares a `HostRuntimeDependency` on `Microsoft.MicrosoftEdge.Stable` and
+launches Edge at `https://egykode.com/`. Its Edge extension entry names exactly
+which manifest members it takes a copy of:
 
-Almost everything EgyKode does day to day is the first kind.
+    handlers?protocol_handlers,app_uri_handler
+
+So:
+
+- **Deploy the website — no Store submission.** Chapter corrections, new labs,
+  roadmap edits, and every web-manifest member Edge reads at runtime: the
+  shortcuts and their jump-list icons, `start_url`, `display`, `theme_color`,
+  `background_color`, `description`.
+- **Rebuild the package and submit to the Store.** Only what is genuinely inside
+  the MSIX: the package identity, the app's display name, the Start-menu and
+  tile images (generated from the manifest icons at package time, not fetched),
+  `protocol_handlers`, and the app URI handler.
+
+Almost everything EgyKode does day to day is the first kind — including, less
+obviously than it sounds, changes to most of the web app manifest.
 
 ## Getting started
 
