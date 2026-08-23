@@ -117,6 +117,78 @@ failure mode this standard exists to prevent.
 
 ---
 
+## 4b. Time, convergence, and the condition that makes a claim true
+
+**Distributed and cloud systems are asynchronous, eventually consistent and
+failure-prone unless a specific guarantee says otherwise.** Write as though that
+is the default, because it is.
+
+This is the single most productive correctness rule found so far. A review that
+looked only for the word *instantly* found nine chapters describing things that
+take measurable time as if they were immediate — and two of them were outright
+wrong in ways a beginner could carry into production: that disabling an identity
+provider ends existing AWS access, and that an RDS failover is instant and
+lossless.
+
+### Never state an outcome without the condition that makes it true
+
+| Instead of | Write |
+| --- | --- |
+| "Kubernetes restarts the container." | "The kubelet restarts the container according to the Pod's restart policy when it terminates." |
+| "The load balancer removes the instance." | "The load balancer stops routing to a target once it is considered unhealthy, after the configured number of consecutive failed checks." |
+| "Argo CD fixes drift." | "Argo CD detects divergence from the desired Git state and reconciles it according to the Application's sync policy." |
+| "A request is a guaranteed reservation." | "A request is what the scheduler uses to place the Pod; a container may exceed it when the node has capacity." |
+| "Disabling the IdP removes access." | "Disabling the IdP stops new sessions; credentials already issued remain valid until they expire." |
+
+The rewrite is usually one clause longer and teaches the mechanism instead of a
+slogan. That is the trade worth making.
+
+### The words to distrust in your own drafts
+
+`instantly`, `immediately`, `always`, `never`, `guaranteed`, `automatically`,
+`real-time`, `zero downtime`, `zero data loss`, `exactly`, `no manual
+intervention`, `as soon as`, `the moment`.
+
+None are banned — some are true. Each one is a prompt to ask what it depends on:
+a polling or health-check interval, a retry policy, DNS TTL and client caching,
+eventual consistency, propagation delay, a reconciliation loop, autoscaling or
+startup delay, a cold start, connection reuse, credential lifetime, or an
+asynchronous API.
+
+### Classify every significant claim
+
+For each technical claim, ask **"under what conditions is this true?"** and
+place the answer:
+
+- **Always true** — state it plainly
+- **True with stated assumptions** — state the assumptions
+- **Configuration dependent** — name the setting (`podManagementPolicy`,
+  `restartPolicy`, `selfHeal`)
+- **Environment dependent** — name what varies (a CNI that enforces
+  NetworkPolicy; a cluster with more than one replica)
+- **Version dependent** — say which versions, or write it version-agnostically
+- **Provider dependent** — say which provider
+- **Not reliably true** — do not write it
+
+This is far more tractable than trying to prove every sentence, and it catches
+the errors that greps cannot.
+
+### Simplification is allowed; unlabelled simplification is not
+
+Teaching simplifications are fine when the boundary is drawn:
+
+> For this lab: a single NAT gateway keeps the architecture simple and the cost
+> down.
+>
+> **In production:** that is a single-AZ dependency. A multi-AZ design needs a
+> NAT gateway per zone, or a different egress strategy.
+
+Better than pretending the simplified architecture is universally right, and
+better than burying a beginner in enterprise architecture before they can run
+the thing. The same applies to convenience commands: `kubectl create secret
+--from-literal` is fine for a lab and leaves the value in shell history, and the
+chapter should say both.
+
 ## 5. The four sides of every tool
 
 For each core technology, cover four perspectives. Depth varies; presence should

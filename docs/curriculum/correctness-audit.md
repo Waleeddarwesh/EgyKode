@@ -283,8 +283,67 @@ this need pinning at all?".
 No unnecessary pins found. The prose is version-agnostic where it can be, and
 concrete where a command requires it.
 
+## Pass 2b — the wider convergence sweep
+
+Broadened from "instantly" to the whole class: `immediately`, `guaranteed`,
+`automatically`, `real-time`, `zero downtime`, `as soon as`, `the moment`. Five
+further findings.
+
+### E-16 (E1, P1) "A request is a guaranteed reservation"
+
+`cost-optimization`. It is not. Kubernetes: *"it's possible (and allowed) for a
+container to use more resource than its `request` … specifies"*. A request is
+what the **scheduler** uses for placement; it also sets the relative CPU share
+under contention and a position in the eviction order. The word *guaranteed* is
+doubly wrong here because Kubernetes uses it to name a specific QoS class, the
+one where requests equal limits.
+
+Rewritten to teach the real model, including why a CPU limit shows up as latency
+and a memory limit as a restart.
+**Source.** [Resource Management for Pods and Containers](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+
+### E-17 (E6, P2) StatefulSet ordering stated as unconditional
+
+`kubernetes`. Pods "are guaranteed to start and stop in a strict order" — true
+under the default `podManagementPolicy: OrderedReady`, not under `Parallel`,
+where identities stay stable and the ordering does not. Now says which setting
+it depends on, and why that matters for anything electing a leader on startup.
+
+### E-18 (E3, P2) "rolling upgrade with zero downtime"
+
+`kubeadm`. Whether applications see zero downtime is a property of the
+workloads, not of the upgrade: replicas, spread, and PodDisruptionBudgets. A
+single-replica Deployment goes down when its node drains however carefully you
+upgrade.
+
+### E-19 (E3, P1) The Argo CD contradiction, a second time
+
+`gitops` had its own copy: "ArgoCD immediately notices … and instantly recreates
+the Deployment, effectively fighting off the hacker automatically." Two
+conditions were missing — `selfHeal` must be enabled, and reconciliation is
+periodic. It is a strong control against unauthorised change; it is not an
+instantaneous one.
+
+Worth recording as a lesson about this audit: fixing the claim in `argocd` did
+not fix the claim, because the same belief was written in another chapter. A
+contradiction sweep has to look for the *belief*, not the sentence.
+
+### E-20 (E6, P2) Kubernetes' headline definition claimed autoscaling
+
+`kubernetes`. "You hand Kubernetes your Docker containers, and it automatically
+places them … restarts them if they crash, and scales them up if traffic
+spikes." Scheduling and restarting come with the cluster; autoscaling requires
+something configured to do it. Now separates the two.
+
 ## Still to do
 
-The remaining core chapters have not been read line by line for E3 and E6. The
-"instantly" pattern was found because it is greppable; claims of the form "X
-does Y" where Y depends on configuration are not, and need reading.
+The remaining core chapters have not been read line by line for E3 and E6. Both
+sweeps so far worked by finding a *word*; claims of the form "X does Y" where Y
+depends on configuration carry no distinctive word and need reading, with
+"under what conditions is this true?" as the lens.
+
+**Status, stated accurately:** the curriculum has passed structural, mechanical,
+contradiction, and targeted factual reviews. A final human review remains for
+configuration-dependent and context-dependent claims. It is not "fully
+correct", and claiming so would be exactly the kind of unsupported absolute this
+audit exists to remove.

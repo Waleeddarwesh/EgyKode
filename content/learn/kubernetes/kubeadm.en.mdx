@@ -200,7 +200,7 @@ But where do you put the `etcd` database?
    - *Cons:* Requires 6 servers minimum (3 etcd, 3 API). Vastly more complex to manage with Ansible.
 
 ### Day 2 Operations: Upgrades
-In an enterprise, you can't just delete a cluster to upgrade it. You must perform a rolling upgrade with zero downtime.
+In an enterprise, you can't just delete a cluster to upgrade it. You perform a rolling upgrade, one node at a time. Whether the applications see zero downtime is a property of the workloads rather than of the upgrade: it holds when they have more than one replica, spread across nodes, with PodDisruptionBudgets that stop the drain taking the last healthy one. A single-replica Deployment goes down when its node drains, however carefully you upgrade.
 `kubeadm` handles this beautifully:
 1. `kubeadm upgrade plan`: Checks if an upgrade is possible.
 2. `kubeadm upgrade apply v1.29.0`: Upgrades the Control Plane.

@@ -224,7 +224,11 @@ A: In the cloud, you pay by the second. A weekend is roughly 60 hours. If a Deve
 
 ### Intermediate
 **Q: What is the difference between a `request` and a `limit` in Kubernetes?**
-A: A `request` is a guaranteed reservation; the scheduler uses it to find a node with enough available capacity to host the pod. A `limit` is a hard boundary enforced by the OS; if the pod exceeds its memory limit, it is OOMKilled. If it exceeds its CPU limit, it is throttled.
+A: A `request` is what the **scheduler** uses to place the Pod — it will only choose a node where the requests of everything already there, plus this Pod, still fit. It is not a reservation and not a wall: Kubernetes states that if the node has capacity spare, a container is allowed to use more than it requested. What the request buys you is placement somewhere with nominal room, the relative share of CPU under contention, and a position in the eviction order — under node memory pressure, the Pods furthest above their requests are reclaimed first.
+
+A `limit` is the hard boundary, enforced by the kernel. Exceed the memory limit and the container is OOMKilled; exceed the CPU limit and it is throttled rather than killed — which is why a CPU limit shows up as latency and a memory limit shows up as a restart.
+
+Avoid the word *guaranteed* here loosely: in Kubernetes it names a specific QoS class, the one where requests and limits are equal.
 
 ### Senior
 **Q: Explain what an "Orphaned Resource" is in AWS and give three common examples.**

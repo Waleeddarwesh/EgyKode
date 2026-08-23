@@ -47,7 +47,7 @@ That gap is what an orchestrator fills.
 In [Containerization (Docker)](/learn/docker/docker/), we learned that Docker puts our application into a standard shipping container. 
 But if you have 10,000 shipping containers, who decides which truck they go on? Who tracks them if a ship sinks? Who unloads them?
 
-**Kubernetes (K8s)** is the Port Manager. It is a massive orchestration engine developed by Google. You hand Kubernetes your Docker containers, and it automatically places them on your AWS servers, restarts them if they crash, and scales them up if traffic spikes.
+**Kubernetes (K8s)** is the Port Manager. It is a massive orchestration engine developed by Google. You hand Kubernetes your containers and it places them on your servers and restarts them when they exit, according to the Pod's restart policy. It will also scale them with demand — but only once you have configured something to do that, such as a HorizontalPodAutoscaler. Scheduling and restarting come with the cluster; autoscaling is a thing you add.
 
 ---
 
@@ -878,7 +878,7 @@ A: A Pod is the smallest deployable unit in Kubernetes. It is a wrapper around o
 
 ### Intermediate
 **Q: What is the difference between a Deployment and a StatefulSet?**
-A: A Deployment is for stateless applications (like web servers); the Pods are identical, interchangeable, and have random names (e.g., `api-5f8g9`). A StatefulSet is for stateful applications (like databases); the Pods have sticky, predictable identities (e.g., `db-0`, `db-1`) and are guaranteed to start and stop in a strict order.
+A: A Deployment is for stateless applications (like web servers); the Pods are identical, interchangeable, and have random names (e.g., `api-5f8g9`). A StatefulSet is for stateful applications (like databases); the Pods have sticky, predictable identities (`db-0`, `db-1`) and, under the default `podManagementPolicy: OrderedReady`, are created in order and terminated in reverse. Set `podManagementPolicy: Parallel` and the identities remain stable while the ordering guarantee does not — worth knowing before you rely on it for a cluster that elects a leader on startup.
 
 ### Senior
 **Q: Explain how a Kubernetes Service routes traffic to Pods.**

@@ -236,7 +236,7 @@ not that every byte of it is in the repository.
 
 ### Beginner
 **Q: If a hacker logs into the Kubernetes cluster and deletes a Deployment, what happens in a GitOps system?**
-A: ArgoCD immediately notices that the Deployment is missing from the cluster but still exists in the Git repository. Because Git is the Single Source of Truth, ArgoCD instantly recreates the Deployment, effectively fighting off the hacker automatically.
+A: On its next reconciliation, Argo CD sees that the Deployment is missing from the cluster but still present in Git, and — if the Application has `selfHeal` enabled — recreates it. Both conditions matter. Without `selfHeal` it reports `OutOfSync` and waits for a human. And reconciliation is periodic, so recovery takes as long as the sync interval unless a webhook triggers one sooner. It is a strong control against unauthorised change; it is not an instantaneous one, and an attacker who can reach the cluster can usually also delete the thing again.
 
 ### Intermediate
 **Q: Explain the concept of "Configuration Drift".**
