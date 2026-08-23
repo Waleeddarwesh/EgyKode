@@ -138,11 +138,15 @@ Helm reads the stored manifests for revision 1 and applies them, and the cluster
 ## Level 4 — Enterprise
 
 ### Enterprise Patterns: Helm + GitOps (ArgoCD)
-In a modern enterprise, **humans do not run `helm install`**. 
-Giving an engineer permission to run `helm install` means giving them a `kubeconfig` file with administrative rights to the cluster. This is a massive security risk.
+In a modern enterprise, **humans do not run `helm install` against production**.
+To install a chart you need write access to everything in it, which for a
+cluster-wide add-on means close to administrative rights. Handing that to every
+engineer is a large amount of standing access.
 
-Instead, we combine Helm with GitOps (ArgoCD).
-In this repository, ArgoCD is the *only* entity allowed to talk to the Kubernetes API. 
+Instead, we combine Helm with GitOps (Argo CD). Argo CD becomes the only thing
+that *applies* charts to the cluster — plenty of other components still talk to
+the API server, but nothing else is deploying. Engineers change a file and open a
+pull request; the credentials stay inside the cluster. 
 
 Look at how ArgoCD deploys a Helm chart (like the Nginx Ingress Controller):
 ```yaml
