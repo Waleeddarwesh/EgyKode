@@ -358,36 +358,6 @@ rescanning everything you have ever shipped.
 
 ---
 
-## Hands-on
-
-```bash
-cd CloudDevOpsProject/src/roadmap-service
-
-# 1. Build it. Watch the phases go past.
-mvn -B clean package
-
-# 2. Look at what came out
-ls -la target/*.jar
-unzip -l target/ivolve-api.jar | head -20
-
-# 3. Run it
-java -jar target/ivolve-api.jar
-curl localhost:8080/actuator/health/liveness
-
-# 4. Find the coverage report the quality gate reads
-cat target/site/jacoco/jacoco.xml | head -20
-
-# 5. Prove the Docker cache theory. Time both.
-docker build -t api:v1 .              # cold
-touch src/main/java/com/ivolve/api/IvolveApiApplication.java
-time docker build -t api:v2 .         # only the source layer rebuilds
-```
-
-**Checkpoint:** explain why step 5's second build was fast, and what would have
-happened if the Dockerfile had a single `COPY . .`.
-
----
-
 ## When it breaks
 
 **Symptom → evidence → hypothesis → test → fix.**
@@ -434,6 +404,34 @@ a supply chain either starts or does not.
 ---
 
 ## Practise this
+
+Two minutes with a terminal first, then the labs.
+
+```bash
+cd CloudDevOpsProject/src/roadmap-service
+
+# 1. Build it. Watch the phases go past.
+mvn -B clean package
+
+# 2. Look at what came out
+ls -la target/*.jar
+unzip -l target/ivolve-api.jar | head -20
+
+# 3. Run it
+java -jar target/ivolve-api.jar
+curl localhost:8080/actuator/health/liveness
+
+# 4. Find the coverage report the quality gate reads
+cat target/site/jacoco/jacoco.xml | head -20
+
+# 5. Prove the Docker cache theory. Time both.
+docker build -t api:v1 .              # cold
+touch src/main/java/com/ivolve/api/IvolveApiApplication.java
+time docker build -t api:v2 .         # only the source layer rebuilds
+```
+
+**Checkpoint:** explain why step 5's second build was fast, and what would have
+happened if the Dockerfile had a single `COPY . .`.
 
 There is no lab dedicated to Maven and Gradle themselves — the build is exercised
 where it matters, inside a pipeline:

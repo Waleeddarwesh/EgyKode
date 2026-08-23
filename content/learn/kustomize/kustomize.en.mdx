@@ -283,35 +283,6 @@ happens inside the cluster, from the committed source.
 
 ---
 
-## Hands-on
-
-```bash
-cd CloudDevOpsProject
-
-# 1. Render all three. Diff them against each other.
-kustomize build kubernetes/overlays/dev  > /tmp/dev.yaml
-kustomize build kubernetes/overlays/prod > /tmp/prod.yaml
-diff /tmp/dev.yaml /tmp/prod.yaml | head -40
-
-# 2. Watch the ConfigMap hash change
-grep 'name: ivolve-config' /tmp/prod.yaml
-
-# 3. Do what the pipeline does
-cd kubernetes/overlays/dev
-kustomize edit set image ivolve-api=myregistry/ivolve-api:test-123
-git diff                     # exactly one line changed
-git checkout kustomization.yaml
-
-# 4. Break it on purpose: point a patch at a resource that does not exist,
-#    then run `kustomize build`. Note that it fails loudly — that is the
-#    property `sed` does not have.
-```
-
-**Checkpoint:** explain why the prod render contains no `StatefulSet`, and why
-the dev render's PDB says `minAvailable: 1`.
-
----
-
 ## When it breaks
 
 **Symptom → evidence → hypothesis → test → fix.** Kustomize failures are quiet:
@@ -380,6 +351,33 @@ matters more once Argo CD is rendering the same overlay with its own version.
 ---
 
 ## Practise this
+
+Two minutes with a terminal first, then the labs.
+
+```bash
+cd CloudDevOpsProject
+
+# 1. Render all three. Diff them against each other.
+kustomize build kubernetes/overlays/dev  > /tmp/dev.yaml
+kustomize build kubernetes/overlays/prod > /tmp/prod.yaml
+diff /tmp/dev.yaml /tmp/prod.yaml | head -40
+
+# 2. Watch the ConfigMap hash change
+grep 'name: ivolve-config' /tmp/prod.yaml
+
+# 3. Do what the pipeline does
+cd kubernetes/overlays/dev
+kustomize edit set image ivolve-api=myregistry/ivolve-api:test-123
+git diff                     # exactly one line changed
+git checkout kustomization.yaml
+
+# 4. Break it on purpose: point a patch at a resource that does not exist,
+#    then run `kustomize build`. Note that it fails loudly — that is the
+#    property `sed` does not have.
+```
+
+**Checkpoint:** explain why the prod render contains no `StatefulSet`, and why
+the dev render's PDB says `minAvailable: 1`.
 
 There is no Kustomize-only lab yet. The overlays are exercised where they are
 actually used — as the thing a reconciler renders and applies:
