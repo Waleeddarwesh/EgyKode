@@ -233,10 +233,12 @@ export default async function ChapterPage({
           <CapstoneRole
             role={chapter.capstoneRole}
             why={chapter.capstoneWhy}
+            purpose={chapter.capstonePurpose}
             labels={{
               core: t("chapter.roleCore"),
               alternative: t("chapter.roleAlternative"),
               extension: t("chapter.roleExtension"),
+              purpose: t("chapter.capstonePurpose"),
             }}
           />
         </div>

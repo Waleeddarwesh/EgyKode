@@ -24,11 +24,14 @@ const STYLE: Record<Exclude<Role, "reference">, { icon: typeof CircleDot; tone: 
 export function CapstoneRole({
   role,
   why,
+  purpose,
   labels,
 }: {
   role: Role;
   why?: string;
-  labels: { core: string; alternative: string; extension: string };
+  /** What this chapter contributes to the platform. Core chapters only. */
+  purpose?: string;
+  labels: { core: string; alternative: string; extension: string; purpose: string };
 }) {
   if (role === "reference") return null;
   const { icon: Icon, tone, bg } = STYLE[role];
@@ -45,6 +48,14 @@ export function CapstoneRole({
       </p>
       {why && (
         <p className="mt-1.5 text-sm leading-relaxed text-content-secondary">{why}</p>
+      )}
+      {/* Only on core chapters. On an `alternative` the capstone did not choose,
+          a line claiming a role in the platform would contradict the badge
+          directly above it. */}
+      {role === "core" && purpose && (
+        <p className="mt-1.5 text-sm leading-relaxed text-content-secondary">
+          <span className="font-medium">{labels.purpose}:</span> {purpose}
+        </p>
       )}
     </aside>
   );

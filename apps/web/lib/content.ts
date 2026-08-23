@@ -36,6 +36,17 @@ export interface ChapterMeta {
   capstoneRole?: "core" | "alternative" | "extension" | "reference";
   /** Why the capstone went the way it did, shown beside the label. */
   capstoneWhy?: string;
+  /**
+   * What this chapter contributes to the platform, in the capstone's own terms
+   * — "the registry the pipeline pushes to and the cluster pulls from".
+   *
+   * Every core chapter has declared this from the start and `labs.ts` uses the
+   * sibling `capstoneComponent` to build the architecture view, but nothing
+   * ever showed the sentence to the person reading the chapter. The whole
+   * product promise is that these chapters build one system rather than many
+   * tutorials, and this is the line that says so.
+   */
+  capstonePurpose?: string;
   level: Level;
   type: string;
   phase: string;

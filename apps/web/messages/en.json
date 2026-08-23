@@ -379,6 +379,7 @@
   "chapter.roleCore": "Part of the capstone",
   "chapter.roleAlternative": "An alternative the capstone did not choose",
   "chapter.roleExtension": "Beyond the baseline platform",
+  "chapter.capstonePurpose": "In the capstone",
   "labs.evidenceCommand": "Verify with a command",
   "labs.evidenceReasoning": "Explain it",
   "labs.evidenceSelf": "Self-assessed",

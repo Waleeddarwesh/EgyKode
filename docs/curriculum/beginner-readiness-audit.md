@@ -1,0 +1,219 @@
+# Beginner-readiness audit — baseline
+
+Measured 2026-08-23 against the working tree. This is the baseline the
+[authoring standard](./authoring-standard.md) is meant to move.
+
+## What these numbers are, and are not
+
+They come from `scripts/audit-chapter-teaching.mjs`, which detects whether a
+teaching element is **present** and **early enough to do its job**. It cannot
+judge whether prose is correct, clear, or followable. A chapter it reports as
+clean has not been verified — only a person reading it can do that.
+
+The detector was calibrated against the corpus, not guessed. The first attempt
+reported 56 of 57 chapters missing an orientation section, which was the regex
+being narrow rather than the curriculum being broken; surveying the actual first
+heading of all 57 chapters produced the real finding below. Treat every number
+here as "how many chapters have the shape", never as "how many chapters teach
+well".
+
+Chapters read in full for this pass: `docker`, `terraform`, `k8s-workloads`.
+Everything else is classified provisionally, from structure alone, and is marked
+as such.
+
+---
+
+## The headline: two authoring generations
+
+The curriculum is 57 chapters, 40 of them `capstoneRole: core`. They were not
+written to one standard, and the split is visible in the first heading of each
+chapter.
+
+**15 chapters open with a bridge** that names what came before:
+
+| Chapter | Opening |
+| --- | --- |
+| `linux-foundations` | Why this chapter comes first |
+| `networking-fundamentals` | Why this chapter exists |
+| `git-and-github` | Why this chapter exists |
+| `build-tools` | Why this comes after Git |
+| `docker` | Why Docker sits exactly here |
+| `aws-overview` | Why this comes after Docker |
+| `jenkins` | Why this comes after Kubernetes |
+| `gitops` | Why this comes after the pipeline |
+| `kustomize` | Why this chapter exists |
+| `supply-chain-security` | The chain, and why it is a chain |
+| `sre-fundamentals` | Why this comes before breaking things |
+| `start-here` | What you are going to build |
+| `nexus-and-artifacts` (alternative) | Why this chapter exists |
+| `hands-on-labs` (reference) | Why labs, and why these ones |
+| `troubleshooting` (reference) | How to use this chapter |
+
+**42 open with a generic label** — 30 of them literally `## Introduction` or
+`## Introduction to <Tool>`. Of those 42, **28 are core capstone-path chapters**,
+including `terraform`, `kubernetes`, `k8s-workloads`, `k8s-services-networking`,
+`k8s-config-storage`, `k8s-security`, `ansible`, `helm`, `argocd`, `prometheus`,
+`grafana`, `observability`, `vpc`, `iam`, `ec2`, `s3`, `ecr`.
+
+A learner arriving at "## Introduction to Terraform" has been told the tool's
+name and nothing about why they are standing there. A learner arriving at "Why
+this comes after Docker" has been handed the thread of the platform. Same
+curriculum, same week, different product.
+
+## Structural coverage
+
+Across all 57 chapters / the 40 core ones:
+
+| Teaching element | All 57 | Core 40 |
+| --- | --- | --- |
+| Opens with a why-now bridge | 15 (26%) | 12 (30%) |
+| Failure modes / troubleshooting section | 11 (19%) | 10 (25%) |
+| Says in prose where it appears in the capstone | 5 (9%) | 4 (10%) |
+| Links a lab / has a practise section | 9 (16%) | 8 (20%) |
+| Uses the `Level 1–4` ladder | 52 | 38 |
+| Has an Interview Questions section | 39 | 26 |
+
+The last two rows are the shape of the problem. Interview questions appear in 26
+core chapters; troubleshooting appears in 10. The curriculum currently prepares
+a learner to *talk* about a technology more consistently than to *fix* it —
+which is backwards for a platform whose promise is operating a real system.
+
+---
+
+## Concrete defects found
+
+### 1. The capstone connection existed as data and was never shown — FIXED
+
+All 40 core chapters declare `capstoneRole`, `capstonePhase`, `capstoneComponent`
+and `capstonePurpose` in frontmatter. `apps/web/lib/labs.ts` and
+`components/labs/architecture-state.tsx` consume `capstonePhase` /
+`capstoneComponent` to drive the labs architecture view.
+
+But `apps/web/app/[locale]/learn/[domain]/[slug]/page.tsx` renders only
+`capstoneRole` (line 231). `capstonePurpose` — the sentence saying exactly what
+this chapter contributes to the platform — is **never rendered anywhere**, and
+is not even present on the `ChapterMeta` type in `apps/web/lib/content.ts`.
+
+So the single most important connection in the product's promise is authored,
+maintained, and invisible. Only 4 of 40 core chapters happen to also say it in
+prose.
+
+This was the cheapest high-value fix available and is now done:
+`capstonePurpose` is on `ChapterMeta`, passed through the chapter page, and
+rendered by `CapstoneRole` beneath the existing badge — on `core` chapters only,
+since a line claiming a role in the platform would contradict an `alternative`
+badge directly above it.
+
+Verified in built output rather than assumed: all **40** English core chapter
+pages in `.next-verify` now carry the sentence. The Docker chapter renders
+"In the capstone: packages each service as the image the pipeline scans and
+pushes to ECR, and the cluster runs."
+
+The prose recommendation still stands for the 36 core chapters that never say it
+in their own text — the badge states the connection, the chapter should still
+close the loop.
+
+### 2. `content/index.json` is stale
+
+It holds 47 entries against 57 chapter files. Ten chapters with
+`status: complete` are absent: `ec2`, `s3`, `gateway-api`,
+`k8s-cluster-administration`, `k8s-config-storage`, `k8s-services-networking`,
+`k8s-workloads`, `k8s-security`, `supply-chain-security`, `sre-fundamentals`.
+Two durations have drifted from their frontmatter — `docker` (50 vs 75) and
+`linux-foundations` (45 vs 75).
+
+**This is not learner-visible.** `apps/web/lib/content.ts` reads chapter
+frontmatter from disk (`readdirSync` + `matter`), and both the Learn index and
+the chapter page render the same `chapter.readingTime`, so the site is
+self-consistent and shows 75 for Docker in both places. The only consumer of
+`content/index.json` in source is `scripts/lint-content.mjs`, which uses it to
+build the domain allow-list.
+
+So the reported "index says 75, chapter says 50" symptom is real drift in the
+file but does not reach a reader. The defect is that a stale artifact is feeding
+the content linter, and ten complete chapters are missing from it. Either
+regenerate it from frontmatter or delete it and have the linter read the
+frontmatter it already trusts.
+
+### 3. Terraform teaches the workflow before the problem
+
+`content/learn/terraform/terraform.en.mdx` is 451 lines. It contains the right
+section — `### What Existed Before? (Bash Scripts)` — at **line 328, 73% of the
+way down**, inside "Level 2 — Intermediate", after providers, plan/apply,
+variables and modules.
+
+A presence-only check passes this chapter. A beginner meets the entire Terraform
+workflow before being told which problem it solves. Compare `docker`, which puts
+the same element at line 31 of 733.
+
+This is why the audit script scores position, not just presence.
+
+---
+
+## Provisional classification
+
+Using the A–G scheme. **Only the three read in full carry a confident letter**;
+the rest are grouped by structural signal and must be read before being fixed.
+
+| Class | Meaning | Read | Provisional |
+| --- | --- | --- | --- |
+| A | Beginner-ready and capstone-ready | `docker` | — |
+| B | Technically correct, not beginner-friendly enough | `terraform`, `k8s-workloads` | the 28 core chapters opening with a generic `Introduction` |
+| C | Beginner-friendly, missing capstone integration | — | the 36 core chapters with no prose capstone connection |
+| D | Capstone-connected, missing critical depth | — | the 30 core chapters with no troubleshooting section |
+| E | Technically incorrect / outdated | — | none identified yet; needs reading, not scripting |
+| F | Duplicates another chapter | — | not yet assessed |
+| G | Correctly alternative/extension/reference | — | the 17 non-core chapters, roles already declared |
+
+Notes on the three read:
+
+- **`docker` (A).** 733 lines. Opens with "Why Docker sits exactly here", states
+  the problem before the vocabulary, separates the four words, uses a level
+  ladder without losing orientation, and ends with "Where Docker appears in the
+  capstone" and "What Kubernetes adds" — a genuine bridge to the next phase. It
+  is the model the rest should be measured against.
+- **`terraform` (B).** Strong material, wrong order — see defect 3. It also ends
+  on Interview Questions with no troubleshooting section, despite state locks,
+  drift and failed applies being the things that actually hurt.
+- **`k8s-workloads` (B/D).** Has "Common failures" and "Practise this", which
+  puts it ahead of most. Opens at "## Introduction" with no bridge from the
+  previous phase, and never says where workloads appear in the capstone.
+
+---
+
+## Labs baseline
+
+For continuity with the scenario work: 114 lab files, 45 with an online terminal,
+backed by 45 Killercoda scenarios.
+
+- All 45 terminal-enabled labs are `guided` or `incident`.
+- All 56 `challenge` labs have no online environment. That is categorical and
+  deliberate — a challenge is the self-directed version of a guided lab, and
+  launching the guided walkthrough would hand over the answers.
+- 13 `guided` labs have no environment. Feasibility for those is tracked in the
+  scenario notes; the blocker is nearly always a managed AWS service that
+  LocalStack community answers without honouring.
+
+---
+
+## Work order
+
+Following the standard's priority rule — core path first, no polishing reference
+material while a core chapter has a beginner blocker.
+
+1. ~~**Render `capstonePurpose` on the chapter page.**~~ Done — see defect 1.
+2. **Add a why-now bridge to the 28 core chapters that open generically.** Each
+   is a few sentences naming what the learner already has, what it does not
+   solve, and what this adds. Highest ratio of learner value to edit size.
+3. **Fix `terraform`'s ordering** — move "What Existed Before?" above the
+   workflow. Pilot the full standard here, plus `networking-fundamentals` and
+   `k8s-workloads`, before touching the rest.
+4. **Add troubleshooting to the 30 core chapters without it**, as
+   symptom → evidence → hypothesis → test → fix, using the per-area failure list
+   in the standard.
+5. **Resolve `content/index.json`** — regenerate from frontmatter, or delete it
+   and repoint `lint-content.mjs`.
+6. **Then** re-read for classes E and F, which scripting cannot find.
+
+Re-run `node scripts/audit-chapter-teaching.mjs` after each batch, remembering
+what it can and cannot tell you.
