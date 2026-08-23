@@ -61,8 +61,22 @@ const SERVER_ROUTE = /(?:src|href)="(\/_next\/image[^"]*)"/g;
    one `<h1>` per page; this applies the same invariant to the whole export. */
 const HAS_H1 = /<h1[\s>]/;
 
-/** Pages that legitimately have no heading of their own. */
-const NO_H1_EXPECTED = /(^|\/)(404|_not-found)([./]|$)/;
+/**
+ * The 404 pages, which are exempt from the preload rule below.
+ *
+ * They are no longer exempt from the <h1> rule. This regex used to serve both,
+ * because the root not-found was Next's built-in default: no <h1>, no fonts,
+ * no document at all, because the root layout is a pass-through and nothing
+ * supplied one. app/not-found.tsx now renders its own <html>, so a heading is
+ * something the branded 404 genuinely has, and asserting it is what keeps it.
+ *
+ * The preload exemption stays, for a reason unrelated to the page's contents:
+ * see the note on FONT_PRELOAD. Whether these two files carry a preload has
+ * never been observed on a Linux build, and a check that has never been seen
+ * to pass is a CI failure waiting for the next unrelated commit. Their fonts
+ * are declared and applied the same way every other page's are.
+ */
+const NO_PRELOAD_EXPECTED = /(^|\/)404([./]|$)/;
 
 /**
  * Fonts must be preloaded, not merely discovered through the stylesheet.
@@ -91,17 +105,12 @@ for (const file of html) {
   const source = readFileSync(file, "utf8");
   const page = relative(DIR, file).replaceAll("\\", "/");
 
-  // The not-found pages are rendered by the root layout, not the locale one,
-  // and it is the locale layout that applies the font variables — it owns
-  // <html>, because that is where `lang` and `dir` belong. So those two pages
-  // carry no font and no preload by construction, and are not evidence of a
-  // fault. Same exemption as the <h1> rule above, for the same reason.
-  if (!NO_H1_EXPECTED.test(page)) {
+  if (!NO_PRELOAD_EXPECTED.test(page)) {
     preloadEligible += 1;
     if (FONT_PRELOAD.test(source)) preloadPages += 1;
   }
 
-  if (!HAS_H1.test(source) && !NO_H1_EXPECTED.test(page)) {
+  if (!HAS_H1.test(source)) {
     errors.push(
       `${page}\n    renders no <h1> — this page called notFound() at build time, and a CDN` +
         `\n    will serve it with HTTP 200, so no status check can see it`,
