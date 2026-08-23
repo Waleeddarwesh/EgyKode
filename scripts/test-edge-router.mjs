@@ -74,6 +74,26 @@ const cases = [
   ["renamed /build keeps working", event("/en/build/foo/"), { status: 308, location: "/en/projects/foo/" }],
   ["renamed /build bare", event("/en/build"), { status: 308, location: "/en/projects/" }],
 
+  // Locale-less content paths. Every URL here was reported by Search Console
+  // under "Not found (404)" — real pages, one segment away, reached through a
+  // redirect that ended in a 404.
+  ["a locale-less chapter reaches the page in one hop", event("/learn/aws/vpc"), { status: 308, location: "/en/learn/aws/vpc/" }],
+  ["…and the Prometheus one Google last crawled", event("/learn/prometheus/prometheus"), { status: 308, location: "/en/learn/prometheus/prometheus/" }],
+  ["a locale-less path that already has its slash does not gain a second", event("/learn/kubernetes/kubernetes/"), { status: 308, location: "/en/learn/kubernetes/kubernetes/" }],
+  ["a bare locale-less section", event("/labs"), { status: 308, location: "/en/labs/" }],
+  ["a locale-less single-segment page", event("/courses"), { status: 308, location: "/en/courses/" }],
+
+  // The reason the rule is an allow-list. These live at the root of the
+  // bucket, not under a locale; a catch-all would send them to /en/, where
+  // they do not exist, and break working URLs to fix broken ones.
+  ["/privacy/ is not pulled into a locale", event("/privacy/"), { uri: "/privacy/index.html" }],
+  ["/offline/ is not pulled into a locale", event("/offline/"), { uri: "/offline/index.html" }],
+  ["a root icon file is untouched", event("/icons/icon-192.png"), { uri: "/icons/icon-192.png" }],
+  ["the manifest is untouched", event("/manifest.webmanifest"), { uri: "/manifest.webmanifest" }],
+  ["/authors/ is untouched", event("/authors/"), { uri: "/authors/index.html" }],
+  ["a locale path is not given a second locale", event("/en/labs/"), { uri: "/en/labs/index.html" }],
+  ["a word merely starting with an allow-listed segment is untouched", event("/learning-resources"), { status: 308, location: "/learning-resources/" }],
+
   // Host canonicalisation.
   ["www redirects to apex, preserving the path", event("/en/learn/", { host: "www.egykode.com" }), { status: 301, location: "https://egykode.com/en/learn/" }],
   ["www root redirects to apex root", event("/", { host: "www.egykode.com" }), { status: 301, location: "https://egykode.com/" }],

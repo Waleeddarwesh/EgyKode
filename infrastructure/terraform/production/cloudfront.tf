@@ -60,6 +60,40 @@ resource "aws_cloudfront_function" "router" {
         };
       }
 
+      // A content path that lost its locale. Google has these indexed —
+      // "/learn/aws/vpc", "/learn/kubernetes/kubernetes" and others were
+      // reported under "Not found (404)" in Search Console, last crawled
+      // mid-August.
+      //
+      // They 404'd through a redirect rather than directly, which is why it
+      // was not obvious: with no locale rule, "/learn/aws/vpc" has no
+      // extension, so it fell through to the trailing-slash branch at the
+      // bottom, 308'd to "/learn/aws/vpc/", and *that* resolved to no
+      // index.html. A redirect chain ending in a 404 — the page exists the
+      // whole time, one segment away, at "/en/learn/aws/vpc/".
+      //
+      // An allow-list rather than a catch-all "anything without a locale".
+      // The root of the bucket also holds /privacy/, /offline/, /icons/,
+      // /authors/, /brand/, /diagrams/, /search/ and the metadata files, none
+      // of which live under a locale; a catch-all would redirect those into
+      // /en/ where they do not exist, turning working URLs into new 404s while
+      // fixing these. This list is the segments that genuinely exist under
+      // /en/ and nowhere else.
+      //
+      // The trailing slash is added here so this is one hop, not two.
+      var localeless = uri.match(
+        /^\/(learn|labs|roadmaps|projects|courses|prepare|topics|community|jobs|login|register|settings)(\/.*)?$/
+      );
+      if (localeless) {
+        return {
+          statusCode: 308,
+          statusDescription: 'Permanent Redirect',
+          headers: {
+            location: { value: '/en' + uri + (uri.slice(-1) === '/' ? '' : '/') },
+          },
+        };
+      }
+
       // /build was renamed to /projects. URLs are permanent, so the old ones
       // keep working — this mirrors the redirects() block in next.config.mjs,
       // which `output: export` cannot apply.
