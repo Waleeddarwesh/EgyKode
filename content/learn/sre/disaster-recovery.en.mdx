@@ -58,11 +58,17 @@ A low RTO/RPO costs a lot of money.
 1. **Backup and Restore:** (Cheap, Slow). You back up the RDS database to S3 every night. If the region dies, you manually build a new cluster in a new region and restore the backup. *RTO: 12 hours. RPO: 24 hours.*
 2. **Pilot Light:** You keep a tiny, minimal version of the infrastructure running in a second region (just the database, syncing data). If a disaster strikes, you rapidly scale up the web servers. *RTO: 30 mins. RPO: 5 mins.*
 3. **Warm Standby:** You have a fully functioning, scaled-down version of the cluster running in a second region. *RTO: 5 mins. RPO: Seconds.*
-4. **Multi-Site Active/Active:** (Expensive, Instant). Both `us-east-1` and `eu-west-1` are fully scaled and taking live customer traffic simultaneously via AWS Route 53 DNS routing. *RTO: 0. RPO: 0.*
+4. **Multi-Site Active/Active:** (Expensive, fastest). Both `us-east-1` and `eu-west-1` are fully scaled and taking live traffic simultaneously via Route 53. *RTO and RPO approach zero* — approach, not reach: DNS still has to fail traffic over, and cross-region replication is asynchronous unless you have paid for a database that makes it synchronous, which costs you write latency instead.
 
 ### How GitOps Saves Us
 In [The GitOps Philosophy](/learn/gitops/gitops/), we learned about GitOps and Argo CD. GitOps is the ultimate DR tool for Kubernetes. 
-If our `us-east-1` cluster is deleted, we do not need to figure out what was running on it. We just run Terraform to build a new empty cluster in `us-west-2`, install ArgoCD, and point it at GitHub. Within 3 minutes, ArgoCD perfectly rebuilds the entire state of the company.
+If our `us-east-1` cluster is deleted, we do not need to reconstruct what was running on it from memory. We run Terraform to build a new cluster in `us-west-2`, install Argo CD, and point it at the repository. Argo CD then applies everything Git declares — Deployments, Services, ConfigMaps, Ingresses, the lot — without anybody remembering what they were.
+
+Two limits matter here more than anywhere else in this curriculum, because this is the chapter people act on under pressure.
+
+**It restores the declared state, not the data.** Argo CD recreates the MySQL StatefulSet and its PVC; it does not put the rows back. Database contents come from your backups, and if that restore has never been rehearsed you do not have a recovery plan, you have a manifest.
+
+**Three minutes is the reconciliation interval, not the recovery time.** That is how quickly Argo CD *notices* what to do. Actually getting there means pulling images, provisioning volumes, waiting for readiness and restoring data — which is what your RTO has to be measured against, on a real rehearsal, with a stopwatch.
 
 ---
 

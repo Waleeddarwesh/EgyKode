@@ -238,7 +238,13 @@ Why? Because if Bob quits, the IT team has to remember to delete his IAM User, h
 
 **The Solution: AWS IAM Identity Center (SSO).**
 AWS is federated with the company's central Active Directory (or Okta). 
-When Bob tries to log into AWS, AWS redirects him to Okta. Okta checks if Bob is still employed. If yes, Okta passes a SAML assertion to AWS. AWS dynamically generates temporary access for Bob based on his Okta Group. When Bob quits, HR disables his Okta account and he can no longer start a new session. Be precise about what that does and does not do: any temporary credentials he already holds remain valid until they expire — up to 12 hours by default — because they are evaluated against the role's permissions, not against Okta. To cut off a session already in flight you revoke it, by attaching a deny policy or using the role's *Revoke sessions* action. Assuming that disabling the identity provider ends existing access is a common and expensive mistake.
+When Bob tries to log into AWS, AWS redirects him to Okta. Okta checks if Bob is still employed. If yes, Okta passes a SAML assertion to AWS, and AWS issues Bob temporary credentials based on his Okta group.
+
+When Bob quits, HR disables his Okta account and he can no longer start a **new** session.
+
+Be careful what you conclude from that. Credentials Bob already holds keep working until they expire — up to 12 hours by default — because AWS evaluates them against the role's permissions, not against Okta. To end a session already in flight you have to revoke it: attach a deny policy, or use the role's *Revoke sessions* action.
+
+Assuming that disabling the identity provider ends existing access is a common and expensive mistake.
 
 ### Permission Boundaries and SCPs
 How do you stop a Senior Engineer (who has Admin rights) from accidentally making the database public?

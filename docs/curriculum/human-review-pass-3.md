@@ -524,3 +524,64 @@ IAM's explicit-deny-always-wins.
 - **`t3.xlarge` at "roughly $0.1664 per hour"** in `aws-overview` is
   region-specific and dated. Left for now; pricing prose needs a general policy
   rather than a spot fix.
+
+---
+
+## Learner acceptance test — run against the corrections themselves
+
+The Pass 3 brief asks for this specifically: check whether the corrections
+created new jargon, broken transitions, contradictions, unnecessary caveats,
+capstone disconnects or lost lab links. Run after the corrections, not on the
+earlier dry run.
+
+**Size.** 53 chapters changed, +15% words. Nearly all of that is the *added*
+sections — bridges, troubleshooting, practise lists — rather than hedging on
+existing prose.
+
+**Jargon: clean.** Every term the corrections introduced — `EndpointSlice`,
+`DeleteOnTermination`, `podManagementPolicy`, `NodeSwap`, `histogram_quantile`,
+`enableDnsSupport` — is explained where it appears. `selfHeal` appears in
+`start-here` and `git-and-github`, thirty chapters before GitOps teaches it, but
+both were pre-existing and both explain it inline.
+
+**Fact consistency: clean.** Every figure this audit asserted was checked across
+the whole corpus: Argo CD's three-minute reconciliation, RDS failover at 60–120
+seconds, Spot at "up to 90%" in all three places, and the node timings. No
+contradictions introduced.
+
+**Lab links and capstone connections: intact** — `lint:refs` resolves all of
+them, and the capstone lines are untouched.
+
+### LAT-1 (fixed) A correct correction that hurt readability
+
+The IAM Okta paragraph reached **153 words and nine sentences** in one block —
+my correction extended an already-long paragraph, and buried the security point
+at the end of a wall. Split into four paragraphs so the caveat stands alone.
+
+Worth recording as a category: a factually correct edit can still be a bad edit.
+
+### LAT-2 (fixed) `disaster-recovery` — the worst chapter to be imprecise in
+
+Found by tracing the reconciliation figure for consistency.
+
+**Claim.** "Within 3 minutes, ArgoCD **perfectly rebuilds the entire state of
+the company**."
+
+**Problem.** Two errors, in the chapter people act on under pressure. Three
+minutes is the interval at which Argo CD *notices* — not the time to pull
+images, provision volumes and reach readiness. And it restores the **declared**
+state, not data: it recreates the MySQL StatefulSet and its PVC, and does not
+put the rows back. A reader could conclude GitOps removes the need for database
+backups.
+
+It also contradicted this curriculum's own Helm correction, which says a
+rollback restores manifests rather than data.
+
+**Classification.** 7 — not reliably true. **Severity** E4 / P1 — unsafe
+production advice.
+
+**Corrected.** Both limits are now stated explicitly, with the point that RTO
+has to be measured on a rehearsal with a stopwatch. Also softened
+"Multi-Site Active/Active … *RTO: 0. RPO: 0.*" to *approach* zero, since DNS
+failover takes time and cross-region replication is asynchronous unless you pay
+for synchronous and accept the write latency.
