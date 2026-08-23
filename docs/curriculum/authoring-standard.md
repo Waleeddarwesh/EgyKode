@@ -216,6 +216,18 @@ explanation was 61 words and is now four short sentences that say more.
 **Also avoid:** rare words where a common one exists, humour that depends on
 cultural context, and long chains of clauses joined by dashes and semicolons.
 
+**One aside per sentence.** An em-dash used to insert an explanation is fine and
+often clearer than a comma. Two of them in one sentence makes the reader hold
+three things at once, and that is where a second-language reader loses the
+thread. Sixty-three sentences currently do this; none has three, and that is the
+line to hold.
+
+**What is measured, so it can be re-measured.** Idioms: zero known remaining.
+Paragraph sentences over 32 words: 60 of 2172, about 3%. Sentences with two or
+more em-dashes: 63. Rare general-English words: a handful — `arbitrary`,
+`ambiguity` and `implicit` appear three times or fewer each. The technical
+vocabulary is deliberately excluded from all of these counts.
+
 **Do not** simplify the technical content to match. The vocabulary that must stay
 is the vocabulary of the job — `EndpointSlice`, `reconciliation`, `idempotent`.
 Define those once, use them consistently, and keep the sentences around them
