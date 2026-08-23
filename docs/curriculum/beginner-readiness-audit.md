@@ -62,16 +62,25 @@ curriculum, same week, different product.
 
 ## Structural coverage
 
-Across all 57 chapters / the 40 core ones:
+Baseline when this audit was written, and after Phase 2:
 
-| Teaching element | All 57 | Core 40 |
+| Teaching element | All 57 (was → now) | Core 40 (was → now) |
 | --- | --- | --- |
-| Opens with a why-now bridge | 15 (26%) | 12 (30%) |
-| Failure modes / troubleshooting section | 11 (19%) | 10 (25%) |
-| Says in prose where it appears in the capstone | 5 (9%) | 4 (10%) |
-| Links a lab / has a practise section | 9 (16%) | 8 (20%) |
+| Opens with a why-now bridge | 15 → 42 | 12 → **39** |
+| Says in prose where it appears in the capstone | 5 → 31 | 4 → **30** |
+| Failure modes / troubleshooting section | 11 → 12 | 10 → 11 |
+| Links a lab / has a practise section | 9 → 10 | 8 → 9 |
 | Uses the `Level 1–4` ladder | 52 | 38 |
 | Has an Interview Questions section | 39 | 26 |
+
+The first two rows are Phase 2 and Phase 3, done. The next two are Phase 4, and
+they are still where the curriculum is weakest: 26 core chapters carry interview
+questions and 11 carry troubleshooting. It still prepares a learner to *talk*
+about a technology more consistently than to *fix* one.
+
+**One deliberate exemption.** `conclusion` keeps "The End of the Journey" rather
+than a why-now bridge. It is the final chapter; the pattern stops helping there,
+and teaching the detector to accept it would be gaming the detector.
 
 The last two rows are the shape of the problem. Interview questions appear in 26
 core chapters; troubleshooting appears in 10. The curriculum currently prepares
@@ -248,10 +257,8 @@ Following the standard's priority rule — core path first, no polishing referen
 material while a core chapter has a beginner blocker.
 
 1. ~~**Render `capstonePurpose` on the chapter page.**~~ Done — see defect 1.
-2. **Add a why-now bridge to the 27 remaining core chapters that open
-   generically** (Terraform done). Each names what the learner already has, what
-   it does not solve, and what this adds. Highest ratio of learner value to edit
-   size.
+2. ~~**Add a why-now bridge to the core chapters that open generically.**~~ Done
+   — 39 of 40, with `conclusion` exempt.
 3. ~~**Fix `terraform`'s ordering**~~ Done — see defect 3. Pilot the rest of the
    standard on `networking-fundamentals` and `k8s-workloads` next.
 4. **Add troubleshooting to the 30 core chapters without it**, as
