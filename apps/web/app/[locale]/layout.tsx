@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { StaleBuildGuard } from "@/components/layout/stale-build-guard";
+import { ServiceWorker } from "@/components/pwa/service-worker";
 import { TopBar } from "@/components/layout/topbar";
 import { fontVariables } from "@/lib/fonts";
 import { PUBLIC_LOCALES, dir, getTranslations, isLocale, type Locale, languageAlternates } from "@/lib/i18n";
@@ -125,6 +126,7 @@ export default async function LocaleLayout({
         </main>
 
         <StaleBuildGuard />
+        <ServiceWorker />
 
         <MobileNav
           locale={typed}
