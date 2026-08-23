@@ -364,6 +364,85 @@ a minute rather than an afternoon.
 
 ---
 
+### P3-15 · `prometheus` · `histogram_quantile` "mathematically guarantees"
+
+**Claim.** "This query mathematically guarantees that 99% of our users are
+experiencing speeds faster than the returned number. If the P99 is 4000ms, an
+alarm fires immediately."
+
+**Problem.** It is an estimate, not a guarantee, and the second sentence
+contradicted the alerting section immediately below it, which explains `for:`
+durations.
+
+**Condition.** Prometheus documents `histogram_quantile` as interpolating within
+the bucket the quantile falls into, assuming a uniform distribution inside it —
+so accuracy is decided by bucket boundaries, and misaligned boundaries give
+"large margins of error". If the quantile lands in the highest bucket, the upper
+bound of the **second-highest** bucket is returned.
+
+**Classification.** 3 — configuration-dependent (on your buckets).
+**Severity** E1 / P2.
+
+**Corrected.** Now teaches the estimate, why boundaries decide accuracy, and the
+tell: a P99 pinned at your largest finite bucket means the buckets are too small,
+not that latency is exactly that.
+
+**Source.** [Query functions](https://prometheus.io/docs/prometheus/latest/querying/functions/)
+
+---
+
+### P3-16 · `helm` · rollback "instantly … the exact working configuration"
+
+Contradicted this chapter's own troubleshooting section, added in Phase 4. A
+rollback applies the stored manifests at the speed of a normal rollout, and
+restores **manifests, not data** — which is why a schema migration and a chart
+rollback are two different plans.
+
+**Classification.** 2 — true with stated assumptions. **Severity** E3 / P2.
+
+---
+
+## Coverage — what Pass 3 actually read
+
+Stated plainly so the next reviewer knows where to start rather than guessing.
+
+**Complete:**
+
+- Every **interview Q&A** section in all 40 core chapters. Highest-yield surface
+  by a wide margin.
+- Every **Level 1** section in all core chapters.
+- Corpus-wide sweeps: defaults (`by default`), convergence
+  (`instantly`/`immediately`/`guaranteed`/`automatically`/`zero downtime`),
+  fabricated statistics, and absolute claims.
+- **Read in full or substantially, no findings:** `linux-foundations`,
+  `k8s-config-storage`, `k8s-services-networking`, `kustomize`,
+  `sre-fundamentals`, `jenkins` Level 3, `ansible` Level 3, `s3` Level 3,
+  `auto-scaling` Level 2–3, `load-balancers` Level 2, `iam` policy section,
+  `prometheus` Level 1.
+
+**Not complete:** line-by-line reading of the Level 2–4 bodies of
+`aws-overview`, `vpc`, `ec2`, `ecr`, `terraform`, `kubernetes`,
+`k8s-cluster-administration`, `helm`, `gitops`, `argocd`, `grafana`,
+`observability`, `container-security` and `supply-chain-security`. Those were
+covered by the sweeps and by spot reads, not by a full read.
+
+**The pattern held throughout, and it is the most useful thing to hand on.**
+Defects clustered in two places: interview Q&A written in a confident answer-key
+voice, and Level 1–2 analogy sections written enthusiastically. The newer,
+carefully-hedged prose produced **zero** findings across every chapter read. A
+reviewer with limited time should read those two surfaces in the older chapters
+and can reasonably trust the rest.
+
+## Status
+
+Structural, mechanical, contradiction and targeted factual reviews are complete.
+Pass 3 has completed the human review of the interview and Level 1 surfaces
+across the core path, plus corpus-wide sweeps for the defect classes it found;
+a full line-by-line read of the remaining Level 2–4 bodies is outstanding.
+
+Sixteen findings, all corrected, each with its condition and — where the fact was
+disputable — an authoritative source. Not a claim that the curriculum is correct.
+
 ## Chapters read and found clean
 
 Recording these matters as much as the findings — an audit that only produces a
@@ -445,13 +524,3 @@ IAM's explicit-deny-always-wins.
 - **`t3.xlarge` at "roughly $0.1664 per hour"** in `aws-overview` is
   region-specific and dated. Left for now; pricing prose needs a general policy
   rather than a spot fix.
-
-## Status
-
-Structural, mechanical, contradiction and targeted factual reviews are complete.
-Pass 3 has read every core interview section and swept the main bodies for
-defaults claims; the line-by-line reading of all forty core chapter bodies is
-**not** finished. This document will grow.
-
-Not a claim that the curriculum is correct — only a record of what was checked,
-what was found, and what remains.
