@@ -23,13 +23,16 @@ as such.
 
 ---
 
-## The headline: two authoring generations
+## The headline: two authoring generations — CLOSED in Phase 2
+
+*Kept as the record of what the baseline was. Core coverage is now 39/40; the
+list below is the original fifteen.*
 
 The curriculum is 57 chapters, 40 of them `capstoneRole: core`. They were not
-written to one standard, and the split is visible in the first heading of each
+written to one standard, and the split was visible in the first heading of each
 chapter.
 
-**15 chapters open with a bridge** that names what came before:
+**15 chapters opened with a bridge** that names what came before:
 
 | Chapter | Opening |
 | --- | --- |
@@ -49,16 +52,21 @@ chapter.
 | `hands-on-labs` (reference) | Why labs, and why these ones |
 | `troubleshooting` (reference) | How to use this chapter |
 
-**42 open with a generic label** — 30 of them literally `## Introduction` or
-`## Introduction to <Tool>`. Of those 42, **28 are core capstone-path chapters**,
-including `terraform`, `kubernetes`, `k8s-workloads`, `k8s-services-networking`,
-`k8s-config-storage`, `k8s-security`, `ansible`, `helm`, `argocd`, `prometheus`,
-`grafana`, `observability`, `vpc`, `iam`, `ec2`, `s3`, `ecr`.
+**42 opened with a generic label** — 30 of them literally `## Introduction` or
+`## Introduction to <Tool>`. Of those 42, **28 were core capstone-path
+chapters**, including `terraform`, `kubernetes`, `k8s-workloads`,
+`k8s-services-networking`, `k8s-config-storage`, `k8s-security`, `ansible`,
+`helm`, `argocd`, `prometheus`, `grafana`, `observability`, `vpc`, `iam`, `ec2`,
+`s3`, `ecr`.
 
-A learner arriving at "## Introduction to Terraform" has been told the tool's
-name and nothing about why they are standing there. A learner arriving at "Why
-this comes after Docker" has been handed the thread of the platform. Same
+A learner arriving at "## Introduction to Terraform" had been told the tool's
+name and nothing about why they were standing there. A learner arriving at "Why
+this comes after Docker" had been handed the thread of the platform. Same
 curriculum, same week, different product.
+
+All 27 have since been written, in curriculum order, each grounded in the
+chapter immediately before it rather than in whichever chapter the prose happened
+to reference — several pointed two phases back.
 
 ## Structural coverage
 
@@ -81,11 +89,6 @@ about a technology more consistently than to *fix* one.
 **One deliberate exemption.** `conclusion` keeps "The End of the Journey" rather
 than a why-now bridge. It is the final chapter; the pattern stops helping there,
 and teaching the detector to accept it would be gaming the detector.
-
-The last two rows are the shape of the problem. Interview questions appear in 26
-core chapters; troubleshooting appears in 10. The curriculum currently prepares
-a learner to *talk* about a technology more consistently than to *fix* it —
-which is backwards for a platform whose promise is operating a real system.
 
 ---
 
