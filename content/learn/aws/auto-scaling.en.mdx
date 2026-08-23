@@ -24,12 +24,19 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to Auto Scaling
+## Why this comes after load balancing
+
+A load balancer spreads traffic across the instances you have. It cannot create
+one more. Point it at three servers and send the traffic of thirty, and all it
+achieves is distributing the failure evenly.
 
 If you launch an eCommerce website on Black Friday, 1 million people will visit your site. You need 100 servers to handle the traffic. 
 But on Saturday, only 1,000 people visit. If you keep those 100 servers running, you will go bankrupt paying AWS.
 
 **Auto Scaling** is the magic of the Cloud. It allows your infrastructure to expand and shrink dynamically based on actual user demand, saving you massive amounts of money.
+
+**In the capstone**, this is the node group capacity that the Cluster
+Autoscaler grows.
 
 ---
 

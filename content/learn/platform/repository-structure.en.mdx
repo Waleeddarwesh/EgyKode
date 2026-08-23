@@ -24,11 +24,23 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to the Repository
+## Why this comes after the requirements
 
-A DevOps repository is not just a collection of random files. It is the literal DNA of the entire company. If a new engineer joins the team, they should be able to look at the folder structure and immediately understand how the platform is built, tested, and deployed.
+You know what the platform is, how a request moves through it, and what you need
+to build it. One question is left before the first command: where does any of it
+go?
 
-This chapter dissects the exact folder structure of this project, explaining why we organized it this way and what every folder does.
+The answer matters more than it sounds. Each phase of this build produces files —
+Terraform for the infrastructure, Ansible for the Jenkins host, manifests for the
+cluster, a chart, a pipeline definition. If they land wherever is convenient, the
+GitOps loop later has no single place to watch, and you have a pile of folders
+rather than a platform.
+
+A repository layout is not tidiness. It is the contract that lets a pipeline find
+what to build and a reconciler find what to deploy — and it lets an engineer who
+joins on Monday see how the platform fits together from the folder names alone.
+
+**In the capstone**, this is where each phase of the build lives.
 
 ---
 

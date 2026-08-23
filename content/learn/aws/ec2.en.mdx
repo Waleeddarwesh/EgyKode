@@ -27,7 +27,18 @@ authors: [waleed]
 updated: 2026-08-10
 ---
 
-## Introduction
+## Why this comes after IAM
+
+You have a network to put machines in and an identity model that says what they
+are allowed to do. Now the machine itself — the thing that actually runs your
+container, and the first line on the bill.
+
+**In the capstone**, this is the Jenkins build host and the worker nodes behind
+the EKS node group.
+
+---
+
+## What EC2 is
 
 EC2 is a virtual machine you rent by the second. Everything more convenient
 sits on top of it: EKS nodes are EC2, an RDS instance is EC2 you cannot log

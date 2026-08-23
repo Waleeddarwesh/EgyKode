@@ -24,13 +24,20 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to Load Balancing
+## Why this comes after storage
+
+Everything so far has been one of a thing: one VPC, one instance, one bucket. A
+single instance is also a single point of failure, and the fix creates a problem
+of its own.
 
 If you deploy your website on a single server, and that server crashes, your website goes offline.
 To fix this, you deploy your website on 3 servers. 
 
 But now you have a new problem: If you have 3 servers with 3 different IP addresses, which IP address do you give to your customers? 
 You can't give them all three. You give them a **Load Balancer**.
+
+**In the capstone**, this is the ALB that the Load Balancer Controller
+provisions from the Ingress object.
 
 ---
 

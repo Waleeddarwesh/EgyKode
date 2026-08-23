@@ -24,11 +24,19 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to Requirements
+## Why this comes after the architecture
 
-Before building a skyscraper, you must ensure the ground is solid, you have the right materials, and you have enough money to pay the construction workers. 
+You have seen the architecture. Every box on that diagram has to run in an
+account you own, be created by tools installed on your machine, and be paid for
+by someone — and none of that is visible in a diagram.
 
-In Platform Engineering, we call these **Requirements**. You cannot build this platform unless your local laptop, your cloud account, and your personal knowledge base meet certain prerequisites.
+This is the chapter that stops the build stalling three phases later: a
+`terraform apply` rejected for a permission you never had, an EKS cluster you
+cannot create because of a quota, or a fortnight of billing for something nobody
+said to tear down.
+
+**In the capstone**, these are the accounts, tooling and budget the whole build
+assumes.
 
 ---
 

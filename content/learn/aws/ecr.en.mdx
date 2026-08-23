@@ -24,11 +24,19 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to AWS ECR
+## Why this comes after the compute chapters
+
+You can now run containers on machines that scale behind a load balancer. One
+thing is still missing, and it is the thing you actually built back in the Docker
+chapter: the image. It exists on your laptop, and a node in a private subnet has
+no way to reach your laptop.
 
 When Jenkins finishes compiling your code, it runs `docker build` to create a Docker Image. But Jenkins is just a temporary robot. Where does it store the Image so that Kubernetes can download it later?
 
 It pushes the image to a **Container Registry**. In our platform, we use **Amazon Elastic Container Registry (ECR)**.
+
+**In the capstone**, this is the registry the pipeline pushes to and the
+cluster pulls from.
 
 ---
 

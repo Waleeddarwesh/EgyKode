@@ -24,9 +24,16 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to the Architecture
+## Why this comes after the project overview
 
-In [Start Here](/learn/platform/start-here/), we learned *why* we are building this platform. Now, we will look at *how* the pieces fit together.
+The [project overview](/learn/platform/project-overview/) said what each layer is
+for. It did not say how a request actually reaches the database — and that path
+is what every later decision gets measured against: which subnet a node sits in,
+which Service type is the right one, where TLS terminates, what the pipeline is
+allowed to reach.
+
+**In the capstone**, this is the request path, from the ALB to `mysql-0`.
+
 System Architecture is the blueprint of our platform. It defines how the network is structured, where the servers live, how the database is protected, and how traffic flows from a user's browser into our backend code.
 
 ### The whole platform, on one page

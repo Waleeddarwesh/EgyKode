@@ -24,13 +24,30 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to the Cloud DevOps Capstone
+## Why this comes after Start Here
 
-Welcome to the [Cloud DevOps Capstone](https://github.com/Waleeddarwesh/CloudDevOpsProject) — three microservices carried from source code to a monitored, GitOps-managed deployment on AWS EKS. It is the project every roadmap on this site ends at, and it is a working system rather than a demonstration.
+[Start Here](/learn/platform/start-here/) gave you the list of what will be
+running at the end: a VPC across two availability zones, an EKS cluster carrying
+three microservices and a MySQL StatefulSet, a pipeline that refuses to publish
+insecure images, and a GitOps loop that turns a `git push` into a rolling
+update.
 
-These chapters dissect every layer of that repository, from the VPC up to the reconciliation loop that deploys into it. 
+A list is not a system. Knowing the platform has both a cluster and a pipeline
+tells you nothing about why it needs both, what each layer is responsible for,
+or what would break if you removed one. Start naming tools now and you will
+learn Terraform, Kubernetes and Jenkins as three separate subjects that happen
+to share a repository.
 
-Before we dive into the specific tools (Terraform, Kubernetes, Jenkins), we must first understand the *Project* itself. What are we actually building?
+So before any tool: what is this thing, and why does each layer exist?
+
+The [Cloud DevOps Capstone](https://github.com/Waleeddarwesh/CloudDevOpsProject)
+carries three microservices from source code to a monitored, GitOps-managed
+deployment on AWS EKS. It is the project every roadmap on this site ends at, and
+it is a working system rather than a demonstration. These chapters dissect every
+layer of that repository, from the VPC up to the reconciliation loop that
+deploys into it.
+
+**In the capstone**, this chapter is the map every later one fills in.
 
 ---
 

@@ -24,7 +24,15 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to AWS IAM
+## Why this comes after the VPC
+
+The network decides what can reach what. It has nothing to say about *who* is
+allowed to do what once a request arrives, and those are different questions: a
+correctly private subnet protects nothing if the credentials inside it can
+delete any bucket in the account.
+
+**In the capstone**, this is the roles, OIDC provider and IRSA that the cluster
+and the pipeline authenticate with.
 
 The most dangerous thing in AWS is not a hacker guessing your database password. The most dangerous thing in AWS is a leaked IAM Key.
 

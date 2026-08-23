@@ -27,7 +27,18 @@ authors: [waleed]
 updated: 2026-08-10
 ---
 
-## Introduction
+## Why this comes after EC2
+
+An EC2 instance has a disk, and that disk dies with the instance. Everything you
+are about to build needs somewhere that outlives any single machine: the images
+the pipeline produces, the state file Terraform writes in the next phase, the
+backups you will be glad of later.
+
+**In the capstone**, this is the Terraform state backend and artifact storage.
+
+---
+
+## What S3 is
 
 S3 stores objects, not files, and the difference is not pedantry. There are no
 directories, no partial writes, and no rename. Every operation is an HTTP
