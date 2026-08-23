@@ -77,11 +77,11 @@ Baseline when this audit was written, and after Phase 2:
 | Opens with a why-now bridge | 15 → 42 | 12 → **39** |
 | Says in prose where it appears in the capstone | 5 → 31 | 4 → **30** |
 | Failure modes / troubleshooting section | 11 → 33 | 10 → **32** |
-| Links a lab / has a practise section | 9 → 10 | 8 → 9 |
+| Links a lab / has a practise section | 9 → 33 | 8 → **32** |
 | Uses the `Level 1–4` ladder | 52 | 38 |
 | Has an Interview Questions section | 39 | 26 |
 
-The first three rows are Phases 2, 3 and 4, done. Troubleshooting was the
+All four content rows are done — Phases 2, 3, 4 and the Chapter → Lab loop. Troubleshooting was the
 starkest imbalance in the original audit — 26 core chapters carried interview
 questions and 10 carried a failure section — and it is now 32 of the 33 core
 **technology** chapters. The exception is `aws-overview`, a conceptual survey
@@ -270,7 +270,12 @@ material while a core chapter has a beginner blocker.
 4. ~~**Add troubleshooting to the core chapters without it.**~~ Done — 32/33
    core technology chapters, each as symptom → evidence → hypothesis → test → fix.
 5. ~~**Resolve `content/index.json`**~~ Done — see defect 2.
-6. **Then** re-read for classes E and F, which scripting cannot find.
+6. ~~**Close the Chapter → Lab loop.**~~ Done — 87 lab links, 32/33 core
+   technology chapters. Two curated bullets named labs that were never built
+   (an AWS Auto Scaling lab and a kubeadm provisioning lab); both are recorded
+   as gaps rather than linked to something else.
+7. **Then** re-read for classes E and F, which scripting cannot find — the
+   remaining work that no script can do.
 
 Re-run `node scripts/audit-chapter-teaching.mjs` after each batch, remembering
 what it can and cannot tell you.
