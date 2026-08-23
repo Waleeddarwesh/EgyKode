@@ -76,15 +76,18 @@ Baseline when this audit was written, and after Phase 2:
 | --- | --- | --- |
 | Opens with a why-now bridge | 15 → 42 | 12 → **39** |
 | Says in prose where it appears in the capstone | 5 → 31 | 4 → **30** |
-| Failure modes / troubleshooting section | 11 → 12 | 10 → 11 |
+| Failure modes / troubleshooting section | 11 → 33 | 10 → **32** |
 | Links a lab / has a practise section | 9 → 10 | 8 → 9 |
 | Uses the `Level 1–4` ladder | 52 | 38 |
 | Has an Interview Questions section | 39 | 26 |
 
-The first two rows are Phase 2 and Phase 3, done. The next two are Phase 4, and
-they are still where the curriculum is weakest: 26 core chapters carry interview
-questions and 11 carry troubleshooting. It still prepares a learner to *talk*
-about a technology more consistently than to *fix* one.
+The first three rows are Phases 2, 3 and 4, done. Troubleshooting was the
+starkest imbalance in the original audit — 26 core chapters carried interview
+questions and 10 carried a failure section — and it is now 32 of the 33 core
+**technology** chapters. The exception is `aws-overview`, a conceptual survey
+whose failures belong to the VPC, IAM, EC2 and S3 chapters it introduces; the
+seven orientation and summary chapters are not technologies and were not forced
+to have one.
 
 **One deliberate exemption.** `conclusion` keeps "The End of the Journey" rather
 than a why-now bridge. It is the final chapter; the pattern stops helping there,
@@ -264,9 +267,8 @@ material while a core chapter has a beginner blocker.
    — 39 of 40, with `conclusion` exempt.
 3. ~~**Fix `terraform`'s ordering**~~ Done — see defect 3. Pilot the rest of the
    standard on `networking-fundamentals` and `k8s-workloads` next.
-4. **Add troubleshooting to the 30 core chapters without it**, as
-   symptom → evidence → hypothesis → test → fix, using the per-area failure list
-   in the standard.
+4. ~~**Add troubleshooting to the core chapters without it.**~~ Done — 32/33
+   core technology chapters, each as symptom → evidence → hypothesis → test → fix.
 5. ~~**Resolve `content/index.json`**~~ Done — see defect 2.
 6. **Then** re-read for classes E and F, which scripting cannot find.
 
