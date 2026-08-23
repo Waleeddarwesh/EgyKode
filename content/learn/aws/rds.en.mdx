@@ -66,7 +66,7 @@ If your web server dies, you lose 5 minutes of traffic. If your database dies, y
 
 ### Why not run MySQL inside Kubernetes?
 You *can* run a database inside Kubernetes using a `StatefulSet`. But you shouldn't, unless you have a dedicated team of Database Administrators (DBAs).
-- **Storage complexity:** If a Kubernetes Node dies, the Pod moves to a new Node. But the hard drive (EBS volume) is physically stuck in the old Availability Zone. Kubernetes has to unmount it and remount it across the network, which can cause data corruption.
+- **Storage complexity:** If a Kubernetes node dies, the Pod is rescheduled — but an EBS volume belongs to one Availability Zone and attaches to one instance at a time. If the replacement node comes up in another AZ, the volume cannot follow it, and the Pod sits in `Pending` waiting for a volume it will never get. That single-attachment rule is also what protects you: the failure is a Pod that will not start, which is visible, rather than two nodes writing to one filesystem.
 - **The Golden Rule:** Keep your compute (Kubernetes) stateless, and offload your state (Database) to a Managed Service (RDS).
 
 ### RDS Features we utilize:

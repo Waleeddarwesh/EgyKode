@@ -57,7 +57,9 @@ In DevOps, Observability is exactly the same:
 
 ### Why do we need it?
 Without observability, when a customer complains the site is broken, an engineer has to manually SSH into 15 different servers, reading text files to figure out what happened. It takes hours.
-With observability, the system automatically detects the CPU spike, sends an SMS text message to the engineer's phone, and provides a dashboard showing exactly which line of code caused the crash.
+With observability you have somewhere to look. An alert you wrote fires on a symptom a user would notice, a dashboard shows when the behaviour changed, and the logs for the failing request carry the stack trace.
+
+Be careful what you expect from that. None of it identifies the cause on its own — it gives you evidence fast enough to reason from, and the reasoning is still yours. A system that told you which line of code was at fault would not need you; what it actually does is take you from "a customer says it is broken" to "errors on checkout started at 14:02, two minutes after a deploy" in a minute rather than an afternoon.
 
 ---
 

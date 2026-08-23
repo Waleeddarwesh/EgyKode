@@ -61,7 +61,9 @@ The Conductor doesn't play an instrument. Instead, they look at the sheet music 
 
 ### Why do we need it?
 If you have 1 Docker container, you can just log into a server and type `docker run`. 
-If you have 500 microservices running across 50 servers, you cannot manage that manually. If Server #12 catches fire, you need a robot to instantly realize the server died, and move all the containers that were on Server #12 to Server #15.
+If you have 500 microservices running across 50 servers, you cannot manage that manually. If Server #12 catches fire, something has to notice, and move what was running there onto Server #15, without you being awake.
+
+"Notice" is worth being precise about, because it sets the expectation you will plan around. The kubelet on each node reports in on a schedule; the control plane marks a node `NotReady` after the node monitor grace period, **40 seconds** by default, and then taints it. Pods are evicted from a tainted node after a further **300 seconds** by default. So a dead node's Pods typically start moving around five minutes later, not instantly — the delay is deliberate, because evicting everything the moment a network blip drops one heartbeat would be worse. If you need faster failover than that, it comes from running more than one replica, not from tuning the timeout down.
 
 ### ASCII Diagram: The Kubernetes Cluster
 

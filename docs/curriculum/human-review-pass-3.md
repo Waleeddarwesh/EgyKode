@@ -297,6 +297,92 @@ the job.
 
 ---
 
+### P3-12 · `kubernetes` · node failure was described as instant, and its timing taught nowhere
+
+**Claim.** "If Server #12 catches fire, you need a robot to **instantly** realize
+the server died, and move all the containers … to Server #15."
+
+**Problem.** Node failure recovery is one of the slower things Kubernetes does,
+and nothing in the curriculum said so. A learner planning for availability on
+this model will be wrong by minutes — which is the difference between "we have
+replicas" and "we are down".
+
+**Condition.** Measured against the documentation: the control plane marks a node
+`NotReady` after the node monitor grace period, **40 seconds** by default, then
+taints it. Pods are evicted after a further **300 seconds** by default. A dead
+node's Pods typically start moving around five and a half minutes later.
+
+**Classification.** 3 — configuration-dependent. **Severity** E3 / P1.
+
+**Corrected.** Both numbers are now stated, along with *why* the delay is
+deliberate — evicting everything when one heartbeat is missed would be worse —
+and the conclusion that faster failover comes from running more than one replica,
+not from tuning the timeout down.
+
+**Source.** [Nodes](https://kubernetes.io/docs/concepts/architecture/nodes/)
+
+---
+
+### P3-13 · `rds` · "can cause data corruption" was the wrong failure mode
+
+**Claim.** "If a Kubernetes Node dies … the hard drive (EBS volume) is physically
+stuck in the old Availability Zone. Kubernetes has to unmount it and remount it
+across the network, **which can cause data corruption**."
+
+**Problem.** That is not what happens, and it contradicted `auto-scaling`, which
+correctly describes the real behaviour. An EBS volume belongs to one AZ and
+attaches to one instance at a time. It is not remounted across the network. If
+the replacement node is in another AZ the volume cannot follow, and the Pod sits
+in `Pending`.
+
+The single-attachment rule is what *prevents* the corruption scenario described.
+Teaching it as the risk inverts the mechanism.
+
+**Classification.** 7 — not reliably true. **Severity** E1 / P2.
+
+**Corrected.** The failure is now a Pod that will not start — visible — rather
+than two nodes writing to one filesystem.
+
+---
+
+### P3-14 · `observability` · what observability actually gives you
+
+**Claim.** "the system automatically detects the CPU spike, sends an SMS … and
+provides a dashboard showing **exactly which line of code caused the crash**."
+
+**Problem.** Observability tooling does not identify causes. A beginner who
+expects it to will not build the habit the discipline is actually made of, and
+will be disappointed by every real tool. The alerting also requires rules
+somebody wrote.
+
+**Classification.** 7 — not reliably true. **Severity** E3 / P2.
+
+**Corrected.** Now says it gives you *evidence fast enough to reason from*, and
+that the reasoning is still yours — taking you from "a customer says it is
+broken" to "errors on checkout started at 14:02, two minutes after a deploy" in
+a minute rather than an afternoon.
+
+---
+
+## Chapters read and found clean
+
+Recording these matters as much as the findings — an audit that only produces a
+defect list gives no signal about coverage.
+
+- **`linux-foundations`** (852 lines, full read) — no findings.
+- **`sre-fundamentals`** — no findings. "100% is the wrong target" is argued
+  economically and correctly, and its cross-reference claim that
+  `observability` defines SLI/SLO/SLA and the error budget was checked and is
+  accurate.
+- **`kustomize`** Level 1 — no findings.
+- **`prometheus`** Level 1 — the fifteen-second scrape, the pull model and the
+  `/metrics` whiteboard analogy are all accurate.
+- **`iam`** policy section — the bucket-ARN versus object-ARN distinction and
+  explicit-deny-always-wins are both correct and well explained.
+- **`ansible`**, **`helm`** Level 1 — analogy numbers only, no factual claims.
+
+---
+
 ## Mental models corrected
 
 Across passes 2 and 3, the beliefs that were wrong rather than merely worded
@@ -326,6 +412,12 @@ loosely:
 - **"Reconciliation is immediate"** → periodic, and correction requires
   `selfHeal`; deletion requires `prune`. Found in six places.
 - **"CI executes perfectly every time"** → consistent, not infallible.
+- **"A dead node's Pods move instantly"** → ~40s to NotReady, then ~300s before
+  eviction. Availability comes from replicas, not from the timeout.
+- **"Cross-AZ volume remounting corrupts data"** → single attachment prevents
+  that; the real failure is a Pod stuck in Pending.
+- **"Observability tells you what broke"** → it gives evidence quickly; the
+  reasoning is still yours.
 
 ## Verified as correct — no change
 
