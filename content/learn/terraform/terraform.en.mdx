@@ -115,7 +115,9 @@ Terraform needs a brain. When it builds a server in AWS, it needs to remember th
 1. `terraform init`: Downloads the AWS plugins.
 2. `terraform plan`: The "Dry Run". Terraform compares your code to the `terraform.tfstate` memory, and tells you exactly what it *will* change, without actually changing anything.
 3. `terraform apply`: Executes the plan and updates the `terraform.tfstate` memory.
-4. `terraform destroy`: Reads the memory and deletes everything it ever created.
+4. `terraform destroy`: Reads the memory and deletes everything recorded in **that
+   state file**. Not everything you ever built — a resource removed from state, or
+   managed by a different configuration, is left alone.
 
 > **Practise:** [Terraform Remote State & Locking](/labs/lab-terraform-remote-state)
 > moves state to the S3 backend the capstone uses, and shows what the lock

@@ -170,10 +170,23 @@ In this platform, we use ESO.
 4. The ESO controller inside the cluster reads this file, authenticates with AWS via an IAM Role, fetches the real password from AWS, and creates a native Kubernetes `Secret` purely in memory. 
 *Result:* The entire cluster is defined in Git, but zero passwords exist in Git.
 
-### SOC2 Compliance and "Shift-Left" Security
-GitOps forces security to "Shift-Left" (happen earlier in the process).
-Because no human can SSH into the server to make changes, all changes must be Pull Requests. This allows the Enterprise Security Team to run tools like **Conftest** or **Kyverno** inside the CI pipeline on the YAML files *before* they are merged. 
-If a developer tries to merge a YAML file that requests `root` privileges for a Docker container, the PR is automatically blocked.
+### Audit trails, and checking changes before they land
+GitOps moves security earlier in the process, because the change exists as a
+reviewable file before it exists in the cluster.
+
+Every intended change arrives as a pull request, so a security team can run tools
+like **Conftest** or **Kyverno** against the YAML *before* it is merged. A pull
+request that asks for `root` in a container can be blocked automatically, rather
+than discovered later in a running Pod.
+
+It also gives you an audit trail for free: who changed what, when, and who
+approved it, is the Git history. That is useful evidence under a framework like
+SOC 2 — evidence, not compliance, which no single practice confers.
+
+Be careful about one thing this does **not** do. GitOps does not physically stop
+somebody with cluster access from running `kubectl edit`. It makes that change
+visible as drift, and reverts it if self-healing is on. The control is detection
+and correction, not prevention — which is why the failure below exists at all.
 
 ---
 

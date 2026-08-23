@@ -1724,8 +1724,8 @@
       "coverage": "explained",
       "chapters": [
         "jenkins",
-        "gitops",
         "logging",
+        "gitops",
         "container-security"
       ],
       "labs": [

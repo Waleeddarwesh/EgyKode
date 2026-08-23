@@ -180,9 +180,16 @@ spec:
 ### Supply Chain Attacks and Software Bill of Materials (SBOM)
 If you download an open-source library from NPM or Maven, how do you know the author wasn't hacked? A **Supply Chain Attack** occurs when a hacker poisons a popular open-source library. When you compile your app, you unknowingly bundle the malware.
 
-To fight this, the US Government issued an Executive Order requiring a **Software Bill of Materials (SBOM)**.
-An SBOM is a cryptographic list of every single dependency, sub-dependency, and OS library inside your Docker image. 
-In our enterprise pipeline, Trivy generates an SBOM (in CycloneDX format) and signs it using **Cosign**. When the image reaches Kubernetes, an admission controller (like Kyverno or OPA Gatekeeper) cryptographically verifies the signature. If the signature doesn't match the SBOM, Kubernetes refuses to run the image.
+To fight this, a US Executive Order required software sold to federal agencies to
+ship a **Software Bill of Materials (SBOM)**, and the practice spread from there.
+An SBOM is a list of every dependency, sub-dependency and OS library inside your
+image.
+
+In this pipeline, Trivy generates an SBOM in CycloneDX format and **Cosign** signs
+the image. An admission controller such as Kyverno or OPA Gatekeeper then verifies
+that signature before the image is allowed to run. If there is no valid signature
+from an identity you trust, the Pod is rejected — but only because you configured
+the admission controller to check. Signing on its own rejects nothing.
 
 **The three commands that implement that paragraph:**
 
@@ -191,8 +198,9 @@ In our enterprise pipeline, Trivy generates an SBOM (in CycloneDX format) and si
 trivy image --format cyclonedx --output sbom.json ghcr.io/ivolve/api:1.4.0
 
 # 2. Sign the image. Keyless signing uses the CI job's OIDC identity,
-#    so there is no private key to store or leak.
-COSIGN_EXPERIMENTAL=1 cosign sign ghcr.io/ivolve/api@sha256:abc123...
+#    so there is no private key to store or leak. It is the default in
+#    cosign v2 — older guides set COSIGN_EXPERIMENTAL=1, which was removed.
+cosign sign ghcr.io/ivolve/api@sha256:abc123...
 
 # 3. Verify before it runs — this is what the admission controller automates
 cosign verify ghcr.io/ivolve/api@sha256:abc123... \
@@ -269,7 +277,11 @@ code execution finds no tools waiting for them. The trade-off is that
 Trivy protects the container *before* it runs. What protects it *while* it runs?
 We use **Falco** (a CNCF project).
 Falco is a daemon that hooks directly into the Linux Kernel (via eBPF). It watches every single system call the container makes.
-If a developer tries to `kubectl exec` into a running production container and type `ls /etc`, Falco instantly detects the anomalous system call, generates a Critical Alert, and can optionally kill the Pod immediately. It is the CCTV camera of the Kubernetes cluster.
+If somebody runs `kubectl exec` into a production container and starts poking
+around, Falco sees the system calls and raises an alert within moments. Falco
+itself alerts; killing the Pod is the job of a response tool wired to those alerts,
+such as Falco Talon or a Falcosidekick handler. Think of it as the camera, with
+the response as a separate decision you make.
 
 ---
 

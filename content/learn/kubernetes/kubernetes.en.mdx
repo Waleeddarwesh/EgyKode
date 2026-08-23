@@ -91,14 +91,14 @@ A Kubernetes cluster is split into two halves:
 This is the brain. It makes all the decisions. It contains:
 - **API Server:** The front door. When you type `kubectl apply`, you are talking to the API Server.
 - **Scheduler:** The matchmaker. When you ask for a new Pod, the Scheduler finds a Worker Node with enough free CPU to host it.
-- **Controller Manager:** The enforcer. If you ask for 3 Pods, and one dies, the Controller Manager sees you only have 2, and forces the Scheduler to make a new one.
+- **Controller Manager:** The enforcer. If you ask for 3 Pods and one dies, a controller here notices there are only 2 and creates a replacement Pod object. It does not choose the node — it writes down that a Pod is needed, and the Scheduler then decides where it goes.
 - **etcd:** The memory. A highly-available database that stores the exact state of the entire cluster.
 
 #### 2. The Worker Nodes
 These are the AWS EC2 instances that actually run your code. They contain:
 - **kubelet:** The foreman. It listens to the control plane and asks the node’s container runtime — containerd or CRI-O — to start and stop containers, through a standard interface called the CRI. Docker is one way to *build* images; it is not what runs them on a modern cluster.
 - **kube-proxy:** The traffic cop. It handles network rules so Pods can talk to each other.
-- **Container Runtime:** The engine (e.g., `containerd` or Docker) that actually spins up the containers.
+- **Container Runtime:** The engine that actually starts the containers — `containerd` on most clusters, or CRI-O. As noted above, Docker is not used as the runtime on a modern cluster.
 
 ### Core Kubernetes Objects
 
@@ -168,9 +168,10 @@ creates no Pods at all: they are matched as plain strings, and a typo produces a
 Deployment that owns nothing rather than an error.
 
 **How a rolling update works.** Change the image tag and the Deployment does not
-replace all three Pods at once. It creates a new ReplicaSet and shifts capacity
-across gradually — new Pod up and healthy, old Pod removed, repeat — so the
-service never goes to zero:
+replace all three Pods at once. It creates a new ReplicaSet and moves capacity across gradually: a new Pod comes
+up and becomes ready, then an old Pod is removed, and so on. With the default
+rollout settings the service never drops to zero Pods. If you set
+`maxUnavailable` yourself, you can change that:
 
 ```bash
 kubectl set image deployment/api api=ghcr.io/ivolve/api:1.5.0
@@ -659,7 +660,10 @@ Once traffic subsides, the HPA scales it back down to 3 to save money.
 ### Enterprise Patterns: Zero Trust with Network Policies
 By default, Kubernetes is a "Flat Network". Any Pod can talk to any other Pod. If a hacker breaches the `frontend` pod, they can `curl` the `database` pod directly.
 
-In a Fortune 500 environment, this violates SOC2 compliance. We use a CNI (Container Network Interface) like **Calico** to enforce Zero Trust.
+Network segmentation is one of the controls an auditor expects to see under a
+framework like SOC 2 — though no single control makes a platform compliant. We
+use a CNI (Container Network Interface) such as **Calico** that enforces
+NetworkPolicy, and start from deny.
 
 Look at `kubernetes/policies/network-policies.yaml`:
 ```yaml
@@ -699,12 +703,24 @@ spec:
           port: 8080
 ```
 **What does this do?**
-This tells the Linux kernel (via `iptables` or `eBPF`) to drop *all* incoming traffic to the API pods, EXCEPT if the traffic originates from a Pod labeled `ivolve-frontend` in the `frontend` namespace. Even if a hacker compromises a different microservice, the network physically blocks them from reaching the API.
+Read it against the YAML, because the shape matters. The CNI programs the node
+(using `iptables` or eBPF) to drop every incoming connection to the API Pods,
+with two exceptions on TCP 8080: anything in the `ingress-nginx` namespace, **or**
+any Pod labelled `ivolve-storefront`.
+
+Note *or*. The two entries under `from:` each begin with a dash, so they are two
+separate sources and either one is allowed. Putting `namespaceSelector` and
+`podSelector` under a single dash would mean *that Pod in that namespace* — one
+source, both conditions. One indentation level separates the two meanings, and
+there is no error either way.
+
+So a compromised microservice that is neither of those cannot open a connection
+to the API at all.
 
 ### Multi-Tenancy and RBAC
 In an enterprise, 50 different developer teams share the same cluster. 
 We use **Namespaces** to create virtual clusters inside the physical cluster. 
-We then use **RBAC (Role-Based Access Control)** to bind Active Directory groups to Namespaces. Team A has admin rights in Namespace A, but they have completely read-only access in Namespace B. They cannot accidentally delete Team B's Pods.
+We then use **RBAC (Role-Based Access Control)** to bind Active Directory groups to Namespaces. Team A gets admin rights in Namespace A. In Namespace B they get whatever you bind for them there — read-only, or nothing at all, which is the default. They cannot delete Team B's Pods by accident.
 
 **How RBAC is actually assembled.** Four objects, and the split is the whole
 design: two say *what may be done*, two say *who may do it*.
