@@ -16,6 +16,22 @@ import { SITE } from "@/lib/site";
 
 const url = (path: string) => `${SITE.url}${path}`;
 
+/**
+ * A page URL in canonical form — always with a trailing slash, matching
+ * `<link rel="canonical">` and the sitemap.
+ *
+ * The production build sets `trailingSlash: true`, so `/en/labs` is a 308 to
+ * `/en/labs/`. Structured data is crawled like anything else, so emitting the
+ * unslashed form pointed Google at a redirect for every breadcrumb it followed
+ * — which is what Search Console was reporting as "Page with redirect", mostly
+ * on lab and chapter pages, because those are what breadcrumbs point at.
+ *
+ * Fragments and files are left exactly as given: `/#organization` is an `@id`
+ * rather than a page, and `/icon.svg` is a file.
+ */
+const pageUrl = (path: string) =>
+  url(/[.#]/.test(path) || path.endsWith("/") ? path : `${path}/`);
+
 /** The publisher, referenced by everything else via `@id`. */
 export function organization() {
   return {
@@ -73,10 +89,10 @@ export function learningResource(chapter: {
 }) {
   return {
     "@type": "LearningResource",
-    "@id": url(chapter.path) + "#resource",
+    "@id": pageUrl(chapter.path) + "#resource",
     name: chapter.title,
     description: chapter.description,
-    url: url(chapter.path),
+    url: pageUrl(chapter.path),
     inLanguage: chapter.locale,
     learningResourceType: chapter.resourceType ?? "Chapter",
     educationalLevel: chapter.level,
@@ -100,10 +116,10 @@ export function course(roadmap: {
 }) {
   return {
     "@type": "Course",
-    "@id": url(roadmap.path) + "#course",
+    "@id": pageUrl(roadmap.path) + "#course",
     name: roadmap.title,
     description: roadmap.description,
-    url: url(roadmap.path),
+    url: pageUrl(roadmap.path),
     inLanguage: roadmap.locale,
     isAccessibleForFree: true,
     provider: { "@id": url("/#organization") },
@@ -128,7 +144,7 @@ export function faqPage(
 ) {
   return {
     "@type": "FAQPage",
-    "@id": url(path) + "#faq",
+    "@id": pageUrl(path) + "#faq",
     mainEntity: questions.map((q) => ({
       "@type": "Question",
       name: q.question,
@@ -145,7 +161,7 @@ export function breadcrumbs(trail: { name: string; path: string }[]) {
       "@type": "ListItem",
       position: index + 1,
       name: crumb.name,
-      item: url(crumb.path),
+      item: pageUrl(crumb.path),
     })),
   };
 }

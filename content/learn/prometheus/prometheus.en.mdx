@@ -136,7 +136,11 @@ In PromQL, we query the **99th Percentile (P99)**:
 ```promql
 histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
 ```
-This query mathematically guarantees that 99% of our users are experiencing speeds faster than the returned number. If the P99 is 4000ms, an alarm fires immediately.
+That reads as "99% of requests were faster than this" — but it is an **estimate**, not a guarantee, and knowing why keeps you out of trouble.
+
+`histogram_quantile` does not see individual requests. It sees counts per bucket and interpolates within the bucket the quantile falls into, assuming observations are spread evenly inside it. So the accuracy is decided by your bucket boundaries. Two consequences worth remembering: buckets that do not straddle the values you care about give you a large margin of error, and if the quantile lands in the highest bucket Prometheus returns the upper bound of the second-highest one — so a P99 that sits pinned at your largest finite bucket is telling you the buckets are too small, not that latency is exactly that.
+
+And the alert does not fire the instant the value crosses: alerting rules have a `for:` duration, which is the subject of the next section.
 
 ### Alerting — rules, Alertmanager, and not waking people up
 

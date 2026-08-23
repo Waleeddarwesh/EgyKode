@@ -122,7 +122,7 @@ If you upgrade a Chart to v2.0 and the application crashes, you don't need to pa
 ```bash
 helm rollback my-prom 1
 ```
-Helm instantly reads the state of Release #1 and forces the cluster back to the exact working configuration.
+Helm reads the stored manifests for revision 1 and applies them, and the cluster rolls back to that configuration at the speed of a normal rollout. Note what came back and what did not: the **manifests** are restored, not the data. Anything the newer version wrote to a volume or migrated in a database is still there — which is why a schema migration and a chart rollback are two different plans.
 
 ---
 
