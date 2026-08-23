@@ -160,10 +160,15 @@ dependency cannot smuggle in its own repository URL.
 
 ### Dependency confusion
 
-A real, exploited attack class. An attacker publishes a package to a **public**
-registry using the same name as your **internal** package. A resolver configured
-to check both picks whichever answers first, or whichever has the higher version
-number — and the attacker sets the version to 99.0.0.
+The attack itself is explained in
+[Build Tools](/learn/build/build-tools/) — an attacker publishes a package to a
+**public** registry under the same name as your **internal** one, and a resolver
+that consults both picks theirs. What follows is what that means once a
+repository manager sits in the middle, which is where the ambiguity is usually
+introduced.
+
+The resolver picks whichever source answers first, or whichever offers the
+higher version number — so the attacker publishes version 99.0.0.
 
 Defences, in order of effectiveness:
 

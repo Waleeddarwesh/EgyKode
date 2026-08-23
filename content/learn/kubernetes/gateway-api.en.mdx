@@ -249,7 +249,7 @@ usual workaround.
 ### Installing it
 
 ```bash
-kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.1.0/standard-install.yaml
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/standard-install.yaml
 kubectl get gatewayclass
 ```
 
@@ -258,10 +258,15 @@ the Gateway API project rather than with Kubernetes, and **a controller** that
 implements them — Envoy Gateway, NGINX Gateway Fabric, Istio, Cilium, or a
 cloud one.
 
-`standard` versus `experimental` channels matters. Standard carries the graduated
-resources (`GatewayClass`, `Gateway`, `HTTPRoute`, `GRPCRoute`); TCP, UDP and
-TLS routes are still experimental. Installing the wrong channel produces `no
-matches for kind` on the resource you wanted.
+`standard` versus `experimental` channels matters. Standard carries the
+graduated resources — `GatewayClass`, `Gateway`, `HTTPRoute`, `GRPCRoute`,
+`ReferenceGrant` and, since v1.5, `TLSRoute`. `TCPRoute` and `UDPRoute` remain
+experimental. Installing the wrong channel produces `no matches for kind` on the
+resource you wanted.
+
+Check the channel a resource is in against the release you installed rather than
+against a blog post: resources graduate, and a page written a year ago will tell
+you something is experimental after it has shipped.
 
 ### Cross-namespace references need consent
 
@@ -269,7 +274,7 @@ An HTTPRoute in `production` cannot send traffic to a Service in `payments`
 just by naming it. The target namespace must agree:
 
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: ReferenceGrant
 metadata:
   name: allow-production-routes

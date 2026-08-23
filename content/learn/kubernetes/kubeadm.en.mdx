@@ -229,7 +229,7 @@ A: This is the `kubeconfig` file. It contains the cluster's IP address and the a
 
 ### Senior
 **Q: Why does Kubernetes require you to disable swap memory (`swapoff -a`) before running `kubeadm`?**
-A: Kubernetes is a highly precise orchestrator. It needs to know exactly how much RAM every Pod is using to make scheduling decisions and enforce memory Limits. If the Linux kernel starts moving RAM into a Swap file on the hard drive, Kubernetes loses track of the memory consumption, leading to severe performance degradation and unpredictable `OOMKilled` behavior. (Note: As of Kubernetes v1.28+, swap support is available in beta, but disabling it remains the standard best practice).
+A: Kubernetes is a highly precise orchestrator. It needs to know exactly how much RAM every Pod is using to make scheduling decisions and enforce memory Limits. If the Linux kernel starts moving RAM into a Swap file on the hard drive, Kubernetes loses track of the memory consumption, leading to severe performance degradation and unpredictable `OOMKilled` behavior. (Note: node swap support has been moving through the release cycle — alpha in v1.22, beta in v1.28 — so check the `NodeSwap` feature gate for the version you actually run rather than trusting any article's snapshot of it. `kubeadm` still expects swap to be off unless you set `failSwapOn: false` deliberately.)
 
 ### Principal/Architect
 **Q: Walk me through the exact architectural steps to upgrade a production `kubeadm` cluster with zero downtime to the running applications.**

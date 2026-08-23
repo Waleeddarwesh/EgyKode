@@ -275,7 +275,7 @@ kubectl -n ivolve logs <pod> --previous     # ← --previous
 |----------:|---------|
 | 0 | the process exited cleanly — the container had nothing to keep running |
 | 1 | application error. Read the log. Usually a missing env var. |
-| 137 | **OOMKilled** — exceeded the memory limit |
+| 137 | SIGKILL (128+9). Usually **OOMKilled**, but a failed liveness probe kills a container too — check `lastState.terminated.reason` rather than assuming |
 | 143 | SIGTERM — normal shutdown, not a crash |
 
 ```bash

@@ -180,9 +180,11 @@ In a production Kubernetes environment, we *disable* the AWS CPU scaling policie
 *Result: Kubernetes is in complete control of AWS hardware.*
 
 ### Spot Instances and Karpenter
-Enterprise platforms do not pay full price for EC2 instances. They use **AWS Spot Instances** (excess AWS capacity sold at a 70% discount).
+Enterprise platforms do not pay full price for EC2 instances. They use **AWS Spot Instances** — spare EC2 capacity that AWS sells at up to a 90% discount off On-Demand.
 The catch? AWS can take the Spot instance away from you with only a 2-minute warning.
-Modern platform engineering uses **Karpenter** (an advanced open-source node provisioner built by AWS). Karpenter completely replaces the concept of ASGs. It watches for `Pending` pods, instantly calculates the cheapest available Spot instance that fits the pod, and provisions it directly via the EC2 Fleet API in milliseconds. If AWS issues a 2-minute interruption warning, Karpenter instantly drains the node and provisions a replacement before the original node is terminated.
+Modern platform engineering uses **Karpenter**, an open-source node provisioner originally built by AWS. For the nodes it manages it replaces the Auto Scaling group entirely: it watches for `Pending` pods, works out the cheapest instance type that would fit them, and provisions it directly through the EC2 Fleet API rather than by adjusting a group's desired capacity. On a 2-minute interruption warning it cordons and drains the node and asks for replacement capacity.
+
+Whether the user notices depends on the replacement arriving before the two minutes are up, which is why Spot belongs on stateless, replicated workloads and not on a database. The money side of this decision is the [cost optimisation chapter](/learn/cost/cost-optimization/); here it is enough to know that capacity can be created and reclaimed by something other than an ASG.
 
 ---
 

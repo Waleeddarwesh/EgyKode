@@ -198,7 +198,7 @@ We deploy **Kubecost**. Kubecost connects to Prometheus, analyzes exactly how mu
 We touched on this in [Elasticity (AWS Auto Scaling)](/learn/aws/auto-scaling/), but from a financial perspective, Spot Instances are the holy grail of FinOps.
 
 AWS has millions of empty servers sitting idle. To make *some* money, AWS rents them out at up to a 90% discount. But AWS can terminate them at any time.
-If you run your production web traffic on Spot instances, you save 90% on your compute bill. 
+Run suitable production traffic on Spot and the compute line can fall by most of that — AWS quotes *up to* 90%, and what you actually get depends on the instance types and Availability Zones you are willing to accept. 
 
 **The Architecture:**
 We use **Karpenter** to provision Nodes. We configure the Karpenter Provisioner to *only* buy Spot instances. 
