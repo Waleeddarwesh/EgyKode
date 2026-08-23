@@ -65,7 +65,8 @@ Chapters and labs dominate the list because breadcrumbs are what point at them.
 
 `/en/learn/courses` was a "coming soon" placeholder that shipped before the real
 `/courses` page and named the homepage as its canonical. The page is deleted and
-the router 308s the old URL to the real one.
+the router 308s the old URL to the real one — live since 24 August, for the
+drift reason described above.
 
 ---
 
@@ -112,13 +113,21 @@ trailing-slash rule and redirected to a URL that resolved to nothing — so ever
 chapter advertised an `og:image` that 404'd, and every share of a chapter on
 LinkedIn or WhatsApp lost its preview.
 
-Already fixed in the router, which now serves the four metadata names as-is, and
-in the deploy workflow, which uploads them with an explicit `image/png` type
-(`s3 sync` infers `binary/octet-stream` from the missing extension, which every
-social scraper refuses).
+Fixed in the router, which now serves the four metadata names as-is, and in the
+deploy workflow, which uploads them with an explicit `image/png` type (`s3 sync`
+infers `binary/octet-stream` from the missing extension, which every social
+scraper refuses).
 
-The last-crawled dates on these rows are 14–16 August, which predate the fix.
-Nothing further to do but let Google recrawl.
+**The router half of that fix did not actually reach production until 24 August**,
+which is worth knowing before reading the crawl dates as reassurance. The code
+was committed weeks earlier, but nothing runs Terraform in CI, so the deployed
+function was several commits behind the repository. The `terraform apply` that
+shipped the locale-less rule also shipped this one and the `/learn/courses`
+redirect below — all three showed as additions in the plan.
+
+So the last-crawled dates on these rows (14–16 August) predate the *commit* but
+not the *deploy*. Nothing further to do but let Google recrawl, and this time
+the fix is live.
 
 ### C. URL-shaped strings out of code samples — correctly 404, leave them
 
@@ -208,3 +217,23 @@ Note that `redirects()` in `next.config.mjs` does **nothing** in production —
 the build prints a warning saying so. It is kept only so `next dev` behaves like
 the deployed site. Any redirect that must work in production belongs in the
 CloudFront function.
+
+## The trap: routing does not deploy when the site does
+
+`deploy-production.yml` syncs S3 and invalidates CloudFront. It does **not** run
+Terraform, and no other workflow does either. So merging a router fix and
+watching a green pipeline proves nothing about routing — the change is live only
+after somebody runs, by hand:
+
+    terraform -chdir=infrastructure/terraform/production apply
+
+This is not hypothetical. On 24 August that apply shipped three separate router
+fixes at once — the locale-less rule, the metadata-image branch and the
+`/learn/courses` redirect — because the latter two had been committed and
+assumed live for weeks. A fix that is committed, reviewed, tested and merged is
+still not deployed here.
+
+If a routing change appears to have had no effect, check the deployed function
+before re-diagnosing the bug:
+
+    aws cloudfront describe-function --name egykode-router --stage LIVE
