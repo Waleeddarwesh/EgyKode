@@ -117,6 +117,9 @@ kubectl rollout undo deploy/api --to-revision=2
 You never create a ReplicaSet directly. It exists so the Deployment has
 something to hand versions to.
 
+> **Practise:** [Kubernetes Workloads: Pod, ReplicaSet, Deployment](/labs/lab-k8s-workloads)
+> builds each controller and then breaks it on purpose.
+
 ### Controlling a rolling update
 
 ```yaml
@@ -160,6 +163,9 @@ kubectl rollout status deploy/api --timeout=5m
 That command is the difference between deploying and *requesting* a deploy. It
 exits non-zero if the rollout stalls, which is what makes a pipeline fail
 honestly.
+
+> **Practise:** [Helm Upgrades, Rollbacks & Release Strategy](/labs/lab-helm-upgrade-rollback)
+> runs rollouts and rollbacks under a chart.
 
 ### StatefulSet: when replicas are not interchangeable
 
@@ -215,6 +221,9 @@ purpose, so recreating it reattaches rather than starting empty. It also means
 `kubectl delete sts` does not free the storage — you delete the PVCs
 explicitly.
 
+> **Practise:** [Incident: CrashLoopBackOff](/labs/lab-incident-crashloopbackoff)
+> gives you the symptom and nothing else.
+
 ### DaemonSet: one per node
 
 ```yaml
@@ -243,6 +252,9 @@ This is what log shippers, metrics exporters and CNI agents use. The
 `tolerations` block matters: without it, a DaemonSet skips tainted nodes,
 including control-plane nodes, which is usually not what a monitoring agent
 wants.
+
+> **Practise:** [Node Drain, Upgrade & Recovery](/labs/lab-k8s-node-drain-upgrade)
+> drains a node with a PodDisruptionBudget in the way.
 
 ### Job and CronJob: work that ends
 
@@ -389,13 +401,3 @@ until replica 0 is ready. One failing Pod blocks the entire set, by design.
 
 ---
 
-## Practise this
-
-- [Kubernetes Workloads: Pod, ReplicaSet, Deployment](/labs/lab-k8s-workloads) —
-  build each controller and break it
-- [Helm Upgrades, Rollbacks & Release Strategy](/labs/lab-helm-upgrade-rollback)
-  — rollouts under a chart
-- [Node Drain, Upgrade & Recovery](/labs/lab-k8s-node-drain-upgrade) —
-  PodDisruptionBudgets in anger
-- [Incident: CrashLoopBackOff](/labs/lab-incident-crashloopbackoff) — you are
-  given the symptom and nothing else

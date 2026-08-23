@@ -179,6 +179,10 @@ In a production Kubernetes environment, we *disable* the AWS CPU scaling policie
 4. When scaling down, the Cluster Autoscaler finds an empty node, gracefully drains it, and then commands AWS to terminate that specific node.
 *Result: Kubernetes is in complete control of AWS hardware.*
 
+> **Practise:** [Kubernetes Security Hardening & HPA](/labs/lab-13-kubernetes-security-hardening-networkpolicies-hpa)
+> runs the same elasticity idea one layer up, where the capstone actually
+> scales.
+
 ### Spot Instances and Karpenter
 Enterprise platforms do not pay full price for EC2 instances. They use **AWS Spot Instances** — spare EC2 capacity that AWS sells at up to a 90% discount off On-Demand.
 The catch? AWS can take the Spot instance away from you with only a 2-minute warning.
@@ -231,11 +235,6 @@ shorter than boot time guarantees this loop.
 
 ---
 
-## Practise this
-
-- [Kubernetes Security Hardening & HPA](/labs/lab-13-kubernetes-security-hardening-networkpolicies-hpa) — the same elasticity idea one layer up, where the capstone actually scales
-
----
 
 ## Interview Questions
 

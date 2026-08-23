@@ -69,6 +69,9 @@ Change the instance type and you stop, resize and start — the disk survives.
 Change the AMI and you are building a new instance; there is no upgrade in
 place.
 
+> **Practise:** [AWS VPC Networking by Hand](/labs/lab-aws-vpc-console)
+> builds the network an instance lives in, by hand.
+
 ### Instance families, decoded
 
 The name is not arbitrary. `t3.micro`, `m7g.large`, `c6i.4xlarge`:
@@ -141,6 +144,9 @@ is not there.
 
 ---
 
+> **Practise:** [Jenkins EC2 Instance, S3 Backend & AWS Backup Vault](/labs/lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault)
+> provisions the capstone's build host rather than clicking it together.
+
 ## Level 2 — Intermediate
 
 ### EBS: the disk
@@ -197,6 +203,9 @@ aws ec2 associate-iam-instance-profile \
 Every AWS SDK finds them without configuration. Your code contains no
 credentials at all.
 
+> **Practise:** [AWS IAM & Least Privilege](/labs/lab-aws-iam-least-privilege)
+> starts from deny and adds back only what fails.
+
 ### IMDSv2 is not optional
 
 The metadata service lives at `169.254.169.254` and hands out those
@@ -243,6 +252,9 @@ Every session is logged in CloudTrail, and access is IAM, so removing someone's
 access is removing a policy rather than rotating a key on every host.
 
 ---
+
+> **Practise:** [EC2 Operations: SSM, CloudWatch Logs & Metrics](/labs/lab-aws-ec2-cloudwatch-ssm)
+> operates an instance with no inbound port open at all.
 
 ## Level 3 — Advanced
 
@@ -352,12 +364,3 @@ it and create a new volume in the right one.
 
 ---
 
-## Practise this
-
-- [EC2 Operations: SSM, CloudWatch Logs & Metrics](/labs/lab-aws-ec2-cloudwatch-ssm)
-  — an instance with no open ports
-- [AWS VPC Networking by Hand](/labs/lab-aws-vpc-console) — the network EC2 lives in
-- [AWS IAM & Least Privilege](/labs/lab-aws-iam-least-privilege) — instance
-  profiles instead of keys
-- [Jenkins EC2 Instance, S3 Backend & AWS Backup Vault](/labs/lab-06-jenkins-ec2-instance-s3-backend-aws-backup-vault)
-  — the capstone's own build host, provisioned rather than clicked

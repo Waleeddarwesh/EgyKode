@@ -174,6 +174,12 @@ Versioning cannot be turned off, only suspended, and every version bills.
 Without a lifecycle rule to expire old versions, a frequently rewritten object
 grows a bill nobody is watching.
 
+> **Practise:** [Terraform Remote State & Locking](/labs/lab-terraform-remote-state)
+> uses versioning as the recovery mechanism it is.
+
+> **Practise:** [Terraform Drift & State Recovery](/labs/lab-terraform-state-recovery)
+> makes you restore a state file somebody deleted.
+
 ### Storage classes
 
 | Class | Retrieval | Minimum duration | For |
@@ -217,6 +223,9 @@ parts that are invisible to `aws s3 ls` and bill indefinitely — a classic
 
 ---
 
+> **Practise:** [Backup & Disaster Recovery Drill](/labs/lab-sre-backup-disaster-recovery)
+> puts lifecycle rules and retention behind a real restore.
+
 ## Level 3 — Advanced
 
 ### Serving a private bucket publicly
@@ -253,6 +262,9 @@ CloudFront distribution in any account could read your bucket.
 Everything else follows: TLS via ACM, caching at the edge, and no per-request
 S3 cost for cached objects. This is exactly how the site you are reading is
 served.
+
+> **Practise:** [Static Site on S3 + CloudFront](/labs/lab-24-s3-cloudfront-static-site)
+> builds exactly this — private bucket, OAC, real TLS.
 
 ### Presigned URLs
 
@@ -339,13 +351,3 @@ bucket in a closer region.
 
 ---
 
-## Practise this
-
-- [Static Site on S3 + CloudFront](/labs/lab-24-s3-cloudfront-static-site) —
-  private bucket, OAC, real TLS
-- [Terraform Remote State & Locking](/labs/lab-terraform-remote-state) —
-  versioning as a recovery mechanism
-- [Terraform Drift & State Recovery](/labs/lab-terraform-state-recovery) —
-  restoring a deleted state file
-- [Backup & Disaster Recovery Drill](/labs/lab-sre-backup-disaster-recovery) —
-  lifecycle rules and retention

@@ -114,6 +114,9 @@ kubectl auth can-i --list -n team-a --as system:serviceaccount:team-a:viewer
 what you meant; this tells you what the cluster will do, and those differ more
 often than they should.
 
+> **Practise:** [Kubernetes RBAC & Service Accounts](/labs/lab-k8s-rbac-service-accounts)
+> builds it and verifies with `can-i` rather than by reading.
+
 ### Two properties that catch people out
 
 **RBAC is purely additive. There is no deny rule.** A subject can do the union
@@ -167,6 +170,9 @@ Modern clusters project **short-lived, audience-bound** tokens rather than the
 permanent Secret-backed tokens of older versions. A leaked projected token
 expires in an hour; a leaked legacy token is valid until someone notices.
 
+> **Practise:** [IAM Roles, IRSA Policies & Security Groups](/labs/lab-02-iam-roles-irsa-policies-security-groups)
+> connects this to the AWS half of identity.
+
 ### Audit what you inherited
 
 ```bash
@@ -217,6 +223,9 @@ metadata:
 the manifest and lets it through; `enforce` rejects it. Going straight to
 `enforce` on an existing namespace breaks deployments during the next rollout,
 not at the moment you apply the label — which makes the cause hard to spot.
+
+> **Practise:** [Kubernetes Security Hardening (NetworkPolicies) & HPA](/labs/lab-13-kubernetes-security-hardening-networkpolicies-hpa)
+> applies hardening to a workload that is already running.
 
 ### A Pod that passes `restricted`
 
@@ -367,12 +376,3 @@ to recover, then fix the controller.
 
 ---
 
-## Practise this
-
-- [Kubernetes RBAC & Service Accounts](/labs/lab-k8s-rbac-service-accounts) —
-  build it and verify with `can-i`
-- [Kubernetes Security Hardening (NetworkPolicies) & HPA](/labs/lab-13-kubernetes-security-hardening-networkpolicies-hpa)
-- [IAM Roles, IRSA Policies & Security Groups](/labs/lab-02-iam-roles-irsa-policies-security-groups)
-  — the AWS half of identity
-- [Production Capstone](/labs/lab-19-production-capstone) — where all six layers
-  have to hold at once

@@ -152,6 +152,9 @@ If Alice's computer is hacked, the hacker can only read files. They cannot delet
 
 ---
 
+> **Practise:** [AWS IAM & Least Privilege](/labs/lab-aws-iam-least-privilege)
+> starts from deny and adds back only what actually fails.
+
 ## Level 3 — Advanced
 
 ### Analyzing the Actual Code (Line-by-Line Breakdown)
@@ -229,6 +232,9 @@ resource "aws_iam_instance_profile" "node" {
 - **`aws_iam_role_policy_attachment`:** This attaches an AWS-managed policy (`AmazonEC2ContainerRegistryReadOnly`) to the Role. *Now*, whoever is wearing the hat has permission to download Docker images from ECR.
 
 ---
+
+> **Practise:** [IAM Roles, IRSA Policies & Security Groups](/labs/lab-02-iam-roles-irsa-policies-security-groups)
+> builds the identity the cluster and pipeline really use.
 
 ## Level 4 — Enterprise
 
@@ -332,12 +338,6 @@ policy is the one people forget when an encrypted bucket refuses a read.
 
 ---
 
-## Practise this
-
-- [AWS IAM & Least Privilege](/labs/lab-aws-iam-least-privilege) — start from deny and add only what fails
-- [IAM Roles, IRSA Policies & Security Groups](/labs/lab-02-iam-roles-irsa-policies-security-groups) — the identity the cluster and pipeline actually use
-
----
 
 ## Interview Questions
 

@@ -71,6 +71,9 @@ You can build a single dashboard where the top graph shows Kubernetes CPU (pulle
 
 ---
 
+> **Practise:** [Centralised Logging with Loki and Grafana](/labs/lab-loki-centralized-logging)
+> adds a second data source and queries logs in the same pane.
+
 ## Level 3 — Advanced
 
 ### Analyzing the Actual Code (GitOps Dashboards)
@@ -129,6 +132,9 @@ Grafana has a feature called **Sidecar Provisioning**.
 A sidecar container runs next to Grafana. It watches the Kubernetes API for any `ConfigMap` that has the label `grafana_dashboard: "1"`. When ArgoCD deploys our JSON file as a ConfigMap, the sidecar instantly detects it, injects it into Grafana's database, and the dashboard appears on the screen automatically. 
 
 ---
+
+> **Practise:** [Custom Prometheus Alert Rules & Grafana Dashboards](/labs/lab-18-custom-prometheus-alert-rules-grafana-dashboards)
+> commits dashboards as JSON so a restart cannot lose them.
 
 ## Level 4 — Enterprise
 
@@ -198,12 +204,6 @@ pod is one restart from being a story about how good it used to be.
 
 ---
 
-## Practise this
-
-- [Custom Prometheus Alert Rules & Grafana Dashboards](/labs/lab-18-custom-prometheus-alert-rules-grafana-dashboards) — dashboards as committed JSON
-- [Centralised Logging with Loki and Grafana](/labs/lab-loki-centralized-logging) — the same pane, for logs
-
----
 
 ## Interview Questions
 

@@ -74,6 +74,9 @@ Be careful what you expect from that. None of it identifies the cause on its own
 3. **Traces (The "Where"):** A representation of a series of causally related distributed events.
    *Example:* A user clicks "Checkout". The trace shows the request spent 10ms in the Frontend, 400ms in the Inventory Microservice, and 5000ms stuck in the Payment Database. 
 
+> **Practise:** [Centralised Logging with Loki and Grafana](/labs/lab-loki-centralized-logging)
+> builds the logs pillar for real.
+
 ### Monitoring vs. Observability
 - **Monitoring** answers: *"Is the system broken?"* (Dashboards).
 - **Observability** answers: *"Why is the system broken, and how do I fix it?"* (Deep debugging).
@@ -93,6 +96,9 @@ In our Kubernetes cluster, we don't just use one tool. We use a "Stack" of speci
    - We use **Loki** (by Grafana) for logs. Unlike Elasticsearch (which indexes every single word and uses massive amounts of RAM), Loki only indexes the metadata (like the Pod name) and compresses the raw text. It is vastly more efficient for Kubernetes.
 3. **The Alerting Stack (Alertmanager):**
    - Prometheus generates the alarm. Alertmanager groups the alarms (so you don't get 500 emails for one outage) and routes them to Slack or PagerDuty.
+
+> **Practise:** [Deploying Kube-Prometheus-Stack](/labs/lab-17-deploying-kube-prometheus-stack-on-aws-eks)
+> stands up the metrics half of this stack.
 
 ### Golden Signals
 Google SRE (Site Reliability Engineering) defines the "Four Golden Signals" you MUST monitor:
@@ -192,6 +198,9 @@ proportion to how much trouble you are actually in.
 
 ---
 
+> **Practise:** [Custom Alert Rules & Grafana Dashboards](/labs/lab-18-custom-prometheus-alert-rules-grafana-dashboards)
+> turns these into something that actually pages a human.
+
 ## Working an incident with these signals
 
 Observability is not a set of tools, it is the ability to answer questions about
@@ -233,13 +242,6 @@ afternoon disappears into a dashboard.
 
 ---
 
-## Practise this
-
-- [Deploying Kube-Prometheus-Stack](/labs/lab-17-deploying-kube-prometheus-stack-on-aws-eks) — the metrics half
-- [Centralised Logging with Loki and Grafana](/labs/lab-loki-centralized-logging) — the logs half
-- [Custom Alert Rules & Grafana Dashboards](/labs/lab-18-custom-prometheus-alert-rules-grafana-dashboards) — turning both into something that pages a human
-
----
 
 ## Interview Questions
 

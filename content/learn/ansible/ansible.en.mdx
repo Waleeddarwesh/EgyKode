@@ -127,6 +127,9 @@ roles:
     version: 7.0.1
 ```
 
+> **Practise:** [Automated Jenkins Server & Toolchain Provisioning](/labs/lab-08-automated-jenkins-server-toolchain-provisioning)
+> composes roles into the capstone's build host, from a bare instance.
+
 ### What Existed Before? (Chef and Puppet)
 Before Ansible, companies used Chef and Puppet. 
 *Why aren't they enough?* They require you to install a background program (an Agent) on every single server *before* they can configure it. How do you install the agent? You have to do it manually! Ansible is **Agentless**, making it vastly superior for bootstrapping raw AWS EC2 instances.
@@ -135,6 +138,9 @@ Before Ansible, companies used Chef and Puppet.
 Like Terraform, Ansible is declarative. If you run a task that says "Ensure Docker is installed", and Docker is already installed, Ansible returns a green `ok` status and does absolutely nothing. It does not reinstall Docker.
 
 ---
+
+> **Practise:** [Ansible Roles, Variables & Idempotency](/labs/lab-ansible-roles-idempotency)
+> makes you prove the second run changes nothing.
 
 ## Level 3 — Advanced
 
@@ -260,6 +266,9 @@ A control-plane role would look like this:
 
 ---
 
+> **Practise:** [Ansible Architecture, Configuration & Automated Inventory](/labs/lab-07-ansible-architecture-configuration-automated-inventory)
+> builds this inventory against real hosts — ones nobody typed into a file.
+
 ## Level 4 — Enterprise
 
 ### Enterprise Patterns: Ansible Vault
@@ -367,13 +376,6 @@ When a restart must happen at that point rather than at the end,
 
 ---
 
-## Practise this
-
-- [Ansible Architecture, Configuration & Automated Inventory](/labs/lab-07-ansible-architecture-configuration-automated-inventory) — hosts nobody typed into a file
-- [Ansible Roles, Variables & Idempotency](/labs/lab-ansible-roles-idempotency) — prove the second run changes nothing
-- [Automated Jenkins Server & Toolchain Provisioning](/labs/lab-08-automated-jenkins-server-toolchain-provisioning) — the capstone's build host, from bare
-
----
 
 ## Interview Questions
 

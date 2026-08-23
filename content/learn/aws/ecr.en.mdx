@@ -113,6 +113,9 @@ spec:
 - **`image:`**: The full URL to the ECR registry. The `111122223333` is your AWS Account ID.
 - **`imagePullSecrets:`**: This tells Kubernetes: *"Before you try to download this image, look inside the Kubernetes Secret named `ecr-registry-secret`. You will find a Docker username and password in there. Send those credentials to ECR."*
 
+> **Practise:** [Amazon ECR & S3 Storage Buckets](/labs/lab-03-amazon-ecr-container-registry-s3-storage-buckets)
+> provisions the registry itself.
+
 ### Image Tagging Strategies
 Never use the `latest` tag in production (e.g., `image: ivolve-api:latest`). 
 If ArgoCD sees `latest`, it doesn't know if the image actually changed. It might not trigger an update. Furthermore, if you need to rollback, you don't know what the previous version was because it was overwritten by the new `latest`.
@@ -133,6 +136,9 @@ Once an image is pushed with a specific tag, the AWS API physically blocks anyon
 The CI pipeline you build later scans images with Trivy before they are pushed here — see [DevSecOps (Container Security)](/learn/security/container-security/). 
 But what if a new Zero-Day vulnerability is discovered *tomorrow*, long after the CI pipeline finished?
 Enterprise ECR repositories enable **Continuous Scanning**. AWS continuously scans all stored images against the latest CVE databases. If a new vulnerability is found in an old image that is currently running in your cluster, AWS EventBridge triggers an alert to PagerDuty to wake up the Security team.
+
+> **Practise:** [Jenkins Pipeline: Build, Scan and Push an Image](/labs/lab-jenkins-docker-pipeline)
+> wires the scan into a pipeline, including making the gate actually fail.
 
 ### Lifecycle Policies
 If Jenkins runs 50 times a day, it creates 50 new Docker images. At 500MB each, you will quickly owe AWS thousands of dollars in storage fees for images you no longer use.
@@ -203,12 +209,6 @@ mode is delayed: everything is fine until the day a node is replaced.
 
 ---
 
-## Practise this
-
-- [Amazon ECR & S3 Storage Buckets](/labs/lab-03-amazon-ecr-container-registry-s3-storage-buckets) — the registry, provisioned
-- [Jenkins Pipeline: Build, Scan and Push an Image](/labs/lab-jenkins-docker-pipeline) — the pipeline that pushes to it, including the gate that must fail
-
----
 
 ## Interview Questions
 

@@ -90,6 +90,9 @@ Helm downloads the templates, injects the overrides from `my-values.yaml`, and c
 
 ---
 
+> **Practise:** [Managing EKS Cluster Add-ons with Helm & IRSA](/labs/lab-15-managing-eks-cluster-add-ons-with-helm-irsa)
+> installs somebody else's chart properly, with an identity attached.
+
 ## Level 3 — Advanced
 
 ### Analyzing the Actual Code (Line-by-Line Breakdown)
@@ -116,6 +119,9 @@ spec:
 - **`replicas: {{ .Values.replicaCount }}`**: Helm looks inside your `values.yaml` file, finds the `replicaCount` key, and injects that number here.
 - **`image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"`**: It dynamically constructs the Docker image URL. If you want to upgrade the app, you don't edit the YAML. You just change the `tag` string in your `values.yaml` file.
 
+> **Practise:** [Creating a Custom Helm Chart](/labs/lab-14-creating-a-custom-helm-chart-for-django-microservices)
+> has you template your own application rather than read someone else's.
+
 ### Helm Rollbacks
 Because Helm tracks "Releases", it tracks history as Kubernetes Secrets. 
 If you upgrade a Chart to v2.0 and the application crashes, you don't need to panic or rewrite YAML. You simply run:
@@ -125,6 +131,9 @@ helm rollback my-prom 1
 Helm reads the stored manifests for revision 1 and applies them, and the cluster rolls back to that configuration at the speed of a normal rollout. Note what came back and what did not: the **manifests** are restored, not the data. Anything the newer version wrote to a volume or migrated in a database is still there — which is why a schema migration and a chart rollback are two different plans.
 
 ---
+
+> **Practise:** [Helm Upgrades, Rollbacks & Release Strategy](/labs/lab-helm-upgrade-rollback)
+> includes finding out what a rollback does not restore.
 
 ## Level 4 — Enterprise
 
@@ -326,13 +335,6 @@ backup-and-restore procedure, which is why the platform has one.
 
 ---
 
-## Practise this
-
-- [Creating a Custom Helm Chart](/labs/lab-14-creating-a-custom-helm-chart-for-django-microservices) — template your own application
-- [Helm Upgrades, Rollbacks & Release Strategy](/labs/lab-helm-upgrade-rollback) — including what a rollback does not restore
-- [Managing EKS Cluster Add-ons with Helm & IRSA](/labs/lab-15-managing-eks-cluster-add-ons-with-helm-irsa) — installing somebody else's chart properly
-
----
 
 ## Interview Questions
 

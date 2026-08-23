@@ -165,6 +165,8 @@ find /var/log -name "*.gz"         # search by name
 find /var/log -mtime +7 -delete    # older than 7 days — read twice before running
 ```
 
+> **Practise:** [Linux Server Administration](/labs/lab-20-linux-server-administration)
+> puts these to work on a real server rather than a page.
 
 ---
 
@@ -467,6 +469,8 @@ tail -f /var/log/nginx/error.log   # what the application wrote itself
 dmesg -T | tail            # what the kernel says — OOM kills appear here
 ```
 
+> **Practise:** [Linux Processes, Services & Logs](/labs/lab-linux-processes-services-logs)
+> gives you a broken service and no hint about which layer broke it.
 
 ---
 
@@ -550,6 +554,8 @@ into a usable server. On AWS, Systems Manager Session Manager is a modern
 alternative that needs no inbound port at all — worth knowing, and covered with
 the AWS material rather than here.
 
+> **Practise:** [Linux Security & SSH Hardening](/labs/lab-linux-ssh-hardening)
+> closes the doors this section just taught you to open.
 
 ---
 
@@ -643,6 +649,8 @@ Trivy returns `1` when it finds something critical, the shell reports non-zero,
 and Jenkins marks the stage red. The gate is not a Jenkins feature — it is an
 exit code.
 
+> **Practise:** [Bash Automation: A Script You Can Trust](/labs/lab-22-bash-automation-backup-healthcheck)
+> puts `set -euo pipefail` in a script that has to survive being run by cron.
 
 ---
 
@@ -796,21 +804,6 @@ Networking                    ip addr · ip route · ss -tlnp · dig · curl · 
 Remote                        ssh · ssh-keygen · ssh-copy-id · scp · rsync
 Scheduling                    crontab -e · systemctl list-timers
 ```
-
----
-
-## Practise this
-
-Four labs, each taking one part of this chapter onto a real server.
-
-- [Linux Server Administration](/labs/lab-20-linux-server-administration) —
-  navigating, finding things, and permissions, on a machine rather than a page
-- [Linux Processes, Services & Logs](/labs/lab-linux-processes-services-logs) —
-  the troubleshooting sequence above, against a service that is genuinely broken
-- [Linux Security & SSH Hardening](/labs/lab-linux-ssh-hardening) — keys,
-  `authorized_keys`, and closing the doors you just learned to open
-- [Bash Automation: A Script You Can Trust](/labs/lab-22-bash-automation-backup-healthcheck)
-  — `set -euo pipefail` in a script that has to survive being run by cron
 
 ---
 

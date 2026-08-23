@@ -342,6 +342,48 @@ what a continuously deployed platform is.
 
 ---
 
+## Hands-on
+
+Do these in a scratch repository, not this one.
+
+```bash
+mkdir /tmp/git-practice && cd /tmp/git-practice && git init
+
+# 1. Make three commits
+echo "one"   > file.txt && git add . && git commit -m "first"
+echo "two"  >> file.txt && git add . && git commit -m "second"
+echo "three">> file.txt && git add . && git commit -m "third"
+
+# 2. Revert the middle one. Read the file. What happened, and why is
+#    "three" still there?
+git revert HEAD~1
+cat file.txt
+git log --oneline
+
+# 3. Branch, diverge, merge
+git switch -c experiment
+echo "branch work" >> file.txt && git commit -am "experiment"
+git switch main
+git merge experiment
+
+# 4. Cause a conflict on purpose, then resolve it.
+#    You WILL hit one under time pressure eventually. Better now.
+```
+
+**Checkpoint:** you can explain, without looking, why `git revert` is safe on a
+shared branch and `git reset --hard` is not.
+
+---
+
+> **Practise:** [Git Branching & Collaboration](/labs/lab-23-git-branching-collaboration)
+> covers branches, merges, and the history other people have to read.
+
+> **Practise:** [Git Recovery & History Surgery](/labs/lab-git-recovery-history)
+> is reflog, reset, and recovering work you thought was gone.
+
+> **Practise:** [Professional Collaboration on GitHub](/labs/lab-git-professional-collaboration)
+> adds reviews, protected branches and the forge around the repository.
+
 ## When it breaks
 
 **Symptom → evidence → hypothesis → test → fix.** Git tells you a great deal if
@@ -439,47 +481,6 @@ failure in this list applies: it is still in history.
 
 ---
 
-## Practise this
-
-Two minutes with a terminal first, then the labs.
-
-Do these in a scratch repository, not this one.
-
-```bash
-mkdir /tmp/git-practice && cd /tmp/git-practice && git init
-
-# 1. Make three commits
-echo "one"   > file.txt && git add . && git commit -m "first"
-echo "two"  >> file.txt && git add . && git commit -m "second"
-echo "three">> file.txt && git add . && git commit -m "third"
-
-# 2. Revert the middle one. Read the file. What happened, and why is
-#    "three" still there?
-git revert HEAD~1
-cat file.txt
-git log --oneline
-
-# 3. Branch, diverge, merge
-git switch -c experiment
-echo "branch work" >> file.txt && git commit -am "experiment"
-git switch main
-git merge experiment
-
-# 4. Cause a conflict on purpose, then resolve it.
-#    You WILL hit one under time pressure eventually. Better now.
-```
-
-**Checkpoint:** you can explain, without looking, why `git revert` is safe on a
-shared branch and `git reset --hard` is not.
-
-- [Git Branching & Collaboration](/labs/lab-23-git-branching-collaboration) — branches, merges and the
-  history other people have to read
-- [Git Recovery & History Surgery](/labs/lab-git-recovery-history) — reflog, reset and recovering work
-  you thought you had lost
-- [Professional Collaboration on GitHub](/labs/lab-git-professional-collaboration) — reviews, protected
-  branches and the forge around the repository
-
----
 
 ## Interview Questions
 

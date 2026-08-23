@@ -68,6 +68,9 @@ the same YAML. So either everyone can edit the shared entry point, or nobody
 can change their own routing without a ticket. Both outcomes are bad, and every
 organisation running Ingress at scale has hit one of them.
 
+> **Practise:** [Kubernetes Services & Service Discovery](/labs/lab-k8s-services)
+> is the layer underneath both APIs.
+
 ### The same routing, expressed both ways
 
 **Ingress:**
@@ -145,6 +148,9 @@ free within that.
 
 ---
 
+> **Practise:** [From Ingress to Gateway API](/labs/lab-k8s-gateway-api)
+> expresses the same routing twice, so the difference is yours to see.
+
 ## Level 2 — Intermediate
 
 ### What Ingress could not say
@@ -202,6 +208,9 @@ argument for the new API.
               - name: x-forwarded-proto
                 value: https
 ```
+
+> **Practise:** [Application Routing with Ingress](/labs/lab-12-application-routing-with-k8s-ingress-aws-load-balancer-contr)
+> builds the API this one replaces.
 
 ### Read the status, not the spec
 
@@ -341,8 +350,3 @@ target namespace.
 
 ---
 
-## Practise this
-
-- Lab: **From Ingress to Gateway API** — express the same routing twice
-- Lab: **Application Routing with Ingress** — the API this one replaces
-- Lab: **Kubernetes Services** — the layer underneath both

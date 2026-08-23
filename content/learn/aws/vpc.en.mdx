@@ -108,6 +108,9 @@ single largest saving available in a small AWS account.
 
 ---
 
+> **Practise:** [AWS VPC Networking by Hand](/labs/lab-aws-vpc-console)
+> builds this once by hand, so the Terraform version is not magic.
+
 ## Level 3 — Advanced
 
 ### Analyzing the Actual Code (Line-by-Line Breakdown)
@@ -181,6 +184,9 @@ resource "aws_subnet" "private" {
 - **`"kubernetes.io/role/elb" = "1"`** — the AWS cloud provider looks for this
   tag to decide where to place load balancers. Without it, a `Service` of type
   `LoadBalancer` fails with an error that does not mention subnet tags at all.
+
+> **Practise:** [AWS VPC, Subnets, Gateways & Route Tables](/labs/lab-01-aws-vpc-subnets-gateways-route-tables)
+> builds the same network as code.
 
 ### What actually makes a subnet public
 
@@ -369,6 +375,9 @@ which address.
 returns without an explicit outbound rule — so an asymmetric problem is usually a
 NACL, which is stateless and needs both directions.
 
+> **Practise:** [Linux Networking & Troubleshooting](/labs/lab-21-linux-networking-troubleshooting)
+> makes this distinction from inside a host that is genuinely misconfigured.
+
 ### The security group allows it and traffic is still dropped
 
 **Symptom.** Rules look correct, traffic does not flow.
@@ -387,13 +396,6 @@ work in security groups, which is the usual design.
 
 ---
 
-## Practise this
-
-- [AWS VPC Networking by Hand](/labs/lab-aws-vpc-console) — build it once by hand, so the Terraform version is not magic
-- [AWS VPC, Subnets, Gateways & Route Tables](/labs/lab-01-aws-vpc-subnets-gateways-route-tables) — the same network, as code
-- [Linux Networking & Troubleshooting](/labs/lab-21-linux-networking-troubleshooting) — the timeout-versus-refused distinction, from inside a host
-
----
 
 ## Interview Questions
 

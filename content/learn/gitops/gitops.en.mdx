@@ -126,6 +126,10 @@ stage('GitOps Update') {
 3. ArgoCD sees the new commit (`ivolve-api:v2.0`).
 4. ArgoCD updates the cluster.
 
+> **Practise:** [GitOps Delivery with Argo CD: Sync, Drift & Self-Heal](/labs/lab-argocd-gitops-reconciliation)
+> closes the loop: change Git, watch the cluster follow, then break it by
+> hand.
+
 ### The Two-Repo Pattern
 In an advanced architecture, you do not put your application source code (Java/Python) in the same repository as your GitOps manifests (YAML).
 - **Repo 1 (App Repo):** Developers work here. A commit here triggers Jenkins to build a Docker image.
@@ -233,11 +237,6 @@ not that every byte of it is in the repository.
 
 ---
 
-## Practise this
-
-- [GitOps Delivery with Argo CD: Sync, Drift & Self-Heal](/labs/lab-argocd-gitops-reconciliation) — cause drift deliberately and watch it be corrected
-
----
 
 ## Interview Questions
 

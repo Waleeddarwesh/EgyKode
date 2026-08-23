@@ -207,6 +207,9 @@ governs **voluntary** disruption only — it does nothing about a crash.
 so the drained node stays empty until something is rescheduled. `kubectl
 rollout restart` forces it.
 
+> **Practise:** [Node Drain, Upgrade & Recovery](/labs/lab-k8s-node-drain-upgrade)
+> runs a real drain with a PodDisruptionBudget in the way.
+
 ### Upgrades
 
 ```text
@@ -284,6 +287,9 @@ separate question, answered by your storage snapshots.
 **Untested backups are not backups.** Restore into a scratch cluster on a
 schedule, or you will discover the problem on the day it matters.
 
+> **Practise:** [Backup & Disaster Recovery Drill](/labs/lab-sre-backup-disaster-recovery)
+> snapshots etcd and then makes you restore it.
+
 ### Reading a node that is not Ready
 
 ```bash
@@ -358,14 +364,3 @@ plan` states exactly which jump it will permit.
 
 ---
 
-## Practise this
-
-- [Node Drain, Upgrade & Recovery](/labs/lab-k8s-node-drain-upgrade) — a real
-  drain with a PDB in the way
-- [Backup & Disaster Recovery Drill](/labs/lab-sre-backup-disaster-recovery) —
-  snapshot etcd and restore it
-- [Incident: Service-to-Service Calls Fail](/labs/lab-incident-cluster-dns) — a
-  cluster component failing partially
-- For provisioning a cluster yourself rather than operating one, the
-  [kubeadm chapter](/learn/kubernetes/kubeadm/) walks the bootstrap. There is no
-  lab for it yet.

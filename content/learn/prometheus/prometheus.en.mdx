@@ -125,6 +125,9 @@ The Operator automatically reconfigures the live Prometheus server in memory. Th
 
 ---
 
+> **Practise:** [Deploying Kube-Prometheus-Stack](/labs/lab-17-deploying-kube-prometheus-stack-on-aws-eks)
+> scrapes the cluster you built, ServiceMonitors and all.
+
 ## Level 4 — Enterprise
 
 ### PromQL Deep Dive: Histograms
@@ -215,6 +218,9 @@ rate alert already fired and it tells you something actionable. Alerting on
 causes rather than symptoms is the fastest route to a team that ignores its
 alerts.
 
+> **Practise:** [Custom Prometheus Alert Rules & Grafana Dashboards](/labs/lab-18-custom-prometheus-alert-rules-grafana-dashboards)
+> has you write a rule and then make it fire on purpose.
+
 ### High Availability and Data Retention
 Prometheus is not a distributed database. It stores data on a local EBS volume attached to its Pod.
 If the Prometheus Pod dies, and the EBS volume is lost, you lose all your company's historical metrics.
@@ -302,12 +308,6 @@ trains the team to ignore the channel that the real one will arrive in.
 
 ---
 
-## Practise this
-
-- [Deploying Kube-Prometheus-Stack on AWS EKS](/labs/lab-17-deploying-kube-prometheus-stack-on-aws-eks) — scrape the cluster you built
-- [Custom Prometheus Alert Rules & Grafana Dashboards](/labs/lab-18-custom-prometheus-alert-rules-grafana-dashboards) — write a rule, then make it fire on purpose
-
----
 
 ## Interview Questions
 

@@ -120,6 +120,9 @@ Helm's `checksum/config` pattern does.
 
 ---
 
+> **Practise:** [Core Kubernetes Workloads, ConfigMaps & Secrets](/labs/lab-11-core-kubernetes-workloads-configmaps-secrets)
+> wires configuration into a running workload both ways.
+
 ## Level 2 — Intermediate
 
 ### Secret: the same thing, with different handling
@@ -213,6 +216,9 @@ With a default StorageClass, that PVC causes a real EBS volume to be created,
 attached to whichever node the Pod lands on, and mounted. You never wrote a
 PersistentVolume — the provisioner did.
 
+> **Practise:** [Kubernetes Storage: PVC, PV and StorageClass](/labs/lab-k8s-storage)
+> provisions, mounts, resizes and then loses a volume.
+
 ### Access modes are about nodes, not Pods
 
 | Mode | Short | Meaning |
@@ -263,6 +269,9 @@ volumeBindingMode: WaitForFirstConsumer
 
 ---
 
+> **Practise:** [Backup & Disaster Recovery Drill](/labs/lab-sre-backup-disaster-recovery)
+> shows what a reclaim policy costs you when it matters.
+
 ## Level 3 — Advanced
 
 ### `WaitForFirstConsumer` is not a minor setting
@@ -298,6 +307,9 @@ rescheduled starts empty.
 
 `medium: Memory` is worth knowing: it is RAM, it counts against the container's
 memory limit, and filling it gets the Pod OOM-killed.
+
+> **Practise:** [Docker Networking, Volumes & Health Checks](/labs/lab-docker-networking-volumes-healthchecks)
+> covers the same ideas one layer down, where they are simpler.
 
 ### Projected volumes: several sources, one directory
 
@@ -373,12 +385,3 @@ anyone with `get pods`.
 
 ---
 
-## Practise this
-
-- [Kubernetes Storage: PVC, PV and StorageClass](/labs/lab-k8s-storage) —
-  provision, mount, resize and lose a volume
-- [Core Kubernetes Workloads, ConfigMaps & Secrets](/labs/lab-11-core-kubernetes-workloads-configmaps-secrets)
-- [Docker Networking, Volumes & Health Checks](/labs/lab-docker-networking-volumes-healthchecks)
-  — the same ideas, simpler
-- [Backup & Disaster Recovery Drill](/labs/lab-sre-backup-disaster-recovery) —
-  what a reclaim policy costs you

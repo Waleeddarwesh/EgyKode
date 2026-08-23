@@ -385,6 +385,10 @@ reason — the pod can be rescheduled and the data is still there.
 
 ---
 
+> **Practise:** [Docker Networking, Volumes & Health Checks](/labs/lab-docker-networking-volumes-healthchecks)
+> takes networking, volumes and health checks together — the three things
+> that break first.
+
 ## Level 3 — Building a production image
 
 ### Multi-stage builds
@@ -425,6 +429,9 @@ the runtime. That reduces attack surface and removes much of the tooling an
 attacker would reach for after a compromise — it does not make exploitation
 impossible, and it makes debugging harder, which is a real trade-off rather
 than a pure win.
+
+> **Practise:** [Production-Grade Multi-Stage Dockerfile](/labs/lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn)
+> builds the small, non-root image this section argues for.
 
 ### Run as a non-root user
 
@@ -518,6 +525,9 @@ or self-healing that this platform needs from Kubernetes. That is the reason to
 move on — not that Compose is unfit for every purpose.
 
 ---
+
+> **Practise:** [Nginx Reverse Proxy & Multi-Container Compose Stack](/labs/lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack)
+> turns several containers into one system.
 
 ## Level 3 — Debugging a container
 
@@ -732,10 +742,3 @@ do you look?
 > not a default.
 [Contents](/learn) | [Container Orchestration (Kubernetes)](/learn/kubernetes/kubernetes) |
 
-## Practise this
-
-- [Production-Grade Multi-Stage Dockerfile](/labs/lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn) — small, non-root, cached properly
-- [Docker Networking, Volumes & Health Checks](/labs/lab-docker-networking-volumes-healthchecks) — the three things that break first
-- [Nginx Reverse Proxy & Multi-Container Compose Stack](/labs/lab-10-nginx-reverse-proxy-multi-container-docker-compose-stack) — several containers, one system
-
----

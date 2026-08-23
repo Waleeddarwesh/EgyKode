@@ -107,6 +107,9 @@ plan، وملف الـ state، ورفضه التصرّف حين لا يتغيّ�
 3. `terraform apply`: ينفّذ الخطة ويحدّث ذاكرة `terraform.tfstate`.
 4. `terraform destroy`: يقرأ الذاكرة ويحذف كل ما أنشأه.
 
+> **Practise:** [Terraform Remote State & Locking](/labs/lab-terraform-remote-state)
+> ينقل الـ state إلى الـ S3 backend الذي يستخدمه المشروع الختامي، ويُظهر ممّا يحميك القفل.
+
 ### Providers — how Terraform talks to a cloud
 
 Terraform نفسه لا يعرف شيئًا عن AWS. إنه محرّك صغير يقرأ ملفاتك، ويبني رسمًا بيانيًا للاعتماديات، ثم يستدعي **Providers** — وهي plugins تترجم كتل `resource` إلى استدعاءات API. وهناك providers لـ AWS و Kubernetes و GitHub و Cloudflare وآلاف الأشياء الأخرى.
@@ -178,6 +181,9 @@ Plan: 2 to add, 1 to change, 0 to destroy.
 terraform plan -out=tfplan       # review this artifact
 terraform apply tfplan           # apply exactly it, no new decisions
 ```
+
+> **Practise:** [Terraform Fundamentals](/labs/lab-terraform-fundamentals)
+> يمرّ بالـ provider والـ resource والـ variable والـ output، وأول plan وapply لك.
 
 ### Variables and outputs
 
@@ -299,6 +305,9 @@ modules/vpc/
 
 ---
 
+> **Practise:** [Terraform Modules](/labs/lab-terraform-modules)
+> يجعلك تكتب البنية التحتية مرة وتستخدمها مرتين.
+
 ## Level 3 — Advanced
 
 ### Analyzing the Actual Code (Line-by-Line Breakdown)
@@ -361,6 +370,9 @@ terraform {
 ولا تمعن في التقسيم إلا حين يؤلمك الوضع: ملف state كبير إلى حدّ يستغرق فيه `plan` دقائق، أو حدٌّ تنظيمي يجب عنده ألّا يستطيع فريق تدمير موارد فريق آخر. فالحالات شديدة التجزئة تستبدل بذلك الأمان مشكلةً جديدة — تمرير القيم بينها عبر `terraform_remote_state`، وهو ما يعيد إنتاج الترابط الذي قسّمتها من أجل تجنّبه.
 
 ---
+
+> **Practise:** [Terraform Validation, Linting & CI](/labs/lab-terraform-testing-ci)
+> يمسك plan سيئًا قبل أن يصل إلى حساب حقيقي.
 
 ## Level 4 — Enterprise
 
@@ -501,25 +513,6 @@ terraform plan
 
 ---
 
-## Practise this
-
-يغطّي كل معمل طبقة واحدة من هذا الفصل، بالترتيب الذي بناها به الفصل.
-
-- [Terraform Fundamentals](/labs/lab-terraform-fundamentals) — الـ provider
-  والـ resource والـ variable والـ output، وأول plan وapply لك
-- [Terraform Modules](/labs/lab-terraform-modules) — اكتب البنية التحتية مرة
-  واستخدمها مرتين
-- [Terraform Remote State & Locking](/labs/lab-terraform-remote-state) — الـ S3
-  backend الذي يستخدمه المشروع الختامي، وممّا يحميك القفل
-- [Terraform Drift & State Recovery](/labs/lab-terraform-state-recovery) — يُعدَّل
-  الـ console من خلفك؛ طابِق الوضع من جديد
-- [Terraform Validation, Linting & CI](/labs/lab-terraform-testing-ci) — أمسك
-  plan سيئًا قبل أن يصل إلى حساب حقيقي
-
-**التالي:** [Ansible](/learn/ansible/ansible/) — ينشئ Terraform الأجهزة، ويبقى
-أن يضبط شيء ما ما يعمل عليها.
-
----
 
 ## Interview Questions
 

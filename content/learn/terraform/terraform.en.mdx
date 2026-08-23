@@ -117,6 +117,10 @@ Terraform needs a brain. When it builds a server in AWS, it needs to remember th
 3. `terraform apply`: Executes the plan and updates the `terraform.tfstate` memory.
 4. `terraform destroy`: Reads the memory and deletes everything it ever created.
 
+> **Practise:** [Terraform Remote State & Locking](/labs/lab-terraform-remote-state)
+> moves state to the S3 backend the capstone uses, and shows what the lock
+> protects.
+
 ### Providers — how Terraform talks to a cloud
 
 Terraform itself knows nothing about AWS. It is a small engine that reads your
@@ -209,6 +213,9 @@ was reviewed, so nothing can drift between the review and the change:
 terraform plan -out=tfplan       # review this artifact
 terraform apply tfplan           # apply exactly it, no new decisions
 ```
+
+> **Practise:** [Terraform Fundamentals](/labs/lab-terraform-fundamentals)
+> walks provider, resource, variable, output and your first plan and apply.
 
 ### Variables and outputs
 
@@ -355,6 +362,9 @@ upgrade on their own schedule.
 
 ---
 
+> **Practise:** [Terraform Modules](/labs/lab-terraform-modules)
+> has you write infrastructure once and use it twice.
+
 ## Level 3 — Advanced
 
 ### Analyzing the Actual Code (Line-by-Line Breakdown)
@@ -434,6 +444,9 @@ passing values between them with `terraform_remote_state`, which recreates the
 coupling you split them up to avoid.
 
 ---
+
+> **Practise:** [Terraform Validation, Linting & CI](/labs/lab-terraform-testing-ci)
+> catches a bad plan before it ever reaches an account.
 
 ## Level 4 — Enterprise
 
@@ -580,25 +593,6 @@ investigation.
 
 ---
 
-## Practise this
-
-Each lab covers one layer of this chapter, in the order the chapter built them.
-
-- [Terraform Fundamentals](/labs/lab-terraform-fundamentals) — provider,
-  resource, variable, output, and your first plan and apply
-- [Terraform Modules](/labs/lab-terraform-modules) — write infrastructure once
-  and use it twice
-- [Terraform Remote State & Locking](/labs/lab-terraform-remote-state) — the S3
-  backend the capstone uses, and what the lock is protecting you from
-- [Terraform Drift & State Recovery](/labs/lab-terraform-state-recovery) — the
-  console gets edited behind you; reconcile it
-- [Terraform Validation, Linting & CI](/labs/lab-terraform-testing-ci) — catch a
-  bad plan before it reaches an account
-
-**Next:** [Ansible](/learn/ansible/ansible/) — Terraform creates the machines,
-and something still has to configure what runs on them.
-
----
 
 ## Interview Questions
 
