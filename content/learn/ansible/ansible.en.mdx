@@ -24,12 +24,15 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to Ansible
+## Why this comes after Terraform
 
 In [Infrastructure as Code](/learn/terraform/terraform/), Terraform built the physical (virtual) hardware for us. We now have blank Linux servers sitting in the AWS Cloud.
 But a blank server is useless. We need to install Docker, configure Kubernetes, download security patches, and start services. 
 
 Doing this manually across 50 servers would take days. **Ansible** is the robot that logs into all 50 servers simultaneously and configures them in minutes. This is called **Configuration Management**.
+
+**In the capstone**, Ansible turns the bare EC2 instance into the Jenkins host,
+through nine roles.
 
 ---
 

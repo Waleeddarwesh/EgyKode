@@ -27,7 +27,18 @@ authors: [waleed]
 updated: 2026-08-10
 ---
 
-## Introduction
+## Why this comes after the Kubernetes architecture
+
+You know what the control plane is and how a declared state becomes a running
+one. What you have not done is declare anything. This is the first chapter where
+you hand Kubernetes an object and it does something.
+
+**In the capstone**, these are the Deployments and the MySQL StatefulSet in the
+`ivolve` namespace.
+
+---
+
+## Controllers, not containers
 
 You never tell Kubernetes to run a container. You tell it what you want to be
 true, and a **controller** spends the rest of its life making reality match.

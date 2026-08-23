@@ -24,12 +24,20 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to Container Security
+## Why this comes after the supply chain
+
+Scanning secured what you *ship*: the image is signed, its CVEs are known, and
+the pipeline refuses to publish it otherwise. None of that constrains what the
+container is allowed to *do* once the cluster starts it. A clean image running
+as root with the full capability set is a clean image with root on the node.
 
 We have built a beautiful, highly-available, automated DevOps pipeline. 
 But if you run an insecure Docker container in your Kubernetes cluster, a hacker will break in, escape the container, take over the Worker Node, and destroy your database.
 
 **DevSecOps** is the practice of integrating security into every single step of the pipeline, rather than treating it as an afterthought.
+
+**In the capstone**, these are the non-root, read-only, capability-dropped
+containers that admission enforces.
 
 ---
 

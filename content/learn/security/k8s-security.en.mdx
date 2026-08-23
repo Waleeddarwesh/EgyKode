@@ -27,7 +27,19 @@ authors: [waleed]
 updated: 2026-08-10
 ---
 
-## Introduction
+## Why this comes after networking
+
+Everything now works: workloads run, hold configuration, keep data and reach one
+another. Working and safe are different properties, and by default a Pod in this
+cluster runs as root, can talk to every other Pod, and carries a token that the
+API server will answer.
+
+**In the capstone**, this is the RBAC, ServiceAccounts and Pod Security Standard
+the namespace enforces.
+
+---
+
+## Three questions, three systems
 
 Kubernetes security has three questions, and they are answered by three
 different systems that people routinely confuse:

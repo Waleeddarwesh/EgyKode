@@ -27,7 +27,20 @@ authors: [waleed]
 updated: 2026-08-10
 ---
 
-## Introduction
+## Why this comes after workloads
+
+You can run replicas of an image and have Kubernetes keep them running. Two
+things are still wrong with that image. It carries its configuration inside it,
+so the copy you tested is not the copy you ship. And anything it writes lives in
+the Pod, which the last chapter taught you to treat as disposable — which is
+fine, until the Pod is a database.
+
+**In the capstone**, these are the ConfigMaps, Secrets and the `gp3` PVC behind
+`mysql-0`.
+
+---
+
+## Configuration does not belong in the image
 
 An image should be identical in every environment. The moment it contains a
 database hostname, it is no longer one artifact promoted through staging into

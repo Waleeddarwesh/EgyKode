@@ -24,11 +24,18 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to Prometheus
+## Why this comes after observability
+
+The previous chapter set the questions a running platform has to answer. This
+one answers the numeric half of them, and the answer has to arrive without
+anybody being awake to ask.
 
 How do you know if a server's CPU is at 99%? Someone has to check.
 
 **Prometheus** is a Time-Series Database (TSDB) and monitoring system. Its entire job is to constantly ask every server and Pod in your cluster, *"How are you doing right now?"* and write the answers down in a massive database.
+
+**In the capstone**, Prometheus scrapes pods, nodes and endpoints, with twelve
+alert rules that link to runbooks.
 
 ---
 

@@ -27,7 +27,19 @@ authors: [waleed]
 updated: 2026-08-10
 ---
 
-## Introduction
+## Why this comes after securing the workloads
+
+Every chapter so far has been about what you put *into* a cluster. This one is
+about the cluster itself — the nodes underneath your Pods, what happens when one
+has to be taken away, and what a version upgrade does to everything running on
+it.
+
+**In the capstone**, this is operating the cluster: nodes, upgrades and
+disruption budgets.
+
+---
+
+## What EKS abstracts away
 
 Managed Kubernetes hides the control plane, and that is usually the right
 trade — the capstone project uses **EKS** for exactly that reason. But a cluster

@@ -24,7 +24,15 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to Helm
+## Why this comes after the Kubernetes chapters
+
+You can write every object the platform needs by hand, and you now know what
+each one does. The problem is not writing them once — it is writing them again
+for staging with three values changed, and installing somebody else's forty
+objects without reading all forty.
+
+**In the capstone**, Helm installs kube-prometheus-stack and the AWS Load
+Balancer Controller.
 
 In [Kubernetes Workloads](/learn/kubernetes/k8s-workloads/), we saw that deploying a simple API to Kubernetes requires a massive YAML file. 
 Now imagine you want to install something complex, like a Prometheus Monitoring stack. It requires **40 different YAML files** (Deployments, Services, ConfigMaps, Secrets, RBAC Roles, DaemonSets). 

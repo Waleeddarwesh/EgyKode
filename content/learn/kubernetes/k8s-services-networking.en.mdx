@@ -27,7 +27,17 @@ authors: [waleed]
 updated: 2026-08-10
 ---
 
-## Introduction
+## Why this comes after configuration and storage
+
+Your workloads run, keep their configuration outside the image, and survive a
+restart with their data. They still cannot talk to each other.
+
+**In the capstone**, these are the ClusterIP Services, the headless Service and
+the Ingress routing.
+
+---
+
+## A Service is a rule, not a process
 
 Pods get an IP address, and it changes every time one is replaced. Nothing can
 be built on an address that does not survive a rollout.

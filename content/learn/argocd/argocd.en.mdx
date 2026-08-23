@@ -24,11 +24,18 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to ArgoCD
+## Why this comes after GitOps
+
+The previous chapter argued the principle: the cluster should be whatever Git
+says it is, and no human should be running `kubectl apply` at production. A
+principle needs something inside the cluster doing the comparing.
 
 In [Continuous Integration](/learn/jenkins/jenkins/) and [Modern CI](/learn/github-actions/github-actions/), we learned how Jenkins and GitHub Actions compile our Java code, run tests, and build a Docker image. But what happens next? How does that Docker image actually get into our Kubernetes cluster?
 
 **ArgoCD** is the answer. It is a declarative, GitOps continuous delivery tool for Kubernetes. It lives *inside* your cluster and acts as a strict synchronization engine.
+
+**In the capstone**, Argo CD reconciles the cluster against
+`04-Kubernetes/manifests`, in sync waves.
 
 ---
 

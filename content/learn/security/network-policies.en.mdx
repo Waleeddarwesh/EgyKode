@@ -24,7 +24,11 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to Network Policies
+## Why this comes after hardening the container
+
+The container is now unprivileged, read-only and stripped of capabilities. That
+limits what an attacker can do *inside* it. It says nothing about where they can
+go next, and by default the answer is everywhere.
 
 By default in Kubernetes, **all Pods can talk to all other Pods.**
 If the Frontend Pod is in `namespace-a`, and the Database Pod is in `namespace-b`, the Frontend can ping the Database.
@@ -32,6 +36,9 @@ If the Frontend Pod is in `namespace-a`, and the Database Pod is in `namespace-b
 If a hacker breaks into the Frontend Pod, they will instantly run an automated script that scans the entire cluster for databases, and they will download all your data. 
 
 **Zero-Trust Networking** means exactly what it sounds like: trust no one. We must build microscopic firewalls around every single Pod.
+
+**In the capstone**, these are the eight default-deny NetworkPolicies in the
+namespace.
 
 ---
 

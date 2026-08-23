@@ -24,12 +24,20 @@ authors: [waleed]
 updated: 2026-08-08
 ---
 
-## Introduction to Observability
+## Why this comes after the delivery loop
+
+Every layer is now automated. A push builds, scans and reconciles itself into
+the cluster without you — which means changes reach production faster than
+anyone can watch them, and nothing yet tells you whether the last one made
+things worse.
 
 We have built a massive system. We have Jenkins compiling code, ArgoCD deploying it, Kubernetes running it, Auto Scaling Groups managing the servers, and a MySQL StatefulSet storing the data.
 
 But what happens when the website goes down at 2:00 AM?
 If you have no visibility into the system, you are flying blind. **Observability** is the practice of understanding the internal state of a complex system based on its external outputs.
+
+**In the capstone**, this is what the platform must be able to answer about its
+own health.
 
 ---
 
