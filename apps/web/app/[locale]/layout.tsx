@@ -4,11 +4,11 @@ import { notFound } from "next/navigation";
 
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { StaleBuildGuard } from "@/components/layout/stale-build-guard";
-import { ServiceWorker } from "@/components/pwa/service-worker";
 import { TopBar } from "@/components/layout/topbar";
 import { fontVariables } from "@/lib/fonts";
 import { PUBLIC_LOCALES, dir, getTranslations, isLocale, type Locale, languageAlternates } from "@/lib/i18n";
 import { SITE } from "@/lib/site";
+import { SW_REGISTER_SCRIPT } from "@/lib/sw-register-script";
 import { THEME_SCRIPT } from "@/lib/theme-script";
 import { organization } from "@/lib/structured-data";
 
@@ -93,6 +93,7 @@ export default async function LocaleLayout({
     <html lang={typed} dir={dir(typed)} className={fontVariables} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: SW_REGISTER_SCRIPT }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -114,7 +115,6 @@ export default async function LocaleLayout({
         </main>
 
         <StaleBuildGuard />
-        <ServiceWorker />
 
         <MobileNav
           locale={typed}

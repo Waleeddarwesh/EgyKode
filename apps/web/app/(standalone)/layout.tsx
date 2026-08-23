@@ -1,4 +1,5 @@
 import { fontVariables } from "@/lib/fonts";
+import { SW_REGISTER_SCRIPT } from "@/lib/sw-register-script";
 import { THEME_SCRIPT } from "@/lib/theme-script";
 
 /**
@@ -33,6 +34,7 @@ export default function StandaloneLayout({ children }: { children: React.ReactNo
     <html lang="en" dir="ltr" className={fontVariables} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: SW_REGISTER_SCRIPT }} />
       </head>
       <body className="font-sans antialiased">{children}</body>
     </html>
