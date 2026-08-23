@@ -113,9 +113,39 @@ The prose recommendation still stands for the 36 core chapters that never say it
 in their own text — the badge states the connection, the chapter should still
 close the loop.
 
-### 2. `content/index.json` is stale
+### 2. `content/index.json` was stale — FIXED, and worse than first reported
 
-It holds 47 entries against 57 chapter files. Ten chapters with
+The duration drift was the least of it. **Thirty of the 47 records carried a
+stale `order`** — Terraform 13 in the catalogue against 21 in the chapter,
+Kubernetes 19 against 23, Jenkins 23 against 34, everything from kubeadm onward
+off by eight to eleven places. The file was a snapshot from before the
+Kubernetes chapter was split, and every chapter after the insertion point kept
+its old position. Two titles were stale as well.
+
+The chapter MDX is now canonical and the catalogue is generated from it by
+`scripts/build-content-index.mjs`, with `--check` wired into `verify` ahead of
+`content:lint`. The invariant is total: one record per file, one file per
+record, every compared field equal.
+
+The domain allow-list had to move at the same time. It was derived from
+`content/index.json`, so the linter validated chapters against a list assembled
+out of chapters — and once the index became generated, that check would have
+gone completely vacuous. Measured, not assumed: with a regenerated catalogue the
+old allow-list accepts a chapter whose domain is typed `dokcer`. It now reads
+`content/domains.json`, the registry backing the topic pages, and the typo is
+rejected.
+
+**A third defect surfaced while printing the sequence:** two `order` values were
+claimed twice — 42 by `logging` and `supply-chain-security`, 44 by
+`network-policies` and `sre-fundamentals`, in both cases a new phase's first
+chapter colliding with the previous phase's last. `content.ts:113` sorts by
+`order` with no tiebreak, so the sequence of each colliding pair was left to
+readdir. Everything from the security phase onward shifted up by one, giving a
+contiguous 0–56, and the gate now rejects a repeat.
+
+### 2b. Why the reported symptom was not the defect
+
+The state before the fix: 47 entries against 57 chapter files. Ten chapters with
 `status: complete` are absent: `ec2`, `s3`, `gateway-api`,
 `k8s-cluster-administration`, `k8s-config-storage`, `k8s-services-networking`,
 `k8s-workloads`, `k8s-security`, `supply-chain-security`, `sre-fundamentals`.
@@ -135,7 +165,7 @@ the content linter, and ten complete chapters are missing from it. Either
 regenerate it from frontmatter or delete it and have the linter read the
 frontmatter it already trusts.
 
-### 3. Terraform teaches the workflow before the problem
+### 3. Terraform taught the workflow before the problem — FIXED (pilot)
 
 `content/learn/terraform/terraform.en.mdx` is 451 lines. It contains the right
 section — `### What Existed Before? (Bash Scripts)` — at **line 328, 73% of the
@@ -147,6 +177,22 @@ workflow before being told which problem it solves. Compare `docker`, which puts
 the same element at line 31 of 733.
 
 This is why the audit script scores position, not just presence.
+
+**Fixed as the pilot for the standard.** The author's own text was moved, not
+rewritten, and now opens the chapter at ~11% depth. The generic introduction was
+replaced by a bridge built from the learner's own work — the VPC, IAM role, EC2
+instance, bucket, load balancer, auto scaling group and registry they just built
+by hand — asking which of them changed last Tuesday, whether an identical
+staging copy could be built this afternoon, and how long a rebuild would take.
+A "When it breaks" section covers the four failures that actually hurt, and
+"Practise this" links the five Terraform labs in build order. Terraform is the
+first chapter clean on all six structural elements.
+
+**One constraint discovered doing it:** `terraform.ar.mdx` is the curriculum's
+only translation, and `check-translation.mjs` enforces matching heading levels,
+links and code blocks between the pair. The Arabic chapter therefore carries the
+same restructure. The other 27 core chapters needing a bridge have no
+translation, so this cost does not repeat.
 
 ---
 
@@ -202,17 +248,16 @@ Following the standard's priority rule — core path first, no polishing referen
 material while a core chapter has a beginner blocker.
 
 1. ~~**Render `capstonePurpose` on the chapter page.**~~ Done — see defect 1.
-2. **Add a why-now bridge to the 28 core chapters that open generically.** Each
-   is a few sentences naming what the learner already has, what it does not
-   solve, and what this adds. Highest ratio of learner value to edit size.
-3. **Fix `terraform`'s ordering** — move "What Existed Before?" above the
-   workflow. Pilot the full standard here, plus `networking-fundamentals` and
-   `k8s-workloads`, before touching the rest.
+2. **Add a why-now bridge to the 27 remaining core chapters that open
+   generically** (Terraform done). Each names what the learner already has, what
+   it does not solve, and what this adds. Highest ratio of learner value to edit
+   size.
+3. ~~**Fix `terraform`'s ordering**~~ Done — see defect 3. Pilot the rest of the
+   standard on `networking-fundamentals` and `k8s-workloads` next.
 4. **Add troubleshooting to the 30 core chapters without it**, as
    symptom → evidence → hypothesis → test → fix, using the per-area failure list
    in the standard.
-5. **Resolve `content/index.json`** — regenerate from frontmatter, or delete it
-   and repoint `lint-content.mjs`.
+5. ~~**Resolve `content/index.json`**~~ Done — see defect 2.
 6. **Then** re-read for classes E and F, which scripting cannot find.
 
 Re-run `node scripts/audit-chapter-teaching.mjs` after each batch, remembering
