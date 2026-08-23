@@ -18,6 +18,23 @@
  *   app shell + assets   cache-first      immutable, fingerprinted, ~1.4 MB
  *   pages (HTML)         network-first    always current when online, readable offline
  *   everything else      stale-while-revalidate
+ *
+ * Three service-worker features PWABuilder scores are deliberately absent, and
+ * it is worth saying why so the empty checkboxes are not mistaken for an
+ * oversight:
+ *
+ *   Push notifications   Need a push service and a backend holding
+ *                        subscriptions. EgyKode is a static export with
+ *                        neither, and a learning site that interrupts you is
+ *                        worse than one that does not.
+ *   Background sync      Retries failed *writes*. Nothing here writes to a
+ *                        server; progress lives in localStorage.
+ *   Periodic sync        Could refresh chapters in the background, but it is
+ *                        Chromium-only, gated behind engagement heuristics that
+ *                        make it fire unpredictably, and network-first already
+ *                        gives a current page whenever the reader is online.
+ *                        It would add a code path that is hard to test for a
+ *                        benefit the caching strategy already delivers.
  */
 
 const VERSION = "v1";

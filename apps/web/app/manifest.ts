@@ -147,6 +147,14 @@ export default function manifest(): EgyKodeManifest {
  *                    nowhere.
  *   tabbed           `display_override: ["tabbed"]` is experimental, and the
  *                    navigation here is a sidebar, not tabs.
+ *   window-controls-overlay
+ *                    Declaring it in `display_override` is the easy half. The
+ *                    other half is a CSS layout built on `env(titlebar-area-*)`
+ *                    and a custom draggable title bar; without that, the app
+ *                    draws into the title bar strip and the header ends up
+ *                    underneath the close button. Worth revisiting as a real
+ *                    piece of work — the reclaimed vertical space suits a
+ *                    reading app — but it is a feature, not a manifest line.
  *   scope_extensions EgyKode is one origin. There is nothing to extend to.
  *   iarc_rating_id   Requires a certificate issued by a ratings body. Partner
  *                    Center collects the age rating through its own
