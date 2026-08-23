@@ -13,8 +13,17 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CONTENT = join(ROOT, "content");
 const MESSAGES = join(ROOT, "apps", "web", "messages");
 
-const DOMAINS = new Set(Object.keys(JSON.parse(readFileSync(join(ROOT, "content", "index.json"), "utf8"))
-  .reduce((acc, c) => ({ ...acc, [c.domain]: true }), {})));
+// The domain allow-list comes from the registry, not from the catalogue.
+//
+// It used to be derived from content/index.json, which made this linter check
+// chapters against a list built out of chapters: any domain could be declared
+// valid simply by a chapter declaring it, and a domain whose only chapter fell
+// out of the index would silently drop out of the allow-list. content/domains.json
+// is the actual registry - it carries the titles and blurbs the topic pages
+// render - so a typo'd domain now fails instead of quietly widening the set.
+const DOMAINS = new Set(
+  Object.keys(JSON.parse(readFileSync(join(CONTENT, "domains.json"), "utf8")).domains),
+);
 const LEVELS = new Set(["beginner", "intermediate", "advanced", "expert", "all"]);
 const TYPES = new Set(["concept", "howto", "reference", "lab", "decision", "troubleshooting", "interview", "course"]);
 const REQUIRED = ["contentId", "title", "description", "domain", "level", "type", "status"];
