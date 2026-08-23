@@ -186,6 +186,49 @@ Modern platform engineering uses **Karpenter** (an advanced open-source node pro
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.**
+
+### It scaled out and never scaled back in
+
+**Symptom.** Capacity grows during a spike and stays there, at cost.
+
+**Evidence.** The scaling activity history, and the alarm that should trigger the
+scale-in.
+
+**Hypothesis.** Scale-in is deliberately harder than scale-out — a cooldown, or a
+scale-in alarm whose threshold is never met because the metric is averaged across
+a group that is now larger and therefore quieter per instance.
+
+**Test.** Graph the metric the policy uses across the whole window and see
+whether it ever crosses the scale-in threshold.
+
+**Fix.** Target tracking rather than paired step alarms, where you can. It
+computes both directions from one target and avoids the case where scaling out
+makes the scale-in condition unreachable.
+
+### Healthy instances keep being terminated and replaced
+
+**Symptom.** The group churns: instances come up, are killed, and are replaced.
+
+**Evidence.** The activity history gives a reason, and it usually names the
+health check.
+
+**Hypothesis.** The group is using ELB health checks and the load balancer thinks
+the instance is unhealthy — so the group replaces a machine whose application is
+fine but whose health check is misconfigured. The replacement fails the same
+check, and the loop continues.
+
+**Test.** Set the group to EC2 health checks temporarily. If churn stops, it was
+the load balancer's opinion, not the instance.
+
+**Fix.** Fix the health check — see the load balancer chapter — and set a health
+check grace period long enough for the application to start. A grace period
+shorter than boot time guarantees this loop.
+
+---
+
 ## Interview Questions
 
 ### Beginner

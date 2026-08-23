@@ -265,6 +265,69 @@ If a developer tries to `kubectl exec` into a running production container and t
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.** Hardening breaks applications,
+and the breakages are predictable. Knowing them is the difference between
+hardening a workload and turning the controls back off.
+
+### `container has runAsNonRoot and image will run as root`
+
+**Symptom.** The Pod never starts, with that message in its events.
+
+**Evidence.**
+
+```bash
+kubectl describe pod <pod> -n ivolve
+```
+
+**Hypothesis.** `runAsNonRoot: true` is a **check**, not an instruction. The
+kubelet refuses to start a container whose image would run as root, and it can
+only make that judgement from a numeric UID — an image whose `USER` is a name
+cannot be verified before it starts, so it is refused.
+
+**Test.** `docker inspect --format='{{.Config.User}}' myapp:latest` shows what the
+image declares.
+
+**Fix.** Set a numeric UID in the Dockerfile (`USER 10001`), or set `runAsUser`
+explicitly in the securityContext. Do not solve it by removing `runAsNonRoot`.
+
+### `read-only file system` at startup
+
+**Symptom.** The application starts and immediately fails writing to `/tmp`, a
+cache, or a log path.
+
+**Evidence.** The error names the path.
+
+**Hypothesis.** `readOnlyRootFilesystem: true` is doing exactly what it says.
+Most applications need somewhere writable, and the point is to choose where
+rather than to leave the whole filesystem writable.
+
+**Test.** Reproduce it deliberately with `--read-only` under Docker before
+blaming Kubernetes.
+
+**Fix.** Mount an `emptyDir` at each path the application genuinely writes to.
+The result is a container that can write to two directories instead of all of
+them, which is the entire objective.
+
+### The app cannot bind its port after dropping capabilities
+
+**Symptom.** `permission denied` binding port 80, once capabilities are dropped.
+
+**Evidence.** The securityContext drops `ALL`, and the container listens below
+1024.
+
+**Hypothesis.** Binding a privileged port requires `NET_BIND_SERVICE`, which
+`drop: [ALL]` removed.
+
+**Test.** Add the capability back temporarily and watch it start.
+
+**Fix.** Listen on a high port instead — 8080 — and let the Service map 80 to it.
+Adding the capability back works and keeps a privilege you did not need; changing
+the port removes the requirement altogether. Prefer removing the requirement.
+
+---
+
 ## Interview Questions
 
 ### Beginner

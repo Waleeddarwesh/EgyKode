@@ -790,6 +790,86 @@ cluster.
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.** The individual object chapters
+carry their own failures. These are the cluster-level ones, and the order below
+is the order to work in.
+
+### Start with events, always
+
+Whatever the symptom, the first command is the same:
+
+```bash
+kubectl describe pod <pod> -n ivolve
+kubectl get events -n ivolve --sort-by=.lastTimestamp
+```
+
+Kubernetes narrates what it is doing. Most questions people bring to a search
+engine are answered in the Events block at the bottom of `describe`, in plain
+English, naming the exact reason.
+
+### `Pending` — nothing has tried to run it yet
+
+**Symptom.** A Pod sits in `Pending`.
+
+**Evidence.** The scheduler writes its reason into the events, and it is
+specific: insufficient cpu, insufficient memory, no nodes matching a selector, an
+untolerated taint, or an unbound PVC.
+
+**Hypothesis.** `Pending` is a **scheduling** state. The image has not been
+pulled and no container has been attempted, so nothing about the application can
+be the cause.
+
+**Test.** `kubectl get nodes` and compare the Pod's requests against what is
+actually free.
+
+**Fix.** Per the reason given. Do not go looking at logs — there are none, because
+nothing has started.
+
+### `ImagePullBackOff` — the cluster cannot get the image
+
+**Symptom.** The Pod is scheduled and never starts.
+
+**Evidence.** The events name it: not found, unauthorized, or a timeout.
+
+**Hypothesis.** A wrong tag, a private registry with no `imagePullSecret`, or an
+expired registry credential.
+
+**Test.** Pull the same reference from a node, or from a throwaway Pod. If it
+fails there too, Kubernetes is not the problem.
+
+**Fix.** Per branch. `unauthorized` on an image that used to work is usually an
+expired token rather than a changed permission.
+
+### `CrashLoopBackOff` — it started, and it keeps dying
+
+**Symptom.** Restart count climbing, the Pod never becoming ready.
+
+**Evidence.** The log of the container that **already died**, which is not the
+same as the log of the one running now:
+
+```bash
+kubectl logs <pod> -n ivolve --previous
+```
+
+**Hypothesis.** The application exits on startup — missing configuration, a
+dependency it cannot reach, or a failing liveness probe restarting a healthy but
+slow process.
+
+**Test.** The exit code separates them. `kubectl describe` reports it under Last
+State: `1` is usually the application refusing to start, `137` is a kill —
+memory limit or a liveness probe — and `143` is a graceful termination.
+
+**Fix.** Per cause. If the exit code is `137` with `OOMKilled`, the limit is the
+finding, not the application.
+
+Work one under time pressure in
+[Incident: CrashLoopBackOff](/labs/lab-incident-crashloopbackoff), where you get
+the symptom and nothing else.
+
+---
+
 ## Interview Questions
 
 ### Beginner

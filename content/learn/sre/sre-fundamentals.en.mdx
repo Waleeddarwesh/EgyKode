@@ -264,6 +264,72 @@ risk, or to lower the objective to one you will actually use.
 
 ---
 
+## When the process breaks
+
+Technical failures have symptoms and evidence. So do process failures, and they
+are worth the same treatment — these are the ones that turn an incident into a
+bad incident.
+
+### The rollback had never been tested
+
+**Symptom.** Mitigation is obvious, the rollback is attempted, and it does not
+work — the previous chart pulls an image that has been garbage-collected, or the
+schema has moved on and the old version cannot read the database.
+
+**Evidence.** Whether the rollback path has ever been exercised outside an
+incident.
+
+**Fix.** Practise it on a normal afternoon. A rollback that has only been
+theorised is a plan, not a control — and the failure mode is identical to the
+untested scan gate: it has never had an opinion, and you find out during the one
+event you needed it for.
+
+### The alert fired and nobody owned it
+
+**Symptom.** An alert has been firing for weeks. Everyone assumes someone else is
+looking.
+
+**Evidence.** Count how many times it fired and how often anyone acted.
+
+**Fix.** Every alert names an owner and links a runbook, or it is deleted. An
+alert with neither trains the team to ignore the channel the real one will arrive
+in — the cost is not the noise, it is the response time on the alert that
+mattered.
+
+### Mitigation was mistaken for a fix
+
+**Symptom.** The service recovered after a restart, the incident was closed, and
+it recurred that night.
+
+**Evidence.** Whether anyone established *why* the restart helped.
+
+**Fix.** Separate the two explicitly. Mitigation restores service and is the
+right first move; the fix comes after, from evidence gathered before the restart
+wiped it. Capture logs and state **first** — a restart usually destroys the
+evidence you need, which is why the crash loop lab teaches reading the log of the
+container that already died.
+
+### The postmortem changed nothing
+
+**Symptom.** A document exists. The same incident happens again.
+
+**Evidence.** Whether it produced owned, dated actions — and whether they shipped.
+
+**Fix.** A postmortem is blameless because people who expect blame report less,
+and the point is the mechanism rather than the person: a system that let one
+mistake reach production is the finding. Judge it by what changed, not by whether
+it was written.
+
+**Practise:**
+[Backup & Disaster Recovery](/labs/lab-sre-backup-disaster-recovery) exercises
+the untested-restore failure directly, and the three incident labs —
+[CrashLoopBackOff](/labs/lab-incident-crashloopbackoff),
+[Cluster DNS](/labs/lab-incident-cluster-dns) and
+[Ingress 502](/labs/lab-incident-ingress-502) — give you a symptom and no
+solution, which is the conditions this chapter is about.
+
+---
+
 ## What comes next
 
 With this in place, the two chapters after it stop being exercises:

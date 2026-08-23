@@ -164,6 +164,68 @@ If a developer tries to merge a YAML file that requests `root` privileges for a 
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.** These are failures of the
+model rather than of any tool, and they show up whichever reconciler you run.
+
+### Git says one thing, the cluster does another, and both are "right"
+
+**Symptom.** The repository describes the intended state, the cluster does not
+match, and nothing reports an error.
+
+**Evidence.** Whether the reconciler is actually watching that path and that
+revision — a branch renamed, a directory moved, or an Application pointed at a
+path that no longer exists reconciles nothing, successfully.
+
+**Hypothesis.** A reconciler that cannot find manifests has nothing to compare,
+which is not the same as finding no differences.
+
+**Test.** Change something trivial in Git and watch whether the cluster follows
+within the sync interval. This is the only end-to-end proof that the loop is
+closed.
+
+**Fix.** Correct the path or revision. Then keep testing the loop deliberately —
+a reconciler nobody has watched reconcile is in the same category as the untested
+scan gate.
+
+### Someone fixed production by hand
+
+**Symptom.** The cluster works, Git does not describe it, and the next sync
+reverts the fix — or worse, nobody notices until a rebuild loses it.
+
+**Evidence.** The diff between desired and live state.
+
+**Hypothesis.** Under GitOps, a manual change is drift by definition, however
+good the reason.
+
+**Test.** Ask what would happen if the namespace were deleted and reconciled from
+scratch. If the answer is "we would lose that change", it exists nowhere durable.
+
+**Fix.** Put the change in Git, even during an incident — especially during an
+incident, because that is when it is most likely to be forgotten. Break-glass
+access should be possible, loud, and followed by a commit.
+
+### The secret cannot go in Git, so the loop is broken for secrets
+
+**Symptom.** Everything is declarative except the secrets, which someone applies
+by hand.
+
+**Evidence.** A namespace that cannot be rebuilt from the repository alone.
+
+**Hypothesis.** Plaintext secrets in Git are unacceptable, and a manual step
+outside the loop is also unacceptable — it is the one thing nobody can reproduce
+under pressure.
+
+**Test.** Try to rebuild the namespace from Git in a scratch cluster.
+
+**Fix.** Keep the *reference* in Git and the *value* in something the cluster can
+resolve: an encrypted manifest, or an operator that fetches from a secret store.
+The rule to preserve is that the repository fully describes the desired state,
+not that every byte of it is in the repository.
+
+---
+
 ## Interview Questions
 
 ### Beginner

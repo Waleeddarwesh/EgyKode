@@ -145,6 +145,58 @@ The Controller sees this YAML file, reaches out to the AWS API, provisions a rea
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.** A load balancer returns a
+different code for each failure, and the code tells you where to look. Learning
+these three saves more time than any dashboard.
+
+### 502, 503 and 504 mean different things
+
+**Symptom.** The load balancer returns an error while the targets look fine.
+
+**Evidence.** The status code, exactly:
+
+| Code | What the load balancer is saying | Look at |
+| --- | --- | --- |
+| **503** | I have no healthy targets to send this to | health checks, or an empty target group |
+| **502** | A target answered, and the answer was unusable or the connection broke | the application, the port mapping, a crash mid-response |
+| **504** | A target accepted the request and never replied in time | a slow dependency, or an idle timeout shorter than the request |
+
+**Hypothesis.** 503 is a registration or health problem and the request never
+reached your code. 502 and 504 mean it did — so debugging health checks on a 502
+is time spent in the wrong place.
+
+**Test.** Bypass the load balancer entirely and request the target directly, on
+its own address and port. If that works, the fault is between the balancer and
+the target: usually the port mapping or the security group.
+
+**Fix.** Per branch. The same distinction applies to a Kubernetes Ingress, which
+is why [Incident: Ingress 502](/labs/lab-incident-ingress-502) is worth doing —
+the cause there is a Service pointing at the wrong container port, and the
+symptom is identical to this.
+
+### Every target is unhealthy and the application is fine
+
+**Symptom.** The target group shows all targets unhealthy; the app answers when
+you curl it from inside.
+
+**Evidence.** The health check's path, port and expected status code, compared
+with what the application actually serves.
+
+**Hypothesis.** The check asks for `/` and the app serves `/healthz`, or the
+check uses the listener port while the app listens on another, or the security
+group does not allow the balancer's subnet to reach the health check port.
+
+**Test.** Make the health check request yourself, from the balancer's subnet,
+against the exact path and port configured.
+
+**Fix.** Whichever the test found. A health check that returns 302 counts as
+unhealthy unless the expected codes say otherwise — an app that redirects `/` to
+a login page fails a naive check while being perfectly healthy.
+
+---
+
 ## Interview Questions
 
 ### Beginner

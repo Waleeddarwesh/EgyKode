@@ -388,6 +388,51 @@ happened if the Dockerfile had a single `COPY . .`.
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.**
+
+### It builds on your machine and fails in CI
+
+**Symptom.** The same commit, two results.
+
+**Evidence.** Compare the two environments rather than the code:
+
+```bash
+java -version
+mvn -version
+```
+
+**Hypothesis.** A different JDK is the usual answer. Second most common is a
+local dependency cache: your `~/.m2` holds an artifact that CI has never
+downloaded, often something you built locally months ago and forgot.
+
+**Test.** Build with an empty cache. `mvn -Dmaven.repo.local=/tmp/emptyrepo
+verify` reproduces what a clean agent sees, and it either passes or names the
+missing dependency.
+
+**Fix.** Pin the JDK in the pipeline and treat the empty-cache build as the real
+one. "Works locally" is a statement about your laptop's accumulated state.
+
+### The build is not reproducible
+
+**Symptom.** The same commit produces different artifacts on different days.
+
+**Evidence.** Look for version ranges, `LATEST`, or `-SNAPSHOT` dependencies in
+the build file.
+
+**Hypothesis.** Any of those resolve at build time, so the inputs change without
+the commit changing. The artifact you tested and the artifact you shipped may
+have different dependency trees.
+
+**Test.** `mvn dependency:tree` on two dates, and diff.
+
+**Fix.** Pin every dependency to a fixed release version. This is the same
+argument as pinning a container image by digest, one layer down — and it is where
+a supply chain either starts or does not.
+
+---
+
 ## Interview Questions
 
 ### Beginner

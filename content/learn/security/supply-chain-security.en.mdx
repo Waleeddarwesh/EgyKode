@@ -257,6 +257,78 @@ mechanism and therefore a production system.
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.** Supply-chain failures are the
+quiet kind: the pipeline is green and the control did nothing.
+
+### The scan found nothing, and the image is old
+
+**Symptom.** A base image months out of date reports zero vulnerabilities.
+
+**Evidence.** Check when the scanner's database was last updated, not when the
+scan ran:
+
+```bash
+trivy image --download-db-only
+trivy image --severity HIGH,CRITICAL myapp:latest
+```
+
+**Hypothesis.** The vulnerability database is cached. An agent image with a
+baked-in database, or an offline runner, scans against whatever was known on the
+day that image was built.
+
+**Test.** Scan a deliberately old image with a known CVE — `debian:11` will do —
+and see whether it is reported.
+
+**Fix.** Refresh the database in the pipeline, and treat a scan that reports
+nothing at all as suspicious rather than reassuring. Zero findings on a large
+base image usually means the scanner did not look, not that there is nothing
+there.
+
+### You scanned one image and deployed another
+
+**Symptom.** The scan passed on `myapp:latest`, and the running container has a
+vulnerability the gate should have caught.
+
+**Evidence.** Compare digests, not tags:
+
+```bash
+docker inspect --format='{{index .RepoDigests 0}}' myapp:latest
+kubectl get pod <pod> -o jsonpath='{.status.containerStatuses[0].imageID}'
+```
+
+**Hypothesis.** A tag is a moving pointer. The image scanned at 10:00 and the
+image pulled at 14:00 can both be `latest` and be different bytes.
+
+**Test.** If the digests differ, the gate examined something that is not running.
+
+**Fix.** Scan, sign and deploy the **digest**. This is the single reason the
+capstone pins images by digest rather than tag, and it is the difference between
+a supply chain and a suggestion.
+
+### Signing is enabled and nothing is verified
+
+**Symptom.** Images are signed in CI, and an unsigned image still runs.
+
+**Evidence.** Ask the cluster what it refuses, rather than reading the pipeline:
+
+```bash
+kubectl run unsigned --image=nginx:alpine --restart=Never -n ivolve
+```
+
+**Hypothesis.** Signing produces a signature. Only an admission controller
+configured to require one turns that into a control. Without enforcement it is
+metadata.
+
+**Test.** The command above should be rejected. If a Pod is created, nothing is
+being verified.
+
+**Fix.** Enforce at admission, and test the enforcement by trying to violate it —
+the same rule as every other gate in this curriculum.
+
+---
+
 ## Where this appears in the capstone
 
 ```text

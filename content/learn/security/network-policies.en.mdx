@@ -236,6 +236,80 @@ You write one policy, and it applies to the entire cluster simultaneously, guara
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.**
+
+### The policy applied and nothing is blocked
+
+**Symptom.** A default-deny policy exists, and every Pod still reaches every
+other Pod.
+
+**Evidence.** Ask what CNI is running:
+
+```bash
+kubectl get pods -n kube-system -o wide | grep -Ei 'calico|cilium|weave|flannel|kindnet'
+```
+
+**Hypothesis.** NetworkPolicy is an API, not an implementation. The API server
+accepts and stores the object whatever the cluster does with it, and a CNI plugin
+that does not implement NetworkPolicy — plain Flannel is the usual case — ignores
+it entirely. No error is produced anywhere.
+
+**Test.** Try the connection the policy forbids. This is the only test that
+matters, and it is the one people skip because the object was accepted:
+
+```bash
+kubectl run probe --rm -it --image=busybox:1.36 --restart=Never -n ivolve -- \
+  wget -qO- --timeout=3 http://db:80
+```
+
+**Fix.** Run a CNI that enforces policy. Until then, every policy in the cluster
+is documentation.
+
+### Default-deny broke DNS
+
+**Symptom.** You add a default-deny egress policy and applications start failing
+to resolve names — often reported as "the database is down".
+
+**Evidence.** From an affected Pod, a request by IP succeeds and the same request
+by name fails.
+
+**Hypothesis.** Name resolution is traffic like any other. An egress policy that
+does not permit port 53 to CoreDNS denies it along with everything else.
+
+**Test.** Compare the two requests directly. If the IP works and the name does
+not, it is DNS, not the database.
+
+**Fix.** Allow UDP **and** TCP 53 to the CoreDNS Pods in `kube-system`, scoped by
+`namespaceSelector` and `podSelector` under a single list entry so they are ANDed.
+Splitting them into two entries permits anything in `kube-system` **or** anything
+anywhere labelled `k8s-app=kube-dns`, which is far wider than intended and looks
+nearly identical on the page.
+
+Work through it under time pressure in
+[Incident: Cluster DNS Failure](/labs/lab-incident-cluster-dns), where you are
+given the symptom and nothing else.
+
+### The policy is wider than you think
+
+**Symptom.** A policy that reads as restrictive permits more than expected.
+
+**Evidence.** Read the `to:` and `from:` lists as YAML rather than as English —
+count the dashes.
+
+**Hypothesis.** Each `-` in the list is a separate peer, and peers are ORed.
+Selectors inside one entry are ANDed.
+
+**Test.** `kubectl get networkpolicy <name> -o yaml` and check whether
+`podSelector` sits under the same dash as `namespaceSelector` or under its own.
+
+**Fix.** Put them under one entry when you mean "this Pod in that namespace".
+This distinction is one indentation level, carries no error, and is the most
+common way a NetworkPolicy silently allows more than its author believed.
+
+---
+
 ## Interview Questions
 
 ### Beginner

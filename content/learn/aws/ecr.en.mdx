@@ -155,6 +155,54 @@ This automatically deletes old, unused images, optimizing cloud costs automatica
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.**
+
+### `repository does not exist` for a repository that does
+
+**Symptom.** A push or pull fails claiming the repository is absent.
+
+**Evidence.** Read the registry hostname in the error. It encodes an account ID
+and a region:
+
+```text
+<account>.dkr.ecr.<region>.amazonaws.com/<repo>
+```
+
+**Hypothesis.** ECR repositories are regional and account-scoped. A repository in
+`eu-west-1` is invisible to a client configured for `us-east-1`, and the message
+is the same as if it never existed.
+
+**Test.** `aws ecr describe-repositories --region <region>` in the region the URL
+names, not the one you assume.
+
+**Fix.** Correct the region or the account in the image reference. ECR also does
+not create repositories on push the way Docker Hub does — the repository must
+exist first, which is why the Terraform module creates it.
+
+### The image the cluster needs has been deleted
+
+**Symptom.** A rollback or a node replacement fails with an image that cannot be
+pulled, for a version that was working.
+
+**Evidence.** The repository's lifecycle policy, and whether the tag is still
+listed.
+
+**Hypothesis.** A lifecycle policy that keeps the last N images counts images,
+not deployments. A busy pipeline can push past N in a day and remove the image
+that production is still running — which nothing notices until a Pod is
+rescheduled.
+
+**Test.** `aws ecr list-images` and look for the digest the running Deployment
+references.
+
+**Fix.** Write lifecycle rules that exclude what is deployed — commonly by
+protecting release-tagged images and expiring only untagged layers. The failure
+mode is delayed: everything is fine until the day a node is replaced.
+
+---
+
 ## Interview Questions
 
 ### Beginner

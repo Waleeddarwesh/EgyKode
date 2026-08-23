@@ -245,6 +245,85 @@ How do you stop a Senior Engineer (who has Admin rights) from accidentally makin
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.** IAM errors are unusually
+informative; the trick is reading the whole message.
+
+### `AccessDenied` — read the message before changing anything
+
+**Symptom.** An API call is refused.
+
+**Evidence.** The error names the principal, the action and the resource. All
+three matter:
+
+```text
+User: arn:aws:sts::111122223333:assumed-role/eks-node/i-0abc is not authorized
+to perform: s3:GetObject on resource: arn:aws:s3:::my-bucket/config.yaml
+```
+
+**Hypothesis.** Check the identity first. An `assumed-role` ARN that is not the
+role you expected means the credential chain picked something else — the node's
+instance profile instead of the Pod's service account, for instance.
+
+**Test.**
+
+```bash
+aws sts get-caller-identity
+```
+
+Run it in the same place the failure happened — the same Pod, the same build
+step. Who you are locally is irrelevant.
+
+**Fix.** If the identity is wrong, fix the credential chain rather than the
+policy. Widening a policy until the error stops is how a node role ends up with
+permissions that every Pod on that node inherits.
+
+### IRSA: the Pod still uses the node role
+
+**Symptom.** A Pod annotated for IRSA gets the node's permissions.
+
+**Evidence.** `aws sts get-caller-identity` inside the Pod returns the node
+instance role.
+
+**Hypothesis.** IRSA needs several things aligned: an OIDC provider registered
+for the cluster, the annotation on the **ServiceAccount** rather than the Pod,
+the Pod actually using that ServiceAccount, and a trust policy on the role naming
+that namespace and ServiceAccount.
+
+**Test.** Check the projected token exists:
+
+```bash
+kubectl exec <pod> -n ivolve -- ls /var/run/secrets/eks.amazonaws.com/serviceaccount/
+```
+
+No token means the annotation is not being seen — the SDK then falls back to the
+node role, silently.
+
+**Fix.** Whichever link is missing. The silent fallback is the danger: everything
+appears to work, on the wrong identity, with more access than intended.
+
+### The policy is right and the request is still denied
+
+**Symptom.** An identity policy clearly allows the action.
+
+**Evidence.** Look for the other three places that can deny: a Service Control
+Policy on the account, a resource policy such as a bucket policy or KMS key
+policy, and a permissions boundary.
+
+**Hypothesis.** An explicit `Deny` anywhere wins over any `Allow`. Access also
+requires the resource's own policy to permit the principal when the two live in
+different accounts.
+
+**Test.** The IAM policy simulator evaluates the identity policy alone, so a
+simulator that says "allowed" while the call fails is itself evidence — it points
+at an SCP, a resource policy or a boundary.
+
+**Fix.** Grant on the side that is missing it, and remember that the KMS key
+policy is the one people forget when an encrypted bucket refuses a read.
+
+---
+
 ## Interview Questions
 
 ### Beginner

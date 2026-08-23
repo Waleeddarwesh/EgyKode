@@ -311,6 +311,77 @@ change.
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.** Almost every VPC problem is one
+of four things, and they are distinguishable in a fixed order: route, security
+group, NACL, then the application.
+
+### The instance in the private subnet cannot reach the internet
+
+**Symptom.** `apt-get update` or an image pull hangs, then times out.
+
+**Evidence.** Read the route table that is actually associated with **that**
+subnet, not the one you meant to associate:
+
+```bash
+aws ec2 describe-route-tables \
+  --filters "Name=association.subnet-id,Values=subnet-0abc" \
+  --query 'RouteTables[].Routes'
+```
+
+**Hypothesis.** Either there is no `0.0.0.0/0` route to a NAT gateway, or the NAT
+gateway is in a private subnet — it must live in a public one to work.
+
+**Test.** A subnet with no explicit association silently uses the VPC's main route
+table, which is the usual cause and shows nothing wrong when you look at the
+route table you created.
+
+**Fix.** Associate the subnet explicitly and point `0.0.0.0/0` at a NAT gateway
+that sits in a public subnet. Never associate a private subnet with a route to
+the internet gateway to "make it work" — that makes the subnet public, and the
+word "private" in its name will keep lying to everyone who reads it afterwards.
+
+### Connection times out versus connection refused
+
+**Symptom.** A service is unreachable.
+
+**Evidence.** Which failure it is, exactly. This one distinction saves more time
+than any AWS console page:
+
+- **Timeout** — the packet never got a response. Suspect the network: security
+  group, NACL, route table, wrong subnet.
+- **Connection refused** — something answered and said no. The network is fine;
+  the process is not listening, or is bound to `127.0.0.1` rather than `0.0.0.0`.
+
+**Hypothesis.** Follow whichever branch the symptom indicates, and do not debug
+security groups for a refused connection.
+
+**Test.** From the instance itself, `ss -tlnp` shows what is listening and on
+which address.
+
+**Fix.** Per branch. Security groups are stateful — an allowed inbound request
+returns without an explicit outbound rule — so an asymmetric problem is usually a
+NACL, which is stateless and needs both directions.
+
+### The security group allows it and traffic is still dropped
+
+**Symptom.** Rules look correct, traffic does not flow.
+
+**Evidence.** Check the NACL on both subnets, in both directions, including the
+ephemeral port range 1024–65535 for return traffic.
+
+**Hypothesis.** Security groups are stateful, NACLs are not. A NACL that permits
+inbound 443 and nothing outbound drops every response.
+
+**Test.** A default NACL allows everything, so a restricted one is always
+something a person wrote.
+
+**Fix.** Allow the ephemeral range outbound, or leave the NACL open and do the
+work in security groups, which is the usual design.
+
+---
+
 ## Interview Questions
 
 ### Beginner
