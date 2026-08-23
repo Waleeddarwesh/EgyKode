@@ -54,3 +54,59 @@ export function EgyKodeIcon({ size, inset = 0.22 }: { size: number; inset?: numb
     </div>
   );
 }
+
+/**
+ * A jump-list icon: one glyph on the app's background.
+ *
+ * Windows draws these next to the shortcut names when you right-click the
+ * taskbar icon, at roughly 16-32px however large the source is. That size is
+ * the whole design constraint — anything with fine detail turns to mush, so
+ * these are flat fills in three or four shapes each, and they are meant to be
+ * told apart at a glance rather than read as pictures.
+ *
+ * Fills only, no strokes: `next/og` renders through Satori, whose SVG support
+ * is a subset, and a filled polygon is the part of it least likely to surprise.
+ */
+export function ShortcutIcon({ size, children }: { size: number; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: BACKGROUND,
+      }}
+    >
+      <svg width={Math.round(size * 0.6)} height={Math.round(size * 0.6)} viewBox="0 0 24 24" fill={BRAND}>
+        {children}
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * Lines of text — the curriculum, read in order.
+ *
+ * An array rather than a fragment. Satori walks the element tree itself and
+ * stringifies each node's type; a fragment's type is a Symbol, which fails with
+ * "Cannot convert a Symbol value to a string" at build time rather than
+ * rendering an empty icon. Arrays it handles natively.
+ */
+export const GLYPH_LEARN = [
+  <rect key="a" x="3" y="5" width="18" height="2.6" rx="1.3" />,
+  <rect key="b" x="3" y="10.7" width="18" height="2.6" rx="1.3" />,
+  <rect key="c" x="3" y="16.4" width="11" height="2.6" rx="1.3" />,
+];
+
+/** A beaker — the labs, where you actually run something. */
+export const GLYPH_LABS = <polygon points="9.4,3 14.6,3 14.6,9.4 20.5,20 3.5,20 9.4,9.4" />;
+
+/** Stops along a route — which chapter comes next. */
+export const GLYPH_ROADMAPS = [
+  <rect key="a" x="11" y="4" width="2" height="16" />,
+  <circle key="b" cx="12" cy="4.8" r="3.2" />,
+  <circle key="c" cx="12" cy="12" r="3.2" />,
+  <circle key="d" cx="12" cy="19.2" r="3.2" />,
+];

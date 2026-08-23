@@ -105,23 +105,36 @@ export default function manifest(): EgyKodeManifest {
      */
     edge_side_panel: { preferred_width: 480 },
 
-    // Jump list entries: right-click the taskbar icon.
+    /**
+     * Jump list entries: right-click the taskbar icon.
+     *
+     * Each carries its own icon. Without them Windows draws the entries with no
+     * mark at all, and PWABuilder quietly *skips* three icon checks rather than
+     * failing them, so the gap does not show up as a warning anywhere.
+     *
+     * Worth declaring where the other capabilities were not: these shortcuts
+     * are real and already work. An icon here describes something the app does,
+     * which is the whole test applied further down.
+     */
     shortcuts: [
       {
         name: "Continue learning",
         short_name: "Learn",
+        icons: [{ src: "/icons/shortcut-learn.png", sizes: "96x96", type: "image/png" }],
         description: "The ordered curriculum, from Linux to the capstone",
         url: "/en/learn/",
       },
       {
         name: "Labs",
         short_name: "Labs",
+        icons: [{ src: "/icons/shortcut-labs.png", sizes: "96x96", type: "image/png" }],
         description: "Hands-on labs, challenges and incidents",
         url: "/en/labs/",
       },
       {
         name: "Roadmaps",
         short_name: "Roadmaps",
+        icons: [{ src: "/icons/shortcut-roadmaps.png", sizes: "96x96", type: "image/png" }],
         description: "Which chapter comes next, and why",
         url: "/en/roadmaps/",
       },
@@ -163,9 +176,14 @@ export default function manifest(): EgyKodeManifest {
  *                    These point at the published Store listing. Add them after
  *                    the first submission is live, when the Store ID exists —
  *                    pointing at an unpublished app sends installers to a 404.
- *   screenshots      Needs real captures of the installed app. The shot list is
- *                    in desktop/store/listing.md; add them here once taken, so
- *                    the install prompt shows the app rather than describing it.
+ *   screenshots      Deliberately left to the Store listing instead.
+ *                    Partner Center collects screenshots during submission and
+ *                    those are what a shopper actually sees; this member only
+ *                    enriches the browser's own install prompt, which is not
+ *                    where EgyKode is being distributed. It is the one
+ *                    Recommended-level item PWABuilder still reports, and it is
+ *                    a choice rather than an oversight. The shot list lives in
+ *                    desktop/store/listing.md if it is ever wanted here.
  */
 
 /** Kept next to the manifest so the two cannot disagree about the origin. */

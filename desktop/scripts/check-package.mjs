@@ -84,6 +84,54 @@ for (const [file, expected] of [
   else pass(`${file} is a valid ${expected}×${expected} PNG`);
 }
 
+/* ── every shortcut declares an icon, and it is what it says it is ─────────── */
+
+/**
+ * Checked against the manifest rather than a hardcoded list, so adding a fourth
+ * shortcut cannot quietly skip this.
+ *
+ * The reason it is worth a check at all: PWABuilder *skips* its three shortcut
+ * icon checks when no icons are declared rather than failing them, so a missing
+ * or broken jump-list icon shows up nowhere in the report — not as a warning,
+ * not as a failure. `ShortcutIconsAreFetchable` is a Required-level check that
+ * silently passes by not running.
+ */
+if (existsSync(manifestPath)) {
+  const shortcuts = JSON.parse(readFileSync(manifestPath, "utf8")).shortcuts ?? [];
+  let bad = 0;
+  for (const shortcut of shortcuts) {
+    const icons = shortcut.icons ?? [];
+    if (!icons.length) {
+      fail(`shortcut "${shortcut.short_name ?? shortcut.name}" declares no icon`);
+      bad += 1;
+      continue;
+    }
+    for (const icon of icons) {
+      const file = join(EXPORT, icon.src.replace(/^\//, ""));
+      if (!existsSync(file)) {
+        fail(`shortcut icon ${icon.src} does not exist in the export`);
+        bad += 1;
+        continue;
+      }
+      const size = pngSize(file);
+      if (!size) {
+        fail(`shortcut icon ${icon.src} is not a valid PNG`);
+        bad += 1;
+        continue;
+      }
+      // A declared size that does not match the file is one of the three things
+      // PWABuilder checks, and Windows scales from the declaration.
+      const [w, h] = String(icon.sizes ?? "").split("x").map(Number);
+      if (size.width !== w || size.height !== h) {
+        fail(`shortcut icon ${icon.src} is ${size.width}×${size.height}, declared ${icon.sizes}`);
+        bad += 1;
+      }
+    }
+  }
+  if (shortcuts.length && !bad)
+    pass(`all ${shortcuts.length} shortcuts have a valid icon matching its declared size`);
+}
+
 /* ── the things Partner Center rejects submissions over ────────────────────── */
 
 const privacy = join(EXPORT, "privacy", "index.html");
