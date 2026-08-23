@@ -76,6 +76,9 @@ You *can* run a database inside Kubernetes using a `StatefulSet`. But you should
 
 ---
 
+> **Practise:** [RDS Backups, Restore and Failover](/labs/lab-aws-rds-backup-restore)
+> makes you restore a backup, which is the only way to know it works.
+
 ## Level 3 — Advanced
 
 ### Analyzing the Actual Code (Line-by-Line Breakdown)
@@ -175,6 +178,9 @@ resource "aws_db_instance" "this" {
 
 - **`enabled_cloudwatch_logs_exports`** — the slow query log is how you find the
   query that is actually causing your latency alert.
+
+> **Practise:** [Amazon RDS PostgreSQL & Secrets Manager](/labs/lab-04-amazon-rds-postgresql-aws-secrets-manager-integration)
+> builds this database and gives it a password nobody types.
 
 ### Forcing TLS at the server
 

@@ -152,7 +152,7 @@ Jenkins is not just one server. It is a distributed system.
 2. **The Jenkins Agents (Nodes):** These are the worker bees. When a pipeline triggers, the Master tells an Agent: *"Here is the code, compile it."* 
 
 ### Why split them?
-Compiling a massive Java application takes 100% of the CPU and 8GB of RAM. If you compile code on the Jenkins Master, the Master will crash, and the entire CI/CD system goes down. By offloading the heavy lifting to Agents, the Master stays healthy.
+Compiling a massive Java application takes 100% of the CPU and 8GB of RAM. If you compile code on the Jenkins Master, the Master will crash, and the entire CI/CD system goes down. When the Agents do the building, the Master stays responsive.
 
 ### What Existed Before? (ClickOps)
 In early versions of Jenkins, engineers created pipelines by clicking buttons in the UI (e.g., "Add Build Step -> Execute Shell"). This was a disaster. If the Jenkins server died, the company lost all their pipeline configurations. 
@@ -201,8 +201,8 @@ pipeline {
 
 - **`@Library('ivolve-pipeline-library@main') _`** loads the shared library
   before the pipeline block. The trailing `_` is required syntax — it is the
-  (unused) variable the library is assigned to. Omit it and the load silently
-  does nothing, which is a memorable five minutes to debug.
+  (unused) variable the library is assigned to. Leave it out and the library is not loaded, with no
+  error message to tell you.
 
 - **`agent { label 'devops-agent' }`** — work runs on a labelled agent, never on
   the controller. The controller is configured with `numExecutors: 0` and
@@ -229,8 +229,9 @@ pipeline {
 > throwaway pod per build, which is excellent for elastic capacity and costs
 > nothing when idle. This platform uses a persistent containerised agent instead,
 > because the build needs the Docker socket and a warm Trivy vulnerability
-> database — a fresh pod would re-download that database on every build. Both are
-> valid; the trade is elasticity against build latency.
+> database — a fresh pod would re-download that database on every build. Both are valid. A fresh pod costs you
+> time at the start of every build; a persistent agent costs you an idle
+> machine.
 
 ---
 

@@ -141,7 +141,13 @@ histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by 
 ```
 That reads as "99% of requests were faster than this" — but it is an **estimate**, not a guarantee, and knowing why keeps you out of trouble.
 
-`histogram_quantile` does not see individual requests. It sees counts per bucket and interpolates within the bucket the quantile falls into, assuming observations are spread evenly inside it. So the accuracy is decided by your bucket boundaries. Two consequences worth remembering: buckets that do not straddle the values you care about give you a large margin of error, and if the quantile lands in the highest bucket Prometheus returns the upper bound of the second-highest one — so a P99 that sits pinned at your largest finite bucket is telling you the buckets are too small, not that latency is exactly that.
+`histogram_quantile` does not see individual requests. It sees how many requests fell into each bucket. It then estimates the quantile inside one bucket, assuming the requests are spread evenly across it. So your bucket boundaries decide how accurate the answer is.
+
+Two things follow from that.
+
+If your buckets do not surround the values you care about, the error is large.
+
+If the quantile falls in the highest bucket, Prometheus returns the upper bound of the bucket below it. So a P99 that always shows your largest bucket value is telling you the buckets are too small. It is not telling you the real latency.
 
 And the alert does not fire the instant the value crosses: alerting rules have a `for:` duration, which is the subject of the next section.
 

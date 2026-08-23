@@ -110,7 +110,7 @@ spec:
 A block-level snapshot of a running database is *crash-consistent* — it captures
 the disk as it was at that instant, mid-write, exactly as if someone had pulled
 the power. Engines like InnoDB usually recover from that using their redo log,
-and "usually" is doing real work in that sentence. It is not the same as an
+Note the word "usually": it is not a guarantee. It is not the same as an
 *application-consistent* backup, where the database was told to flush and pause
 first.
 

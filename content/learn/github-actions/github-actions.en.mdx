@@ -122,6 +122,9 @@ jobs:
 - **`uses: actions/checkout@v4`**: This downloads our repository's code into the runner.
 - **`role-to-assume:`**: Notice there are NO passwords here. GitHub uses the OIDC JWT to securely assume an IAM role in our AWS account.
 
+> **Practise:** [GitHub Actions: Build, Scan and Deploy to EKS](/labs/lab-github-actions-ecr-eks)
+> builds the same pipeline here, with OIDC instead of stored keys.
+
 ### Self-Hosted Runners
 GitHub provides free runners, but they are hosted on the public internet. 
 What if our Jenkins deployment needed to deploy a backend to our private EKS cluster that has *no public IP addresses*?

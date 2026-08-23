@@ -59,7 +59,7 @@ In DevOps, Observability is exactly the same:
 Without observability, when a customer complains the site is broken, an engineer has to manually SSH into 15 different servers, reading text files to figure out what happened. It takes hours.
 With observability you have somewhere to look. An alert you wrote fires on a symptom a user would notice, a dashboard shows when the behaviour changed, and the logs for the failing request carry the stack trace.
 
-Be careful what you expect from that. None of it identifies the cause on its own — it gives you evidence fast enough to reason from, and the reasoning is still yours. A system that told you which line of code was at fault would not need you; what it actually does is take you from "a customer says it is broken" to "errors on checkout started at 14:02, two minutes after a deploy" in a minute rather than an afternoon.
+Be careful what you expect from that. None of it identifies the cause on its own — it gives you evidence fast enough to reason from, and the reasoning is still yours. What it does is more useful than magic. It takes you from "a customer says it is broken" to "errors on checkout started at 14:02, two minutes after a deploy". That takes a minute instead of an afternoon. Deciding what to do next is still your job.
 
 ---
 
@@ -164,7 +164,7 @@ We page based on **Service Level Objectives (SLOs)**.
 
 If our goal is 99.9% uptime, that means we are allowed 43 minutes of downtime per month. That 43 minutes is our **Error Budget**. If we release a buggy feature and burn through 40 minutes of our budget, the DevOps team freezes all new feature deployments until the next month to prioritize stability.
 
-**What each nine actually buys you:**
+**How much downtime each nine allows:**
 
 | SLO | Downtime per month | Downtime per year |
 | --- | --- | --- |

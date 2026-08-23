@@ -90,8 +90,8 @@ Every IAM decision is one JSON document. Four keys carry all of it:
 
 - **`Effect`** — `Allow` or `Deny`. An explicit `Deny` always wins, no matter how
   many policies `Allow` it. This is how a guardrail beats a permissive role.
-- **`Action`** — what may be done, as `service:Operation`. `s3:*` is where least
-  privilege goes to die.
+- **`Action`** — what may be done, as `service:Operation`. `s3:*` grants every S3 action there is, which is the
+  opposite of least privilege.
 - **`Resource`** — which ARNs it applies to. Note the two entries above: bucket
   operations (`ListBucket`) act on the *bucket* ARN, object operations
   (`GetObject`) act on `bucket/*`. Giving only one is the classic cause of

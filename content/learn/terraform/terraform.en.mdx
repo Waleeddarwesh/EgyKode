@@ -340,7 +340,7 @@ Pin the `source` when it is remote (`source = "git::https://…?ref=v1.4.0"`).
 An unpinned module means a colleague's commit changes your infrastructure the
 next time you run `init`.
 
-**Do not modularise everything.** A module earns its cost when the same shape is
+**Do not modularise everything.** A module is worth its extra complexity when the same shape is
 built more than once, or when it hides genuine complexity behind a small
 interface. Wrapping a single `aws_s3_bucket` in a module adds a directory, a
 variables file, an outputs file and a layer of indirection, in exchange for
@@ -460,6 +460,9 @@ In a Fortune 500 company, you never put all your AWS resources into a single `ma
 2. **Blast Radius Isolation:**
    We separate the network (`vpc`) from the servers (`compute`). If a junior engineer accidentally corrupts the `compute` code, Terraform might delete the servers, but it *cannot* delete the network. By strictly isolating state, we contain the "blast radius" of human errors.
 
+> **Practise:** [Amazon EKS Cluster & Managed Node Group Provisioning](/labs/lab-05-amazon-eks-cluster-managed-node-group-provisioning)
+> provisions the cluster the rest of the platform runs on.
+
 ### The Alternatives (Pulumi & CDK)
 - **Terraform:** Uses HCL (a proprietary config language).
 - **Pulumi / AWS CDK:** Allows developers to write infrastructure using real programming languages (Python, TypeScript). 
@@ -565,6 +568,9 @@ reverted. Accepting the refresh-only plan updates state to match reality without
 touching infrastructure. What you must not do is leave it: every later plan will
 carry the same noise, and eventually someone stops reading plans carefully,
 which is how the first failure in this list becomes a deleted database.
+
+> **Practise:** [Terraform Drift & State Recovery](/labs/lab-terraform-state-recovery)
+> makes you restore a state file that somebody deleted.
 
 ### `apply` failed halfway through
 

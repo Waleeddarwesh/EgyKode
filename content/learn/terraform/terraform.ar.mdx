@@ -387,6 +387,9 @@ terraform {
 2. **Blast Radius Isolation:**
    نفصل الشبكة (`vpc`) عن الخوادم (`compute`). فإذا أفسد مهندس مبتدئ كود `compute` دون قصد، فقد يحذف Terraform الخوادم، لكنه **لا يستطيع** حذف الشبكة. وبعزل الـ state بصرامة، نحصر «نطاق الانفجار» الناتج عن الأخطاء البشرية.
 
+> **Practise:** [Amazon EKS Cluster & Managed Node Group Provisioning](/labs/lab-05-amazon-eks-cluster-managed-node-group-provisioning)
+> ينشئ العنقود الذي تعمل عليه بقية المنصّة.
+
 ### The Alternatives (Pulumi & CDK)
 
 - **Terraform:** يستخدم HCL، وهي لغة إعدادات خاصة به.
@@ -486,6 +489,9 @@ IaC، مهما كان السبب وجيهًا في الثالثة فجرًا.
 ما يجب ألّا تفعله فهو تركه: كل plan لاحق سيحمل الضجيج نفسه، وفي النهاية يكفّ
 أحدهم عن قراءة الـ plans بتمعّن، وهكذا يتحوّل العطل الأول في هذه القائمة إلى
 قاعدة بيانات محذوفة.
+
+> **Practise:** [Terraform Drift & State Recovery](/labs/lab-terraform-state-recovery)
+> يجعلك تستعيد ملف state حذفه أحدهم.
 
 ### `apply` failed halfway through
 

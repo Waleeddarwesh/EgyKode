@@ -320,6 +320,9 @@ Disk pressure is worth singling out: a node whose disk fills with unused images
 starts evicting Pods, and the fix is `crictl rmi --prune` plus a look at the
 kubelet's garbage collection thresholds.
 
+> **Practise:** [Incident: Service-to-Service Calls Fail](/labs/lab-incident-cluster-dns)
+> is a cluster component failing partially, with no error that says so.
+
 ### Static Pods, and how the control plane starts itself
 
 ```bash

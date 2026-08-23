@@ -189,6 +189,38 @@ the thing. The same applies to convenience commands: `kubectl create secret
 --from-literal` is fine for a lab and leaves the value in shell history, and the
 chapter should say both.
 
+## 4c. Write for a reader whose first language is not English
+
+Most EgyKode learners read English as a second language. That does not mean
+writing less precisely — it means removing the things that make a correct
+sentence hard to decode.
+
+**No idioms or figures of speech.** They are the worst case for this reader:
+every individual word is familiar and the sentence still does not mean what it
+says. A dictionary does not help with "least privilege goes to die", "the heavy
+lifting", "a memorable five minutes to debug", or "doing real work in that
+sentence". Say the thing plainly — it is usually shorter anyway.
+
+| Instead of | Write |
+| --- | --- |
+| "`s3:*` is where least privilege goes to die" | "`s3:*` grants every S3 action, which is the opposite of least privilege" |
+| "offloading the heavy lifting to Agents" | "when the Agents do the building" |
+| "the trade is elasticity against build latency" | "a fresh pod costs time at the start of every build; a persistent agent costs an idle machine" |
+| "a memorable five minutes to debug" | "with no error message to tell you" |
+
+**One idea per sentence.** Around 3% of paragraph sentences currently exceed 32
+words; that is the number to keep down. When a sentence carries two conditions
+and a consequence, make it two or three sentences. The Prometheus bucket
+explanation was 61 words and is now four short sentences that say more.
+
+**Also avoid:** rare words where a common one exists, humour that depends on
+cultural context, and long chains of clauses joined by dashes and semicolons.
+
+**Do not** simplify the technical content to match. The vocabulary that must stay
+is the vocabulary of the job — `EndpointSlice`, `reconciliation`, `idempotent`.
+Define those once, use them consistently, and keep the sentences around them
+short.
+
 ## 5. The four sides of every tool
 
 For each core technology, cover four perspectives. Depth varies; presence should

@@ -393,6 +393,9 @@ echo | openssl s_client -connect ivolve.example.com:443 2>/dev/null \
 Both exist for one reason: expired certificates are a leading cause of outages,
 and the only reliable fix is to take humans out of the renewal loop.
 
+> **Practise:** [Production DNS & TLS with Route 53 and ACM](/labs/lab-aws-route53-acm-dns)
+> puts a real name and a real certificate in front of a service.
+
 ### Kubernetes networking — three networks, not one
 
 This is where the mental model usually breaks. A Kubernetes cluster has **three
