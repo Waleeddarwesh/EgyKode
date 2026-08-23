@@ -274,8 +274,8 @@ Two failure modes account for most Ingress support requests:
   `pathType` mismatch rather than a backend problem.
 - **The Service behind it has no ready endpoints.** The Ingress is correct, the
   controller is running, and requests return `503` because the Service selects
-  no ready Pod. Check `kubectl get endpoints <service>` before touching the
-  Ingress at all.
+  no ready Pod. List the Service's EndpointSlices — `kubectl get endpointslices -l
+  kubernetes.io/service-name=NAME` — before touching the Ingress at all.
 
 #### ConfigMaps and Secrets — configuration outside the image
 
@@ -453,13 +453,14 @@ than the Service address.
 ```bash
 kubectl get pods -o wide                     # Pod IPs and which node they are on
 kubectl get svc -o wide                      # Service IPs and their endpoints
-kubectl get endpoints api                    # which Pods a Service currently routes to
+kubectl get endpointslices -l kubernetes.io/service-name=api   # which Pods it routes to
 kubectl exec -it deploy/api -- nslookup postgres
 ```
 
-`kubectl get endpoints` is the diagnostic that resolves most "the Service is not
-working" reports. An empty endpoint list means the Service's selector matches no
-running, ready Pod — the problem is a label mismatch or a failing readiness
+Listing a Service's EndpointSlices is the diagnostic that resolves most "the
+Service is not working" reports. An empty address list means the Service's
+selector matches no running, **ready** Pod — the problem is a label mismatch or a
+failing readiness
 probe, not the network.
 
 #### Probes — how Kubernetes knows a Pod is healthy
@@ -882,7 +883,20 @@ A: A Deployment is for stateless applications (like web servers); the Pods are i
 
 ### Senior
 **Q: Explain how a Kubernetes Service routes traffic to Pods.**
-A: A Service gets a virtual IP address (ClusterIP) managed by `kube-proxy`. The Service has a label selector (e.g., `app: my-api`). The Kubernetes Endpoints controller continuously watches for Pods matching that label. When it finds them, it adds their real IPs to an `Endpoints` object. When traffic hits the Service IP, `kube-proxy` (using Linux `iptables` or `IPVS`) load-balances the TCP packets to the IPs in the Endpoints list.
+A: A Service gets a virtual IP (the ClusterIP). Its label selector — say
+`app: my-api` — is watched by the EndpointSlice controller, which maintains
+**EndpointSlice** objects listing the addresses of matching Pods. Only Pods that
+are **ready** are listed as ready addresses, which is precisely how a readiness
+probe removes a Pod from traffic without deleting it, and how a rolling update
+avoids sending requests to a container that has not finished starting.
+
+`kube-proxy` watches those EndpointSlices and programs the node's `iptables` or
+IPVS rules so that traffic to the ClusterIP is load-balanced across them.
+
+Note the API here: EndpointSlice replaced the older `Endpoints` object, which is
+deprecated as of Kubernetes v1.33. `kubectl get endpoints` still answers, because
+the control plane mirrors for compatibility, but `kubectl get endpointslices` is
+what to reach for and what the newer tooling reads.
 
 ### Principal/Architect
 **Q: During a massive traffic spike, your Horizontal Pod Autoscaler scales from 10 to 100 pods, but 50 of them remain in a `Pending` state. Walk me through the exact architectural bottleneck and how to automate the resolution.**

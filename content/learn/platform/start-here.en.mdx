@@ -454,7 +454,7 @@ kubectl -n ivolve get pods -w       # the ReplicaSet replaces it
 
 # 3. Break the readiness probe and watch traffic drain
 kubectl -n ivolve edit deploy ivolve-api   # change readiness path to /nope
-kubectl -n ivolve get endpoints ivolve-api # the pod IP disappears
+kubectl -n ivolve get endpointslices -l kubernetes.io/service-name=ivolve-api # the pod IP disappears
 ```
 
 Understanding *why* the endpoint list empties is the difference between knowing

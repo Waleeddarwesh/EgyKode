@@ -218,7 +218,7 @@ The rollout **stalls**. It does not fail catastrophically:
 
 ```bash
 kubectl -n ivolve get rs          # two ReplicaSets: old at 3, new at 1
-kubectl -n ivolve get endpoints roadmap-service    # still 3 healthy pod IPs
+kubectl -n ivolve get endpointslices -l kubernetes.io/service-name=roadmap-service
 curl -sf https://dev.<your-domain>/api/v1/status   # still works
 ```
 
@@ -231,7 +231,7 @@ Now try it with a *working* image but a broken readiness probe:
 kubectl -n ivolve rollout undo deploy/roadmap-service
 kubectl -n ivolve patch deploy roadmap-service --type=json \
   -p='[{"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe/httpGet/path","value":"/nope"}]'
-kubectl -n ivolve get endpoints roadmap-service -w
+kubectl -n ivolve get endpointslices -l kubernetes.io/service-name=roadmap-service -w
 ```
 
 Watch the endpoint list empty as pods fail readiness. That is Kubernetes

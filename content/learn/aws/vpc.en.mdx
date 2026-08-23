@@ -156,9 +156,14 @@ resource "aws_subnet" "private" {
 
 **Line-by-line breakdown:**
 
-- **`enable_dns_hostnames = true`** — without it, instances get no internal DNS
-  name and service discovery inside the VPC does not work. It is off by default,
-  which surprises people.
+- **`enable_dns_hostnames = true`** — off by default on a VPC you create, which
+  surprises people. The instance still *gets* a private DNS name either way; what
+  the attribute changes is resolution. AWS is explicit that if **either**
+  `enableDnsHostnames` or `enableDnsSupport` is false, the Route 53 Resolver
+  cannot resolve Amazon-provided private DNS hostnames — and both must be true
+  for a Route 53 private hosted zone or PrivateLink private DNS to work. So
+  service discovery inside the VPC fails, and it fails in the confusing way:
+  the name exists and nothing answers for it.
 - **`count = local.az_count`** — one subnet per availability zone. A subnet
   lives in exactly one AZ, so "spread across three AZs" always means "create
   three subnets". This is why HA starts at the network layer.

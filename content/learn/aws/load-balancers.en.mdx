@@ -201,7 +201,7 @@ a login page fails a naive check while being perfectly healthy.
 
 ### Beginner
 **Q: What happens to user traffic if one of the three backend servers crashes?**
-A: The Load Balancer's health check will fail for the crashed server. The Load Balancer will immediately stop sending traffic to the dead server and distribute 100% of the traffic evenly between the two remaining healthy servers.
+A: The health check for that target starts failing, and once it has failed the configured number of **consecutive** times the load balancer marks the target unhealthy and stops routing to it — traffic then goes to the two remaining healthy servers. Between the crash and that threshold being reached, requests are still being sent to a dead server and are failing. Interval times unhealthy-threshold is the size of that window, and shrinking it trades faster ejection against evicting a target that was briefly slow rather than broken.
 
 ### Intermediate
 **Q: Why do we put the Load Balancer in a Public Subnet, but the EC2 servers in a Private Subnet?**

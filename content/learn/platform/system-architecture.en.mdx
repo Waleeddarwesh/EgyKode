@@ -246,7 +246,9 @@ When designing this architecture, we must calculate theoretical limits:
 
 ### Beginner
 **Q: What is the difference between a Public Subnet and a Private Subnet?**
-A: A Public Subnet has a routing table entry pointing to an Internet Gateway, allowing servers inside it to be reached from the public internet. A Private Subnet does not; its servers are completely hidden from the outside world.
+A: A Public Subnet's route table has a route to an Internet Gateway, so an instance there with a public IP can be reached from the internet. A Private Subnet has no such route, so nothing on the internet can open a connection to it directly.
+
+"Hidden" is the wrong word, though, and the distinction matters: a private instance is still reachable from elsewhere in the VPC, from a peered VPC, over VPN or Direct Connect, and — deliberately — from the load balancer in the public subnet. That last one is the entire architecture. What a private subnet removes is *direct inbound reachability from the internet*; security groups and NACLs still decide who may reach it from everywhere else.
 
 ### Intermediate
 **Q: Why do we put a NAT Gateway in a Public Subnet, but point Private Subnets to it?**

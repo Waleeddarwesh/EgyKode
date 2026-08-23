@@ -435,7 +435,7 @@ nc -zv 10.20.1.45 6443
 #    hangs   → a firewall is dropping it (security group / NetworkPolicy)
 
 # 3. Does the Service have any backends?
-kubectl -n ivolve get endpoints ivolve-api
+kubectl -n ivolve get endpointslices -l kubernetes.io/service-name=ivolve-api
 #    empty → no pod passes its readiness probe. The network is fine;
 #            the application is not.
 

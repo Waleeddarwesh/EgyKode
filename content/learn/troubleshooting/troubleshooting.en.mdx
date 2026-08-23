@@ -58,7 +58,7 @@ kubectl -n <ns> get events --sort-by=.lastTimestamp | tail -20
 Is the node Ready?              kubectl get nodes
   └─ Is the pod Running?        kubectl -n <ns> get pods
        └─ Is it Ready?          look at the READY column: 0/1 means probes fail
-            └─ Does the Service have endpoints?   kubectl get endpoints
+            └─ Does the Service have endpoints?   kubectl get endpointslices
                  └─ Is the app answering?         curl from inside the cluster
 ```
 
@@ -537,7 +537,8 @@ container, which has not logged yet.
 
 ### Intermediate
 **Q: A Service returns nothing but the pods are Running. Where do you look?**
-A: `kubectl get endpoints <service>`. If it is empty, no pod is passing its
+A: `kubectl get endpointslices -l kubernetes.io/service-name=<service>`. If the
+address list is empty, no pod is passing its
 readiness probe, so nothing was ever added to the Service — the network is fine
 and the application is not. If endpoints exist, I would test from inside the
 cluster with a curl pod to separate a Service problem from an ingress problem.

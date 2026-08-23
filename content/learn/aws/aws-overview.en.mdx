@@ -295,7 +295,11 @@ A: "The Cloud" is just a marketing term. In reality, it simply means "someone el
 
 ### Intermediate
 **Q: What is the difference between AWS S3 and AWS EBS?**
-A: Both store data, but completely differently. **EBS (Elastic Block Store)** is like a hard drive plugged directly into an EC2 server; it's fast, used for operating systems, and dies when the server dies. **S3 (Simple Storage Service)** is object storage accessed via the internet (HTTPS); it is infinitely scalable, extremely cheap, and survives regardless of what happens to your EC2 servers.
+A: Both store data, and they are different shapes. **EBS (Elastic Block Store)** is a network-attached block device — it looks like a disk to the operating system, and you put filesystems and databases on it. Its lifetime is *not* the instance's: whether a volume is deleted when the instance terminates depends on its `DeleteOnTermination` attribute. AWS deletes the **root** volume by default and generally preserves data volumes you attached — which is why forgotten, unattached volumes are a classic source of surprise cost.
+
+**S3 (Simple Storage Service)** is object storage over HTTPS, with no filesystem semantics — no directories, no partial writes, no rename. It scales far beyond what you would provision yourself and is independent of any instance.
+
+The short version: EBS is a disk for one instance at a time; S3 is an API for objects.
 
 ### Senior
 **Q: How does AWS billing work for EC2 instances? What happens if you leave a `t3.xlarge` running for a month?**
