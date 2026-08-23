@@ -130,8 +130,12 @@ The file below would live at **`roles/control-plane/tasks/main.yml`**:
 We use the file — see
 `03-Ansible/roles/control-plane/templates/kubeadm-config.yaml.j2`:
 
+Check the `apiVersion` against the kubeadm you are running. `v1beta4` is current;
+`v1beta3` is deprecated as of Kubernetes v1.31 and will be removed after a few
+more releases. `kubeadm config migrate` converts an old file for you.
+
 ```yaml
-apiVersion: kubeadm.k8s.io/v1beta3
+apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
 kubernetesVersion: v{{ kubernetes_version }}      # 1.30.4, from group_vars/all.yml
 clusterName: {{ cluster_name }}
