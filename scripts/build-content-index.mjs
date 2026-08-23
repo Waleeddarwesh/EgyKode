@@ -142,6 +142,26 @@ else {
     problems.push(`chapter count: ${expected.length} files, ${actual.length} index records`);
 }
 
+// Two chapters cannot share a position in the curriculum.
+//
+// `apps/web/lib/content.ts` sorts by `order` alone, with no tiebreak, so a
+// collision leaves the sequence of those two chapters to whatever order the
+// filesystem returned - the Learn page and "what comes next" could differ
+// between machines. Both collisions found when this check was written were the
+// first chapter of a new phase sharing a number with the last of the previous
+// one, which is what an insertion that forgot to renumber looks like.
+const byOrder = new Map();
+for (const r of expected) {
+  if (!byOrder.has(r.order)) byOrder.set(r.order, []);
+  byOrder.get(r.order).push(r);
+}
+for (const [order, group] of byOrder)
+  if (group.length > 1)
+    problems.push(
+      `order ${order} is claimed by ${group.length} chapters: ` +
+        group.map((r) => `${r.contentId} [${r.phase}]`).join(", "),
+    );
+
 if (!args.includes("--check")) {
   console.log("Usage: build-content-index.mjs --write | --check");
   process.exit(2);
