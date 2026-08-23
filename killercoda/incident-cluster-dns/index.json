@@ -1,0 +1,15 @@
+{
+  "title": "Incident: Service-to-Service Calls Fail",
+  "description": "Everything is healthy, but the API cannot reach its database by name. Prove whether it is DNS, routing, or policy; then fix only the missing rule.",
+  "labId": "lab-incident-cluster-dns",
+  "details": {
+    "intro": { "text": "intro.md", "foreground": "setup.sh" },
+    "steps": [
+      { "title": "Prove where the name fails", "text": "step1.md", "verify": "verify1.sh" },
+      { "title": "Permit DNS without removing the guardrail", "text": "step2.md", "verify": "verify2.sh" },
+      { "title": "Use the namespace-qualified name", "text": "step3.md", "verify": "verify3.sh" }
+    ],
+    "finish": { "text": "finish.md" }
+  },
+  "backend": { "imageid": "kubernetes-kubeadm-1node" }
+}

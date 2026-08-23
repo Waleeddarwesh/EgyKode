@@ -1,0 +1,15 @@
+{
+  "title": "Incident: 502 Bad Gateway",
+  "description": "The ingress accepts the request but its upstream fails. Follow Ingress to Service to endpoints to container, then change one incorrect port.",
+  "labId": "lab-incident-ingress-502",
+  "details": {
+    "intro": { "text": "intro.md", "foreground": "setup.sh" },
+    "steps": [
+      { "title": "Localise the broken hop", "text": "step1.md", "verify": "verify1.sh" },
+      { "title": "Correct the Service target port", "text": "step2.md", "verify": "verify2.sh" },
+      { "title": "Prove the fix was one change", "text": "step3.md", "verify": "verify3.sh" }
+    ],
+    "finish": { "text": "finish.md" }
+  },
+  "backend": { "imageid": "kubernetes-kubeadm-1node" }
+}

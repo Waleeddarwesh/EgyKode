@@ -1,0 +1,15 @@
+{
+  "title": "Incident: CrashLoopBackOff",
+  "description": "A container starts, dies, and restarts forever. Read the dead container's evidence, fix one missing setting, and prove it stays healthy.",
+  "labId": "lab-incident-crashloopbackoff",
+  "details": {
+    "intro": { "text": "intro.md", "foreground": "setup.sh" },
+    "steps": [
+      { "title": "Read the container that died", "text": "step1.md", "verify": "verify1.sh" },
+      { "title": "Fix the startup contract", "text": "step2.md", "verify": "verify2.sh" },
+      { "title": "Prove it is not merely between crashes", "text": "step3.md", "verify": "verify3.sh" }
+    ],
+    "finish": { "text": "finish.md" }
+  },
+  "backend": { "imageid": "kubernetes-kubeadm-1node" }
+}
