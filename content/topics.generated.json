@@ -70,7 +70,8 @@
       "titleAr": "نظام ملفات لينكس",
       "coverage": "explained",
       "chapters": [
-        "linux-foundations"
+        "linux-foundations",
+        "container-security"
       ],
       "labs": [
         "lab-20-linux-server-administration",
@@ -126,6 +127,7 @@
         "linux-foundations",
         "ec2",
         "iam",
+        "jenkins",
         "container-security"
       ],
       "labs": [
@@ -246,7 +248,8 @@
       "coverage": "explained",
       "chapters": [
         "networking-fundamentals",
-        "k8s-services-networking"
+        "k8s-services-networking",
+        "network-policies"
       ],
       "labs": [
         "lab-http-tls-troubleshooting",
@@ -324,8 +327,9 @@
       "coverage": "explained",
       "chapters": [
         "load-balancers",
-        "vpc",
         "auto-scaling",
+        "vpc",
+        "ecr",
         "rds"
       ],
       "labs": [
@@ -333,7 +337,8 @@
       ],
       "roadmaps": [
         "aws-cloud-engineer",
-        "cloud-devops-engineer"
+        "cloud-devops-engineer",
+        "devsecops"
       ],
       "projects": [
         "cloud-native-devops-platform",
@@ -449,7 +454,8 @@
       "titleAr": "البناء متعدد المراحل",
       "coverage": "explained",
       "chapters": [
-        "docker"
+        "docker",
+        "build-tools"
       ],
       "labs": [
         "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn"
@@ -505,10 +511,11 @@
         "ecr",
         "docker",
         "linux-foundations",
+        "jenkins",
+        "k8s-workloads",
         "container-security",
         "ec2",
-        "iam",
-        "vpc"
+        "iam"
       ],
       "labs": [
         "lab-03-amazon-ecr-container-registry-s3-storage-buckets",
@@ -563,6 +570,7 @@
         "vpc",
         "aws-overview",
         "serverless",
+        "iam",
         "ec2",
         "s3",
         "load-balancers"
@@ -573,7 +581,8 @@
       ],
       "roadmaps": [
         "aws-cloud-engineer",
-        "cloud-devops-engineer"
+        "cloud-devops-engineer",
+        "devsecops"
       ],
       "projects": [
         "cloud-native-devops-platform",
@@ -596,8 +605,8 @@
         "s3",
         "iam",
         "auto-scaling",
-        "load-balancers",
         "vpc",
+        "load-balancers",
         "serverless"
       ],
       "labs": [
@@ -630,8 +639,8 @@
       "chapters": [
         "iam",
         "aws-overview",
-        "secrets-manager",
         "ec2",
+        "secrets-manager",
         "s3",
         "ecr",
         "serverless",
@@ -669,7 +678,9 @@
         "linux-foundations",
         "k8s-security",
         "ec2",
-        "auto-scaling"
+        "auto-scaling",
+        "iam",
+        "load-balancers"
       ],
       "labs": [
         "lab-02-iam-roles-irsa-policies-security-groups",
@@ -797,11 +808,12 @@
       "chapters": [
         "s3",
         "aws-overview",
+        "load-balancers",
         "ec2",
         "iam",
         "vpc",
-        "rds",
-        "serverless"
+        "ecr",
+        "rds"
       ],
       "labs": [
         "lab-24-s3-cloudfront-static-site",
@@ -832,12 +844,12 @@
       "chapters": [
         "secrets-manager",
         "docker",
+        "git-and-github",
         "linux-foundations",
         "k8s-config-storage",
         "gitops",
         "kubernetes",
-        "terraform",
-        "ec2"
+        "terraform"
       ],
       "labs": [
         "lab-04-amazon-rds-postgresql-aws-secrets-manager-integration",
@@ -868,8 +880,8 @@
       "chapters": [
         "auto-scaling",
         "kubernetes",
-        "ec2",
         "aws-overview",
+        "ec2",
         "rds",
         "serverless",
         "load-balancers"
@@ -1179,11 +1191,11 @@
         "kubernetes",
         "k8s-cluster-administration",
         "kubeadm",
+        "k8s-workloads",
         "service-mesh",
         "aws-overview",
-        "auto-scaling",
-        "disaster-recovery",
-        "k8s-security"
+        "ecr",
+        "auto-scaling"
       ],
       "labs": [
         "lab-11-core-kubernetes-workloads-configmaps-secrets",
@@ -1217,9 +1229,9 @@
         "k8s-services-networking",
         "k8s-config-storage",
         "k8s-cluster-administration",
+        "iam",
         "k8s-security",
-        "secrets-manager",
-        "service-mesh"
+        "secrets-manager"
       ],
       "labs": [
         "lab-k8s-workloads",
@@ -1257,8 +1269,8 @@
         "k8s-workloads",
         "kubernetes",
         "kustomize",
-        "k8s-services-networking",
         "k8s-config-storage",
+        "k8s-services-networking",
         "gateway-api",
         "kubeadm",
         "k8s-cluster-administration"
@@ -1637,8 +1649,9 @@
         "gitops",
         "git-and-github",
         "helm",
-        "grafana",
         "kustomize",
+        "grafana",
+        "argocd",
         "disaster-recovery"
       ],
       "labs": [
@@ -1686,6 +1699,7 @@
       "titleAr": "الانحراف والإصلاح الذاتي",
       "coverage": "explained",
       "chapters": [
+        "terraform",
         "argocd",
         "gitops"
       ],
@@ -1694,7 +1708,9 @@
         "lab-terraform-state-recovery"
       ],
       "roadmaps": [
+        "aws-cloud-engineer",
         "cloud-devops-engineer",
+        "devsecops",
         "kubernetes-specialist"
       ],
       "projects": []
@@ -1960,7 +1976,9 @@
       "coverage": "explained",
       "chapters": [
         "sre-fundamentals",
-        "disaster-recovery"
+        "disaster-recovery",
+        "observability",
+        "argocd"
       ],
       "labs": [
         "lab-sre-backup-disaster-recovery"
@@ -2058,11 +2076,11 @@
       "titleAr": "فحص الصور",
       "coverage": "explained",
       "chapters": [
+        "supply-chain-security",
         "container-security",
-        "docker",
         "build-tools",
-        "ecr",
-        "supply-chain-security"
+        "docker",
+        "ecr"
       ],
       "labs": [
         "lab-16-enterprise-multibranch-ci-cd-pipeline-with-sonarqube-trivy"
@@ -2130,7 +2148,8 @@
         "docker",
         "iam",
         "supply-chain-security",
-        "k8s-security"
+        "k8s-security",
+        "network-policies"
       ],
       "labs": [
         "lab-09-production-grade-multi-stage-dockerfile-for-django-gunicorn"

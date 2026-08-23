@@ -140,6 +140,10 @@ database but forgets UDP 53 to CoreDNS. Every hostname lookup in the namespace
 then times out, while the policy looks correct because the database rule is
 right there.
 
+The rule it needs, and note that it names both protocols — DNS falls back to TCP
+for responses too large for one datagram, so a UDP-only rule leaves a few lookups
+hanging while most succeed:
+
 ```yaml
   egress:
     - to:
@@ -148,6 +152,8 @@ right there.
               kubernetes.io/metadata.name: kube-system
       ports:
         - protocol: UDP
+          port: 53
+        - protocol: TCP
           port: 53
 ```
 

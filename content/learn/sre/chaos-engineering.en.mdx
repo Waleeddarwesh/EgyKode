@@ -55,7 +55,7 @@ During normal business hours, Chaos Monkey would randomly log into AWS and termi
 ### The Scientific Method of Chaos
 You do not just unplug cables randomly. Chaos Engineering is a strict scientific experiment.
 1. **Steady State:** Define what "normal" looks like (e.g., 500 HTTP requests per second with \< 50ms latency).
-2. **Hypothesis:** "If we delete the primary Database, the system will failover to the Standby Database within 10 seconds, and users will only experience a slight delay."
+2. **Hypothesis:** "If we fail over the primary database, the standby is promoted within the 60-120 seconds AWS documents for Multi-AZ, existing connections are broken and reconnect, and no committed transaction is lost." Write the number you actually expect — a hypothesis you cannot be wrong about is not an experiment.
 3. **Run the Experiment:** Introduce the chaos (run a script to kill the Database).
 4. **Observe:** Look at Grafana. Did the latency spike? Did it recover?
 5. **Learn:** If the system failed, fix the code. If it succeeded, automate the experiment to run every week.

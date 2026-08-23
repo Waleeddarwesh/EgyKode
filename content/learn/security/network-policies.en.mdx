@@ -49,7 +49,7 @@ Imagine a giant office building (the Cluster) with 100 rooms (the Pods).
 - **Default Kubernetes:** All the doors are unlocked. Anyone in any room can walk into any other room. 
 - **Network Policies:** You put an electronic lock on every single door. You program the lock on the Database room: *"Only people wearing the 'Backend API' badge are allowed to enter. Everyone else is rejected."*
 
-If a hacker breaks into the Frontend room, they are physically trapped in the Frontend room. They cannot reach the Database.
+If a hacker breaks into the Frontend room, the Database door does not open for them. Keep the analogy honest, though: they are not trapped. They still have whatever the Frontend Pod is allowed to reach, and whatever its service account can do against the API server. A NetworkPolicy narrows the blast radius; it is not a cage.
 
 **Locking the doors, in order.** A NetworkPolicy selects Pods and states what
 traffic is allowed. The first policy you write is the one that changes the
@@ -134,7 +134,15 @@ hostname lookup in the namespace:
       ports:
         - protocol: UDP
           port: 53
+        - protocol: TCP
+          port: 53
 ```
+
+**Both protocols, and this is not padding.** DNS uses UDP for ordinary queries
+and falls back to TCP when a response will not fit in a single datagram. Allow
+only UDP and most lookups work while a few large ones hang — an intermittent
+failure that is very hard to attribute later, and much worse to debug than a
+clean break.
 
 ### ASCII Diagram: Zero-Trust
 

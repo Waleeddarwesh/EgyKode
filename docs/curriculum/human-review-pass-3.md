@@ -159,6 +159,67 @@ in the confusing way: the name exists and nothing answers for it.
 
 ---
 
+### P3-6 · `container-security` · Why do we need it?
+
+**Claim.** "a bot will hack your server **within 45 minutes** of it going live."
+
+**Problem.** An invented statistic. The mechanism is real — automated scanning
+of public repositories and reachable services, scripted exploits for public CVEs
+— but the number has no source and the precision is fabricated. The project's
+own rules forbid false statistics.
+
+**Classification.** 7 — not reliably true. **Severity** E5 / P2.
+
+**Corrected.** States the mechanism and explicitly declines to put a number on
+it, because it depends on what was exposed, to whom, and which vulnerability.
+The conclusion survives without the number: anything reachable and unpatched is
+found by something that never sleeps, so the defence is not obscurity.
+
+---
+
+### P3-7 · `network-policies` · the DNS egress example contradicted its own chapter
+
+**Claim.** The Level 1 egress example permitted **UDP 53 only**.
+
+**Problem.** The same chapter's troubleshooting section — and the DNS incident
+lab — correctly require UDP *and* TCP. So the chapter taught the beginner the
+exact mistake it warns about two hundred lines later. DNS falls back to TCP when
+a response exceeds one datagram, so a UDP-only rule produces the worst failure
+shape: most lookups work and a few hang.
+
+**Classification.** 3 — configuration-dependent. **Severity** E1 / P2.
+
+**Corrected.** Both protocols in the example, with the reason stated.
+
+**Other locations checked.** Every `port: 53` rule across chapters, labs and
+scenarios. `lab-13`, `k8s-networkpolicy-hpa` and `incident-cluster-dns`'s
+scenario were already correct; **`lab-incident-cluster-dns.en.mdx` was not** and
+disagreed with its own scenario — corrected.
+
+Also narrowed "they are physically trapped in the Frontend room. They cannot
+reach the Database": a NetworkPolicy narrows blast radius, it is not a cage. The
+attacker still has whatever that Pod may reach and whatever its service account
+can do.
+
+---
+
+### P3-8 · `chaos-engineering` · hypothesis contradicted the corrected RDS material
+
+**Claim.** Example hypothesis: "the system will failover to the Standby Database
+**within 10 seconds**."
+
+**Problem.** After pass 2 corrected RDS failover to AWS's documented 60–120
+seconds, this extension chapter still implied 10. A beginner meeting both learns
+nothing reliable.
+
+**Classification.** 6 — provider-dependent. **Severity** E3 / P3.
+
+**Corrected.** The example hypothesis now uses the documented window, mentions
+broken connections, and adds the point that a hypothesis you cannot be wrong
+about is not an experiment.
+
+---
+
 ## Mental models corrected
 
 Across passes 2 and 3, the beliefs that were wrong rather than merely worded
@@ -182,11 +243,19 @@ loosely:
   internet*; everything else is security groups.
 - **"Kubernetes scales with traffic"** → scheduling and restarting are built in;
   autoscaling is configured.
+- **"A NetworkPolicy traps the attacker"** → it narrows blast radius; the Pod's
+  remaining reach and its service account still apply.
+- **"Allow UDP 53 for DNS"** → UDP *and* TCP, or large responses hang.
 
 ## Verified as correct — no change
 
-Checked against documentation and left alone, because a review that only
-reports problems is not a review: SIGTERM's 30-second default grace period and
+`linux-foundations` was read in full and produced **no findings** — `After=`
+versus `network-online.target`, the `Restart=always` trap, environment variables
+not being a secret store, and SSH key permissions being a client-side check are
+all precise. It is the standard the rest should be measured against.
+
+Other claims checked against documentation and left alone, because a review that
+only reports problems is not a review: SIGTERM's 30-second default grace period and
 `docker stop`'s shorter one; security groups being stateful and NACLs not;
 `user_data` running once by default; S3 Block Public Access being on by default
 for new buckets; Argo CD's three-minute default reconciliation; service account

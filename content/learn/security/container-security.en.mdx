@@ -50,7 +50,9 @@ A guest (a Docker Container) arrives.
 - **The DevSecOps Way:** Before the guest arrives, you run a background check (Trivy Scan). When they arrive, you lock them in their room (Network Policies). You bolt the windows shut (Read-Only Filesystem), and you ensure they do not have a master key (Non-Root User). 
 
 ### Why do we need it?
-Hackers are automated. They use bots to scan GitHub for leaked passwords and scan the internet for unpatched software. If you deploy a Docker image that has a known vulnerability (a CVE), a bot will hack your server within 45 minutes of it going live.
+Attacks are automated. Bots scan public repositories for leaked credentials and sweep the internet continuously for reachable services, and once a CVE is public an exploit for it is often scripted within days. You are not being targeted personally; you are being enumerated along with everyone else.
+
+Resist putting a number on how fast that happens — it depends entirely on what you exposed, to whom, and which vulnerability. The useful conclusion does not need one: anything reachable and unpatched is found by something that never sleeps, so the defence is not being obscure, it is not being vulnerable.
 
 ---
 
