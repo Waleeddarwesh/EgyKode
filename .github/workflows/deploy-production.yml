@@ -153,6 +153,20 @@ jobs:
             --delete \
             --only-show-errors
 
+      # The web app manifest decides whether the site is installable, and
+      # PWABuilder reads it from the live URL to produce the Windows package.
+      # `s3 sync` infers the type from Python's mimetypes, whose knowledge of
+      # `.webmanifest` differs between machines — so it is declared here rather
+      # than left to the runner. Served as octet-stream, browsers ignore it and
+      # the install prompt silently never appears.
+      - name: Upload the web app manifest with an explicit content type
+        run: |
+          aws s3 cp apps/web/.next-export/manifest.webmanifest \
+            s3://${{ secrets.AWS_SITE_BUCKET }}/manifest.webmanifest \
+            --content-type "application/manifest+json" \
+            --cache-control "public,max-age=0,must-revalidate" \
+            --only-show-errors
+
       # Next writes metadata images as extensionless files, so `s3 sync` infers
       # `binary/octet-stream` from the missing suffix and every social scraper
       # refuses the image. They are excluded above and uploaded here with the
