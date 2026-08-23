@@ -40,7 +40,7 @@ But what if a meteor hits the AWS `us-east-1` data center? Or what if a disgrunt
 Imagine you write a 500-page novel on your laptop.
 - **No DR:** You drop the laptop in a lake. The book is gone forever. You cry.
 - **Basic DR:** Every night, you copy the book to a USB drive. If you drop the laptop, you buy a new one, plug in the USB drive, and you only lost today's work.
-- **Enterprise DR:** You type the book in Google Docs. As you type, the words are instantly synchronized to servers in New York, London, and Tokyo. If the New York server dies, you are switched to London fast enough that you never notice, and you do not lose a comma.
+- **Enterprise DR:** You write in a service that keeps copies in New York, London and Tokyo. If New York dies you are moved to London quickly enough that you barely notice, and you lose at most the last few seconds. Note *at most the last few seconds* rather than nothing: copying across the world takes time, and a system that waits for Tokyo to confirm every keystroke would be slow to type in. That trade — how much you may lose against how fast it feels — is what RPO measures.
 
 ### RTO and RPO
 In business, you must define two numbers before you build anything:
@@ -104,6 +104,37 @@ spec:
 - **`storageLocation: aws-s3-bucket`**: Upload all the YAML manifests to an S3 bucket in a completely different AWS Region.
 - **`volumeSnapshotLocations`**: For any Pod that has a PVC (Persistent Volume Claim), make an API call to AWS to take a block-level snapshot of the underlying EBS hard drive. 
 - **`ttl: 720h0m0s`**: Automatically delete the backup after 30 days to save money on AWS storage costs.
+
+**The question this spec does not answer: is the snapshot consistent?**
+
+A block-level snapshot of a running database is *crash-consistent* — it captures
+the disk as it was at that instant, mid-write, exactly as if someone had pulled
+the power. Engines like InnoDB usually recover from that using their redo log,
+and "usually" is doing real work in that sentence. It is not the same as an
+*application-consistent* backup, where the database was told to flush and pause
+first.
+
+Velero's answer is backup hooks — annotations naming a command to run inside the
+Pod before and after the snapshot:
+
+```yaml
+  annotations:
+    pre.hook.backup.velero.io/command: '["/bin/sh", "-c", "..."]'
+    post.hook.backup.velero.io/command: '["/bin/sh", "-c", "..."]'
+```
+
+Be careful what you put in them. The obvious idea — lock the tables in the
+pre-hook and unlock them in the post-hook — does not work for MySQL, because the
+lock belongs to the session and the session ends when that first client exits.
+The lock is gone before the snapshot is taken. A hook has to do something that
+outlives its own process: freeze the filesystem, or write a dump.
+
+Which is why, for a database, the honest recommendation is to use the engine's
+own backup — `mysqldump`, or an RDS snapshot — and treat the volume snapshot as
+a fallback rather than the plan.
+
+Whichever you choose, the only evidence that a backup works is a restore you have
+actually performed.
 
 ---
 
