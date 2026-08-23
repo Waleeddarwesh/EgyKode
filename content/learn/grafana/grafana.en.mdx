@@ -155,6 +155,49 @@ It maps your AWS SSO Groups to Grafana Roles.
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.**
+
+### The panel says "No data"
+
+**Symptom.** An empty panel, with no error.
+
+**Evidence.** Work backwards, one layer at a time. Run the query in Prometheus
+directly; if it returns series there, the query is fine and the problem is in
+Grafana.
+
+**Hypothesis.** In order of likelihood: the dashboard's time range does not
+include the data, the panel points at a different datasource than you think, or a
+dashboard variable resolved to nothing and silently emptied the query.
+
+**Test.** Widen the range to 24 hours. Then use the panel's query inspector to
+see the request Grafana actually sent — with variables already substituted, which
+is where a wrong one becomes obvious.
+
+**Fix.** Whichever layer the test located. "No data" means the query returned
+nothing, which is a fact about the query far more often than about the system.
+
+### The dashboard vanished after a restart
+
+**Symptom.** A dashboard someone built in the UI is gone after the pod was
+replaced.
+
+**Evidence.** Check whether the Grafana deployment has a persistent volume, and
+whether the dashboard exists as a provisioned ConfigMap.
+
+**Hypothesis.** UI-created dashboards live in Grafana's own database. In a
+cluster, that database is usually ephemeral — and it should be.
+
+**Test.** Delete the pod deliberately in a test environment and see what survives.
+
+**Fix.** Treat dashboards as code: export the JSON, commit it, and load it from a
+ConfigMap so it is recreated with the deployment. This is why the capstone's
+dashboards are committed rather than clicked — a dashboard that exists only in a
+pod is one restart from being a story about how good it used to be.
+
+---
+
 ## Interview Questions
 
 ### Beginner

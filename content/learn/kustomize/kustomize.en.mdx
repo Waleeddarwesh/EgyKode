@@ -312,6 +312,73 @@ the dev render's PDB says `minAvailable: 1`.
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.** Kustomize failures are quiet:
+the build usually succeeds and produces something you did not mean.
+
+### The patch did nothing
+
+**Symptom.** `kustomize build` succeeds and the patched field is unchanged.
+
+**Evidence.** Render and look, rather than applying and guessing:
+
+```bash
+kustomize build overlays/production | grep -A5 'kind: Deployment'
+```
+
+**Hypothesis.** The patch target did not match. A strategic-merge patch is
+matched on apiVersion, kind, name and namespace together, and a mismatch in any
+one of them is not an error — the patch simply applies to nothing.
+
+**Test.** Compare the patch's `metadata.name` and `apiVersion` against the base
+object, character for character.
+
+**Fix.** Align them. Newer Kustomize versions do report an unused patch for some
+patch types; do not rely on the warning, because the version in your pipeline may
+not be the version on your laptop.
+
+### `field is immutable` on an existing Deployment
+
+**Symptom.** An overlay that builds cleanly is rejected on apply, complaining
+about `spec.selector`.
+
+**Evidence.** The rendered selector differs from the live one:
+
+```bash
+kubectl get deploy myapp -o jsonpath='{.spec.selector}{"\n"}'
+```
+
+**Hypothesis.** You added `commonLabels`, which Kustomize applies to labels *and*
+to selectors. A Deployment's selector cannot be changed after creation.
+
+**Test.** Diff the rendered selector against the live one; the overlay has an
+extra label.
+
+**Fix.** Use `labels:` with `includeSelectors: false` for labels that are
+descriptive rather than identifying. Where the selector genuinely must change,
+the Deployment has to be deleted and recreated — which is a decision about
+downtime, not a formatting change.
+
+### `kubectl apply -k` and `kustomize build` disagree
+
+**Symptom.** The overlay renders correctly on your machine and behaves
+differently in CI.
+
+**Evidence.** `kustomize version` and `kubectl version` on both.
+
+**Hypothesis.** `kubectl` embeds its own Kustomize, usually older than a
+standalone binary, and feature support differs between them.
+
+**Test.** Run the standalone `kustomize build` in CI and compare the output with
+`kubectl apply -k --dry-run=client -o yaml`.
+
+**Fix.** Pick one and pin it. Rendering with a pinned `kustomize` and piping into
+`kubectl apply -f -` makes the version explicit and the output reviewable, which
+matters more once Argo CD is rendering the same overlay with its own version.
+
+---
+
 ## Interview Questions
 
 ### Beginner

@@ -254,6 +254,78 @@ control.
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.**
+
+### `another operation (install/upgrade/rollback) is in progress`
+
+**Symptom.** Every `helm upgrade` is refused, and no operation is running.
+
+**Evidence.**
+
+```bash
+helm list --all --namespace ivolve
+```
+
+**Hypothesis.** A previous run was interrupted — a cancelled pipeline, a timeout
+— and the release is stuck in `pending-upgrade`. Helm stores release state in
+Secrets in the namespace, and nothing cleans that up on a kill.
+
+**Test.** The status column shows `pending-upgrade` or `pending-install` rather
+than `deployed`.
+
+**Fix.** Roll back to the last good revision, which clears the pending state:
+
+```bash
+helm history myapp -n ivolve
+helm rollback myapp <last-deployed-revision> -n ivolve
+```
+
+Deleting the release Secret by hand also unsticks it, and loses the history Helm
+needs to roll back later. Prefer the rollback.
+
+### The value you set had no effect
+
+**Symptom.** `--set image.tag=v2` changes nothing in the rendered output.
+
+**Evidence.** Render locally and read what actually came out:
+
+```bash
+helm template myapp ./chart --set image.tag=v2 | grep image:
+```
+
+**Hypothesis.** The key path is wrong, or the value belongs to a subchart. A
+value for a dependency must be nested under the dependency's name, and Helm
+silently ignores keys that no template reads — there is no such thing as an
+unknown-value error.
+
+**Test.** `helm show values ./chart` lists the keys the chart actually declares.
+Compare yours against it, exactly.
+
+**Fix.** Correct the path, and prefer a values file in Git to a long `--set`
+line, which is unreviewable and easy to mistype.
+
+### The rollback did not bring the data back
+
+**Symptom.** `helm rollback` reports success, the application is on the previous
+version, and the data is still wrong.
+
+**Evidence.** The PersistentVolumeClaim is unchanged — `kubectl get pvc` shows
+the same volume, same age.
+
+**Hypothesis.** Helm rolls back **manifests**, not state. A rollback re-applies
+the previous Deployment; it has nothing to say about what the previous version
+wrote to a volume or a database.
+
+**Test.** Compare the PVC's creation timestamp with the rollback time.
+
+**Fix.** There is no Helm-side fix, and that is the lesson: a schema migration or
+a destructive write is not undone by a chart rollback. Restoring data is a
+backup-and-restore procedure, which is why the platform has one.
+
+---
+
 ## Interview Questions
 
 ### Beginner

@@ -190,6 +190,47 @@ proportion to how much trouble you are actually in.
 
 ---
 
+## Working an incident with these signals
+
+Observability is not a set of tools, it is the ability to answer questions about
+a system you cannot see inside. The test is whether you can go from "something is
+wrong" to "this is what is wrong" without guessing — and the path is always the
+same shape.
+
+```text
+SYMPTOM  -> what does a user actually experience?
+EVIDENCE -> which signal answers that question?
+HYPOTHESIS -> what would explain it?
+TEST     -> what would be true if the hypothesis is right?
+CAUSE    -> what changed?
+FIX      -> and how do you know it worked?
+```
+
+The part people skip is the second line. Each signal answers a different
+question, and reaching for the wrong one is why an investigation stalls:
+
+| Question | Signal |
+| --- | --- |
+| Is it broken, and how badly? | metrics — a rate, an error ratio, a latency quantile |
+| When did it start? | metrics over a window that includes the last deploy |
+| What exactly failed? | logs, for the failing request |
+| Which component? | traces, or the metric split by service |
+| What changed? | deploy history, Git, the Argo CD sync log |
+| Is it still happening? | the same metric you started with |
+
+Two habits make the difference in practice.
+
+**Start with the symptom a user would report, not the alert that fired.** Alerts
+are proxies. "Checkout returns 500 for one request in twenty" is a fact about the
+service; "CPU is above 80%" is a fact about a machine that may be entirely normal
+under load.
+
+**Establish when it started before asking why.** A change at 14:02 and a deploy
+at 14:01 is nearly the whole investigation. Reversing that order is how an
+afternoon disappears into a dashboard.
+
+---
+
 ## Interview Questions
 
 ### Beginner

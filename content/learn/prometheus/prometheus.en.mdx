@@ -221,6 +221,83 @@ To solve this in production:
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.**
+
+### A target is `DOWN`, or missing entirely
+
+**Symptom.** A workload you expect is absent from Status → Targets, or listed as
+`DOWN`.
+
+**Evidence.** Missing and `DOWN` are different failures, and the Targets page
+distinguishes them. Missing means Prometheus was never told to scrape it; `DOWN`
+means it tried and failed, and shows the error.
+
+**Hypothesis.** Missing is a selector problem — the ServiceMonitor's
+`selector.matchLabels` does not match the Service's labels, or its
+`namespaceSelector` excludes the namespace. `DOWN` is a connectivity or naming
+problem — the wrong `port` name, the wrong path, or a NetworkPolicy denying the
+scrape.
+
+**Test.** For a missing target, compare the two label sets directly:
+
+```bash
+kubectl get svc myapp -n ivolve --show-labels
+kubectl get servicemonitor myapp -n ivolve -o yaml
+```
+
+For `DOWN`, bypass Prometheus and scrape it yourself from inside the cluster:
+
+```bash
+kubectl run probe --rm -it --image=curlimages/curl:8.10.1 --restart=Never -- \
+  curl -s http://myapp.ivolve.svc:8080/metrics | head
+```
+
+**Fix.** Whichever the test found. Note that a ServiceMonitor references the
+Service **port name**, not the port number — an unnamed port is the single most
+common cause of a target that never appears.
+
+### The alert never fired
+
+**Symptom.** The condition was true in production, and no alert arrived.
+
+**Evidence.** Run the alert's expression by hand in the Prometheus UI, over the
+window in which the incident happened.
+
+**Hypothesis.** Either `for:` is longer than the incident lasted, or the
+expression returned **no series** rather than a value.
+
+**Test.** This is the distinction that catches people, so test it deliberately: an
+expression returning nothing is not the same as one returning zero. If the metric
+disappeared entirely — the pod was gone, so it stopped being scraped — a rule
+like `rate(errors[5m]) > 0` has nothing to evaluate and stays silent exactly when
+you needed it.
+
+**Fix.** For a threshold that must fire on absence, say so with `absent()` or
+`absent_over_time()`. For a real but brief incident, shorten `for:` knowing you
+are trading sensitivity for noise.
+
+### The alert fires constantly
+
+**Symptom.** The channel is full and nobody reads it any more.
+
+**Evidence.** Graph the expression over a day and look at whether it crosses the
+threshold repeatedly.
+
+**Hypothesis.** Either there is no `for:`, so a single scrape crossing the line
+pages someone, or the alert is on a cause rather than a symptom — CPU, memory,
+restart counts — which move constantly in a healthy system.
+
+**Test.** Count how many times it fired last week and how many of those were
+acted on. That ratio is the alert's actual value.
+
+**Fix.** Add a `for:` long enough to survive a spike, and move the alert onto
+something a user would notice. An alert nobody acts on is worse than no alert: it
+trains the team to ignore the channel that the real one will arrive in.
+
+---
+
 ## Interview Questions
 
 ### Beginner

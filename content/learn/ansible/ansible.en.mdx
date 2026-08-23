@@ -282,6 +282,91 @@ In modern Platform Engineering (like Netflix), they rarely use Ansible to config
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.** Ansible failures are nearly
+always one of three things: it cannot reach the host, it cannot become root, or
+the task is not actually idempotent.
+
+### `UNREACHABLE`
+
+**Symptom.** `Failed to connect to the host via ssh`, before any task runs.
+
+**Evidence.** Ask the smallest possible question, with the verbosity up so you
+can see the exact SSH command being attempted:
+
+```bash
+ansible all -m ping -vvv
+```
+
+**Hypothesis.** This is an SSH problem, not an Ansible one. Usually the wrong
+`ansible_user`, the wrong key, a host key that changed because the instance was
+rebuilt, or a security group that never allowed 22 from where you are.
+
+**Test.** Run the SSH command that `-vvv` printed, by hand. If it fails the same
+way, Ansible was never involved.
+
+**Fix.** Whichever the test found. Reach for `host_key_checking = False` only
+knowing what it turns off — reasonable for throwaway lab hosts, and in production
+it is accepting unauthenticated hosts.
+
+### `Missing sudo password`
+
+**Symptom.** The connection works, `ping` succeeds, and the first privileged task
+fails.
+
+**Evidence.** Run the play once with `--ask-become-pass`. If it then succeeds,
+you have isolated the problem to privilege escalation.
+
+**Hypothesis.** The remote user can log in but cannot escalate without a
+password, and Ansible has not been given one.
+
+**Test.** On the host, `sudo -n true` exits non-zero when a password is required.
+
+**Fix.** Give the automation user passwordless sudo on the hosts it manages, or
+supply the password from a vaulted variable. Never put it in the inventory in
+plain text — that file is in Git.
+
+### A task reports `changed` on every run
+
+**Symptom.** The second run is not green. Nothing is different, and Ansible says
+it changed things anyway.
+
+**Evidence.** Run twice, read the recap, then look at which module the noisy task
+uses.
+
+**Hypothesis.** `command` and `shell` cannot know whether the system already
+matched, so they report `changed` every time. The other common cause is two tasks
+fighting — a `template` writing a file and a `lineinfile` editing the same file
+afterwards.
+
+**Test.** `--check --diff` shows what Ansible believes it would alter.
+
+**Fix.** Make the task describe a state rather than an action. Prefer a real
+module; where you genuinely need a command, guard it with `creates:`, `removes:`
+or an explicit `changed_when:`. Idempotency is not a nicety — it is what lets you
+run a playbook against production without reading it line by line first.
+
+### The handler never ran
+
+**Symptom.** Configuration was written, the service was not restarted, and the
+play reported success.
+
+**Evidence.** The notifying task reported `ok`, not `changed`.
+
+**Hypothesis.** Handlers fire only when a notifying task actually changes
+something, and they run at the **end of the play** rather than at the point of
+notification. A task that fails after the notification also skips them.
+
+**Test.** Change the file by hand, re-run, and watch the handler fire.
+
+**Fix.** Usually nothing — this is correct behaviour, and it is why a second run
+is quiet. When handlers must run despite a later failure, `--force-handlers`.
+When a restart must happen at that point rather than at the end,
+`meta: flush_handlers`.
+
+---
+
 ## Interview Questions
 
 ### Beginner

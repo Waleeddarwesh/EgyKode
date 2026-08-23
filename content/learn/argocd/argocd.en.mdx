@@ -243,6 +243,81 @@ Enterprise teams use **Argo Rollouts** to perform **Canary Releases**.
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.** Nearly every Argo CD confusion
+comes from one idea: **sync state and health state are different questions.**
+
+### `Synced` and still broken
+
+**Symptom.** The application is green on sync, and the service does not work.
+
+**Evidence.** Read both states, because they answer different things:
+
+```bash
+argocd app get myapp
+```
+
+**Hypothesis.** `Synced` means the cluster matches Git. It says nothing about
+whether what Git asked for is any good. A Deployment whose image tag does not
+exist is applied faithfully, matches Git exactly, and never becomes ready —
+`Synced` and `Degraded` at the same time is not a contradiction.
+
+**Test.** Go to the workload:
+
+```bash
+kubectl get pods -n ivolve
+kubectl describe pod <pod> -n ivolve
+```
+
+`ImagePullBackOff` there says the manifest was delivered correctly and is wrong.
+
+**Fix.** Fix the manifest in Git. Never `kubectl edit` the live object — Argo will
+revert it, and you will have spent the outage arguing with a controller that is
+doing exactly its job.
+
+### `OutOfSync` forever, with nothing to sync
+
+**Symptom.** The app returns to `OutOfSync` immediately after every successful
+sync.
+
+**Evidence.** Look at the diff Argo is objecting to:
+
+```bash
+argocd app diff myapp
+```
+
+**Hypothesis.** Something in the cluster writes a field back after you apply it —
+a mutating webhook, a defaulting controller, or an autoscaler owning `replicas`.
+Argo compares the whole object, sees the field it did not write, and reports
+drift.
+
+**Test.** Apply the manifest by hand and re-read the live object. If the field
+reappears, a controller owns it.
+
+**Fix.** Tell Argo not to compare that field, with `ignoreDifferences` on the
+Application. Do this for fields another controller legitimately owns — an HPA's
+`replicas` is the classic — and not to silence drift you have not explained.
+
+### Self-heal reverted the fix you made during an incident
+
+**Symptom.** You scaled a Deployment at 3am, it worked, and minutes later it was
+back.
+
+**Evidence.** The Application history shows an automated sync after your change.
+
+**Hypothesis.** With self-heal enabled, Git is the only writer. Your change was
+drift by definition.
+
+**Test.** The revert timestamp lines up with the sync interval.
+
+**Fix.** This is the system working, and the fix is procedural rather than
+technical: change Git, even at 3am. When you genuinely need to hold the line
+while you think, disable auto-sync on that one Application — deliberately,
+visibly, and put it back afterwards.
+
+---
+
 ## Interview Questions
 
 ### Beginner

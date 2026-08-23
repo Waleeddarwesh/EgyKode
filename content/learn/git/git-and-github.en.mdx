@@ -375,6 +375,103 @@ shared branch and `git reset --hard` is not.
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.** Git tells you a great deal if
+you read the error instead of searching for the command that makes it stop.
+
+### You pushed a secret
+
+**Symptom.** An AWS key, a `.env`, or a private key is in a commit that is now on
+the remote.
+
+**Evidence.** Find every commit that touched it, not just the current tip:
+
+```bash
+git log --all --oneline -S 'AKIA'
+```
+
+**Hypothesis.** Deleting the file in a new commit does not help. Git keeps every
+version; the old blob is still reachable from history, and anyone who cloned
+already has it.
+
+**Test.** Check out an older commit and look — the value is still there.
+
+**Fix, in this order.** **Rotate the credential first.** It was compromised the
+moment it was pushed, and no amount of history rewriting changes that: CI logs,
+forks, clones and the forge's own caches may already have it. Only then rewrite
+history with `git filter-repo` (`filter-branch` is deprecated and slow),
+force-push, and tell everyone to re-clone — a stale local clone will push the
+secret straight back.
+
+Treating the rewrite as the fix, and rotation as optional cleanup, is what turns
+an incident into a breach.
+
+### `! [rejected] ... (fetch first)`
+
+**Symptom.** `git push` is refused as non-fast-forward.
+
+**Evidence.** Look at what each side has that the other does not:
+
+```bash
+git log --oneline HEAD..origin/main
+git log --oneline origin/main..HEAD
+```
+
+**Hypothesis.** Someone pushed while you were working, so your branch is no
+longer a straight continuation of the remote.
+
+**Test.** The first command lists their commits; the second lists yours.
+
+**Fix.** Replay your work on top of theirs with `git pull --rebase origin main`,
+then push. Do **not** reach for `git push --force` on a shared branch — it
+deletes their commits from the remote, and the only remaining evidence is in
+someone else's reflog. If you must overwrite a branch you own,
+`--force-with-lease` refuses when the remote has moved since you last fetched,
+and that check is the whole difference.
+
+### "I committed, and my work is gone"
+
+**Symptom.** You checked out a commit or a tag, worked, committed, switched
+branch — and the commits are nowhere.
+
+**Evidence.**
+
+```bash
+git reflog
+```
+
+**Hypothesis.** You were on a detached HEAD. The commits exist; nothing points at
+them, so they appear on no branch.
+
+**Test.** `git status` on a detached HEAD says so explicitly, and the reflog still
+lists the commit you made.
+
+**Fix.** Point a branch at it with `git branch recovered <sha-from-reflog>`. The
+reflog is why "lost" work in Git is almost always recoverable for weeks — learn
+it before you need it.
+
+### `.gitignore` is being ignored
+
+**Symptom.** You add a path to `.gitignore` and Git keeps reporting changes to it.
+
+**Evidence.**
+
+```bash
+git ls-files --error-unmatch path/to/file
+```
+
+**Hypothesis.** `.gitignore` governs **untracked** files only. Once a file is
+tracked, ignoring it has no effect.
+
+**Test.** The command above exits 0 — Git is tracking it.
+
+**Fix.** Stop tracking it while keeping it on disk with
+`git rm --cached path/to/file`, then commit. If the file was a secret, the first
+failure in this list applies: it is still in history.
+
+---
+
 ## Interview Questions
 
 ### Beginner

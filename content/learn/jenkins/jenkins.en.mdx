@@ -444,6 +444,101 @@ Jenkinsfiles it replaced.
 
 ---
 
+## When it breaks
+
+**Symptom → evidence → hypothesis → test → fix.** The first three are why most
+pipelines fail on day one. The fourth is worse, because the pipeline goes green.
+
+### `docker: not found` — the agent is not the machine you think
+
+**Symptom.** A stage fails on a command that works when you SSH to the Jenkins
+host.
+
+**Evidence.** Print the agent's identity inside the failing stage rather than
+assuming it:
+
+```bash
+hostname && whoami && which docker
+```
+
+**Hypothesis.** The stage is running somewhere else — a different agent, or a
+container — with a different PATH and a different toolset.
+
+**Test.** Compare that output with the same commands on the host.
+
+**Fix.** Install the tool on the agent that actually runs the stage, or pin the
+stage to an agent that has it. "It works on the controller" is not evidence about
+an agent.
+
+### `permission denied` on `/var/run/docker.sock`
+
+**Symptom.** Docker commands in a build fail with a permission error.
+
+**Evidence.** `id jenkins` on the agent, and `ls -l /var/run/docker.sock`.
+
+**Hypothesis.** The `jenkins` user is not in the group that owns the socket.
+
+**Test.** `sudo -u jenkins docker ps` reproduces it outside Jenkins entirely.
+
+**Fix.** Add the user to the `docker` group and restart the agent, so the new
+membership is picked up — an existing session keeps its old groups, which is why
+"I added the group and nothing changed" is so common.
+
+Know what you granted. Access to that socket is effectively root on the host,
+because a container can be started with the host filesystem mounted. It is
+defensible on a dedicated build host, and it is not a small permission.
+
+### The registry push is denied, hours after it worked
+
+**Symptom.** `denied: Your authorization token has expired` on push, in a
+pipeline that was fine this morning.
+
+**Evidence.** The timestamp. It stops roughly twelve hours after the last login.
+
+**Hypothesis.** ECR authorisation tokens are short-lived. A login performed once
+by hand, or baked into an agent image, expires.
+
+**Test.** Re-run `aws ecr get-login-password | docker login --password-stdin ...`
+and push again.
+
+**Fix.** Authenticate inside the pipeline, in the stage that pushes, on every run
+— not in a setup step someone ran once.
+
+### The stage that cannot fail
+
+**Symptom.** None. That is the problem. The scan stage is green and a vulnerable
+image reaches the registry.
+
+**Evidence.** Look at how the gate is written. This is the shape to distrust:
+
+```bash
+trivy image --severity HIGH,CRITICAL myapp:latest | tee scan.txt
+```
+
+**Hypothesis.** A shell pipeline exits with the status of its **last** command.
+`tee` almost always succeeds, so Trivy's non-zero exit — the entire point of the
+gate — is discarded before Jenkins ever sees it.
+
+**Test.** Scan a knowingly vulnerable image. If the stage passes, the gate has
+never worked.
+
+**Fix.** Make the failure survive the pipe:
+
+```bash
+set -o pipefail
+trivy image --exit-code 1 --severity HIGH,CRITICAL myapp:latest | tee scan.txt
+```
+
+`--exit-code 1` is what makes Trivy fail the build rather than merely report it,
+and `pipefail` is what lets that exit code reach Jenkins.
+
+**Test every gate by giving it something that should fail.** A control you have
+only ever seen pass is not a control — it is a stage that has never had an
+opinion, and you find out which one it is when an image you needed it to stop
+reaches production.
+
+---
+
 ## Interview Questions
 
 ### Beginner
