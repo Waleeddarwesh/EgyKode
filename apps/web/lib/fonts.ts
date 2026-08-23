@@ -15,9 +15,13 @@ import localFont from "next/font/local";
  * with no external request, exactly as `next/font/google` arranged, so nothing
  * about the runtime behaviour or the privacy story changes.
  *
- * These live here rather than in the root layout because the `<html>` element
- * is rendered by the locale layout (it owns `lang` and `dir`), and that is
- * where the font variables must be applied.
+ * These live here rather than in the root layout because the root layout does
+ * not render `<html>` — `lang` and `dir` belong to a layout that knows the
+ * locale. Two layouts render the document and both apply these variables: the
+ * locale layout, and the standalone one for `/privacy/` and `/offline/`.
+ * Importing this module is also what puts a page in Next's font preload
+ * manifest, so a layout that renders `<html>` without it emits a page whose
+ * text waits for the stylesheet before it can paint.
  *
  * See app/fonts/NOTICE.md for the families, their sources and their licence.
  */

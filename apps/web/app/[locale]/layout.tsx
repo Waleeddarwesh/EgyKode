@@ -9,6 +9,7 @@ import { TopBar } from "@/components/layout/topbar";
 import { fontVariables } from "@/lib/fonts";
 import { PUBLIC_LOCALES, dir, getTranslations, isLocale, type Locale, languageAlternates } from "@/lib/i18n";
 import { SITE } from "@/lib/site";
+import { THEME_SCRIPT } from "@/lib/theme-script";
 import { organization } from "@/lib/structured-data";
 
 export function generateStaticParams() {
@@ -54,19 +55,6 @@ export async function generateMetadata({
     },
   };
 }
-
-/**
- * Applies the saved theme before first paint. Without this the page renders in
- * the wrong theme for one frame — the flash that makes a site feel unfinished.
- */
-const THEME_SCRIPT = `(function(){try{
-var p=localStorage.getItem('egykode_theme');
-var t=p||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');
-var d=document.documentElement;
-d.setAttribute('data-theme',t);
-d.setAttribute('data-theme-pref',p||'system');
-d.style.colorScheme=t;
-}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
 
 export default async function LocaleLayout({
   children,
