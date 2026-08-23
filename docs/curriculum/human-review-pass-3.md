@@ -220,6 +220,83 @@ about is not an experiment.
 
 ---
 
+### P3-9 · The most duplicated wrong belief in the curriculum: GitOps convergence
+
+**Six locations, corrected across three passes.** Worth recording as one finding
+rather than six, because the shape is the lesson.
+
+| Where | Claim |
+| --- | --- |
+| `argocd` `selfHeal` bullet | "instantly recreates the Pod" — pass 2 |
+| `gitops` hacker Q&A | "instantly recreates the Deployment … fighting off the hacker automatically" — pass 2b |
+| `argocd` Level 1 librarian | "**immediately** puts a 3rd book on the Shelf … **immediately** throws the comic book in the trash" |
+| `gitops` Level 1 kingdom | "**immediately** bulldozes the house" |
+| `gitops` principles list | "If the live system drifts from Git, it fixes it **immediately**" |
+| `argocd` troubleshooting | "returns to `OutOfSync` immediately" (mine, from pass 1) |
+
+The Argo CD Level 1 case is the sharpest: the analogy says "immediately" twice,
+and the ASCII diagram **fifteen lines below it** says "Pulls changes every 3
+minutes". The chapter contradicted itself inside one screen, and three previous
+audits had walked past it because they were matching sentences.
+
+**Conditions the belief hides.** Reconciliation is periodic — three minutes by
+default, sooner with a webhook. Reverting out-of-band changes requires
+`selfHeal`. Deleting objects no longer in Git requires `prune`. None of the three
+is on unless configured.
+
+**Classification.** 3 — configuration-dependent. **Severity** E3 / P1.
+
+**Lesson, now recorded twice.** Correcting a sentence does not correct a
+curriculum, and correcting a *chapter* does not either. The belief lived in the
+analogy, the principles list, the answer key and the diagram caption
+independently. Search for the idea, in every register the curriculum uses to
+express it — including the ones that do not sound technical.
+
+---
+
+### P3-10 · Fabricated statistics — a class, not an instance
+
+Three invented numbers, presented as fact:
+
+| Chapter | Claim |
+| --- | --- |
+| `container-security` | "a bot will hack your server **within 45 minutes**" |
+| `iam` | "a hacker will find them **in exactly 4 seconds**" · "a bill for **$50,000**" |
+| `ecr` | a 500MB pull from in-region ECR "takes **milliseconds**" |
+
+The mechanisms behind the first two are real — automated scanning of public
+repositories, scripted exploits, crypto-mining abuse. The precision is invented,
+and "exactly" makes it worse. The third is wrong by orders of magnitude.
+
+**Corrected** by stating the mechanism and declining to give a number where none
+is available. The IAM rewrite gained something the fake number was crowding out:
+GitHub secret scanning and AWS's quarantine response, which is why a leaked key
+often arrives as an AWS notification.
+
+**Checked and left alone:** illustrative scenario numbers in analogies (a
+$30,000 car, "100 servers on Black Friday") and real specifications — `gp3`'s
+3,000 IOPS baseline, and gp2 needing 1,000 GB to reach 3,000 IOPS at 3 IOPS/GB.
+Both correct.
+
+**Classification.** 7 — not reliably true. **Severity** E5 / P2.
+
+---
+
+### P3-11 · Two absolutes about tools
+
+`grafana`: "can connect to **50 different databases** simultaneously" — invented
+precision, now "many kinds of data source".
+
+`jenkins`: "runs 24/7, **executes perfectly every time**" — a beginner who
+believes CI is infallible is unprepared for the flaky test and the drifted agent,
+which is most of what running CI actually involves. Now "consistent rather than
+infallible", with the point that telling real failures from flaky ones is part of
+the job.
+
+**Classification.** 7 — not reliably true. **Severity** E5 / P3.
+
+---
+
 ## Mental models corrected
 
 Across passes 2 and 3, the beliefs that were wrong rather than merely worded
@@ -246,6 +323,9 @@ loosely:
 - **"A NetworkPolicy traps the attacker"** → it narrows blast radius; the Pod's
   remaining reach and its service account still apply.
 - **"Allow UDP 53 for DNS"** → UDP *and* TCP, or large responses hang.
+- **"Reconciliation is immediate"** → periodic, and correction requires
+  `selfHeal`; deletion requires `prune`. Found in six places.
+- **"CI executes perfectly every time"** → consistent, not infallible.
 
 ## Verified as correct — no change
 

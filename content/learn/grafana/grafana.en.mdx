@@ -66,7 +66,7 @@ Each panel runs a specific query.
 
 ### Data Sources
 Grafana is famous because it is vendor-agnostic. 
-Prometheus is just one "Data Source". Grafana can connect to 50 different databases simultaneously. 
+Prometheus is just one "Data Source". Grafana speaks to many kinds of data source, and a single dashboard can query several of them at once. 
 You can build a single dashboard where the top graph shows Kubernetes CPU (pulled from Prometheus), the middle graph shows AWS Billing data (pulled from CloudWatch), and the bottom graph shows User Signups (pulled from a raw MySQL database).
 
 ---

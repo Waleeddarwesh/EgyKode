@@ -49,7 +49,9 @@ Imagine AWS is a massive, top-secret government building.
 - **IAM Roles:** These are temporary ID Badges given to robots. When a robot (like an EC2 server or a GitHub Actions runner) needs to do a job, it puts on a "Role Hat". When the job is done, it takes the hat off.
 
 ### Why is it so important?
-If you put your AWS Access Keys on GitHub by accident, a hacker will find them in exactly 4 seconds. The hacker will use those keys to launch 10,000 massive servers to mine Bitcoin. When you wake up, Amazon will send you a bill for $50,000. IAM prevents this by enforcing strict limits on what a key can do.
+Commit an AWS access key to a public repository and it will be found by automation, not by a person reading your code. Public repositories are scanned continuously; GitHub runs secret scanning and AWS participates in it, which is why a leaked key often arrives with an AWS notification and a quarantine policy attached before you have noticed anything.
+
+The usual abuse is compute for crypto-mining, in whatever regions you were not watching, and the bill can be very large. Putting a specific figure on it would be invention — what matters is the shape: the key is found quickly, the spend is automated, and you find out afterwards. IAM is what limits the damage a key can do at all, which is why the answer is short-lived roles rather than keys you have to keep safe.
 
 ---
 

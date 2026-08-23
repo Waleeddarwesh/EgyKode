@@ -68,8 +68,8 @@ A Container Registry is Spotify for Docker Images.
 
 ### ECR vs. Docker Hub
 Why don't we just use Docker Hub? It's free!
-- **Public vs. Private:** Docker Hub is primarily public. If you push your company's proprietary source code to a public Docker Hub repository, anyone in the world can download it and steal your code. 
-- **Latency:** If your Kubernetes cluster is running in AWS `us-east-1`, downloading a 500MB Docker image from Docker Hub (which might be hosted elsewhere) takes several seconds. Downloading it from an ECR registry located in the exact same AWS region takes milliseconds.
+- **Private by default:** Docker Hub offers private repositories too, but its default and its culture are public, and pushing a proprietary image to a public repository means anyone can pull it — including whatever credentials or source ended up baked into a layer. An ECR repository is private unless you deliberately make it public. 
+- **Locality and transfer cost:** a registry in the same region as the cluster is reached over the AWS network rather than the internet, so pulls are faster and you are not paying to move the image in from outside. How much faster depends on the image size and the node's bandwidth — a large image is still tens of seconds of pulling, which is why image size matters and why nodes cache layers.
 - **Rate Limits:** Docker Hub limits how many times you can download an image per hour (to prevent spam). If your Kubernetes cluster autoscales and tries to download the image 200 times, Docker Hub will block you. ECR has massive enterprise rate limits.
 
 ### How to use ECR (The Commands)

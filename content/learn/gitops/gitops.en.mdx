@@ -56,7 +56,10 @@ The Law says: *"If a rule is not written in the Great Book, it is not a law."*
 - **The Kingdom:** The Kubernetes Cluster.
 - **The King's Guard:** ArgoCD.
 
-If a rogue citizen tries to build a new house (a new Pod) in the kingdom without permission, the King's Guard looks at the Great Book. The Guard says, *"This house is not in the book!"* and immediately bulldozes the house.
+If a rogue citizen builds a house (a Pod) that is not in the Great Book, the Guard
+notices on the next round of inspections — not the moment it appears — and, if the
+Guard has been given the authority to demolish, takes it down. Both parts of that
+sentence are configuration, and the next section names them.
 If you want to build a house, you must write a request in the Great Book (a Pull Request), get it approved by the King (Merged), and then the Guard will build it for you.
 
 ### ASCII Diagram: The Single Source of Truth
@@ -82,7 +85,11 @@ According to OpenGitOps (a CNCF working group), a system must follow 4 rules to 
 1. **Declarative:** The entire system must be described declaratively (e.g., YAML, Terraform). No imperative bash scripts.
 2. **Versioned and Immutable:** The desired state is stored in a way that enforces immutability and versioning (e.g., Git). You can always rollback.
 3. **Pulled Automatically:** Software agents automatically pull the desired state from Git. No humans push.
-4. **Continuously Reconciled:** The software agent continuously observes the live system. If the live system drifts from Git, it fixes it immediately.
+4. **Continuously Reconciled:** The agent observes the live system on a loop and
+   compares it with Git. If they differ it reports the difference, and — where it has
+   been configured to act — corrects it. "Continuously" means repeatedly, not
+   instantly: correction arrives within the reconciliation interval, and the agent
+   only reverts out-of-band changes if self-healing is switched on.
 
 ### Why is this better?
 - **Auditing:** In traditional Ops, if the database goes down, you ask, "Who ran a command to delete the database?" Nobody knows. In GitOps, you look at the `git log`. Every change has an author, a timestamp, and a Pull Request approval.

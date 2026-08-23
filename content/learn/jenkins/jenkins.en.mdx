@@ -57,7 +57,7 @@ Imagine a car factory.
 When the developer finishes the blueprint, Jenkins takes over. Jenkins builds the engine (compiles code), puts it on a test track to see if it explodes (runs unit tests), and checks if the doors lock properly (security scans). If the car passes all tests, Jenkins puts a "Ready for Sale" sticker on it (Docker Tag). If the car fails, Jenkins sounds an alarm and sends an angry email to the developer.
 
 ### Why do we need it?
-Before Jenkins, a human had to manually type `mvn test` and `docker build` every single time they wanted to release a feature. Humans are slow, they take weekends off, and they forget to run tests. Jenkins runs 24/7, executes perfectly every time, and catches bugs *before* they reach the customer.
+Before Jenkins, a human had to manually type `mvn test` and `docker build` every single time they wanted to release a feature. Humans are slow, they take weekends off, and they forget to run tests. Jenkins runs whenever the trigger fires, does the same steps in the same order every time, and catches problems *before* they reach the customer. It is consistent rather than infallible — a pipeline still fails on a flaky test or an agent that has drifted, and a good part of running CI is telling those apart from real failures.
 
 ### ASCII Diagram: The Jenkins Pipeline
 

@@ -47,8 +47,16 @@ Imagine you are a strict librarian.
 - The **Shelf (Kubernetes Cluster):** Is where the books actually are.
 - **ArgoCD (The Librarian):** Constantly looks at the Catalog, looks at the Shelf, and compares them. 
 
-If the Catalog says there should be 3 books, but the Shelf only has 2 books, ArgoCD immediately puts a 3rd book on the Shelf.
-If a malicious user sneaks into the library and puts a random comic book on Shelf A, ArgoCD sees it is not in the Catalog, and immediately throws the comic book in the trash.
+If the Catalog says there should be 3 books but the Shelf has 2, Argo CD puts a third
+one on the Shelf. If someone leaves a comic book on Shelf A that is not in the
+Catalog, Argo CD can take it away again.
+
+Two things the analogy hides, and the diagram below gives one of them away: the
+librarian does not watch continuously — it compares on a schedule, every three
+minutes by default. And removing the comic book is not automatic: reverting
+cluster-side changes needs `selfHeal`, and deleting objects that are no longer in
+Git needs `prune`. Without those, Argo CD reports the difference and waits for a
+human.
 
 ### ASCII Diagram: The Pull Architecture
 
@@ -278,7 +286,7 @@ doing exactly its job.
 
 ### `OutOfSync` forever, with nothing to sync
 
-**Symptom.** The app returns to `OutOfSync` immediately after every successful
+**Symptom.** The app returns to `OutOfSync` again after every successful
 sync.
 
 **Evidence.** Look at the diff Argo is objecting to:
