@@ -120,6 +120,33 @@ jobs:
       - name: Verify the web+egykode:// protocol handler
         run: node scripts/test-protocol-handler.mjs --export apps/web/.next-export
 
+      # Cached so a Playwright CDN hiccup cannot block a deploy over something
+      # unrelated to the commit — the same reasoning that removed the font
+      # retry loop above, applied before the fetch rather than after it.
+      - name: Cache the Playwright browser
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+
+      - name: Install the Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      # Needs a real browser, a real worker, and a file changing underneath it,
+      # so no static check can stand in for it.
+      #
+      # The bug it guards reached production: Next writes each route's RSC
+      # payload as `index.txt` beside its `index.html`, outside /_next/static/,
+      # so it fell through to stale-while-revalidate. After a deploy the browser
+      # loaded new chunks against a pre-deploy payload whose webpack module ids
+      # no longer resolved, and every returning reader got "Application error:
+      # a client-side exception has occurred". /build-id.txt was served stale by
+      # the same rule, which blinded the guard built to catch exactly that.
+      - name: Verify the service worker is fresh online and readable offline
+        run: node scripts/test-service-worker.mjs --export apps/web/.next-export
+
       # What GitHub will actually present. `Not authorized to perform
       # sts:AssumeRoleWithWebIdentity` never tells you which claim failed, so
       # this prints the subject the trust policy has to match.

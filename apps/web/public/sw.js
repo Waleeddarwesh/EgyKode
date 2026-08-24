@@ -77,6 +77,32 @@ self.addEventListener("activate", (event) => {
 const isPage = (request) => request.mode === "navigate";
 const isImmutable = (url) => url.pathname.startsWith("/_next/static/");
 
+/**
+ * Page *data*, which must never be served stale.
+ *
+ * Next writes the RSC payload for each route as `index.txt` beside its
+ * `index.html` — not under `/_next/static/`. So it is neither a navigation nor
+ * immutable, and it used to fall through to stale-while-revalidate, which
+ * serves the cached copy first by definition.
+ *
+ * That combination breaks the site on the first navigation after any deploy.
+ * The payload encodes webpack module ids (`I[5341,[],""]`); a new build
+ * renumbers them, so a stale payload asks the freshly-loaded chunks for modules
+ * that no longer exist and React throws — "Application error: a client-side
+ * exception has occurred". Measured, not theorised: a worker holding a cached
+ * payload served the pre-deploy bytes after the file changed underneath it, and
+ * only corrected itself on the fetch after that.
+ *
+ * `/build-id.txt` is caught by the same rule, and that one is worse than it
+ * looks. components/layout/stale-build-guard.tsx polls it to detect exactly
+ * this class of mismatch, with `cache: "no-store"` — which bypasses the HTTP
+ * cache but not a service worker. Serving it from stale-while-revalidate fed
+ * the guard the old id and blinded the one thing watching for the problem.
+ *
+ * Network-first keeps both correct online and still readable offline.
+ */
+const isPageData = (url) => url.pathname.endsWith(".txt");
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
@@ -88,6 +114,12 @@ self.addEventListener("fetch", (event) => {
 
   if (isPage(request)) {
     event.respondWith(networkFirst(request));
+    return;
+  }
+  // Before the immutable check: a payload under /_next/static/ would be
+  // fingerprinted and safe, but these are not.
+  if (isPageData(url)) {
+    event.respondWith(networkFirst(request, { offlinePage: false }));
     return;
   }
   if (isImmutable(url)) {
@@ -104,7 +136,7 @@ self.addEventListener("fetch", (event) => {
  * this whole architecture exists to prevent. Online, the learner always sees
  * what the site currently says.
  */
-async function networkFirst(request) {
+async function networkFirst(request, { offlinePage = true } = {}) {
   const cache = await caches.open(PAGES);
   try {
     const response = await fetch(request);
@@ -113,6 +145,15 @@ async function networkFirst(request) {
   } catch {
     const cached = await cache.match(request);
     if (cached) return cached;
+
+    // `offlinePage` is false for page data. Handing the offline page's HTML
+    // back to a client that asked for an RSC payload swaps one error for a
+    // stranger one — the router would try to parse a document as a payload.
+    // A plain 503 lets the caller fail honestly.
+    if (!offlinePage) {
+      return new Response("", { status: 503, statusText: "Offline" });
+    }
+
     const offline = await caches.match("/offline/");
     return (
       offline ??
