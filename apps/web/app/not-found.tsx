@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { fontVariables } from "@/lib/fonts";
+import { APP_TITLE_SCRIPT } from "@/lib/app-title-script";
 import { THEME_SCRIPT } from "@/lib/theme-script";
 
 /**
@@ -57,6 +58,9 @@ export default function NotFound() {
         {/* Inline and synchronous, so the page does not paint in the wrong
             theme before correcting itself. Shared with both real layouts. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {/* So a wrong link inside the installed app reads "… - Page not found"
+            rather than repeating the brand a third time in the title bar. */}
+        <script dangerouslySetInnerHTML={{ __html: APP_TITLE_SCRIPT }} />
         {/* No service worker registration here, deliberately: this document is
             served with a 404 status for any unknown path, and registering the
             worker from an error response is a good way to cache one. The

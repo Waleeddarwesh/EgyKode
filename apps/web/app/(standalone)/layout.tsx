@@ -1,4 +1,5 @@
 import { fontVariables } from "@/lib/fonts";
+import { APP_TITLE_SCRIPT } from "@/lib/app-title-script";
 import { SW_REGISTER_SCRIPT } from "@/lib/sw-register-script";
 import { THEME_SCRIPT } from "@/lib/theme-script";
 
@@ -35,6 +36,7 @@ export default function StandaloneLayout({ children }: { children: React.ReactNo
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: SW_REGISTER_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: APP_TITLE_SCRIPT }} />
       </head>
       <body className="font-sans antialiased">{children}</body>
     </html>
