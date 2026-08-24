@@ -48,7 +48,8 @@
     "lint:lab-env": "node scripts/sync-lab-env.mjs .lab-env --check",
     "scenarios:sync": "node scripts/sync-scenarios.mjs .scenarios --write",
     "lint:scenarios": "node scripts/sync-scenarios.mjs .scenarios --check",
-    "audit:hazards": "node scripts/audit-scenario-hazards.mjs"
+    "audit:hazards": "node scripts/audit-scenario-hazards.mjs",
+    "test:protocol": "node scripts/test-protocol-handler.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

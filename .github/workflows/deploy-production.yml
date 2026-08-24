@@ -110,6 +110,16 @@ jobs:
       - name: Verify export before publishing
         run: node scripts/check-export.mjs apps/web/.next-export
 
+      # Runs here rather than in `npm run verify`, because it needs the static
+      # export and `build:verify` produces a server build.
+      #
+      # Guards the one capability nothing else can see. `protocol_handlers` is
+      # baked into the MSIX at package time, so a mistake in it costs a Store
+      # resubmission rather than a deploy — and it shipped broken once, with a
+      # valid manifest, a green pipeline and a full PWABuilder score.
+      - name: Verify the web+egykode:// protocol handler
+        run: node scripts/test-protocol-handler.mjs --export apps/web/.next-export
+
       # What GitHub will actually present. `Not authorized to perform
       # sts:AssumeRoleWithWebIdentity` never tells you which claim failed, so
       # this prints the subject the trust policy has to match.

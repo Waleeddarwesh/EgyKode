@@ -93,8 +93,21 @@ export default function manifest(): EgyKodeManifest {
      * schemes and requires a `web+` prefix for anything a manifest registers,
      * so this is `web+egykode` — the same capability under the name the
      * platform allows, resolving to the same routes.
+     *
+     * The target is `/open/?target=%s`, not `/%s`, and the difference is the
+     * whole feature. `%s` is replaced with the **entire escaped URL**, scheme
+     * included — never just the path. `/%s` therefore resolved the link above
+     * to `/web%2Begykode%3A%2F%2Fen%2Flearn%2Fdocker%2Fdocker%2F` and 404'd on
+     * every deep link. `/open/` unwraps it and forwards.
+     *
+     * Found by installing the Windows package and launching it through the
+     * protocol, which is the only place this is visible: the manifest is valid,
+     * PWABuilder scores the member as present, and nothing in the browser
+     * exercises it. Worth the trouble because `protocol_handlers` is one of
+     * only two members baked into the MSIX — shipping it wrong costs a Store
+     * resubmission, not a deploy.
      */
-    protocol_handlers: [{ protocol: "web+egykode", url: "/%s" }],
+    protocol_handlers: [{ protocol: "web+egykode", url: "/open/?target=%s" }],
 
     /**
      * Pinnable beside another window in Edge's side panel.
